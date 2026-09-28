@@ -1,117 +1,132 @@
 # Cua and AI assistant GUI qualification
 
-29 September 2026. This pass tests a disposable Omuse instance and synthetic
-artwork. It does not qualify every provider, image operation or physical input
-device.
+29 September 2026. The installed Preview passed a bounded live Codex assistant
+request, result review, Keep and one-step Undo through Cua. This is evidence for
+one synthetic design on this host, not every provider, image operation or
+physical input device.
 
-## Driver route
+## Exercised production candidate
 
-Cua Driver 0.29.1 can launch and capture an exact Omuse XWayland window.
-Foreground pointer input works. After a foreground click establishes focus,
-keyboard input works too: Ctrl+K opened command search, typing filtered it,
-and Enter ran Ask Omuse. Background pointer/key calls reported unverified
-synthetic delivery and produced no visible change. An initial foreground
-shortcut before the pointer focus also produced no visible change.
+- Public runtime source: `1d5ccaa4d0037f2353d698611497ce5aff46a577`.
+- Source tree: `694a3a9ec0dd424cd252607c8a6b3e2922103179`, matching the local runtime checkpoint.
+- Production executable SHA-256: `df38a2dfa2f57cd6d663358a56e4d9ca3ef805214ca819ab93fee460d4d4d48b`.
+- Normal release build with no `ui-test` feature; local compiler Rust 1.98.1.
+- Cua Driver 0.29.1, foreground XWayland input; Codex CLI 0.158.0 using its official subscription login.
 
-The app exposes only window metadata to this driver through AT-SPI, so this
-pass uses fresh exact-window screenshots for grounding and verification.
-It does not claim accessibility-tree coverage for the editor's controls.
+All **789 automated tests** passed: 330 library, 218 UI and 241 integration
+tests, with four manual timing benchmarks excluded. The editing self-test,
+six-page PNG/PDF/MP4/GIF export journey and all 80 editable template variants
+passed. Twelve regressions were added across this pass.
 
-The native Omarchy plugin remains inactive. The installed 0.29.1 kit pins
-Hyprland 0.56.2-1 and GCC 16.1.1; the host now has Hyprland 0.56.2-2 and GCC
-16.2.1. The compatibility guard correctly refuses the old build. No plugin
-was forced into the desktop, and no logout, driver upgrade or permission-mode
-change was performed. Cua runs in standard mode.
+The final production executable separately passed its editing self-test and
+all 24 native Wayland checks at 800x600, including photo adjustment/crop/resize,
+undo/redo, save/reopen, 16-bit retention/export and command search. Its minimum
+window capture was visually inspected. These native checks dispatch GPUI
+events inside the app; they are separate from compositor-delivered Cua input.
 
-## Reproduced issue and fixes
+## Live Cua result
 
-On the installed keyboard candidate (`26211b5`), opening Ask Omuse from
-command search and typing `hello` left the prompt empty and selected Lasso.
-Canvas tool shortcuts still owned focus. Both opening paths now focus the
-composer, and command search preserves that focus after dispatch.
+Cua entered the same workshop brief used to expose the earlier colour defect:
+a 1080x1080 cream page, orange heading, teal rounded rectangle and subtitle,
+using editable text and shapes. Ctrl+Enter submitted it. The active Stop
+control and status remained visible.
 
-The composer supports Ctrl+Enter submission with Enter retained for newlines.
-The prompt, primary assistant action, bounded status feedback and active-request
-Stop control remain above the scrolling details. Existing connection, local-only and busy guards
-also apply to keyboard submission.
+The provider returned a valid native plan containing resize, background,
+shape, text and content operations. The original transparent 1024x768 canvas
+remained unchanged during review. Keep applied the design; one toolbar Undo
+restored the original dimensions and blank artwork. A subsequent foreground
+brush drag painted a continuous stroke, and Ctrl+Z removed it completely.
+Ctrl+Q with canvas focus closed the owned test window normally. The named Cua
+session was then ended.
 
-Review actions now refuse mutation while a provider request or local result
-preparation is active. Selection-correction recomposition owns the busy state
-until completion, including failure. Runtime identity and disconnection errors
-invalidate the affected in-memory connection, reveal Connections and require a
-refresh. Ordinary request rejection does not invalidate a healthy connection.
-The draft prompt, artwork and saved history remain available.
+Fresh screenshots grounded and verified each action. The fixed canvas region
+in the pre-Keep review, AI Undo and brush Undo captures exactly matches the
+original capture. This is screenshot-region equality; document/pixel equality
+is covered separately by the automated and native tests. The after-preview,
+history labels, image-action rows and grouped variation controls were visually
+checked. Omuse saved an Assistant capability receipt for Codex CLI 0.158.0.
 
-## Current verification boundary
+This pass sent two synthetic assistant model requests: the intermediate
+candidate returned invalid text colours; the corrected candidate succeeded.
+An earlier instruction-isolation failure and two diagnostic thread starts
+submitted no model turn. No API key, separately billed API or image-generation
+request was used. Earlier image-operation evidence remains tied to its named
+candidate and operation.
 
-The updated source is published as `c0a7200c05a7c5e4a17e8ca5e35a5e6f0ae615a0`,
-with tree `0dbbdd83df2f9d446f500e156f6711f789a62da8` matching the local
-source checkpoint. All **784 automated tests** passed: 326 library, 217 UI
-and 241 integration tests, with four manual timing benchmarks excluded.
-The editing self-test, six-page PNG/PDF/MP4/GIF export journey and all
-80 editable template variants passed. Seven added UI regressions cover prompt focus
-and submission, command-search focus, toolbar/shortcut focus, the minimum
-800x600 layout, busy review ownership, selection recomposition and connection
-failure recovery. The focused AI group has 26 passing tests.
+## Reproduced defects and repairs
 
-The first production executable (`dd1ccd5dfa3282d8c43979f4d6489dd9ef624312b922013d2041a67b47e70346`)
-passed its self-test and 24 native Wayland checks at 800x600. Cua verified
-foreground toolbar opening, prompt typing without a tool switch, Ctrl+K from
-the prompt, search execution back into the prompt, Select All, ordinary Enter
-as a newline and Ctrl+Enter submission in the installed Preview.
+- On keyboard candidate `26211b5`, opening Ask Omuse from command search and
+  typing `hello` left the prompt empty and selected Lasso. Toolbar, shortcut
+  and command-search opening now focus the prompt. Cua verified typing,
+  Select All, command-search re-entry, plain Enter as a newline and
+  Ctrl+Enter submission.
+- The prompt, primary action, status and Stop control now stay above the
+  scrolling details. Preparation errors also appear beside the prompt.
+  Long history labels use ellipsis with the complete accessible label and
+  review description retained. Previews have bounded heights; secondary
+  actions wrap and variation choices remain together.
+- Review mutations are blocked while provider work or local result preparation
+  is active. Selection recomposition retains busy ownership through completion
+  or failure. Runtime identity/disconnection failures invalidate only the
+  affected connection and reveal Connections; ordinary request rejection does
+  not invalidate a healthy connection.
+- Candidate `c0a7200` stopped before `turn/start` because its disposable job
+  lived beneath a repository and Codex discovered workspace instructions.
+  Omuse now sets `project_doc_max_bytes=0` in the isolated process and thread
+  configuration, while rejecting nonempty, missing or malformed instruction
+  evidence before submission. A paired CLI 0.158.0 diagnostic reported one
+  source without the override and zero with it, without submitting model turns.
+  See the [official configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference).
+- Candidate `920fcc0` completed a request but returned text RGB values such as
+  `[218,83,36]`, while native text requires normalized 0–1 values. Preparation
+  rejected the result and offered no Keep action. The assistant instructions
+  now distinguish text/shape colours from background byte RGBA, and parsing
+  validates complete text, rich-text and shape styles without guessing a
+  conversion. Existing `add_shape` and `style_text` operations are now advertised;
+  their omission had caused the provider to decline the requested rectangle.
 
-That first request stopped before `turn/start`: the job lived beneath a
-repository and Codex reported an unexpected instruction source. The canvas
-stayed unchanged. The runtime now sets `project_doc_max_bytes=0` in both its
-isolated process and thread configuration, while still rejecting any nonempty,
-missing or malformed instruction-source evidence before model submission.
-The [official configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference)
-documents the project instruction byte limit. A paired pre-submit check on
-Codex CLI 0.158.0 reported one source without the override and zero with it;
-neither diagnostic submitted a model turn. Two added regressions check the
-response shape and prove that unexpected instructions submit no turn.
+## Installation and CI
 
-The follow-up full run passed **786 tests** (328 library, 217 UI and 241
-integration; four manual benchmarks excluded), including both new isolation
-regressions and the extended minimum-window status test. The editing, six-page
-export and 80-template journeys passed again. After that run, three secondary
-button rows were changed to wrap within the inspector; the final production
-executable (`27f11cb99f7785ae579b6097d8b8cd6eaec5ca096cabccc6595baca70c16f0f3`)
-then passed its editing self-test and all 24 native Wayland checks at 800x600.
-The captured prompt, primary action and status were visible at that minimum
-size. The installed Preview uses public source `920fcc0422bab3b78c9bdf359b3d4e1b4dc16739`.
-Cua submitted a bounded synthetic workshop brief through Ctrl+Enter on Codex
-CLI 0.158.0. The request completed, but its plan incorrectly used byte RGB
-values for normalized text colours. Preparation rejected it, offered no Keep
-action and left the original canvas unchanged. The assistant also omitted a
-requested native shape because that existing operation was missing from its
-instructions. The instruction contract now advertises existing `add_shape` and `style_text`
-operations and distinguishes normalized text/shape colours from background byte
-RGBA. Invalid text, rich-text and shape styles are rejected before preparation.
-The review now exposes preparation errors beside the prompt, bounds preview
-heights and shortens long history labels visually while retaining their full
-accessible label and review description. This follow-up passed **789 tests** (330 library, 218 UI, 241 integration;
-four manual benchmarks excluded) and the editing self-test. The final export
-journey, production build and live Keep/Undo retest are in progress. No API key or separately billed API was used.
+Preview records clean public source `1d5ccaa`. Its installed executable matches
+the tested production hash. The complete previous `920fcc0` generation is
+retained; RAW/ONNX/model assets match that generation, and the separate older
+application and Preview launcher wrapper are unchanged.
 
-The first published AI GUI candidate also passed both GitHub workflows:
-[Rust and installer checks](https://github.com/Sugata-Software/Omuse/actions/runs/36475325721)
-and [guide/reference checks](https://github.com/Sugata-Software/Omuse/actions/runs/36475325753).
-The baseline Cua captures and result notes are retained locally under
-`rust/evidence/cua-debug-20260929/`; they are not uploaded wholesale.
-Earlier provider evidence remains tied to its named candidate and operation.
+The intermediate `c0a7200` and `920fcc0` candidates passed their full GitHub
+workflows. For the final runtime candidate, the
+[guide/reference workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36483014813)
+and [Rust/installer workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36483014873)
+both passed. All-target checks, release tests and editing journey, installer
+fixtures, template/motion/recovery qualification and dependency-notice checks
+completed successfully on the final runtime source.
+
+## Driver and coverage limits
+
+The app exposes only window metadata through this driver's AT-SPI fallback.
+Background pointer/key calls produced no visible effect; foreground pointer
+focus enabled subsequent keyboard input. This does not establish complete
+accessibility-tree coverage, physical-device acceptance, alternate keyboard
+layouts or IME behavior. Ctrl+Q did not fire while the AI prompt owned focus;
+Ctrl+K → Close worked there, and Ctrl+Q worked after canvas interaction.
+
+The native Omarchy plugin remains inactive: the installed 0.29.1 kit pins
+Hyprland 0.56.2-1/GCC 16.1.1, while the host has Hyprland 0.56.2-2/GCC 16.2.1.
+The compatibility guard refused the old build. No plugin was forced into the
+desktop, and no logout, driver upgrade or permission-mode change was performed.
+Cua ran in standard mode. These results do not qualify every AI provider or
+make the public binary-release gates complete.
+
+Local evidence is retained under `rust/evidence/cua-debug-20260929/`, including
+`validation-contract.log`, `production-contract-build.json`,
+`contract-wayland/native-results.json`, `install-contract.json`,
+`live-contract-failure.json`, `live-contract-success.json` and the numbered
+Cua captures. Raw evidence is not uploaded wholesale.
 
 ## Published promo
 
-The final two-minute Sunset Muse film is in the public repository and linked
-from the README. Its MP4 was downloaded back from the published commit and
-matched the local file's SHA-256 and 18,512,367-byte size. The poster was
-visually inspected locally. A GitHub browser rendering check was unavailable because
-no Browser connection was available in this session.
-
-See the [film and attribution record](media/omuse-sunset-muse-credits.md).
-Publishing this preview trailer does not change the binary-release status.
-
-The intermediate isolation candidate `920fcc0` passed both GitHub workflows:
-[Rust and installer checks](https://github.com/Sugata-Software/Omuse/actions/runs/36480084825)
-and [guide/reference checks](https://github.com/Sugata-Software/Omuse/actions/runs/36480084866).
+The two-minute Sunset Muse film is in the public repository and featured in
+the README. Its MP4 was downloaded back from GitHub and matched the local
+SHA-256 and 18,512,367-byte size. The poster was visually inspected. A GitHub
+browser rendering check was unavailable because this session had no Browser
+connection. See the [film and attribution record](media/omuse-sunset-muse-credits.md).
+Publishing the trailer does not change the binary-release status.

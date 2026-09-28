@@ -233,7 +233,7 @@
     {
       "label": "Current regression suite",
       "value": "789 tests passed",
-      "detail": "330 library, 218 UI and 241 integration tests passed, with four manual timing benchmarks excluded. Twelve added regressions cover AI focus/submission, compact layout, review ownership, connection recovery, instruction isolation, native shape/text plans and invalid-result feedback. The current editing self-test passed; final export, production and live Keep/Undo checks are in progress.",
+      "detail": "330 library, 218 UI and 241 integration tests passed, with four manual timing benchmarks excluded. Editing, six-page PNG/PDF/MP4/GIF exports and all 80 templates passed. Final production passed its self-test and 24 native Wayland checks at 800x600. Cua verified a live native assistant plan, Keep/Undo, brush drag, Ctrl+Z and normal close in installed Preview 1d5ccaa. GitHub Rust/installer and guide/reference workflows passed for that runtime candidate.",
       "status": "locally-tested"
     },
     {
@@ -767,11 +767,12 @@
           "id": "ai-codex",
           "name": "Codex subscription route",
           "status": "experimental",
-          "current": "A signed-in Codex CLI route passed bounded restoration of one Generate result, one new protected-subject Background edit and one six-page native design-assistant carousel.",
+          "current": "Earlier named candidates passed bounded image-generation/background and six-page carousel journeys. Installed Preview 1d5ccaa with Codex CLI 0.158.0 additionally passed a Cua-driven native design request, review, Keep and one Undo, and recorded an Assistant capability receipt.",
           "boundary": "This does not qualify every account, runtime version, prompt, image operation or general provider support.",
           "evidence": [
             "docs/omuse-create-qualification.md",
-            "docs/omuse-create-release-notes.md"
+            "docs/omuse-create-release-notes.md",
+            "docs/cua-ai-qualification.md"
           ],
           "modules": [
             "rust/src/ai/codex.rs",
@@ -799,11 +800,12 @@
           "id": "ai-design-assistant",
           "name": "Native design assistant",
           "status": "implemented-needs-qualification",
-          "current": "Design with me and Improve layout can propose bounded native plans that select pages, place packaged resources and instantiate components with overrides.",
-          "boundary": "Only the named Codex carousel has live evidence; arbitrary provider plans and assistant-led resizing need their own qualification.",
+          "current": "Design with me and Improve layout can propose bounded native plans that select pages, place packaged resources and instantiate components with overrides. A bounded workshop request on 1d5ccaa created a 1080x1080 cream design with native orange text and teal rounded shape; Cua verified review, Keep and one-step Undo.",
+          "boundary": "Live evidence covers the named Codex carousel and the current single-page resize/text/shape journey. Arbitrary provider plans, design quality and other providers remain unqualified.",
           "evidence": [
             "docs/omuse-create-and-ai-plan.md",
-            "docs/omuse-create-qualification.md"
+            "docs/omuse-create-qualification.md",
+            "docs/cua-ai-qualification.md"
           ],
           "modules": [
             "rust/src/ai_native.rs",
@@ -1014,10 +1016,11 @@
           "name": "Keyboard shortcuts and command search",
           "status": "locally-tested",
           "current": "Ctrl+K opens a themed command search with 171 actions, 101 default bindings and a gesture reference. Search matches names, categories and current keys; Enter uses normal editor guards. Ctrl+Alt+K records, clears and resets shortcuts while preserving existing custom bindings. Linux punctuation events and custom Save during inline text have dedicated regressions.",
-          "boundary": "777 automated tests and production native Wayland/XWayland journeys passed. Compositor-delivered keyboard input, alternate layouts and IME combinations remain separate acceptance work. Super and Linux virtual-terminal chords are reserved.",
+          "boundary": "The original keyboard candidate passed 777 automated tests and native Wayland/XWayland journeys. The current 789-test AI candidate also has bounded Cua foreground evidence for command search, Enter/Ctrl+Enter, canvas Ctrl+Z and Ctrl+Q. Ctrl+Q from the AI prompt still requires Ctrl+K → Close. Alternate layouts, IME and broader physical acceptance remain open; Super and virtual-terminal chords are reserved.",
           "evidence": [
             "docs/keyboard-qualification.md",
-            "docs/keyboard-shortcuts.md"
+            "docs/keyboard-shortcuts.md",
+            "docs/cua-ai-qualification.md"
           ],
           "modules": [
             "rust/src/shortcuts.rs",
@@ -1046,7 +1049,7 @@
           "id": "linux-preview-install",
           "name": "One-command install and rollback",
           "status": "locally-tested",
-          "current": "One curl command sets up Arch/Omarchy dependencies, builds the preview, verifies RAW/subject assets and installs Omuse. A real isolated install/update, complete rollback in both directions and uninstall passed on this host. All 31 installer/bundle tests passed, including failed writes and SIGTERM restoration. The photo-integrity preview update passed its editing self-test, installed-launcher native check and rollback in both directions while retaining matching runtime assets. The first AI GUI candidate c0a7200 is installed in Preview: its self-test and 24 native Wayland checks passed, and the executable/assets, prior complete generation and untouched older application were verified. An isolation/status follow-up is in final qualification.",
+          "current": "One curl command sets up Arch/Omarchy dependencies, builds the preview, verifies RAW/subject assets and installs Omuse. A real isolated install/update, complete rollback in both directions and uninstall passed on this host. All 31 installer/bundle tests passed, including failed writes and SIGTERM restoration. The photo-integrity preview update passed its editing self-test, installed-launcher native check and rollback in both directions while retaining matching runtime assets. The current assistant candidate 1d5ccaa is installed in Preview with a clean public source receipt: its self-test, 24 native Wayland checks and bounded Cua AI/brush journey passed. Executable/assets, prior complete generation and untouched older application were verified.",
           "boundary": "First install compiles source locally. No qualified prebuilt download or clean-machine acceptance is claimed. SIGKILL/power-loss installation recovery has not been qualified.",
           "evidence": [
             "docs/keyboard-qualification.md",
@@ -1068,8 +1071,8 @@
           "id": "linux-physical-input",
           "name": "Physical keyboard, pointer and Cua",
           "status": "implemented-needs-qualification",
-          "current": "Cua Driver 0.29.1 verified foreground XWayland prompt focus, command search, editing, Enter, Ctrl+Enter and active Stop/status controls in installed Preview 920fcc0. Its bounded Codex request completed; invalid text colours were rejected before Keep and the original canvas remained unchanged. The assistant colour/shape instructions and review presentation are corrected; the live retest is pending.",
-          "boundary": "789 automated tests passed for the assistant-contract follow-up. The earlier isolation production candidate passed 24 native Wayland checks at 800x600. Current production and live Keep/Undo checks are pending. Background input had no visible effect; AT-SPI exposes window metadata only. Native Omarchy plugin compatibility and broader physical acceptance remain open.",
+          "current": "Cua Driver 0.29.1 verified foreground XWayland prompt focus, command search, editing, Enter/Ctrl+Enter and visible Stop/status controls. On installed Preview 1d5ccaa, a real Codex design request passed review, Keep and one Undo. A brush drag, Ctrl+Z and canvas-focused Ctrl+Q also passed; the owned window and Cua session were closed.",
+          "boundary": "789 automated tests and 24 production native Wayland checks at 800x600 passed. Cua evidence is bounded synthetic input on this host. Background input had no visible effect; AT-SPI exposes window metadata only. The native Omarchy plugin version mismatch and broader physical/keyboard-layout acceptance remain open.",
           "evidence": [
             "docs/omuse-create-qualification.md",
             "docs/photo-release-qualification.md",
