@@ -112,6 +112,8 @@ def render() -> str:
         "",
         "Dialogs reserve Escape, Enter, Tab, and Space. Inline text uses **Ctrl+Enter** to commit, **Escape** to cancel, and Enter for a newline. Save and Save As honour your current bindings and commit the text draft first. Search and Save bindings require Ctrl, Alt or a function key to preserve text navigation.",
         "",
+        "**Ask Omuse** focuses its prompt when opened from the toolbar, shortcut or command search. In that prompt, **Ctrl+Enter** sends one assistant request; **Enter** inserts a newline. Submission keeps the same connection, local-only and busy checks as the assistant button. Canvas shortcuts remain inactive while typing.",
+        "",
         "Shifted punctuation is shown using US-layout key names: Shift+[ produces {, Shift+] produces }, and Ctrl+Shift+; produces Ctrl+:. Linux binds the resulting symbols, including Ctrl++ for zoom. On another layout, use Record to choose comfortable keys.",
         "",
         "The familiar single-key tools and several editing chords are inspired by Adobe's "

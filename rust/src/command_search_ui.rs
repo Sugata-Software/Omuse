@@ -533,9 +533,9 @@ impl EditorView {
         self.dialog = Dialog::None;
         self.focus.focus(window, cx);
         self.command(id, window, cx);
-        // Commands that open a dialog retain that dialog's own input focus.
-        // Commands with no dialog return directly to the canvas key context.
-        if self.dialog == Dialog::None && self.inline_text.is_none() {
+        // Dialogs and the assistant composer retain their own input focus.
+        // Other commands return directly to the canvas key context.
+        if self.dialog == Dialog::None && self.inline_text.is_none() && id != "ask-omuse" {
             self.focus.focus(window, cx);
         }
         cx.notify();

@@ -95,6 +95,7 @@ pub struct Command {
 pub fn bind_keys(cx: &mut App) {
     let settings = Shortcuts::load(&shortcuts::settings_path()).unwrap_or_default();
     install_shortcuts(&settings, &Shortcuts::default(), cx);
+    ai_ui::bind_ai_keys(cx);
 }
 fn install_shortcuts(settings: &Shortcuts, previous: &Shortcuts, cx: &mut App) {
     // Shadow only editor bindings; preserve GPUI text-input and dialog bindings.
@@ -2859,6 +2860,7 @@ impl EditorView {
                 self.inspector_tab = studio_ui::InspectorTab::Assistant;
                 self.inspector_visible = true;
                 self.discover_ai_connections(cx);
+                self.focus_ai_prompt(window, cx);
             }
             "create-workspace" => {
                 self.inspector_tab = studio_ui::InspectorTab::Create;

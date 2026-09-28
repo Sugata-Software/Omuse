@@ -112,8 +112,12 @@ impl ValidatedClient {
         &self.version
     }
 
-    #[cfg(test)]
-    pub(crate) fn fixture(provider: ProviderId, executable: PathBuf) -> Self {
+    // The binary's deterministic UI tests compile this library as a dependency,
+    // so cfg(test) alone cannot expose their offline client fixture. Production
+    // builds do not enable ui-test and retain private validated construction.
+    #[cfg(any(test, feature = "ui-test"))]
+    #[doc(hidden)]
+    pub fn fixture(provider: ProviderId, executable: PathBuf) -> Self {
         Self {
             provider,
             executable,

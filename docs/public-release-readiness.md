@@ -27,7 +27,9 @@ Production Wayland and XWayland each passed 24 native checks, including
 command search execution and Undo; both keyboard panels were visually
 inspected at the minimum viewport. The installed Preview passed the same
 24 checks with reduced motion; its prior complete generation and runtime
-assets remain available. Compositor-delivered input remains open.
+assets remain available. The later [Cua and AI GUI pass](cua-ai-qualification.md)
+adds foreground XWayland input evidence; broader physical-device acceptance
+remains open.
 
 The [photo integrity hardening pass](photo-integrity-hardening.md) passed
 757 Rust tests, including 23 new regressions for clipping/masks, transform
@@ -82,11 +84,11 @@ to the source preview without declaring a prebuilt binary release qualified.
 
 | Gate | Current state | Completion evidence |
 | --- | --- | --- |
-| Clean CI build | Keyboard candidate `26211b5`: guide/reference, installer/reference and all-target check passed; [full Rust run](https://github.com/Sugata-Software/Omuse/actions/runs/36461980019) is running. Prior `b2f6e85` passed fully | Green Rust workflow for the exact candidate commit, retained artifacts and notice inventory |
+| Clean CI build | Keyboard candidate `26211b5`: guide/reference and the [full Rust run](https://github.com/Sugata-Software/Omuse/actions/runs/36461980019) passed completely. Later source changes require their own run | Green Rust workflow for the exact candidate commit, retained artifacts and notice inventory |
 | Dependency legal texts | Two unresolved entries in the locked graph; upstream texts recovered for `seahash` and `simd_helpers` | Resolve `hexf-parse` and `mac` by verifiable upstream terms or tested dependency changes; see the [notice review](rust-license-findings.md) |
 | Reproducible release identity | The hardening pass records tested source hashes, the production executable, native runs, installation and rollback; a clean public build/archive remains pending | One clean release commit/tag, fresh build, source-to-binary-to-archive hash ledger and reproducible packaging instructions |
 | Clean target installation | Passed only on the development host | Install, launch, upgrade and rollback on a clean supported Arch/Omarchy system |
-| Physical desktop acceptance | Native in-process journeys pass; the installed Omarchy CUA plugin is inactive in this desktop session | Real foreground keyboard/pointer, clipboard, file dialogs and at least the supported display/DPI configurations |
+| Physical desktop acceptance | Native in-process journeys pass; bounded Cua foreground XWayland input works. The native Omarchy plugin has a package/compiler compatibility mismatch | Real foreground keyboard/pointer, clipboard, file dialogs and at least the supported display/DPI configurations |
 | Feature claims | Local editor and selected Codex journeys have evidence | Each advertised AI operation has its own acceptance receipt; unqualified routes remain unavailable or explicitly experimental |
 | User edge cases | Broad automated coverage; manual gaps remain | Missing fonts, long copy, invalid CSV rows, large libraries, damaged assets, offline use, cancellation and restart |
 | Public support and security | Contribution and bug-report entry points prepared | Establish a private vulnerability-reporting channel, owner-approved security policy, maintenance scope and triage ownership |

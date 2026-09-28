@@ -1065,13 +1065,14 @@
         {
           "id": "linux-physical-input",
           "name": "Physical keyboard, pointer and Cua",
-          "status": "blocked-deferred",
-          "current": "The 29 September keyboard pass rechecked cua-omarchy status: installed but inactive in the current desktop session. A fresh login is still required for the compositor input route. Native journeys dispatch GPUI events in process; earlier nested-session Cua captures do not establish foreground delivery.",
-          "boundary": "No physical-input pass is claimed. Real foreground keyboard/pointer, clipboard and file-dialog acceptance remain release gates.",
+          "status": "implemented-needs-qualification",
+          "current": "Cua Driver 0.29.1 captured the exact Omuse XWayland window. Foreground pointer input and, after a pointer focus, Ctrl+K, search typing and Enter worked. This reproduced an AI prompt-focus defect. The native Omarchy plugin is inactive because the installed host package/compiler no longer matches its pinned build.",
+          "boundary": "Updated AI GUI fixes are still under validation. Background input had no visible effect, and AT-SPI exposed only window metadata. Broader keyboard/pointer, clipboard, file-dialog and physical-device acceptance remain open.",
           "evidence": [
             "docs/omuse-create-qualification.md",
             "docs/photo-release-qualification.md",
-            "docs/public-release-readiness.md"
+            "docs/public-release-readiness.md",
+            "docs/cua-ai-qualification.md"
           ],
           "modules": [
             "scripts/native-rust-check.py"
@@ -1224,12 +1225,14 @@
           "id": "release-ci-github",
           "name": "Public source and remote CI",
           "status": "locally-tested",
-          "current": "Keyboard source 26211b5 is published. Its guide/reference workflow, installer/reference job and Rust all-target check passed on GitHub; the full Rust suite is running. The prior photo-integrity b2f6e85 workflow passed completely.",
-          "boundary": "The new full remote Rust job is pending. CI does not establish physical desktop input, clean-machine installation or binary-release qualification.",
+          "current": "Keyboard source 26211b5 passed its full Rust workflow on GitHub, including installer/reference, all-target, editing, motion/recovery and dependency notice checks. The final licensed two-minute Sunset Muse promo is published with a README preview in bd86d9b.",
+          "boundary": "Later AI GUI changes are under local validation and require their own remote run. CI does not establish clean-machine installation or public-binary qualification.",
           "evidence": [
             "docs/keyboard-qualification.md",
             "docs/public-release-readiness.md",
-            ".github/workflows/rust-validation.yml"
+            ".github/workflows/rust-validation.yml",
+            "docs/media/omuse-sunset-muse-credits.md",
+            "docs/cua-ai-qualification.md"
           ],
           "modules": []
         },

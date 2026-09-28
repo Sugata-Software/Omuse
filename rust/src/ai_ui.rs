@@ -25,6 +25,20 @@ const MAX_REFERENCE_INPUT_BYTES: u64 = 32 * 1024 * 1024;
 // selection mask used by edit/background/expand requests.
 const MAX_REFERENCE_CONTEXT_BYTES: u64 = 64 * 1024 * 1024;
 
+#[derive(Clone, PartialEq, gpui_kit::Action)]
+#[action(namespace = omuse_ai, no_json)]
+pub(super) struct SubmitAiPrompt;
+
+pub(super) fn bind_ai_keys(cx: &mut App) {
+    cx.bind_keys([KeyBinding::new(
+        "ctrl-enter",
+        SubmitAiPrompt,
+        // Match the focused text control so its default Ctrl+Enter newline
+        // binding cannot consume the assistant submission shortcut.
+        Some("AiPrompt > Input"),
+    )]);
+}
+
 pub(super) struct AiState {
     prompt: Entity<TextareaState>,
     providers: Vec<ProviderStatus>,
@@ -300,23 +314,91 @@ fn capability_connection_label(status: &ProviderStatus, capability: Capability) 
 
 fn billing_mode_label(status: Option<&ProviderStatus>) -> String {
     let Some(status) = status else {
-        return "Billing unavailable · Remaining allowance unavailable · reset time unavailable"
-            .into();
+        return "billing, balance and reset unavailable".into();
     };
     match status.billing {
         ai::BillingMode::SubscriptionAllowance => format!(
-            "{} · uses your subscription allowance · Remaining allowance unavailable · reset time unavailable",
+            "{} · subscription allowance · balance/reset unavailable",
             status.display_name
         ),
-        ai::BillingMode::Unknown => {
-            format!(
-                "{} · billing unavailable · Remaining allowance unavailable · reset time unavailable",
-                status.display_name
-            )
-        }
+        ai::BillingMode::Unknown => format!(
+            "{} · billing, balance and reset unavailable",
+            status.display_name
+        ),
     }
 }
+
+fn connection_state_for_ai_error(error: &ai::AiError) -> Option<ConnectionState> {
+    match error {
+        ai::AiError::IdentityUnverified(_) => Some(ConnectionState::IdentityUnverified),
+        ai::AiError::Io(_) | ai::AiError::Disconnected => Some(ConnectionState::Degraded),
+        _ => None,
+    }
+}
+
+fn connection_state_for_job_failure(failure: &ai::JobFailure) -> Option<ConnectionState> {
+    match failure.code {
+        "identity_unverified" => Some(ConnectionState::IdentityUnverified),
+        "runtime_unavailable" | "connection_closed" => Some(ConnectionState::Degraded),
+        _ => None,
+    }
+}
+
 impl EditorView {
+    pub(super) fn focus_ai_prompt(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.ai
+            .prompt
+            .update(cx, |prompt, cx| prompt.focus(window, cx));
+    }
+
+    fn ai_busy(&self) -> bool {
+        self.ai.running.is_some() || self.ai.preparing_image || self.ai.preparing_work_dir.is_some()
+    }
+
+    fn ensure_ai_review_idle(&self) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            !self.ai_busy(),
+            "Finish or stop the current AI request before changing this review"
+        );
+        Ok(())
+    }
+
+    fn mark_ai_provider_connection_failed(
+        &mut self,
+        provider: ProviderId,
+        connection: ConnectionState,
+    ) {
+        if let Some(status) = self
+            .ai
+            .providers
+            .iter_mut()
+            .find(|status| status.provider == provider)
+        {
+            status.connection = connection;
+            status.detail = match connection {
+                ConnectionState::IdentityUnverified => {
+                    "The provider runtime identity must be checked again".into()
+                }
+                _ => "The provider connection closed and must be checked again".into(),
+            };
+            // Do not reuse a client after the runtime or its identity failed.
+            // Refresh Connections performs a new identity and account probe.
+            status.client = None;
+        }
+        self.ai.connections_visible = true;
+    }
+
+    fn submit_ai_prompt(&mut self, cx: &mut Context<Self>) {
+        if self.ai_busy() {
+            return;
+        }
+        if self.ai_provider_needs_first_use(self.ai.assistant, Capability::AssistantStreaming) {
+            self.start_first_use_ai_job(JobOperation::Assistant, cx);
+        } else {
+            self.start_ai_job(JobOperation::Assistant, cx);
+        }
+    }
+
     pub(super) fn discover_ai_connections(&mut self, cx: &mut Context<Self>) {
         if self.ai.checking || !self.ai.providers.is_empty() {
             return;
@@ -517,6 +599,7 @@ impl EditorView {
                     cx,
                 )),
         );
+        let ai_busy = self.ai_busy();
         if !self.ai.history.is_empty() {
             let mut history = div()
                 .flex()
@@ -554,7 +637,7 @@ impl EditorView {
                         ButtonVariant::Secondary,
                         cx,
                     )
-                    .disabled(self.ai.running.is_some() || self.ai.preparing_image)
+                    .disabled(ai_busy)
                     .on_click(cx.listener(move |this, _, _, cx| {
                         this.select_ai_history(&entry_id, cx);
                     })),
@@ -666,7 +749,7 @@ impl EditorView {
                             cx,
                         )
                         .selected(selected)
-                        .disabled(self.ai.running.is_some() || self.ai.preparing_image)
+                        .disabled(ai_busy)
                         .on_click(cx.listener(move |this, _, _, cx| {
                             this.select_ai_history(&entry_id, cx);
                         })),
@@ -693,7 +776,7 @@ impl EditorView {
                         ButtonVariant::Primary,
                         cx,
                     )
-                    .disabled(stale)
+                    .disabled(stale || ai_busy)
                     .debug_selector(|| "ai-apply-plan".into())
                     .on_click(cx.listener(|this, _, _, cx| this.apply_ai_plan(cx))),
                 );
@@ -713,7 +796,7 @@ impl EditorView {
                             ButtonVariant::Primary,
                             cx,
                         )
-                        .disabled(proposal.image_edit && stale)
+                        .disabled(ai_busy || (proposal.image_edit && stale))
                         .on_click(
                             cx.listener(move |this, _, _, cx| this.apply_ai_image(index, cx)),
                         ),
@@ -729,6 +812,7 @@ impl EditorView {
                             ButtonVariant::Secondary,
                             cx,
                         )
+                        .disabled(ai_busy)
                         .on_click(cx.listener(move |this, _, _, cx| {
                             this.add_ai_image_as_new_layer(index, cx)
                         })),
@@ -741,6 +825,7 @@ impl EditorView {
                         ButtonVariant::Secondary,
                         cx,
                     )
+                    .disabled(ai_busy)
                     .on_click(
                         cx.listener(move |this, _, _, cx| this.save_ai_image_to_library(index, cx)),
                     ),
@@ -757,7 +842,7 @@ impl EditorView {
                             ButtonVariant::Secondary,
                             cx,
                         )
-                        .disabled(self.ai.running.is_some() || self.ai.preparing_image)
+                        .disabled(ai_busy)
                         .on_click(
                             cx.listener(|this, _, _, cx| this.prepare_ai_follow_up(false, cx)),
                         ),
@@ -769,7 +854,7 @@ impl EditorView {
                             ButtonVariant::Secondary,
                             cx,
                         )
-                        .disabled(self.ai.running.is_some() || self.ai.preparing_image)
+                        .disabled(ai_busy)
                         .on_click(
                             cx.listener(|this, _, _, cx| this.prepare_ai_follow_up(true, cx)),
                         ),
@@ -782,6 +867,7 @@ impl EditorView {
                     ButtonVariant::Secondary,
                     cx,
                 )
+                .disabled(ai_busy)
                 .on_click(cx.listener(|this, _, _, cx| {
                     this.discard_ai_result(cx);
                 })),
@@ -820,6 +906,7 @@ impl EditorView {
                             cx,
                         )
                         .accessibility_label("Remove reference image")
+                        .disabled(ai_busy)
                         .on_click(cx.listener(move |this, _, _, cx| {
                             if index < this.ai.references.len() {
                                 this.ai.references.remove(index);
@@ -831,7 +918,7 @@ impl EditorView {
         }
         let provider_or_input_active =
             self.ai.running.is_some() || self.ai.preparing_work_dir.is_some();
-        let running = provider_or_input_active || self.ai.preparing_image;
+        let running = ai_busy;
         let remote_submission_allowed = !self.ai_local_only();
         let assistant_verified =
             self.ai_provider_is_verified(self.ai.assistant, Capability::AssistantStreaming);
@@ -861,8 +948,44 @@ impl EditorView {
             remote_submission_allowed && (image_edit_verified || image_edit_needs_first_use);
         let has_edit_selection = self.ai_has_edit_selection();
         let has_background_selection = self.ai_has_background_selection();
+        let primary_action = if provider_or_input_active {
+            button("ai-cancel", "Stop request", ButtonVariant::Secondary, cx).on_click(
+                    cx.listener(|this, _, _, cx| {
+                        if let Some(job) = &this.ai.running {
+                            job.handle.cancel();
+                        }
+                        if this.ai.preparing_work_dir.is_some() {
+                            this.ai.dispatch_generation = this.ai.dispatch_generation.wrapping_add(1);
+                            this.ai.preparing_image = false;
+                            if let Some(work_dir) = this.ai.preparing_work_dir.take() {
+                                let _ = std::fs::remove_dir_all(work_dir);
+                            }
+                        }
+                        this.ai.variation_batch = None;
+                        this.ai.activity =
+                            "Stopping… remaining variations will not be sent; the provider may already have used allowance for the active request.".into();
+                        cx.notify();
+                    }),
+                )
+        } else {
+            button(
+                "ai-plan",
+                if assistant_needs_first_use {
+                    "Try design assistant"
+                } else {
+                    "Design with me"
+                },
+                ButtonVariant::Primary,
+                cx,
+            )
+            .debug_selector(|| "ai-plan".into())
+            .disabled(running || !assistant_action_available)
+            .on_click(cx.listener(|this, _, _, cx| this.submit_ai_prompt(cx)))
+        };
         let mut composer = div()
             .id("ai-composer")
+            .key_context("AiPrompt")
+            .on_action(cx.listener(|this, _: &SubmitAiPrompt, _, cx| this.submit_ai_prompt(cx)))
             .flex()
             .flex_col()
             .gap_1()
@@ -871,7 +994,6 @@ impl EditorView {
             .border_color(t.divider())
             .flex_shrink_0()
             .max_h(px(310.))
-            .overflow_y_scroll()
             .child(
                 gpui_omarchy::textarea("ai-prompt", &self.ai.prompt, window, cx)
                     .debug_selector(|| "ai-prompt".into())
@@ -879,15 +1001,29 @@ impl EditorView {
                     .max_h(px(88.)),
             )
             .child(
-                button(
-                    "ai-add-reference",
-                    "Add reference images…",
-                    ButtonVariant::Secondary,
-                    cx,
-                )
-                .disabled(running)
-                .on_click(cx.listener(|this, _, window, cx| this.choose_ai_references(window, cx))),
+                div().flex().gap_1().child(primary_action).child(
+                    button(
+                        "ai-add-reference",
+                        "Add references…",
+                        ButtonVariant::Secondary,
+                        cx,
+                    )
+                    .disabled(running)
+                    .on_click(
+                        cx.listener(|this, _, window, cx| this.choose_ai_references(window, cx)),
+                    ),
+                ),
             )
+            .child(label("Ctrl+Enter sends · Enter adds a new line", cx));
+        let mut details = div()
+            .id("ai-composer-details")
+            .debug_selector(|| "ai-composer-details".into())
+            .flex()
+            .flex_col()
+            .gap_1()
+            .min_h_0()
+            .max_h(px(170.))
+            .overflow_y_scroll()
             .child(label(
                 format!(
                     "Assistant · {}",
@@ -925,10 +1061,10 @@ impl EditorView {
             has_edit_selection,
             has_background_selection,
         ) {
-            composer = composer.child(label(note, cx));
+            details = details.child(label(note, cx));
         }
         if let Some(follow_up) = &self.ai.follow_up {
-            composer = composer.child(label(
+            details = details.child(label(
                 format!(
                     "Next: {} \"{}\" with 1 named result + {} selected reference image{}. Nothing sent.",
                     if follow_up.another_direction {
@@ -943,56 +1079,14 @@ impl EditorView {
                 cx,
             ));
         }
-        if provider_or_input_active {
-            composer = composer.child(
-                button("ai-cancel", "Stop request", ButtonVariant::Secondary, cx).on_click(
-                    cx.listener(|this, _, _, cx| {
-                        if let Some(job) = &this.ai.running {
-                            job.handle.cancel();
-                        }
-                        if this.ai.preparing_work_dir.is_some() {
-                            this.ai.dispatch_generation = this.ai.dispatch_generation.wrapping_add(1);
-                            this.ai.preparing_image = false;
-                            if let Some(work_dir) = this.ai.preparing_work_dir.take() {
-                                let _ = std::fs::remove_dir_all(work_dir);
-                            }
-                        }
-                        this.ai.variation_batch = None;
-                        this.ai.activity =
-                            "Stopping… remaining variations will not be sent; the provider may already have used allowance for the active request.".into();
-                        cx.notify();
-                    }),
-                ),
-            );
-        } else if self.ai.preparing_image {
-            composer = composer.child(label("Preparing the reviewable result locally…", cx));
-        } else {
-            composer = composer
+        if self.ai.preparing_image && !provider_or_input_active {
+            details = details.child(label("Preparing the reviewable result locally…", cx));
+        } else if !provider_or_input_active {
+            details = details
                 .child(
                     div()
                         .flex()
                         .gap_1()
-                        .child(
-                            button(
-                                "ai-plan",
-                                if assistant_needs_first_use {
-                                    "Try design assistant"
-                                } else {
-                                    "Design with me"
-                                },
-                                ButtonVariant::Primary,
-                                cx,
-                            )
-                                .debug_selector(|| "ai-plan".into())
-                                .disabled(!assistant_action_available)
-                                .on_click(cx.listener(move |this, _, _, cx| {
-                                if assistant_needs_first_use {
-                                    this.start_first_use_ai_job(JobOperation::Assistant, cx)
-                                } else {
-                                    this.start_ai_job(JobOperation::Assistant, cx)
-                                }
-                                })),
-                        )
                         .child(
                             button(
                                 "ai-improve-layout",
@@ -1149,10 +1243,10 @@ impl EditorView {
                 );
         }
         if !running && has_background_selection {
-            composer = composer.child(self.render_product_controls(window, cx));
+            details = details.child(self.render_product_controls(window, cx));
         }
         if self.ai.auth.is_some() {
-            composer = composer.child(
+            details = details.child(
                 button(
                     "ai-cancel-sign-in",
                     "Cancel sign-in",
@@ -1167,7 +1261,8 @@ impl EditorView {
                 })),
             );
         }
-        composer = composer.child(label(self.ai.activity.clone(), cx));
+        details = details.child(label(self.ai.activity.clone(), cx));
+        composer = composer.child(details);
         div()
             .id("ai-inspector")
             .debug_selector(|| "ai-inspector".into())
@@ -1798,6 +1893,12 @@ impl EditorView {
                             }
                             Err(error) => {
                                 this.ai.variation_batch = None;
+                                if let Some(connection) = connection_state_for_ai_error(&error) {
+                                    this.mark_ai_provider_connection_failed(
+                                        prepared.pending.provider,
+                                        connection,
+                                    );
+                                }
                                 this.ai.activity = format!("Could not start image request: {error:#}");
                             }
                         }
@@ -2093,6 +2194,12 @@ impl EditorView {
                                 this.poll_ai_job(cx);
                             }
                             Err(error) => {
+                                if let Some(connection) = connection_state_for_ai_error(&error) {
+                                    this.mark_ai_provider_connection_failed(
+                                        prepared.pending.provider,
+                                        connection,
+                                    );
+                                }
                                 this.ai.activity = format!(
                                     "Could not start assistant request: {error:#}"
                                 );
@@ -2127,6 +2234,7 @@ impl EditorView {
         let Some(job) = self.ai.running.take() else {
             return;
         };
+        let provider = job.client.provider();
         let result = match outcome {
             JobOutcome::Completed(result) => result,
             JobOutcome::Cancelled => {
@@ -2136,11 +2244,20 @@ impl EditorView {
             }
             JobOutcome::Failed(error) => {
                 self.ai.variation_batch = None;
-                self.ai.activity = error.message;
+                if let Some(connection) = connection_state_for_job_failure(&error) {
+                    self.mark_ai_provider_connection_failed(provider, connection);
+                    self.ai.activity =
+                        format!("{}. Refresh Connections before retrying.", error.message);
+                } else {
+                    self.ai.activity = error.message;
+                }
                 return;
             }
             JobOutcome::OutcomeUnknown(error) => {
                 self.ai.variation_batch = None;
+                if let Some(connection) = connection_state_for_job_failure(&error) {
+                    self.mark_ai_provider_connection_failed(provider, connection);
+                }
                 self.ai.activity = format!(
                     "Outcome unknown: {}. Check the provider before retrying; Omuse will not resubmit automatically.",
                     error.message
@@ -2240,6 +2357,11 @@ impl EditorView {
         .detach();
     }
     fn apply_ai_plan(&mut self, cx: &mut Context<Self>) {
+        if let Err(error) = self.ensure_ai_review_idle() {
+            self.ai.activity = error.to_string();
+            cx.notify();
+            return;
+        }
         match self.queue_ai_selection_correction(cx) {
             Ok(true) => return,
             Ok(false) => {}
@@ -2327,7 +2449,9 @@ impl EditorView {
         let source_project = self.content_snapshot()?;
         self.ai.preparation_generation = self.ai.preparation_generation.wrapping_add(1);
         let preparation_generation = self.ai.preparation_generation;
+        self.ai.preparing_image = true;
         self.ai.activity = "Updating the draft for your current selection…".into();
+        cx.notify();
         let task = cx.background_executor().spawn(async move {
             let generated = load_result_rgba(&asset)?;
             let document = match &intent {
@@ -2364,8 +2488,10 @@ impl EditorView {
         cx.spawn(async move |view, cx| {
             let corrected = task.await;
             let _ = view.update(cx, |this, cx| {
-                let still_current = this.ai.preparation_generation == preparation_generation
-                    && this.editor.selection_revision() == expected_selection_revision
+                if !this.complete_ai_result_preparation(preparation_generation) {
+                    return;
+                }
+                let still_current = this.editor.selection_revision() == expected_selection_revision
                     && this
                         .ai
                         .result
@@ -2397,7 +2523,9 @@ impl EditorView {
                     (true, Err(error)) => {
                         this.ai.activity = format!("Could not update the image draft: {error:#}")
                     }
-                    _ => {}
+                    _ => {
+                        this.ai.activity = "The selection or review changed while the image draft was updating. The saved result remains available for review.".into()
+                    }
                 }
                 cx.notify();
             });
@@ -2407,6 +2535,7 @@ impl EditorView {
     }
     fn apply_ai_image(&mut self, index: usize, cx: &mut Context<Self>) {
         let result = (|| -> anyhow::Result<()> {
+            self.ensure_ai_review_idle()?;
             let proposal = self
                 .ai
                 .result
@@ -2528,6 +2657,7 @@ impl EditorView {
     /// into the current destination as an independent layer.
     fn add_ai_image_as_new_layer(&mut self, index: usize, cx: &mut Context<Self>) {
         let result = (|| -> anyhow::Result<()> {
+            self.ensure_ai_review_idle()?;
             let (asset, provider, result_id, operation) = {
                 let proposal = self
                     .ai
@@ -2668,6 +2798,7 @@ impl EditorView {
 
     fn prepare_ai_follow_up(&mut self, another_direction: bool, cx: &mut Context<Self>) {
         let result = (|| -> anyhow::Result<()> {
+            self.ensure_ai_review_idle()?;
             let (result_id, result_name, result_assets, retained_references) = {
                 let proposal = self
                     .ai
@@ -2726,6 +2857,7 @@ impl EditorView {
 
     fn save_ai_image_to_library(&mut self, index: usize, cx: &mut Context<Self>) {
         let result = (|| -> anyhow::Result<()> {
+            self.ensure_ai_review_idle()?;
             let (
                 path,
                 result_id,
@@ -2800,6 +2932,7 @@ impl EditorView {
 
     fn discard_ai_result(&mut self, cx: &mut Context<Self>) {
         let result = (|| -> anyhow::Result<()> {
+            self.ensure_ai_review_idle()?;
             let id = self
                 .ai
                 .result
@@ -2825,6 +2958,7 @@ impl EditorView {
 
     fn select_ai_history(&mut self, id: &str, cx: &mut Context<Self>) {
         let result = (|| -> anyhow::Result<()> {
+            self.ensure_ai_review_idle()?;
             let entry = self
                 .ai
                 .history
@@ -4088,8 +4222,426 @@ fn assistant_project_brief(project: &omuse::create_project::Project) -> serde_js
 #[cfg(all(test, feature = "ui-test"))]
 mod tests {
     use super::*;
-    use gpui_kit::TestAppContext;
+    use gpui_kit::{Focusable, Modifiers, TestAppContext};
     use std::path::PathBuf;
+
+    fn assistant_proposal(view: &EditorView, document: Document) -> AiProposal {
+        AiProposal {
+            id: "test-result".into(),
+            group_id: "test-group".into(),
+            source: view.ai_source_identity(),
+            source_document: None,
+            provider: ProviderId::CodexSubscription,
+            operation: Operation::Assistant,
+            intent: None,
+            prompt: "Make it red".into(),
+            summary: "Red".into(),
+            plan_json: None,
+            document: Some(document),
+            project: None,
+            assets: vec![],
+            context_assets: vec![],
+            variation_index: 1,
+            variation_total: 1,
+            selection: None,
+            product_presentation: Default::default(),
+            image_edit: false,
+            provenance: serde_json::Value::Null,
+            before_preview: None,
+            preview: None,
+            error: None,
+        }
+    }
+
+    #[gpui_kit::test]
+    fn ai_prompt_focus_and_ctrl_enter_submit_without_changing_plain_enter(cx: &mut TestAppContext) {
+        cx.update(crate::init_test_theme);
+        cx.update(bind_ai_keys);
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            let mut view = EditorView::new(None, window, cx);
+            view.dialog = Dialog::None;
+            view.editor = Editor::new(Document::new(40, 30));
+            view.inspector_tab = studio_ui::InspectorTab::Assistant;
+            view.inspector_visible = true;
+            view.refresh(cx);
+            view
+        });
+        view.update_in(cx, |view, window, cx| {
+            view.focus_ai_prompt(window, cx);
+        });
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.update(|window, cx| {
+            assert!(
+                view.read(cx)
+                    .ai
+                    .prompt
+                    .read(cx)
+                    .focus_handle(cx)
+                    .is_focused(window)
+            )
+        });
+        cx.simulate_input("A useful brief");
+
+        let activity = cx.update(|_, cx| view.read(cx).ai.activity.clone());
+        cx.simulate_keystrokes("enter");
+        cx.update(|_, cx| {
+            assert_eq!(view.read(cx).ai.prompt.read(cx).value(), "A useful brief\n");
+            assert_eq!(view.read(cx).ai.activity, activity);
+        });
+
+        let revision = cx.update(|_, cx| view.read(cx).editor.revision());
+        cx.simulate_keystrokes("ctrl-enter");
+        cx.update(|_, cx| {
+            let view = view.read(cx);
+            assert!(
+                view.ai.activity.contains("Check Connections"),
+                "{}",
+                view.ai.activity
+            );
+            assert_eq!(view.editor.revision(), revision);
+            assert!(view.ai.running.is_none());
+            assert_eq!(view.ai.prompt.read(cx).value(), "A useful brief\n");
+        });
+    }
+
+    #[gpui_kit::test]
+    fn command_palette_ask_omuse_keeps_focus_in_the_prompt(cx: &mut TestAppContext) {
+        cx.update(crate::init_test_theme);
+        cx.update(|cx| install_shortcuts(&Shortcuts::default(), &Shortcuts::default(), cx));
+        cx.update(bind_ai_keys);
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            let mut view = EditorView::new(None, window, cx);
+            view.dialog = Dialog::None;
+            view.editor = Editor::new(Document::new(40, 30));
+            // This regression concerns focus ownership. Do not launch runtime
+            // discovery while executing the command under test.
+            view.ai.checking = true;
+            view.focus.focus(window, cx);
+            view.refresh(cx);
+            view
+        });
+        cx.simulate_resize(size(px(800.), px(600.)));
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+
+        cx.simulate_keystrokes("ctrl-k");
+        cx.simulate_input("Ask Omuse");
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.simulate_keystrokes("enter");
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+
+        cx.update(|window, cx| {
+            let view = view.read(cx);
+            assert_eq!(view.inspector_tab, studio_ui::InspectorTab::Assistant);
+            assert!(view.inspector_visible);
+            assert!(view.ai.prompt.read(cx).focus_handle(cx).is_focused(window));
+        });
+        cx.simulate_input("hello");
+        cx.update(|_, cx| {
+            let view = view.read(cx);
+            assert_eq!(view.ai.prompt.read(cx).value(), "hello");
+            assert_eq!(
+                view.tool,
+                Tool::Brush,
+                "typing must stay out of canvas shortcuts"
+            );
+        });
+    }
+
+    #[gpui_kit::test]
+    fn assistant_prompt_and_primary_action_stay_visible_at_minimum_window(cx: &mut TestAppContext) {
+        cx.update(crate::init_test_theme);
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            let mut view = EditorView::new(None, window, cx);
+            view.dialog = Dialog::None;
+            view.editor = Editor::new(Document::new(40, 30));
+            view.inspector_tab = studio_ui::InspectorTab::Assistant;
+            view.inspector_visible = true;
+            view.ai.checking = true;
+            view.ai.providers = vec![ProviderStatus {
+                provider: ProviderId::CodexSubscription,
+                display_name: ProviderId::CodexSubscription.display_name(),
+                connection: ConnectionState::Ready,
+                billing: ai::BillingMode::SubscriptionAllowance,
+                version: Some("fixture".into()),
+                capabilities: [
+                    Capability::AssistantStreaming,
+                    Capability::ImageGeneration,
+                    Capability::ImageEditing,
+                ]
+                .into_iter()
+                .map(|capability| ai::CapabilityStatus {
+                    capability,
+                    evidence: EvidenceLevel::Unknown,
+                    detail: "First use qualification is required".into(),
+                })
+                .collect(),
+                detail: "Signed in; first use qualification is required".into(),
+                client: Some(ai::ValidatedClient::fixture(
+                    ProviderId::CodexSubscription,
+                    PathBuf::from("/fixture/codex"),
+                )),
+            }];
+            view.refresh(cx);
+            view
+        });
+        cx.simulate_resize(size(px(800.), px(600.)));
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+
+        let inspector = cx.debug_bounds("ai-inspector").expect("AI inspector");
+        let prompt = cx.debug_bounds("ai-prompt").expect("AI prompt");
+        let action = cx
+            .debug_bounds("ai-plan")
+            .expect("primary assistant action");
+        for (name, bounds) in [("prompt", prompt), ("primary action", action)] {
+            assert!(
+                bounds.origin.x >= inspector.origin.x
+                    && bounds.origin.y >= inspector.origin.y
+                    && bounds.bottom_right().x <= inspector.bottom_right().x
+                    && bounds.bottom_right().y <= inspector.bottom_right().y,
+                "{name} must remain visible inside the AI inspector at 800x600: {bounds:?} in {inspector:?}"
+            );
+            assert!(
+                bounds.size.width > px(0.) && bounds.size.height > px(0.),
+                "{name} must have a rendered hit target"
+            );
+        }
+        assert!(
+            cx.debug_bounds("ai-composer-details").is_some(),
+            "long first-use and billing details should render in their own scroll area"
+        );
+        cx.update(|_, cx| {
+            assert!(view.read(cx).ai_provider_needs_first_use(
+                ProviderId::CodexSubscription,
+                Capability::AssistantStreaming
+            ))
+        });
+    }
+
+    #[gpui_kit::test]
+    fn toolbar_and_direct_shortcut_focus_the_assistant_prompt(cx: &mut TestAppContext) {
+        cx.update(crate::init_test_theme);
+        cx.update(|cx| install_shortcuts(&Shortcuts::default(), &Shortcuts::default(), cx));
+        cx.update(bind_ai_keys);
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            let mut view = EditorView::new(None, window, cx);
+            view.dialog = Dialog::None;
+            view.editor = Editor::new(Document::new(40, 30));
+            view.ai.checking = true;
+            view.focus.focus(window, cx);
+            view.refresh(cx);
+            view
+        });
+        cx.simulate_resize(size(px(800.), px(600.)));
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+
+        let assistant = cx
+            .debug_bounds("workspace-assistant")
+            .expect("Ask Omuse toolbar action");
+        cx.simulate_click(assistant.center(), Modifiers::default());
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.update(|window, cx| {
+            assert!(
+                view.read(cx)
+                    .ai
+                    .prompt
+                    .read(cx)
+                    .focus_handle(cx)
+                    .is_focused(window)
+            )
+        });
+
+        view.update_in(cx, |view, window, cx| {
+            view.inspector_tab = studio_ui::InspectorTab::Layers;
+            view.inspector_visible = false;
+            view.focus.focus(window, cx);
+            cx.notify();
+        });
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.simulate_keystrokes("ctrl-shift-j");
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.update(|window, cx| {
+            let view = view.read(cx);
+            assert_eq!(view.inspector_tab, studio_ui::InspectorTab::Assistant);
+            assert!(view.inspector_visible);
+            assert!(view.ai.prompt.read(cx).focus_handle(cx).is_focused(window));
+        });
+    }
+
+    #[gpui_kit::test]
+    fn busy_ai_review_cannot_apply_or_discard_until_work_finishes(cx: &mut TestAppContext) {
+        cx.update(crate::init_test_theme);
+        let temporary = tempfile::tempdir().unwrap();
+        let history_root = temporary.path().join("history");
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            let mut view = EditorView::new(None, window, cx);
+            view.dialog = Dialog::None;
+            view.editor = Editor::new(Document::new(40, 30));
+            view.refresh(cx);
+            view
+        });
+        view.update_in(cx, |view, _, cx| {
+            view.ai.history_root = history_root;
+            let original = view.editor.document.background;
+            let mut proposed = view.editor.document.clone();
+            proposed.background = [255, 0, 0, 255];
+            view.ai.result = Some(assistant_proposal(view, proposed));
+            view.ai.preparing_image = true;
+
+            view.apply_ai_plan(cx);
+            assert_eq!(view.editor.document.background, original);
+            assert!(view.ai.result.is_some());
+            assert!(view.ai.activity.contains("Finish or stop"));
+
+            view.discard_ai_result(cx);
+            assert!(view.ai.result.is_some());
+            assert!(view.ai.activity.contains("Finish or stop"));
+
+            view.ai.preparing_image = false;
+            view.apply_ai_plan(cx);
+            assert_eq!(view.editor.document.background, [255, 0, 0, 255]);
+            assert_eq!(view.editor.undo_depth(), 1);
+        });
+    }
+
+    #[gpui_kit::test]
+    fn selection_correction_owns_busy_state_until_failure_is_published(cx: &mut TestAppContext) {
+        cx.update(crate::init_test_theme);
+        let temporary = tempfile::tempdir().unwrap();
+        let missing_asset = temporary.path().join("missing-result.png");
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            let mut view = EditorView::new(None, window, cx);
+            view.dialog = Dialog::None;
+            view.editor = Editor::new(Document::new(40, 30));
+            view.refresh(cx);
+            view
+        });
+        view.update_in(cx, |view, _, cx| {
+            let source = view.editor.document.clone();
+            let source_identity = view.ai_source_identity();
+            let mut proposal = assistant_proposal(view, source.clone());
+            proposal.source = source_identity;
+            proposal.source_document = Some(source);
+            proposal.operation = Operation::EditImage;
+            proposal.intent = Some(ImageIntent::Replace);
+            proposal.image_edit = true;
+            proposal.assets = vec![ai::ResultAsset {
+                path: missing_asset,
+                media_type: "image/png".into(),
+                width: 40,
+                height: 30,
+                byte_len: 1,
+                provider_item_id: None,
+            }];
+            view.ai.result = Some(proposal);
+            view.editor.select_rectangle(2., 2., 8., 8.);
+            assert!(view.editor.record_selection_change(None));
+
+            view.apply_ai_plan(cx);
+            assert!(view.ai.preparing_image, "{}", view.ai.activity);
+            assert!(view.ai.activity.contains("Updating the draft"));
+        });
+        cx.run_until_parked();
+        view.update(cx, |view, _| {
+            assert!(!view.ai.preparing_image);
+            assert!(view.ai.result.is_some());
+            assert!(
+                view.ai
+                    .activity
+                    .contains("Could not update the image draft")
+            );
+        });
+    }
+
+    #[gpui_kit::test]
+    fn connection_failure_disables_the_stale_route_and_reopens_connections(
+        cx: &mut TestAppContext,
+    ) {
+        cx.update(crate::init_test_theme);
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            let mut view = EditorView::new(None, window, cx);
+            view.dialog = Dialog::None;
+            view.editor = Editor::new(Document::new(40, 30));
+            view.refresh(cx);
+            view
+        });
+        view.update_in(cx, |view, window, cx| {
+            view.ai.connections_visible = false;
+            view.ai.prompt.update(cx, |prompt, cx| {
+                prompt.set_value("Keep this brief", window, cx)
+            });
+            view.ai.history = vec![StoredProposal {
+                id: "saved-result".into(),
+                group_id: "saved-group".into(),
+                variation_index: 1,
+                variation_total: 1,
+                source: view.ai_source_identity(),
+                operation: Operation::Assistant,
+                provider: ProviderId::CodexSubscription,
+                prompt: "Saved prompt".into(),
+                summary: "Saved summary".into(),
+                plan_json: None,
+                assets: vec![],
+                context_assets: vec![],
+                image_edit: false,
+                provenance: serde_json::Value::Null,
+                completed_unix_ms: 1,
+            }];
+            view.ai.providers = vec![ProviderStatus {
+                provider: ProviderId::CodexSubscription,
+                display_name: ProviderId::CodexSubscription.display_name(),
+                connection: ConnectionState::Ready,
+                billing: ai::BillingMode::SubscriptionAllowance,
+                version: Some("fixture".into()),
+                capabilities: vec![ai::CapabilityStatus {
+                    capability: Capability::AssistantStreaming,
+                    evidence: EvidenceLevel::Verified,
+                    detail: "fixture".into(),
+                }],
+                detail: "Ready".into(),
+                client: Some(ai::ValidatedClient::fixture(
+                    ProviderId::CodexSubscription,
+                    PathBuf::from("/fixture/codex"),
+                )),
+            }];
+            assert!(view.ai_provider_is_verified(
+                ProviderId::CodexSubscription,
+                Capability::AssistantStreaming
+            ));
+            let document = view.editor.document.clone();
+            let history = view.ai.history.clone();
+
+            let failure = ai::JobFailure {
+                code: "runtime_unavailable",
+                message: "Runtime closed".into(),
+                retryable: false,
+            };
+            let connection = connection_state_for_job_failure(&failure).unwrap();
+            view.mark_ai_provider_connection_failed(ProviderId::CodexSubscription, connection);
+
+            let status = &view.ai.providers[0];
+            assert_eq!(status.connection, ConnectionState::Degraded);
+            assert!(status.client.is_none());
+            assert!(view.ai.connections_visible);
+            assert!(omuse::create_history::documents_match(
+                &document,
+                &view.editor.document
+            ));
+            assert_eq!(view.ai.prompt.read(cx).value(), "Keep this brief");
+            assert_eq!(view.ai.history, history);
+            assert!(!view.ai_provider_is_verified(
+                ProviderId::CodexSubscription,
+                Capability::AssistantStreaming
+            ));
+            assert!(
+                connection_state_for_job_failure(&ai::JobFailure {
+                    code: "invalid_request",
+                    message: "Rejected".into(),
+                    retryable: false,
+                })
+                .is_none()
+            );
+        });
+    }
     #[gpui_kit::test]
     fn stale_ai_plan_cannot_overwrite_a_later_edit(cx: &mut TestAppContext) {
         cx.update(crate::init_test_theme);

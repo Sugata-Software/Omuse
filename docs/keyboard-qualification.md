@@ -99,15 +99,17 @@ retained generation rather than repeating an unchanged rollback implementation.
 
 GitHub's [guide/reference run](https://github.com/Sugata-Software/Omuse/actions/runs/36461980133)
 passed. The [Rust workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36461980019)
-passed the installer/reference job and all-target checking; its full Rust job
-was still running at this checkpoint. Local success is not a claim that the
-remote workflow has finished.
+passed completely, including installer/reference checks, all-target checking,
+the Rust suite, motion/recovery qualification and the dependency notice review.
+This result was read back from GitHub on 29 September.
 
 ## Physical acceptance remaining
 
-The host's Omarchy Cua status was rechecked on 29 September: installed,
-inactive, with a fresh login required. No compositor-delivered keyboard pass
-is claimed. After activation, use a disposable project and verify:
+A later 29 September [Cua and AI GUI pass](cua-ai-qualification.md) established
+foreground input through XWayland and reproduced an assistant focus defect.
+The native Omarchy plugin is inactive because the host package/compiler
+changed; a new login alone does not resolve that mismatch. The broader
+physical-device pass remains open. Continue with a disposable project and verify:
 
 1. Ctrl+K, typing, arrows/Page Up/Down, Enter and Escape; execute New layer,
    then Ctrl+Z, checking layer count and focus.

@@ -347,11 +347,12 @@ impl EditorView {
                 .selected(self.inspector_tab == InspectorTab::Assistant)
                 .h(px(30.))
                 .px_2()
-                .on_click(cx.listener(|this, _, _, cx| {
+                .on_click(cx.listener(|this, _, window, cx| {
                     this.finish_interaction(cx);
                     this.inspector_tab = InspectorTab::Assistant;
                     this.inspector_visible = true;
                     this.discover_ai_connections(cx);
+                    this.focus_ai_prompt(window, cx);
                     cx.notify();
                 })),
             )
