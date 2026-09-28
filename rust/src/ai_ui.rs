@@ -1014,7 +1014,17 @@ impl EditorView {
                     ),
                 ),
             )
-            .child(label("Ctrl+Enter sends · Enter adds a new line", cx));
+            .child(label("Ctrl+Enter sends · Enter adds a new line", cx))
+            .child(
+                div()
+                    .id("ai-activity")
+                    .debug_selector(|| "ai-activity".into())
+                    .min_h(px(18.))
+                    .max_h(px(44.))
+                    .flex_shrink_0()
+                    .overflow_y_scroll()
+                    .child(label(self.ai.activity.clone(), cx)),
+            );
         let mut details = div()
             .id("ai-composer-details")
             .debug_selector(|| "ai-composer-details".into())
@@ -1022,7 +1032,7 @@ impl EditorView {
             .flex_col()
             .gap_1()
             .min_h_0()
-            .max_h(px(170.))
+            .max_h(px(120.))
             .overflow_y_scroll()
             .child(label(
                 format!(
@@ -1086,6 +1096,7 @@ impl EditorView {
                 .child(
                     div()
                         .flex()
+                        .flex_wrap()
                         .gap_1()
                         .child(
                             button(
@@ -1161,6 +1172,7 @@ impl EditorView {
                 .child(
                     div()
                         .flex()
+                        .flex_wrap()
                         .gap_1()
                         .child(
                             button("ai-background", if image_edit_needs_first_use { "Try background edit" } else { "Background" }, ButtonVariant::Secondary, cx)
@@ -1204,6 +1216,7 @@ impl EditorView {
                 .child(
                     div()
                         .flex()
+                        .flex_wrap()
                         .gap_1()
                         .child(label(
                             format!(
@@ -1261,7 +1274,6 @@ impl EditorView {
                 })),
             );
         }
-        details = details.child(label(self.ai.activity.clone(), cx));
         composer = composer.child(details);
         div()
             .id("ai-inspector")
@@ -4357,6 +4369,7 @@ mod tests {
             view.inspector_tab = studio_ui::InspectorTab::Assistant;
             view.inspector_visible = true;
             view.ai.checking = true;
+            view.ai.activity = "Could not start assistant request: Codex loaded unexpected workspace instructions. Refresh Connections before retrying. This deliberately long failure remains readable without scrolling the secondary controls.".into();
             view.ai.providers = vec![ProviderStatus {
                 provider: ProviderId::CodexSubscription,
                 display_name: ProviderId::CodexSubscription.display_name(),
@@ -4392,7 +4405,14 @@ mod tests {
         let action = cx
             .debug_bounds("ai-plan")
             .expect("primary assistant action");
-        for (name, bounds) in [("prompt", prompt), ("primary action", action)] {
+        let activity = cx
+            .debug_bounds("ai-activity")
+            .expect("assistant failure and status area");
+        for (name, bounds) in [
+            ("prompt", prompt),
+            ("primary action", action),
+            ("activity feedback", activity),
+        ] {
             assert!(
                 bounds.origin.x >= inspector.origin.x
                     && bounds.origin.y >= inspector.origin.y
@@ -4408,6 +4428,11 @@ mod tests {
         assert!(
             cx.debug_bounds("ai-composer-details").is_some(),
             "long first-use and billing details should render in their own scroll area"
+        );
+        let details = cx.debug_bounds("ai-composer-details").unwrap();
+        assert!(
+            activity.bottom_right().y <= details.origin.y,
+            "failure and status feedback must stay above the scrollable secondary details"
         );
         cx.update(|_, cx| {
             assert!(view.read(cx).ai_provider_needs_first_use(

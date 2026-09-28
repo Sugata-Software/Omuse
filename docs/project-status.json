@@ -35,14 +35,14 @@
   "releaseSnapshot": [
     {
       "label": "Current regression suite",
-      "value": "777 tests passed",
-      "detail": "326 library, 210 UI and 241 integration tests passed. The keyboard pass adds 20 regressions, 171 searchable commands and 101 defaults. Editing, six-page PNG/PDF/MP4/GIF exports and 80 templates passed. Production Wayland/XWayland and the installed Preview each passed 24 native checks; matching runtime assets and the complete rollback generation are retained.",
+      "value": "786 tests passed",
+      "detail": "328 library, 217 UI and 241 integration tests passed, with four manual timing benchmarks excluded. Nine added regressions cover AI focus/submission, compact layout, review ownership, connection recovery and rejection of workspace instructions before submission. Editing, six-page PNG/PDF/MP4/GIF exports and all 80 templates passed. The final production build passed its self-test and 24 native Wayland checks at 800x600; the installed live assistant retest is pending.",
       "status": "locally-tested"
     },
     {
       "label": "Large-photo Create editing",
       "value": "35.9% less refresh time at 48 MP",
-      "detail": "Three paired desktop repetitions: paint core 85.69 \u2192 0.32 ms; headless frame/refresh 257.88 \u2192 165.38 ms. Recovery idle before each stroke; exact undo/redo/recovery, unchanged peak memory. Physical input latency remains unmeasured.",
+      "detail": "Three paired desktop repetitions: paint core 85.69 → 0.32 ms; headless frame/refresh 257.88 → 165.38 ms. Recovery idle before each stroke; exact undo/redo/recovery, unchanged peak memory. Physical input latency remains unmeasured.",
       "status": "locally-tested"
     },
     {
@@ -164,7 +164,7 @@
           "id": "photo-tiled-history",
           "name": "Region/tile-based large-photo history",
           "status": "locally-tested",
-          "current": "Large unselected Brush, Pencil and Eraser strokes retain reversible 256\u00d7256 tiles. Current differential regressions pass. Historical a69a5f6 measurements retained 100 undo steps at 48 MP using about 30.96 MiB of final history, compared with one step before.",
+          "current": "Large unselected Brush, Pencil and Eraser strokes retain reversible 256×256 tiles. Current differential regressions pass. Historical a69a5f6 measurements retained 100 undo steps at 48 MP using about 30.96 MiB of final history, compared with one step before.",
           "boundary": "Masks, selected strokes, clone/heal and other transactions keep snapshots. Persistent Create raster owners are now removed, but recovery, collection checkpoints and saves can still force copies. The earlier 12/24 MP first strokes were slower; neither workload qualifies whole-app input latency.",
           "evidence": [
             "docs/desktop-history-qualification.md",
@@ -183,7 +183,7 @@
           "id": "photo-desktop-ownership",
           "name": "Large-photo desktop page ownership",
           "status": "locally-tested",
-          "current": "Editors own active and cached page pixels; complete save/export/recovery snapshots remain frozen. All 18 paired cases passed. At 48 MP, paint core measured 85.69 \u2192 0.32 ms and headless frame/refresh 257.88 \u2192 165.38 ms. Editing during a same-path save can recover, export and save again.",
+          "current": "Editors own active and cached page pixels; complete save/export/recovery snapshots remain frozen. All 18 paired cases passed. At 48 MP, paint core measured 85.69 → 0.32 ms and headless frame/refresh 257.88 → 165.38 ms. Editing during a same-path save can recover, export and save again.",
           "boundary": "Twelve localized strokes after a warmup, three repetitions per strategy/size; recovery idle before each measured stroke. Peak RSS was essentially unchanged. In-flight snapshots can still force full copies, and end-of-stroke refresh has large outliers. These are not physical input timings.",
           "evidence": [
             "docs/desktop-history-qualification.md"
@@ -404,7 +404,7 @@
           "id": "design-warp",
           "name": "Mesh and pin deformation",
           "status": "locally-tested",
-          "current": "A retained 2\u00d72 corner mesh and bounded pin warp can be previewed, applied, reopened and adjusted.",
+          "current": "A retained 2×2 corner mesh and bounded pin warp can be previewed, applied, reopened and adjusted.",
           "boundary": "The UI is not a general mesh-grid editor; evaluation is CPU-based and capped at 16 MP.",
           "evidence": [
             "docs/rust-advanced-workflows.md"
@@ -551,11 +551,12 @@
           "id": "ai-framework",
           "name": "Ask Omuse job, review and history model",
           "status": "locally-tested",
-          "current": "Provider routes, billing labels, Local-only mode, bounded jobs, review groups, stale-result protection, Keep, Undo and saved provenance are implemented.",
+          "current": "Provider routes, billing labels, Local-only mode, bounded jobs, review groups, stale-result protection, Keep, Undo and saved provenance are implemented. Ask Omuse focuses its prompt from toolbar, shortcut and command search; Ctrl+Enter submits. Busy reviews are protected and failed runtime connections require refresh.",
           "boundary": "A local invariant does not prove provider availability, visual quality or cancellation after remote acceptance.",
           "evidence": [
             "docs/omuse-create-and-ai-plan.md",
-            "docs/omuse-create-qualification.md"
+            "docs/omuse-create-qualification.md",
+            "docs/cua-ai-qualification.md"
           ],
           "modules": [
             "rust/src/ai.rs",
@@ -685,7 +686,7 @@
           "id": "formats-comp",
           "name": "`.comp` projects",
           "status": "locally-tested",
-          "current": "The Rust reader/writer covers project versions 1\u20137: canvas, hierarchy, transforms, opacity/blends, raster/live/folder masks and adjustment layers.",
+          "current": "The Rust reader/writer covers project versions 1–7: canvas, hierarchy, transforms, opacity/blends, raster/live/folder masks and adjustment layers.",
           "boundary": "Newer Rust-specific editable assets may render only as cached images in preserved older editors and may not survive resave there.",
           "evidence": [
             "docs/project-format.md",
@@ -831,7 +832,7 @@
           "id": "linux-wayland-xwayland",
           "name": "Wayland and XWayland journeys",
           "status": "locally-tested",
-          "current": "The keyboard production executable passed 24 native Wayland and 24 XWayland checks at the 800\u00d7600 logical viewport. System-theme command search and light-theme shortcut editor captures were visually inspected. This includes Ctrl+K, New layer, Enter and Ctrl+Z with focus restoration. The installed Preview passed the same 24 checks with reduced motion and its capture was visually inspected.",
+          "current": "The keyboard production executable passed 24 native Wayland and 24 XWayland checks at the 800×600 logical viewport. System-theme command search and light-theme shortcut editor captures were visually inspected. This includes Ctrl+K, New layer, Enter and Ctrl+Z with focus restoration. The installed Preview passed the same 24 checks with reduced motion and its capture was visually inspected.",
           "boundary": "These journeys dispatch GPUI events in process and do not prove compositor-delivered physical input.",
           "evidence": [
             "docs/keyboard-qualification.md",
@@ -848,14 +849,15 @@
           "id": "linux-preview-install",
           "name": "One-command install and rollback",
           "status": "locally-tested",
-          "current": "One curl command sets up Arch/Omarchy dependencies, builds the preview, verifies RAW/subject assets and installs Omuse. A real isolated install/update, complete rollback in both directions and uninstall passed on this host. All 31 installer/bundle tests passed, including failed writes and SIGTERM restoration. The photo-integrity preview update passed its editing self-test, installed-launcher native check and rollback in both directions while retaining matching runtime assets. The keyboard candidate 26211b5 is now installed in Preview: self-test and 24 native checks passed, and the executable/assets, prior complete generation and untouched older application were verified.",
+          "current": "One curl command sets up Arch/Omarchy dependencies, builds the preview, verifies RAW/subject assets and installs Omuse. A real isolated install/update, complete rollback in both directions and uninstall passed on this host. All 31 installer/bundle tests passed, including failed writes and SIGTERM restoration. The photo-integrity preview update passed its editing self-test, installed-launcher native check and rollback in both directions while retaining matching runtime assets. The first AI GUI candidate c0a7200 is installed in Preview: its self-test and 24 native Wayland checks passed, and the executable/assets, prior complete generation and untouched older application were verified. An isolation/status follow-up is in final qualification.",
           "boundary": "First install compiles source locally. No qualified prebuilt download or clean-machine acceptance is claimed. SIGKILL/power-loss installation recovery has not been qualified.",
           "evidence": [
             "docs/keyboard-qualification.md",
             "docs/photo-integrity-hardening.md",
             "docs/install-qualification.md",
             "docs/install.md",
-            "docs/public-release-readiness.md"
+            "docs/public-release-readiness.md",
+            "docs/cua-ai-qualification.md"
           ],
           "modules": [
             "install.sh",
@@ -869,8 +871,8 @@
           "id": "linux-physical-input",
           "name": "Physical keyboard, pointer and Cua",
           "status": "implemented-needs-qualification",
-          "current": "Cua Driver 0.29.1 captured the exact Omuse XWayland window. Foreground pointer input and, after a pointer focus, Ctrl+K, search typing and Enter worked. This reproduced an AI prompt-focus defect. The native Omarchy plugin is inactive because the installed host package/compiler no longer matches its pinned build.",
-          "boundary": "Updated AI GUI fixes are still under validation. Background input had no visible effect, and AT-SPI exposed only window metadata. Broader keyboard/pointer, clipboard, file-dialog and physical-device acceptance remain open.",
+          "current": "Cua Driver 0.29.1 verified foreground XWayland prompt focus, command search, prompt editing, Enter and Ctrl+Enter in the installed AI GUI candidate. The initial request was rejected before model execution because repository instructions were discovered. A supported isolated instruction limit is implemented and its pre-submit diagnostic passed.",
+          "boundary": "786 automated tests passed for the isolation/status follow-up. The final production candidate passed 24 native Wayland checks at 800x600; its live request check is pending. Background input had no visible effect; AT-SPI exposes window metadata only. Native Omarchy plugin compatibility and broader physical acceptance remain open.",
           "evidence": [
             "docs/omuse-create-qualification.md",
             "docs/photo-release-qualification.md",
@@ -1028,8 +1030,8 @@
           "id": "release-ci-github",
           "name": "Public source and remote CI",
           "status": "locally-tested",
-          "current": "Keyboard source 26211b5 passed its full Rust workflow on GitHub, including installer/reference, all-target, editing, motion/recovery and dependency notice checks. The final licensed two-minute Sunset Muse promo is published with a README preview in bd86d9b.",
-          "boundary": "Later AI GUI changes are under local validation and require their own remote run. CI does not establish clean-machine installation or public-binary qualification.",
+          "current": "AI GUI source c0a7200 is published with an exact source-tree match. Its guide/reference workflow passed and the Rust workflow is running. The previous keyboard source passed its full Rust workflow. The licensed two-minute Sunset Muse promo is published with a README preview.",
+          "boundary": "The new runtime still needs its completed export, desktop and remote Rust receipts. CI does not establish clean-machine installation or public-binary qualification.",
           "evidence": [
             "docs/keyboard-qualification.md",
             "docs/public-release-readiness.md",

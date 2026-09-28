@@ -31,8 +31,8 @@ Canvas tool shortcuts still owned focus. Both opening paths now focus the
 composer, and command search preserves that focus after dispatch.
 
 The composer supports Ctrl+Enter submission with Enter retained for newlines.
-The prompt, primary assistant action and active-request Stop control remain
-above the scrolling details. Existing connection, local-only and busy guards
+The prompt, primary assistant action, bounded status feedback and active-request
+Stop control remain above the scrolling details. Existing connection, local-only and busy guards
 also apply to keyboard submission.
 
 Review actions now refuse mutation while a provider request or local result
@@ -44,7 +44,46 @@ The draft prompt, artwork and saved history remain available.
 
 ## Current verification boundary
 
-The updated candidate is undergoing regression and live GUI verification.
+The updated source is published as `c0a7200c05a7c5e4a17e8ca5e35a5e6f0ae615a0`,
+with tree `0dbbdd83df2f9d446f500e156f6711f789a62da8` matching the local
+source checkpoint. All **784 automated tests** passed: 326 library, 217 UI
+and 241 integration tests, with four manual timing benchmarks excluded.
+The editing self-test, six-page PNG/PDF/MP4/GIF export journey and all
+80 editable template variants passed. Seven added UI regressions cover prompt focus
+and submission, command-search focus, toolbar/shortcut focus, the minimum
+800x600 layout, busy review ownership, selection recomposition and connection
+failure recovery. The focused AI group has 26 passing tests.
+
+The first production executable (`dd1ccd5dfa3282d8c43979f4d6489dd9ef624312b922013d2041a67b47e70346`)
+passed its self-test and 24 native Wayland checks at 800x600. Cua verified
+foreground toolbar opening, prompt typing without a tool switch, Ctrl+K from
+the prompt, search execution back into the prompt, Select All, ordinary Enter
+as a newline and Ctrl+Enter submission in the installed Preview.
+
+That first request stopped before `turn/start`: the job lived beneath a
+repository and Codex reported an unexpected instruction source. The canvas
+stayed unchanged. The runtime now sets `project_doc_max_bytes=0` in both its
+isolated process and thread configuration, while still rejecting any nonempty,
+missing or malformed instruction-source evidence before model submission.
+The [official configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference)
+documents the project instruction byte limit. A paired pre-submit check on
+Codex CLI 0.158.0 reported one source without the override and zero with it;
+neither diagnostic submitted a model turn. Two added regressions check the
+response shape and prove that unexpected instructions submit no turn.
+
+The follow-up full run passed **786 tests** (328 library, 217 UI and 241
+integration; four manual benchmarks excluded), including both new isolation
+regressions and the extended minimum-window status test. The editing, six-page
+export and 80-template journeys passed again. After that run, three secondary
+button rows were changed to wrap within the inspector; the final production
+executable (`27f11cb99f7785ae579b6097d8b8cd6eaec5ca096cabccc6595baca70c16f0f3`)
+then passed its editing self-test and all 24 native Wayland checks at 800x600.
+The captured prompt, primary action and status were visible at that minimum
+size. Live request verification in the installed Preview is still pending.
+
+The first published AI GUI candidate also passed both GitHub workflows:
+[Rust and installer checks](https://github.com/Sugata-Software/Omuse/actions/runs/36475325721)
+and [guide/reference checks](https://github.com/Sugata-Software/Omuse/actions/runs/36475325753).
 The baseline Cua captures and result notes are retained locally under
 `rust/evidence/cua-debug-20260929/`; they are not uploaded wholesale.
 Earlier provider evidence remains tied to its named candidate and operation.

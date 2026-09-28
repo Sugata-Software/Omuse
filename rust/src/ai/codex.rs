@@ -213,7 +213,10 @@ fn run_inner(
                 "developerInstructions": instructions,
                 "config": {
                     "features": runtime_feature_overrides(request.operation),
-                    "mcp_servers": {}
+                    "mcp_servers": {},
+                    // A creative job can live below an unrelated repository.
+                    // Its AGENTS.md files must not enter this isolated request.
+                    "project_doc_max_bytes": 0
                 }
             }
         }))
@@ -228,16 +231,7 @@ fn run_inner(
             RunError::BeforeSubmit(AiError::Protocol("Codex omitted the thread id".into()))
         })?
         .to_owned();
-    let instruction_sources = thread
-        .get("instructionSources")
-        .and_then(Value::as_array)
-        .map(Vec::len)
-        .unwrap_or(0);
-    if instruction_sources != 0 {
-        return Err(RunError::BeforeSubmit(AiError::Protocol(
-            "Codex loaded unexpected workspace instructions".into(),
-        )));
-    }
+    validate_instruction_sources(&thread).map_err(RunError::BeforeSubmit)?;
     verify_runtime_profile(
         &mut process,
         Some(&thread_id),
@@ -589,6 +583,8 @@ fn app_server_args() -> Vec<OsString> {
     args.push("skip_host_skill_discovery".into());
     args.push("-c".into());
     args.push("mcp_servers={}".into());
+    args.push("-c".into());
+    args.push("project_doc_max_bytes=0".into());
     args
 }
 
@@ -789,6 +785,22 @@ fn parse_structured_output(request: &JobRequest, text: &str) -> Result<Option<Va
     Ok(Some(value))
 }
 
+fn validate_instruction_sources(thread: &Value) -> Result<(), AiError> {
+    let sources = thread
+        .get("instructionSources")
+        .ok_or_else(|| AiError::Protocol("Codex omitted instruction-source evidence".into()))?
+        .as_array()
+        .ok_or_else(|| {
+            AiError::Protocol("Codex returned malformed instruction-source evidence".into())
+        })?;
+    if !sources.is_empty() {
+        return Err(AiError::Protocol(
+            "Codex loaded unexpected workspace instructions".into(),
+        ));
+    }
+    Ok(())
+}
+
 fn is_cancelled(cancelled: &AtomicBool, error: &AiError) -> bool {
     cancelled.load(Ordering::Relaxed)
         || matches!(error, AiError::Protocol(message) if message == "cancelled")
@@ -839,5 +851,26 @@ mod tests {
     fn shell_tool_must_still_be_disabled() {
         let error = verify_feature_profile(&isolated_features(true)).unwrap_err();
         assert!(error.to_string().contains("shell_tool"));
+    }
+
+    #[test]
+    fn instruction_source_evidence_must_be_an_explicit_empty_array() {
+        assert!(validate_instruction_sources(&json!({ "instructionSources": [] })).is_ok());
+
+        for response in [
+            json!({}),
+            json!({ "instructionSources": null }),
+            json!({ "instructionSources": "none" }),
+            json!({ "instructionSources": {} }),
+            json!({ "instructionSources": [{ "path": "AGENTS.md" }] }),
+        ] {
+            assert!(
+                matches!(
+                    validate_instruction_sources(&response),
+                    Err(AiError::Protocol(_))
+                ),
+                "untrusted instruction-source evidence must fail closed: {response}"
+            );
+        }
     }
 }
