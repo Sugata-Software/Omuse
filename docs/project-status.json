@@ -35,8 +35,8 @@
   "releaseSnapshot": [
     {
       "label": "Current regression suite",
-      "value": "786 tests passed",
-      "detail": "328 library, 217 UI and 241 integration tests passed, with four manual timing benchmarks excluded. Nine added regressions cover AI focus/submission, compact layout, review ownership, connection recovery and rejection of workspace instructions before submission. Editing, six-page PNG/PDF/MP4/GIF exports and all 80 templates passed. The final production build passed its self-test and 24 native Wayland checks at 800x600; the installed live assistant retest is pending.",
+      "value": "789 tests passed",
+      "detail": "330 library, 218 UI and 241 integration tests passed, with four manual timing benchmarks excluded. Twelve added regressions cover AI focus/submission, compact layout, review ownership, connection recovery, instruction isolation, native shape/text plans and invalid-result feedback. The current editing self-test passed; final export, production and live Keep/Undo checks are in progress.",
       "status": "locally-tested"
     },
     {
@@ -551,7 +551,7 @@
           "id": "ai-framework",
           "name": "Ask Omuse job, review and history model",
           "status": "locally-tested",
-          "current": "Provider routes, billing labels, Local-only mode, bounded jobs, review groups, stale-result protection, Keep, Undo and saved provenance are implemented. Ask Omuse focuses its prompt from toolbar, shortcut and command search; Ctrl+Enter submits. Busy reviews are protected and failed runtime connections require refresh.",
+          "current": "Provider routes, billing labels, Local-only mode, bounded jobs, review groups, stale-result protection, Keep, Undo and saved provenance are implemented. Ask Omuse focuses its prompt from toolbar, shortcut and command search; Ctrl+Enter submits. Busy reviews are protected and failed runtime connections require refresh. The assistant instructions include native shapes and text styling; invalid styles are rejected before preparation and review errors remain beside the prompt.",
           "boundary": "A local invariant does not prove provider availability, visual quality or cancellation after remote acceptance.",
           "evidence": [
             "docs/omuse-create-and-ai-plan.md",
@@ -871,8 +871,8 @@
           "id": "linux-physical-input",
           "name": "Physical keyboard, pointer and Cua",
           "status": "implemented-needs-qualification",
-          "current": "Cua Driver 0.29.1 verified foreground XWayland prompt focus, command search, prompt editing, Enter and Ctrl+Enter in the installed AI GUI candidate. The initial request was rejected before model execution because repository instructions were discovered. A supported isolated instruction limit is implemented and its pre-submit diagnostic passed.",
-          "boundary": "786 automated tests passed for the isolation/status follow-up. The final production candidate passed 24 native Wayland checks at 800x600; its live request check is pending. Background input had no visible effect; AT-SPI exposes window metadata only. Native Omarchy plugin compatibility and broader physical acceptance remain open.",
+          "current": "Cua Driver 0.29.1 verified foreground XWayland prompt focus, command search, editing, Enter, Ctrl+Enter and active Stop/status controls in installed Preview 920fcc0. Its bounded Codex request completed; invalid text colours were rejected before Keep and the original canvas remained unchanged. The assistant colour/shape instructions and review presentation are corrected; the live retest is pending.",
+          "boundary": "789 automated tests passed for the assistant-contract follow-up. The earlier isolation production candidate passed 24 native Wayland checks at 800x600. Current production and live Keep/Undo checks are pending. Background input had no visible effect; AT-SPI exposes window metadata only. Native Omarchy plugin compatibility and broader physical acceptance remain open.",
           "evidence": [
             "docs/omuse-create-qualification.md",
             "docs/photo-release-qualification.md",

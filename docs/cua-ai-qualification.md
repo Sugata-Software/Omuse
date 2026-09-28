@@ -79,7 +79,20 @@ button rows were changed to wrap within the inspector; the final production
 executable (`27f11cb99f7785ae579b6097d8b8cd6eaec5ca096cabccc6595baca70c16f0f3`)
 then passed its editing self-test and all 24 native Wayland checks at 800x600.
 The captured prompt, primary action and status were visible at that minimum
-size. Live request verification in the installed Preview is still pending.
+size. The installed Preview uses public source `920fcc0422bab3b78c9bdf359b3d4e1b4dc16739`.
+Cua submitted a bounded synthetic workshop brief through Ctrl+Enter on Codex
+CLI 0.158.0. The request completed, but its plan incorrectly used byte RGB
+values for normalized text colours. Preparation rejected it, offered no Keep
+action and left the original canvas unchanged. The assistant also omitted a
+requested native shape because that existing operation was missing from its
+instructions. The instruction contract now advertises existing `add_shape` and `style_text`
+operations and distinguishes normalized text/shape colours from background byte
+RGBA. Invalid text, rich-text and shape styles are rejected before preparation.
+The review now exposes preparation errors beside the prompt, bounds preview
+heights and shortens long history labels visually while retaining their full
+accessible label and review description. This follow-up passed **789 tests** (330 library, 218 UI, 241 integration;
+four manual benchmarks excluded) and the editing self-test. The final export
+journey, production build and live Keep/Undo retest are in progress. No API key or separately billed API was used.
 
 The first published AI GUI candidate also passed both GitHub workflows:
 [Rust and installer checks](https://github.com/Sugata-Software/Omuse/actions/runs/36475325721)
@@ -93,8 +106,12 @@ Earlier provider evidence remains tied to its named candidate and operation.
 The final two-minute Sunset Muse film is in the public repository and linked
 from the README. Its MP4 was downloaded back from the published commit and
 matched the local file's SHA-256 and 18,512,367-byte size. The poster was
-visually inspected locally. A browser rendering check was unavailable because
+visually inspected locally. A GitHub browser rendering check was unavailable because
 no Browser connection was available in this session.
 
 See the [film and attribution record](media/omuse-sunset-muse-credits.md).
 Publishing this preview trailer does not change the binary-release status.
+
+The intermediate isolation candidate `920fcc0` passed both GitHub workflows:
+[Rust and installer checks](https://github.com/Sugata-Software/Omuse/actions/runs/36480084825)
+and [guide/reference checks](https://github.com/Sugata-Software/Omuse/actions/runs/36480084866).

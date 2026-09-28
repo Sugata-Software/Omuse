@@ -633,10 +633,15 @@ impl EditorView {
                 history = history.child(
                     button(
                         SharedString::from(format!("ai-history-{}", entry.id)),
-                        SharedString::from(text),
+                        "",
                         ButtonVariant::Secondary,
                         cx,
                     )
+                    .accessibility_label(SharedString::from(text.clone()))
+                    .w_full()
+                    .min_w_0()
+                    .justify_start()
+                    .child(div().min_w_0().flex_1().text_ellipsis().child(text))
                     .disabled(ai_busy)
                     .on_click(cx.listener(move |this, _, _, cx| {
                         this.select_ai_history(&entry_id, cx);
@@ -709,18 +714,30 @@ impl EditorView {
             }
             if let Some(before) = &proposal.before_preview {
                 card = card.child(label("Before", cx)).child(
-                    gpui_kit::img(before.clone())
+                    div()
                         .w_full()
-                        .max_h(px(180.))
-                        .object_fit(gpui_kit::ObjectFit::Contain),
+                        .h(px(180.))
+                        .flex_shrink_0()
+                        .overflow_hidden()
+                        .child(
+                            gpui_kit::img(before.clone())
+                                .size_full()
+                                .object_fit(gpui_kit::ObjectFit::Contain),
+                        ),
                 );
             }
             if let Some(preview) = &proposal.preview {
                 card = card.child(label("After", cx)).child(
-                    gpui_kit::img(preview.clone())
+                    div()
                         .w_full()
-                        .max_h(px(240.))
-                        .object_fit(gpui_kit::ObjectFit::Contain),
+                        .h(px(240.))
+                        .flex_shrink_0()
+                        .overflow_hidden()
+                        .child(
+                            gpui_kit::img(preview.clone())
+                                .size_full()
+                                .object_fit(gpui_kit::ObjectFit::Contain),
+                        ),
                 );
             }
             if let Some(error) = &proposal.error {
@@ -1216,7 +1233,7 @@ impl EditorView {
                 .child(
                     div()
                         .flex()
-                        .flex_wrap()
+                        .flex_col()
                         .gap_1()
                         .child(label(
                             format!(
@@ -1227,31 +1244,36 @@ impl EditorView {
                             cx,
                         ))
                         .child(
-                            button("ai-variations-1", "1", ButtonVariant::Secondary, cx)
-                                .selected(self.ai.variation_count == 1)
-                                .disabled(!image_generation_available && !image_edit_available)
-                                .on_click(cx.listener(|this, _, _, cx| {
-                                    this.ai.variation_count = 1;
-                                    cx.notify();
-                                })),
-                        )
-                        .child(
-                            button("ai-variations-2", "2", ButtonVariant::Secondary, cx)
-                                .selected(self.ai.variation_count == 2)
-                                .disabled(!image_generation_available && !image_edit_available)
-                                .on_click(cx.listener(|this, _, _, cx| {
-                                    this.ai.variation_count = 2;
-                                    cx.notify();
-                                })),
-                        )
-                        .child(
-                            button("ai-variations-4", "4", ButtonVariant::Secondary, cx)
-                                .selected(self.ai.variation_count == 4)
-                                .disabled(!image_generation_available && !image_edit_available)
-                                .on_click(cx.listener(|this, _, _, cx| {
-                                    this.ai.variation_count = 4;
-                                    cx.notify();
-                                })),
+                            div()
+                                .flex()
+                                .gap_1()
+                                .child(
+                                    button("ai-variations-1", "1", ButtonVariant::Secondary, cx)
+                                        .selected(self.ai.variation_count == 1)
+                                        .disabled(!image_generation_available && !image_edit_available)
+                                        .on_click(cx.listener(|this, _, _, cx| {
+                                            this.ai.variation_count = 1;
+                                            cx.notify();
+                                        })),
+                                )
+                                .child(
+                                    button("ai-variations-2", "2", ButtonVariant::Secondary, cx)
+                                        .selected(self.ai.variation_count == 2)
+                                        .disabled(!image_generation_available && !image_edit_available)
+                                        .on_click(cx.listener(|this, _, _, cx| {
+                                            this.ai.variation_count = 2;
+                                            cx.notify();
+                                        })),
+                                )
+                                .child(
+                                    button("ai-variations-4", "4", ButtonVariant::Secondary, cx)
+                                        .selected(self.ai.variation_count == 4)
+                                        .disabled(!image_generation_available && !image_edit_available)
+                                        .on_click(cx.listener(|this, _, _, cx| {
+                                            this.ai.variation_count = 4;
+                                            cx.notify();
+                                        })),
+                                ),
                         ),
                 );
         }
@@ -2343,7 +2365,9 @@ impl EditorView {
                             this.ai.history.insert(0, entry);
                             this.ai.history.truncate(ai_history::MAX_ENTRIES);
                         }
-                        this.ai.activity = if let Some(error) = qualification_error.as_ref() {
+                        this.ai.activity = if let Some(error) = prepared.proposal.error.as_ref() {
+                            format!("{error}. Your canvas is unchanged.")
+                        } else if let Some(error) = qualification_error.as_ref() {
                             format!(
                                 "Result is ready to review, but this capability could not be recorded locally: {error:#}. Further variations were not sent."
                             )
@@ -3016,7 +3040,9 @@ impl EditorView {
                             if let Some(pixels) = prepared.before_preview_pixels.take() {
                                 prepared.proposal.before_preview = Some(render_image(&pixels));
                             }
-                            this.ai.activity = if source_is_current {
+                            this.ai.activity = if let Some(error) = prepared.proposal.error.as_ref() {
+                                format!("{error}. Your canvas is unchanged.")
+                            } else if source_is_current {
                                 "Saved result is ready to review.".into()
                             } else {
                                 "Saved result is ready to review. Its original canvas is no longer active, so it cannot be applied as an edit.".into()
@@ -4907,6 +4933,61 @@ mod tests {
             assert!(proposal.preview.is_some());
             assert!(proposal.document.is_none());
             assert!(proposal.project.is_none());
+        });
+    }
+
+    #[gpui_kit::test]
+    fn invalid_saved_plan_reports_its_error_without_changing_the_canvas(cx: &mut TestAppContext) {
+        cx.update(crate::init_test_theme);
+        let temporary = tempfile::tempdir().unwrap();
+        let root = temporary.path().to_path_buf();
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            let mut view = EditorView::new(None, window, cx);
+            view.dialog = Dialog::None;
+            view.editor = Editor::new(Document::new(40, 30));
+            view.inspector_tab = studio_ui::InspectorTab::Assistant;
+            view.inspector_visible = true;
+            view.ai.checking = true;
+            view.refresh(cx);
+            view
+        });
+        let before = view.update_in(cx, |view, _, cx| {
+            let before = view.editor.document.clone();
+            let mut stored = retained_history_fixture(view, &root);
+            stored.source = view.ai_source_identity();
+            stored.operation = Operation::Assistant;
+            stored.assets.clear();
+            stored.provenance = serde_json::Value::Null;
+            stored.plan_json = Some(
+                serde_json::json!({
+                    "summary": "Add orange copy",
+                    "operations": [{"type":"add_text", "name":"Headline", "x":0, "y":0,
+                        "style":{"content":"Hello", "red":218, "green":83, "blue":36}}]
+                })
+                .to_string(),
+            );
+            view.ai.history = vec![stored.clone()];
+            view.select_ai_history(&stored.id, cx);
+            before
+        });
+        cx.run_until_parked();
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        assert!(cx.debug_bounds("ai-apply-plan").is_none());
+        view.update_in(cx, |view, _, _| {
+            assert!(!view.ai.preparing_image);
+            assert!(
+                view.ai
+                    .activity
+                    .contains("normalized numbers between 0 and 1")
+            );
+            assert!(view.ai.activity.contains("canvas is unchanged"));
+            let proposal = view.ai.result.as_ref().expect("retained failed review");
+            assert!(proposal.error.is_some());
+            assert!(proposal.document.is_none() && proposal.project.is_none());
+            assert!(omuse::create_history::documents_match(
+                &before,
+                &view.editor.document
+            ));
         });
     }
 
