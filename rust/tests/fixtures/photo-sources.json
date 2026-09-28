@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "name": "nikon-d90.nef",
+      "url": "https://raw.pixls.us/getfile.php/1325/nice/Nikon - D90 - 12bit 12bit compressed (Lossy (type 2)) (3:2).NEF",
+      "sha256": "9eb3daa4e3d1c1614bccc4c6d136c4166960f936f17c437cc4d11a5786b2df06",
+      "license": "CC0-1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "source_page": "https://raw.pixls.us/",
+      "catalogue_entry": [
+        "Nikon",
+        "D90",
+        "12bit 12bit compressed (Lossy (type 2)) (3:2)",
+        12.48,
+        "",
+        "<a href='https://creativecommons.org/publicdomain/zero/1.0/' title='Creative Commons 0 - Public Domain' class='cc'>co</a>",
+        "2017-04-08",
+        "<a href='https://raw.pixls.us/getfile.php/1325/nice/Nikon - D90 - 12bit 12bit compressed (Lossy (type 2)) (3:2).NEF'>Nikon - D90 - 12bit 12bit compressed (Lossy (type 2)) (3:2).NEF</a><div class='checksumdata'><span title='sha256 Checksum'>9eb3daa4e3d1c1614bccc4c6d136c4166960f936f17c437cc4d11a5786b2df06</span>&nbsp;(11.11MB)</div>",
+        "<a target='_blank' href='https://raw.pixls.us/getfile.php/1325/exif/00001.NEF.exif.txt'>exifdata</a>"
+      ],
+      "bytes": 11653767
+    },
+    {
+      "name": "canon-450d.cr2",
+      "url": "https://raw.pixls.us/getfile.php/1353/nice/Canon - EOS 450D - RAW (3:2).CR2",
+      "sha256": "e975f71429b939701dd618a7bac4709c1409f4bb6aa1c3607ceeaa86031c1c4a",
+      "license": "CC0-1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "source_page": "https://raw.pixls.us/",
+      "catalogue_entry": [
+        "Canon",
+        "EOS 450D",
+        "RAW (3:2)",
+        12.17,
+        "",
+        "<a href='https://creativecommons.org/publicdomain/zero/1.0/' title='Creative Commons 0 - Public Domain' class='cc'>co</a>",
+        "2017-04-19",
+        "<a href='https://raw.pixls.us/getfile.php/1353/nice/Canon - EOS 450D - RAW (3:2).CR2'>Canon - EOS 450D - RAW (3:2).CR2</a><div class='checksumdata'><span title='sha256 Checksum'>e975f71429b939701dd618a7bac4709c1409f4bb6aa1c3607ceeaa86031c1c4a</span>&nbsp;(16.77MB)</div>",
+        "<a target='_blank' href='https://raw.pixls.us/getfile.php/1353/exif/_MG_7191.CR2.exif.txt'>exifdata</a>"
+      ],
+      "bytes": 17582091
+    },
+    {
+      "name": "astronaut.png",
+      "url": "https://raw.githubusercontent.com/scikit-image/scikit-image/v0.25.2/skimage/data/astronaut.png",
+      "sha256": "88431cd9653ccd539741b555fb0a46b61558b301d4110412b5bc28b5e3ea6cb5",
+      "license": "Public domain (NASA)",
+      "license_url": "https://scikit-image.org/docs/stable/api/skimage.data.html#skimage.data.astronaut",
+      "credit": "NASA, Eileen Collins portrait",
+      "bytes": 791555
+    }
+  ]
+}

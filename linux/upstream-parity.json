@@ -1,0 +1,30 @@
+{
+  "upstream_remote": "upstream",
+  "upstream_ref": "upstream/main",
+  "protected_roots": [
+    "Compositor",
+    "CompositorTests"
+  ],
+  "allowed_paths": [],
+  "excluded_upstream_tests": "linux/UPSTREAM_TEST_EXCLUSIONS.md",
+  "overrides": {
+    "Compositor/Rendering/MetalBrushCoverage.swift": "Sources/Overrides/MetalBrushCoverage.swift",
+    "Compositor/Rendering/MetalLayerEffects.swift": "Sources/Overrides/MetalLayerEffects.swift",
+    "Compositor/IO/CompositorApplicationDelegate.swift": "Qt application composition root",
+    "Compositor/Rendering/EditorCanvas.swift": "Qt canvas adapter",
+    "Compositor/Rendering/InlineTextEditor.swift": "Qt text editor adapter",
+    "Compositor/Rendering/BrushCursorOverlay.swift": "Qt cursor adapter",
+    "Compositor/Rendering/SampleRingOverlay.swift": "Qt sampling overlay",
+    "Compositor/UI/BlendModePicker.swift": "Sources/Overrides/UIStandIns.swift (real NSPopUpButton needs #selector/@objc target-action, unavailable on Linux Swift; replaced with an equivalent Picker)",
+    "Compositor/UI/TypeControls.swift": "Sources/Overrides/TypeControls.swift (real font picker needs NSFontManager/NSPopUpButton/#selector; replaced with an equivalent TextField, rest of the panel copied verbatim)",
+    "Compositor/UI/NativeLayerList.swift": "Sources/Overrides/NativeLayerListOverride.swift (real NSTableView drag/selection needs #selector target-action throughout; replaced with a List/ForEach backend over EditorSession's existing list-shaped API — reorder wiring included, not yet connected to a drag gesture)",
+    "Compositor/UI/ProjectWindowBridge.swift": "Sources/Overrides/ProjectWindowBridgeOverride.swift (real NSObject.responds(to:)/forwardingTarget(for:) delegate-forwarding needs the Objective-C runtime, absent on Linux Swift; the forwarding path is provably dead code on this platform regardless — nothing else ever sets a delegate on this window — so the override keeps only the live windowShouldClose behavior)",
+    "Compositor/UI/KeyboardShortcuts.swift": "Sources/Overrides/KeyboardShortcuts.swift (verbatim copy of all upstream logic except the private ShortcutRecorder, whose real NSButton/#selector needs the Objective-C runtime; replaced with an equivalent that shows the current chord — completing a re-record via keystroke capture is a known, documented remaining gap)",
+    "Compositor/UI/CameraRawSlider.swift": "Sources/Overrides/CameraRawSlider.swift (real file is an NSSlider subclass reached through NSViewRepresentable with #selector/@objc and custom NSSliderCell; replaced with an equivalent SwiftUI Slider)",
+    "Compositor/UI/IndicatorlessScrollView.swift": "Sources/Overrides/IndicatorlessScrollView.swift (real file is a custom NSScrollView subclass via NSViewRepresentable solely to hide indicators; replaced with ScrollView(.vertical) + .scrollIndicators(.hidden))",
+    "Compositor/UI/SliderSnap.swift": "not applicable on Linux: its only caller, Compositor/IO/CompositorApplicationDelegate.swift, is already excluded above, so this file has no reachable call site in this port regardless of Objective-C availability",
+    "Compositor/UI/ProjectTabs.swift": "Sources/Overrides/ProjectTabs.swift (verbatim copy of everything except ProjectWorkspaceView, which alone needs Compositor/ContentView.swift/CompositorApplicationDelegate, the whole app shell; ProjectTabStrip + all its private helpers — NewTabDropSlot, ProjectTabButton, NewProjectDropTarget, ProjectTabDropDelegate — compile and resolve unmodified against the real Compositor/Document/ProjectWorkspace.swift and Compositor/IO/ProjectController.swift, both already wired in)",
+    "Compositor/ContentView.swift": "Sources/Overrides/ContentView.swift (byte-for-byte copy with exactly one deviation, explicitly authorized by the user: `body`'s 11-call `.onChange` chain made Swift's constraint solver time out — proven, not assumed, by removing one of the two required `.onChange` overloads entirely, which fixed it in 25s, and by exhausting every mitigation that keeps both overloads working, including @_disfavoredOverload and every flag `swift-frontend -help-hidden` lists for solver tuning; none sufficed. `body` is split into `bodyCore` + `body`, the same technique upstream's own authors already used twice in this exact file for the identical reason (`toolHeaders`/`editorStack`/`editorChrome`) — this is a third application of an existing upstream pattern, not a new one, and does not change behavior. Also needed a minimal, honestly-scoped CompositorApplicationDelegate stand-in — carrying only the three plain members ContentView.swift reads (workspace/projects/showEditor), never the real class's NSObject/NSApplicationDelegate/Sparkle surface, which stays a deliberate Qt-owned exclusion — plus a `Button(_:role:action:)` compat addition)"
+  },
+  "status": "Shared Mac sources compile through compatibility modules and documented overrides. Compilation coverage does not establish functional, visual or performance parity. Visible Qt interaction checks and remaining release gates are documented in docs/linux-release-readiness.md and docs/linux-parity-status.md. The protected source baseline remains 75c4219; newer Mac finishing filters have not been merged."
+}

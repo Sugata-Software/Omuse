@@ -1,0 +1,7 @@
+# Selected Sculpted mark
+
+The user selected the Sculpted Muse variation. The built-in image-generation tool extracted a standalone reference in [omuse-sculpted-reference.png](omuse-sculpted-reference.png). That raster output contains a baked checkerboard, so it is retained only as a design reference. The production mark was redrawn as three clean SVG paths with true transparent negative space; it does not embed that raster image.
+
+## Extraction prompt
+
+Use case: logo-brand. Final selected Omuse logo asset. Reference: ONLY the bottom-right '04 Sculpted' emblem in the attached board. Isolate and faithfully refine that exact chosen symbol into a standalone high-resolution square logo image with a genuinely transparent background. Preserve its geometry and identity: right-facing graceful Muse profile created in negative space within a roughly circular dark silhouette; two large flowing hair sweeps; no laurel, no eye, no extra details; no crescent framing. One solid ink colour #202329. Transparent negative spaces, not white fills. Maintain the same confident silhouette, face and neck shape, and the same asymmetric sweep boundaries as the reference. Center the icon with even generous padding (approximately 12 percent on each side). Clean flat 2D vector-like edges, no texture, no gradient, no shadow, no rounded-square tile, no wordmark, no lettering, no labels, no mockup. This is the final app-symbol extraction of the already selected Sculpted design, not a new design exploration.

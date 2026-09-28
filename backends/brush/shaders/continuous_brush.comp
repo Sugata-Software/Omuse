@@ -1,0 +1,82 @@
+#version 450
+layout(local_size_x=16,local_size_y=16) in;
+struct BrushUniforms { vec4 mapping; vec4 geometry; vec4 canvas; uvec4 counts; };
+layout(push_constant) uniform Parameters { BrushUniforms u; } params;
+layout(std430,binding=0) buffer Permanent { float permanent[]; };
+layout(std430,binding=1) writeonly buffer Preview { uint preview[]; };
+layout(std430,binding=2) readonly buffer Segments { vec4 segments[]; };
+float segmentDistanceSquared(vec2 p, vec4 segment) {
+    vec2 v = segment.zw - segment.xy;
+    float t = clamp(dot(p - segment.xy, v) / max(dot(v, v), 1e-12f), 0.0f, 1.0f);
+    vec2 delta = p - (segment.xy + t * v);
+    return dot(delta, delta);
+}
+
+float brushCoverage(float distanceSquared, BrushUniforms u) {
+    float distance = sqrt(distanceSquared);
+    float radius = u.geometry.z;
+    if (u.geometry.w >= 1.0f) {
+        return clamp((radius - distance) / u.canvas.z + 0.5f, 0.0f, 1.0f);
+    }
+    float t = clamp((distance / radius - u.geometry.w) / (1.0f - u.geometry.w), 0.0f, 1.0f);
+    return max(0.0f, (exp(-2.5f * t * t) - exp(-2.5f)) / (1.0f - exp(-2.5f)));
+}
+
+// Integrate paint deposition by distance travelled, not pointer-event count or
+// spline subdivision count. Optical density adds; coverage is 1 - exp(-density).
+// This is the continuous form of source-over soft dabs at the shared deposition spacing.
+float tipDensity(float distanceSquared, BrushUniforms u) {
+    return -log(max(1.0f - brushCoverage(distanceSquared, u), 0.001f));
+}
+
+float segmentDensity(vec2 p, vec4 segment, BrushUniforms u) {
+    vec2 v = segment.zw - segment.xy;
+    float length = length(v);
+    if (length < 1e-6f) return tipDensity(dot(p - segment.xy, p - segment.xy), u); // initial click
+    vec2 direction = v / length;
+    float projection = dot(p - segment.xy, direction);
+    vec2 perpendicular = p - segment.xy - projection * direction;
+    float perpendicularSquared = dot(perpendicular, perpendicular);
+    float radiusSquared = u.geometry.z * u.geometry.z;
+    if (perpendicularSquared >= radiusSquared) return 0.0f;
+    float reach = sqrt(radiusSquared - perpendicularSquared);
+    float lo = max(0.0f, projection - reach), hi = min(length, projection + reach);
+    if (hi <= lo) return 0.0f;
+    float midpoint = (lo + hi) * 0.5f, halfLength = (hi - lo) * 0.5f;
+    // Eight-point Gauss-Legendre quadrature, clipped to the tip's support.
+    // Long sparse events and short dense events produce the same paint coverage.
+    const float nodes[4] = float[4](0.1834346425f, 0.5255324099f, 0.7966664774f, 0.9602898565f);
+    const float weights[4] = float[4](0.3626837834f, 0.3137066459f, 0.2223810345f, 0.1012285363f);
+    float integral = 0.0f;
+    for (uint i = 0; i < 4; ++i) {
+        float a = midpoint - halfLength * nodes[i] - projection;
+        float b = midpoint + halfLength * nodes[i] - projection;
+        integral += weights[i] * (tipDensity(perpendicularSquared + a * a, u)
+                                + tipDensity(perpendicularSquared + b * b, u));
+    }
+    return integral * halfLength / u.canvas.w;
+}
+
+void main() {
+    BrushUniforms u = params.u;
+    uvec2 pixel = gl_GlobalInvocationID.xy;
+    if (pixel.x >= u.counts.x || pixel.y >= u.counts.y) return;
+    uint index = pixel.y*u.counts.x+pixel.x;
+    vec2 local = vec2(pixel)+0.5;
+    vec2 p = u.geometry.xy+local.x*u.mapping.xy+local.y*u.mapping.zw;
+    if (any(lessThan(p,vec2(0))) || any(greaterThanEqual(p,u.canvas.xy))) { preview[index]=0; return; }
+    if (u.geometry.w >= 1) {
+        float settled = uintBitsToFloat(0x7f800000), tail = settled;
+        for (uint i=0;i<u.counts.z;++i) settled=min(settled,segmentDistanceSquared(p,segments[i]));
+        for (uint i=u.counts.z;i<u.counts.w;++i) tail=min(tail,segmentDistanceSquared(p,segments[i]));
+        float value=max(permanent[index],brushCoverage(settled,u));
+        permanent[index]=value;
+        preview[index]=uint(floor(255*max(value,brushCoverage(tail,u))+0.5));
+    } else {
+        float value=permanent[index], tail=0;
+        for (uint i=0;i<u.counts.z;++i) value+=segmentDensity(p,segments[i],u);
+        for (uint i=u.counts.z;i<u.counts.w;++i) tail+=segmentDensity(p,segments[i],u);
+        permanent[index]=min(value,20);
+        preview[index]=uint(floor(255*(1-exp(-min(value+tail,20)))+0.5));
+    }
+}

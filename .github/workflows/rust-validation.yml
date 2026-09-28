@@ -1,0 +1,154 @@
+name: Omuse Rust validation
+
+on:
+  push:
+    branches: [main, GNU_Linux, rewrite/rust-gpui, 'feat/omuse-create-ai', 'release/**']
+    paths:
+      - 'rust/**'
+      - 'scripts/build-rust.sh'
+      - 'scripts/prepare-rust-assets.sh'
+      - 'scripts/install-rust.sh'
+      - 'scripts/test-rust.sh'
+      - 'scripts/native-rust-check.py'
+      - 'scripts/native-display-check.py'
+      - 'scripts/rust-release-qualification.py'
+      - 'scripts/create-recovery-check.py'
+      - 'scripts/package-rust.sh'
+      - 'scripts/install-rust-bundle.sh'
+      - 'scripts/test-rust-bundle.py'
+      - 'scripts/rust-license-inventory.py'
+      - 'scripts/test-rust-license-inventory.py'
+      - '.github/workflows/rust-validation.yml'
+      - 'rust-toolchain.toml'
+  pull_request:
+    branches: [main, GNU_Linux, rewrite/rust-gpui]
+    paths:
+      - 'rust/**'
+      - 'scripts/build-rust.sh'
+      - 'scripts/prepare-rust-assets.sh'
+      - 'scripts/install-rust.sh'
+      - 'scripts/test-rust.sh'
+      - 'scripts/native-rust-check.py'
+      - 'scripts/native-display-check.py'
+      - 'scripts/rust-release-qualification.py'
+      - 'scripts/create-recovery-check.py'
+      - 'scripts/package-rust.sh'
+      - 'scripts/install-rust-bundle.sh'
+      - 'scripts/test-rust-bundle.py'
+      - 'scripts/rust-license-inventory.py'
+      - 'scripts/test-rust-license-inventory.py'
+      - '.github/workflows/rust-validation.yml'
+      - 'rust-toolchain.toml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rust-validation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Omuse format, check, UI tests, and editing journey
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CARGO_BUILD_JOBS: '2'
+      CARGO_INCREMENTAL: '0'
+      RUST_BACKTRACE: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Install documented Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            pkg-config \
+            libwayland-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
+            libfontconfig1-dev \
+            liblcms2-dev \
+            ffmpeg
+          pkg-config --modversion wayland-client xkbcommon xkbcommon-x11 fontconfig lcms2
+
+      - name: Install the exercised Rust toolchain
+        run: |
+          rustup toolchain install 1.98.0 --profile minimal --component rustfmt
+          rustup default 1.98.0
+          rustc --version --verbose
+          cargo --version
+
+      - name: Cache locked Cargo inputs and build outputs
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+          key: omuse-rust-validation-ubuntu-24.04-rust-1.98.0-${{ hashFiles('rust/Cargo.lock') }}
+          restore-keys: |
+            omuse-rust-validation-ubuntu-24.04-rust-1.98.0-
+
+      - name: Check all Rust targets with the UI test surface
+        run: >-
+          cargo check
+          --manifest-path rust/Cargo.toml
+          --release
+          --locked
+          --all-targets
+          --features ui-test
+          --jobs "$CARGO_BUILD_JOBS"
+
+      - name: Run the Rust release validation suite
+        env:
+          OMUSE_TEST_KEEP: '1'
+          TMPDIR: ${{ runner.temp }}
+        run: scripts/test-rust.sh
+
+      - name: Retain editable-template and carousel render evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: omuse-create-renders
+          path: |
+            ${{ runner.temp }}/omuse-tests.*/journey/results.json
+            ${{ runner.temp }}/omuse-tests.*/template-catalog/*.png
+            ${{ runner.temp }}/omuse-tests.*/template-catalog/results.json
+            ${{ runner.temp }}/omuse-tests.*/create-journey/social-export
+            ${{ runner.temp }}/omuse-tests.*/create-journey/*.png
+            ${{ runner.temp }}/omuse-tests.*/create-journey/*.mp4
+            ${{ runner.temp }}/omuse-tests.*/create-journey/*.gif
+          if-no-files-found: warn
+
+      - name: Qualify motion exports and interrupted collection saves
+        run: |
+          cargo run --manifest-path rust/Cargo.toml --release --locked --example media_acceptance -- "$RUNNER_TEMP/omuse-media"
+          cargo build --manifest-path rust/Cargo.toml --release --locked --example create_recovery_fixture
+          python3 scripts/create-recovery-check.py "$RUNNER_TEMP/omuse-create-recovery" --fixture "$GITHUB_WORKSPACE/rust/target/release/examples/create_recovery_fixture"
+
+      - name: Retain motion and recovery evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: omuse-create-media-recovery
+          path: |
+            ${{ runner.temp }}/omuse-media
+            ${{ runner.temp }}/omuse-create-recovery
+          if-no-files-found: warn
+
+      - name: Verify offline installer isolation and integrity
+        run: python3 scripts/test-rust-bundle.py
+
+      - name: Verify dependency notice overrides
+        run: |
+          python3 scripts/test-rust-license-inventory.py
+          python3 scripts/rust-license-inventory.py "$RUNNER_TEMP/omuse-notices"
+
+      - name: Retain dependency review evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: omuse-dependency-notices
+          path: ${{ runner.temp }}/omuse-notices

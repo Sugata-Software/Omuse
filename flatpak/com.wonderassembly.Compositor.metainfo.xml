@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.wonderassembly.Compositor</id>
+
+  <name>Compositor</name>
+  <summary>A free, open-source, Photoshop-style image editor</summary>
+
+  <developer id="com.wonderassembly">
+    <name>Wonder Assembly LLC</name>
+  </developer>
+
+  <launchable type="desktop-id">com.wonderassembly.Compositor.desktop</launchable>
+
+  <project_license>MIT</project_license>
+  <metadata_license>CC0-1.0</metadata_license>
+
+  <url type="homepage">https://github.com/robbietilton/Compositor</url>
+
+  <description>
+    <p>
+      Compositor is a full-featured image editor that is completely free and open
+      source. It is built around a Photoshop-style compositing and post-processing
+      workflow, with layers, masks, adjustment layers, transform, selections,
+      painting and retouching tools, and a full set of adjustments and filters.
+    </p>
+    <p>
+      This is the Linux port: a Qt Widgets shell over a retained Swift core, with
+      Skia compositing and OpenCV named operations, packaged as a Flatpak.
+    </p>
+  </description>
+
+  <releases>
+    <release version="1.0.4-linux-preview.1" date="2026-09-19">
+      <description>
+        <p>First Linux Flatpak preview build of the port. Feature-aligned with
+        macOS 1.0.4; not yet at full parity. Packages the portable C pixel
+        kernels behind a Qt Widgets host shell with a Swift core on a C ABI.</p>
+      </description>
+    </release>
+  </releases>
+
+  <content_rating type="oars-1.1" />
+
+  <recommends>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </recommends>
+</component>

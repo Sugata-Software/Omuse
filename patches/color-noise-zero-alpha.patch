@@ -1,0 +1,19 @@
+diff --git a/Compositor/Rendering/AdjustPixels.c b/Compositor/Rendering/AdjustPixels.c
+index 53da9c9..0e464ce 100644
+--- a/Compositor/Rendering/AdjustPixels.c
++++ b/Compositor/Rendering/AdjustPixels.c
+@@ -849,12 +849,13 @@ void adjust_camera_raw_detail(uint8_t *rgba, size_t width, size_t height, size_t
+             for (size_t x = 0; x < width; ++x) {
+                 uint8_t *p = row + x * 4;
+                 double alpha = p[3];
+-                if (!alpha) continue;
++                size_t index = y * width + x;
++                if (!alpha) { chroma[index] = 0; continue; }
+                 double r = fmin(1.0, p[0] / alpha), g = fmin(1.0, p[1] / alpha), b = fmin(1.0, p[2] / alpha);
+                 double h, s, l;
+                 rgb_to_hsl(r, g, b, &h, &s, &l);
+-                chroma[y * width + x] = (float)s;
++                chroma[index] = (float)s;
+             }
+         }
+         if (!box_blur_plane(chroma, chromaBlur, width, height, radius)) {

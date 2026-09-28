@@ -1,0 +1,36 @@
+[package]
+name = "omuse"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+
+[features]
+ui-test = ["gpui-kit/test-support"]
+
+[dependencies]
+gpui-kit = { version = "=0.6.6", default-features = false, features = ["assets"] }
+gpui-omarchy = { git = "https://github.com/huacnlee/gpui-omarchy", rev = "3625c6cb5f02ec38a970939e52cfdb0c374c7791" }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "tiff", "gif", "bmp"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4", "serde"] }
+anyhow = "1"
+cosmic-text = "0.19"
+libloading = "=0.8.9"
+flate2 = "=1.1.10"
+png = "=0.18.1"
+tiff = "=0.11.3"
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+debug = false
+strip = "debuginfo"
+
+[profile.release.package.gpui-pre-macros]
+debug-assertions = true
+
+[patch.crates-io]
+gpui-pre = { path = "vendor/gpui-pre" }
+gpui-pre-linux = { path = "vendor/gpui-pre-linux" }

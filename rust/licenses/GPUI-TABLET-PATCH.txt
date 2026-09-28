@@ -1,0 +1,16 @@
+GPUI tablet integration provenance
+
+This application includes gpui-pre 0.3.6 and gpui-pre-linux 0.3.6,
+Apache License 2.0, originally published from the Zed source snapshot
+bcf6582ce3500df93a8a39366640173e6786cea6.
+Upstream repository: https://github.com/zed-industries/zed
+
+Local changes add Wayland tablet-v2 seat/tool event dispatch, measured pressure
+and tilt, frame coalescing, tool identity, GPUI tablet listeners, and a mouse
+fallback for ordinary controls. These changes are retained in rust/vendor in
+the Compositor source and selected through Cargo's crates.io patch entries.
+The remaining GPUI packages keep their locked registry versions.
+
+The upstream license is included as GPUI-APACHE-2.0.txt. A physical tablet has
+not yet qualified this integration; synthetic protocol and UI tests do not
+certify device-specific behaviour.

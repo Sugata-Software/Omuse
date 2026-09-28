@@ -1,0 +1,42 @@
+name: Bug report
+description: Report a reproducible problem in the Omuse preview.
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Omuse is a development preview. Use copies of important artwork.
+        This issue is public: do not include credentials, private artwork or provider transcripts.
+        Do not submit security exploit details through this form.
+  - type: input
+    id: version
+    attributes:
+      label: Version or source revision
+      placeholder: "Output of omuse --version, plus git revision if built from source"
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Linux distribution, desktop/session, GPU and installation method.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Use a minimal synthetic example where possible.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Sanitised evidence
+      description: Optional screenshots or relevant error text. Remove secrets and personal information.

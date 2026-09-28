@@ -1,0 +1,55 @@
+name: Legacy Compositor Linux persistence, GPU failure and UI tests
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [GNU_Linux]
+    paths:
+      - 'Sources/**'
+      - 'host/**'
+      - 'Tests/LinuxOverrideTests/**'
+      - 'backends/brush/**'
+      - 'Tests/CompatTests/**'
+      - 'tests/**'
+      - 'Package.swift'
+      - 'CMakeLists.txt'
+      - '.github/workflows/linux-reliability.yml'
+permissions:
+  contents: read
+jobs:
+  reliability:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install the matching Linux SDK
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user -y --noninteractive flathub org.kde.Sdk//6.11 org.freedesktop.Sdk.Extension.swift6//25.08
+      - name: Native failure tests
+        run: |
+          flatpak run --user --command=sh --devel --filesystem="$PWD" org.kde.Sdk//6.11 -ec '
+            cd "$1"
+            cmake -S . -B build -DCOMPOSITOR_REQUIRE_VENDORED_DEPS=OFF
+            cmake --build build --parallel 2 --target test_gpu_timeout test_vulkan_timeout test_atomic_publish test_kernels test_swiftui_renderer
+            ctest --test-dir build -R "GpuTimeout|AtomicPublish|Kernels|SwiftUIRenderer" --output-on-failure --output-junit reliability.xml
+          ' sh "$PWD"
+          # A missing Vulkan driver is a local skip, but must not silently turn
+          # the dedicated CI regression job green without running its cases.
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          cases = ET.parse('build/reliability.xml').findall('.//testcase')
+          assert len(cases) == 6, 'Expected all six native regression cases'
+          assert all(c.find('skipped') is None for c in cases), 'A required regression case was skipped'
+          PY
+      - name: Package persistence tests
+        run: |
+          flatpak run --user --command=sh --devel --filesystem="$PWD" org.kde.Sdk//6.11 -ec '
+            cd "$1"
+            export PATH=/usr/lib/sdk/swift6/bin:$PATH
+            swift test --jobs 2 --no-parallel --filter "FileWrapperAtomicTests|AppKitCompatTests|ProjectTests|PickerInteractionTests|UIIntegrationTests.*(multiLayerDrop|selectedFolder|sharedColorPicker|implicitStringPicker|shortcutConflicts)" --skip layerEffectsAreRenderedInExport
+          ' sh "$PWD"
+          # The one ProjectTests exclusion above needs the optional Skia bridge.
+          # The shape-pixel and full Qt journeys also need the renderer-enabled
+          # release runner; this job covers the non-rendering integration cases.

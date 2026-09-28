@@ -1,0 +1,1394 @@
+<section id="omuse-project-guide" aria-labelledby="omuse-guide-title">
+  <style>
+    #omuse-project-guide {
+      color: var(--foreground);
+      width: 100%;
+      display: grid;
+      gap: 1.25rem;
+    }
+    #omuse-project-guide .guide-heading {
+      display: grid;
+      gap: 0.5rem;
+    }
+    #omuse-project-guide .guide-kicker,
+    #omuse-project-guide .guide-meta,
+    #omuse-project-guide .status-legend,
+    #omuse-project-guide .status-key,
+    #omuse-project-guide .feature-title-line,
+    #omuse-project-guide .category-heading,
+    #omuse-project-guide .source-line {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    #omuse-project-guide .guide-meta {
+      display: grid;
+      gap: 0.35rem;
+    }
+    #omuse-project-guide .guide-mark {
+      width: 1rem;
+      height: 1rem;
+      border-radius: 50%;
+      background: var(--foreground);
+      box-shadow: inset 0 0 0 0.25rem var(--background);
+      border: 1px solid var(--border);
+    }
+    #omuse-project-guide .guide-meta,
+    #omuse-project-guide .category-summary,
+    #omuse-project-guide .feature-boundary,
+    #omuse-project-guide .source-line {
+      color: var(--foreground);
+    }
+    #omuse-project-guide .summary-grid {
+      align-items: stretch;
+    }
+    #omuse-project-guide .status-legend {
+      padding-block: 0.25rem;
+    }
+    #omuse-project-guide .status-key {
+      color: var(--foreground);
+    }
+    #omuse-project-guide .status-dot {
+      width: 0.65rem;
+      height: 0.65rem;
+      border-radius: 50%;
+      flex: 0 0 auto;
+    }
+    #omuse-project-guide .status-dot[data-status="locally-tested"] {
+      background: var(--green);
+    }
+    #omuse-project-guide .status-dot[data-status="implemented-needs-qualification"] {
+      background: var(--orange);
+    }
+    #omuse-project-guide .status-dot[data-status="experimental"] {
+      background: var(--purple);
+    }
+    #omuse-project-guide .status-dot[data-status="planned"] {
+      background: var(--blue);
+    }
+    #omuse-project-guide .status-dot[data-status="blocked-deferred"] {
+      background: var(--red);
+    }
+    #omuse-project-guide .category-shell {
+      display: grid;
+      gap: 1rem;
+    }
+    #omuse-project-guide .category-heading {
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    #omuse-project-guide .category-title {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+    }
+    #omuse-project-guide .category-title svg {
+      flex: 0 0 auto;
+    }
+    #omuse-project-guide .category-copy {
+      display: grid;
+      gap: 0.25rem;
+    }
+    #omuse-project-guide .feature-list {
+      border-top: 1px solid var(--border);
+    }
+    #omuse-project-guide .feature-row {
+      display: grid;
+      grid-template-columns: minmax(11rem, 0.72fr) minmax(0, 1.7fr);
+      gap: 1rem;
+      padding-block: 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+    #omuse-project-guide .feature-identity,
+    #omuse-project-guide .feature-detail {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      align-content: start;
+      gap: 0.5rem;
+      min-width: 0;
+    }
+    #omuse-project-guide .feature-name {
+      font-weight: 500;
+      min-width: 0;
+    }
+    #omuse-project-guide .feature-title-line {
+      flex-wrap: nowrap;
+      align-items: flex-start;
+    }
+    #omuse-project-guide .feature-title-line .status-dot {
+      margin-top: 0.3rem;
+    }
+    #omuse-project-guide .feature-current,
+    #omuse-project-guide .feature-boundary {
+      margin: 0;
+      overflow-wrap: anywhere;
+    }
+    #omuse-project-guide details {
+      color: var(--foreground);
+    }
+    #omuse-project-guide details[open] summary {
+      margin-bottom: 0.5rem;
+    }
+    #omuse-project-guide .evidence-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.75rem;
+    }
+    #omuse-project-guide .evidence-grid ul {
+      margin: 0.35rem 0 0;
+      padding-left: 1.1rem;
+    }
+    #omuse-project-guide code {
+      overflow-wrap: anywhere;
+    }
+    #omuse-project-guide .guide-footer {
+      padding-top: 0.25rem;
+    }
+    @media (max-width: 640px) {
+      #omuse-project-guide .feature-row {
+        grid-template-columns: 1fr;
+        gap: 0.65rem;
+      }
+      #omuse-project-guide .evidence-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+
+  <header class="guide-heading">
+    <div class="guide-kicker text-small text-muted">
+      <span class="guide-mark" aria-hidden="true"></span>
+      <span>Native Linux creation studio · status snapshot</span>
+    </div>
+    <h1 id="omuse-guide-title">Omuse project guide</h1>
+    <div class="guide-meta">
+      <span id="omuse-release-state"></span>
+      <span id="omuse-release-scope"></span>
+    </div>
+  </header>
+
+  <div id="omuse-snapshot" class="viz-grid summary-grid" aria-label="Release snapshot"></div>
+
+  <section aria-labelledby="omuse-status-title">
+    <h2 id="omuse-status-title" class="sr-only">Status definitions</h2>
+    <div id="omuse-status-legend" class="status-legend"></div>
+  </section>
+
+  <div class="viz-controls">
+    <label class="form-label" for="omuse-category-select">Feature category</label>
+    <select class="form-select" id="omuse-category-select"></select>
+  </div>
+
+  <section id="omuse-category-panel" class="category-shell" aria-live="polite"></section>
+
+  <footer class="guide-footer">
+    <div class="source-line text-small">
+      <span>Source-backed snapshot</span>
+      <span aria-hidden="true">·</span>
+      <code>docs/project-status.json</code>
+      <span aria-hidden="true">·</span>
+      <span id="omuse-feature-count"></span>
+      <span aria-hidden="true">·</span>
+      <span id="omuse-snapshot-date"></span>
+    </div>
+  </footer>
+
+  <script type="application/json" id="omuse-guide-data">
+{
+  "schemaVersion": 1,
+  "snapshotDate": "2026-09-28",
+  "project": "Omuse",
+  "releaseScope": "Native Rust/GPUI preview for Arch/Omarchy Linux x86_64",
+  "releaseState": "Source preview; public binary release is not qualified",
+  "visualizationMirror": "omuse-project-guide.html",
+  "statusDefinitions": [
+    {
+      "id": "locally-tested",
+      "label": "Locally tested",
+      "meaning": "The named bounded journey passed on this development host. It is not a portability or universal quality claim."
+    },
+    {
+      "id": "implemented-needs-qualification",
+      "label": "Implemented / needs qualification",
+      "meaning": "The source and UI path exist, but the current change or broader real-world claim still needs its final evidence."
+    },
+    {
+      "id": "experimental",
+      "label": "Experimental",
+      "meaning": "Available only through a bounded preview, explicit Try path, or provider-specific evidence."
+    },
+    {
+      "id": "planned",
+      "label": "Planned",
+      "meaning": "Documented product direction without an implemented, qualified release path."
+    },
+    {
+      "id": "blocked-deferred",
+      "label": "Blocked / deferred / excluded",
+      "meaning": "Waiting on external evidence or deliberately outside the current preview scope."
+    }
+  ],
+  "releaseSnapshot": [
+    {
+      "label": "Current regression suite",
+      "value": "734 tests passed",
+      "detail": "326 library, 179 UI and 229 integration tests; all 80 templates and the Create exports passed. Production Wayland/XWayland and the matching installed preview also passed.",
+      "status": "locally-tested"
+    },
+    {
+      "label": "Large-photo Create editing",
+      "value": "35.9% less refresh time at 48 MP",
+      "detail": "Three paired desktop repetitions: paint core 85.69 → 0.32 ms; headless frame/refresh 257.88 → 165.38 ms. Recovery idle before each stroke; exact undo/redo/recovery, unchanged peak memory. Physical input latency remains unmeasured.",
+      "status": "locally-tested"
+    },
+    {
+      "label": "Public-release blockers",
+      "value": "Open gates",
+      "detail": "Two dependency texts, remote CI/GitHub App connection, clean installation and physical desktop acceptance remain open.",
+      "status": "blocked-deferred"
+    }
+  ],
+  "categories": [
+    {
+      "id": "photo-editing",
+      "name": "Photo editing",
+      "icon": "aperture",
+      "summary": "Ordinary raster work is broad and locally exercised; the active release pass is tightening real-photo colour, precision and scale evidence.",
+      "items": [
+        {
+          "id": "photo-core-tools",
+          "name": "Core raster editing",
+          "status": "locally-tested",
+          "current": "Brush, Pencil, Eraser, Fill, Gradient, Crop, Resize, Move, Clone, Blur, Smudge, Liquify, Heal, Spot Heal and destructive filters are wired into the native editor with undo/redo.",
+          "boundary": "Bounded local journeys do not establish every brush size, transform, colour space or long-session workload.",
+          "evidence": [
+            "docs/photo-release-qualification.md",
+            "docs/photo-editing-hardening.md",
+            "rust/tests/photo_workflow.rs"
+          ],
+          "modules": [
+            "rust/src/editor.rs",
+            "rust/src/raster.rs",
+            "rust/src/retouch_brush.rs",
+            "rust/src/spot_heal.rs"
+          ]
+        },
+        {
+          "id": "photo-selections",
+          "name": "Selections and selection-aware edits",
+          "status": "locally-tested",
+          "current": "Marquee, ellipse, lasso, wand, object selection, feathered coverage and selection-aware filters/content fill are implemented; the hardened paths preserve soft coverage and undo.",
+          "boundary": "Quality still depends on the source and tool settings; physical input delivery is a separate desktop gate.",
+          "evidence": [
+            "docs/photo-editing-hardening.md",
+            "docs/rust-range-masks.md"
+          ],
+          "modules": [
+            "rust/src/selection_tools.rs",
+            "rust/src/range_mask.rs",
+            "rust/src/editor.rs"
+          ]
+        },
+        {
+          "id": "photo-retouch",
+          "name": "Retouching and controlled removal",
+          "status": "locally-tested",
+          "current": "Healing layers, clone/heal tools, frequency separation, dodge/burn, refinement and controlled removal have bounded native and regression evidence.",
+          "boundary": "Healing strokes are raster edits rather than replayable source-linked recipes; broad portrait and object-removal quality review remains separate.",
+          "evidence": [
+            "docs/rust-advanced-workflows.md"
+          ],
+          "modules": [
+            "rust/src/retouch.rs",
+            "rust/src/refinement.rs",
+            "rust/src/matte.rs",
+            "rust/src/restoration.rs"
+          ]
+        },
+        {
+          "id": "photo-adjustments",
+          "name": "Adjustments, filters and editable stacks",
+          "status": "locally-tested",
+          "current": "Exposure, levels, curves, hue/saturation, colour balance, blur, sharpen, denoise, grain/noise, vignette, bloom, tonal contrast, invert and grayscale are available through destructive and editable paths.",
+          "boundary": "The Camera Raw compatibility node remains an 8-bit path; not every traditional adjustment/effect can be exported at full precision.",
+          "evidence": [
+            "docs/rust-advanced-workflows.md",
+            "docs/project-format.md"
+          ],
+          "modules": [
+            "rust/src/filters.rs",
+            "rust/src/adjustment_kernels.rs",
+            "rust/src/advanced_ops.rs"
+          ]
+        },
+        {
+          "id": "photo-raw",
+          "name": "Embedded RAW development",
+          "status": "locally-tested",
+          "current": "LibRaw import retains original bytes and a 16-bit editable source. After visual review rejected a grossly magenta result, the corrected Nikon and Canon outputs both match the independent C++ camera-white-balance PPM16 references exactly for every retained sample and were visually inspected as natural.",
+          "boundary": "The earlier two-camera evidence uses the same pinned LibRaw engine, not an independent audit of LibRaw colour science or a general camera-colour claim. The current 734-test suite passed with the Nikon RAW fixture enabled; the full 16-case corpus was not repeated for the history/ownership changes.",
+          "evidence": [
+            "docs/photo-release-qualification.md",
+            "docs/rust-runtime-assets.md"
+          ],
+          "modules": [
+            "rust/src/raw_import.rs",
+            "rust/src/smart_source.rs",
+            "scripts/fixtures/raw-photo-reference.cpp"
+          ]
+        },
+        {
+          "id": "photo-real-world",
+          "name": "Real-photo and large-document qualification",
+          "status": "locally-tested",
+          "current": "The 16 photo cases passed at ac8874d. The isolated region-history workload at a69a5f6 passed 18 runs with 100 strokes, exact final undo/redo pixels, .omuse save/reopen and PNG export; routine medians were 2.00/2.13/0.42 ms at 12/24/48 MP. The later desktop ownership comparison is recorded separately below.",
+          "boundary": "The earlier isolated editor fixture measured median peak RSS of 326/610/1200 MiB and does not establish physical input latency. The later desktop fixture also waits for recovery before painting. Rapid strokes during background work, native large-camera decode and long sessions still need qualification.",
+          "evidence": [
+            "docs/large-photo-history-qualification.md",
+            "docs/photo-release-qualification.md",
+            "rust/evidence/region-history-20260928/comparison.json"
+          ],
+          "modules": [
+            "scripts/photo-qualification.py",
+            "scripts/photo-stress.py",
+            "rust/examples/photo_qualification.rs",
+            "rust/examples/photo_stress.rs"
+          ]
+        },
+        {
+          "id": "photo-tiled-history",
+          "name": "Region/tile-based large-photo history",
+          "status": "locally-tested",
+          "current": "Large unselected Brush, Pencil and Eraser strokes retain reversible 256×256 tiles. Current differential regressions pass. Historical a69a5f6 measurements retained 100 undo steps at 48 MP using about 30.96 MiB of final history, compared with one step before.",
+          "boundary": "Masks, selected strokes, clone/heal and other transactions keep snapshots. Persistent Create raster owners are now removed, but recovery, collection checkpoints and saves can still force copies. The earlier 12/24 MP first strokes were slower; neither workload qualifies whole-app input latency.",
+          "evidence": [
+            "docs/desktop-history-qualification.md",
+            "docs/large-photo-history-qualification.md",
+            "docs/large-photo-history-plan.md"
+          ],
+          "modules": [
+            "rust/src/editor_history.rs",
+            "rust/src/raster_patch.rs",
+            "rust/tests/region_history.rs",
+            "rust/tests/region_history_sequences.rs",
+            "rust/src/region_history_ui_tests.rs"
+          ]
+        },
+        {
+          "id": "photo-desktop-ownership",
+          "name": "Large-photo desktop page ownership",
+          "status": "locally-tested",
+          "current": "Editors own active and cached page pixels; complete save/export/recovery snapshots remain frozen. All 18 paired cases passed. At 48 MP, paint core measured 85.69 → 0.32 ms and headless frame/refresh 257.88 → 165.38 ms. Editing during a same-path save can recover, export and save again.",
+          "boundary": "Twelve localized strokes after a warmup, three repetitions per strategy/size; recovery idle before each measured stroke. Peak RSS was essentially unchanged. In-flight snapshots can still force full copies, and end-of-stroke refresh has large outliers. These are not physical input timings.",
+          "evidence": [
+            "docs/desktop-history-qualification.md"
+          ],
+          "modules": [
+            "rust/src/create_project.rs",
+            "rust/src/create_ui.rs",
+            "rust/src/recovery.rs",
+            "rust/src/desktop_history_tests.rs",
+            "rust/tests/create_checkout.rs",
+            "scripts/desktop-history-stress.py"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "layers-masks",
+      "name": "Layers and masks",
+      "icon": "layers-3",
+      "summary": "The native document model covers hierarchy, editable effects and multiple mask types with bounded persistence and transaction tests.",
+      "items": [
+        {
+          "id": "layers-hierarchy",
+          "name": "Layer hierarchy and compositing",
+          "status": "locally-tested",
+          "current": "Pixel layers, groups, transforms, opacity, blend modes, clipping, visibility, locking, reorder/copy and grouped editing are implemented.",
+          "boundary": "Cross-window layer drops and complete parity with every legacy Mac gesture remain outside the current evidence.",
+          "evidence": [
+            "docs/rust-studio-design.md",
+            "docs/project-format.md"
+          ],
+          "modules": [
+            "rust/src/document.rs",
+            "rust/src/editor.rs",
+            "rust/src/raster.rs",
+            "rust/src/studio_ui.rs"
+          ]
+        },
+        {
+          "id": "layers-raster-masks",
+          "name": "Raster, linked and folder masks",
+          "status": "locally-tested",
+          "current": "Per-layer masks, detached placement, link/unlink behavior, live alpha links and folder masks persist through project save/reopen.",
+          "boundary": "Mask rasterization and document limits remain bounded; older project versions cannot represent every newer mask feature.",
+          "evidence": [
+            "docs/project-format.md",
+            "docs/photo-editing-hardening.md"
+          ],
+          "modules": [
+            "rust/src/document.rs",
+            "rust/src/editor.rs",
+            "rust/src/raster.rs"
+          ]
+        },
+        {
+          "id": "layers-adjustment-effects",
+          "name": "Adjustment layers and layer effects",
+          "status": "locally-tested",
+          "current": "Hue/Saturation, Levels, Curves, Exposure, Gradient Map and Grain adjustment records coexist with stroke, shadows, colour overlay and outer glow effects.",
+          "boundary": "Legacy-reader support varies by project version, and 16-bit export rejects unsupported traditional adjustment/effect records rather than flattening silently.",
+          "evidence": [
+            "docs/project-format.md",
+            "docs/rust-advanced-workflows.md"
+          ],
+          "modules": [
+            "rust/src/document.rs",
+            "rust/src/effects.rs",
+            "rust/src/advanced16.rs"
+          ]
+        },
+        {
+          "id": "layers-filter-blendif",
+          "name": "Editable filter stacks and Blend If",
+          "status": "locally-tested",
+          "current": "Retained sources support ordered filter nodes, opacity, selection masks and backdrop-aware Blend If with channel controls.",
+          "boundary": "Editable layers are capped at 128 nodes; source and mask storage budgets apply, and evaluation remains CPU-heavy for large images.",
+          "evidence": [
+            "docs/rust-advanced-workflows.md"
+          ],
+          "modules": [
+            "rust/src/advanced.rs",
+            "rust/src/advanced_ops.rs",
+            "rust/src/raster16.rs"
+          ]
+        },
+        {
+          "id": "layers-range-refinement",
+          "name": "Range masks and edge refinement",
+          "status": "locally-tested",
+          "current": "Luminosity/colour ranges can replace, add or subtract selections or produce layer masks; refinement supports correction strokes, edge controls and multiple inspection backgrounds.",
+          "boundary": "Range parameters are not persisted as a live parametric mask recipe, and refined cut-outs bake the correction result.",
+          "evidence": [
+            "docs/rust-range-masks.md",
+            "docs/rust-advanced-workflows.md"
+          ],
+          "modules": [
+            "rust/src/range_mask.rs",
+            "rust/src/refinement.rs",
+            "rust/src/range_ui.rs"
+          ]
+        },
+        {
+          "id": "layers-vector-mask",
+          "name": "Vector masks",
+          "status": "locally-tested",
+          "current": "Cubic path geometry remains editable while its vector mask is rasterized into layer coverage; path Apply rebuilds that coverage transactionally.",
+          "boundary": "This is a bounded path/mask workflow, not compound-path boolean authoring or a complete vector illustration system.",
+          "evidence": [
+            "docs/rust-advanced-workflows.md"
+          ],
+          "modules": [
+            "rust/src/vector_path.rs",
+            "rust/src/vector_ui.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "vector-type-design",
+      "name": "Vector, type and design",
+      "icon": "pen-tool",
+      "summary": "Live type, shape and layout objects now support native branded design while preserving an explicit boundary around full illustration tooling.",
+      "items": [
+        {
+          "id": "design-live-type",
+          "name": "Live text and rich typography",
+          "status": "locally-tested",
+          "current": "Editable text supports rich runs, alignment, fitting, minimum sizes, reusable styles, text backgrounds and overflow reports.",
+          "boundary": "Unusual fallback fonts, long copy, manual rich-run editing and assistive workflows remain manual release checks.",
+          "evidence": [
+            "docs/omuse-create-and-ai-plan.md",
+            "docs/omuse-create-guide.md"
+          ],
+          "modules": [
+            "rust/src/objects.rs",
+            "rust/src/rich_text_ui.rs",
+            "rust/src/create_design_ui.rs"
+          ]
+        },
+        {
+          "id": "design-shapes-paths",
+          "name": "Live shapes and paths",
+          "status": "locally-tested",
+          "current": "Rectangles, rounded rectangles, ellipses, lines and editable cubic paths retain style/geometry until deliberately rasterized.",
+          "boundary": "Boolean operations, compound paths and variable-width strokes are not implemented as a general illustration suite.",
+          "evidence": [
+            "docs/project-format.md",
+            "docs/rust-advanced-workflows.md"
+          ],
+          "modules": [
+            "rust/src/objects.rs",
+            "rust/src/vector_path.rs",
+            "rust/src/vector_ui.rs"
+          ]
+        },
+        {
+          "id": "design-frames",
+          "name": "Frames and collages",
+          "status": "locally-tested",
+          "current": "Replaceable image frames retain crop placement, focal point, rounded boundary and nondestructive replacement metadata.",
+          "boundary": "Frame/cutout visual quality across arbitrary source photography remains a manual review area.",
+          "evidence": [
+            "docs/omuse-create-and-ai-plan.md",
+            "docs/omuse-create-guide.md"
+          ],
+          "modules": [
+            "rust/src/create.rs",
+            "rust/src/create_design_ui.rs"
+          ]
+        },
+        {
+          "id": "design-brands-templates",
+          "name": "Brand kits and editable templates",
+          "status": "locally-tested",
+          "current": "Brand colours, logos, font pairs, text styles and spacing rules feed 20 native templates and 80 qualified variants.",
+          "boundary": "The completed variants are bounded fixtures; arbitrary user brands and missing-font substitutions require manual review.",
+          "evidence": [
+            "docs/omuse-create-qualification.md",
+            "docs/omuse-create-and-ai-plan.md"
+          ],
+          "modules": [
+            "rust/src/create.rs",
+            "rust/src/create_previews.rs"
+          ]
+        },
+        {
+          "id": "design-responsive-layout",
+          "name": "Responsive layout and resizing",
+          "status": "locally-tested",
+          "current": "Alignment, distribution, anchoring and aspect-ratio adaptation retain live text/shapes and editable overrides.",
+          "boundary": "Layout preflight is conservative and does not judge every image backdrop, rich text run or destination safe area.",
+          "evidence": [
+            "docs/omuse-create-and-ai-plan.md",
+            "docs/omuse-create-guide.md"
+          ],
+          "modules": [
+            "rust/src/create.rs",
+            "rust/src/create_design_ui.rs"
+          ]
+        },
+        {
+          "id": "design-components",
+          "name": "Reusable components and shared backgrounds",
+          "status": "locally-tested",
+          "current": "Reusable logos, badges, footers and calls to action support bounded instance overrides and explicit propagation across pages.",
+          "boundary": "Components are project-native structures, not a remote collaborative design-system service.",
+          "evidence": [
+            "docs/omuse-create-and-ai-plan.md",
+            "docs/omuse-create-guide.md"
+          ],
+          "modules": [
+            "rust/src/create.rs",
+            "rust/src/create_project.rs"
+          ]
+        },
+        {
+          "id": "design-warp",
+          "name": "Mesh and pin deformation",
+          "status": "locally-tested",
+          "current": "A retained 2×2 corner mesh and bounded pin warp can be previewed, applied, reopened and adjusted.",
+          "boundary": "The UI is not a general mesh-grid editor; evaluation is CPU-based and capped at 16 MP.",
+          "evidence": [
+            "docs/rust-advanced-workflows.md"
+          ],
+          "modules": [
+            "rust/src/advanced_ops.rs",
+            "rust/src/workflow_ui.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "create-content",
+      "name": "Create and social content",
+      "icon": "panels-top-left",
+      "summary": "Create is implemented as a native content-production workspace for editable assets and export, without scheduling or social account management.",
+      "items": [
+        {
+          "id": "create-collections",
+          "name": "Pages, artboards and carousels",
+          "status": "locally-tested",
+          "current": "`.omuse` collections support mixed page sizes, page strips, reorder/duplicate, shared backgrounds, numbering and collection undo/redo.",
+          "boundary": "Older application builds may not understand Create metadata; keep the full collection package intact.",
+          "evidence": [
+            "docs/omuse-create-qualification.md",
+            "docs/omuse-create-guide.md"
+          ],
+          "modules": [
+            "rust/src/create_project.rs",
+            "rust/src/create_history.rs",
+            "rust/src/create_ui.rs"
+          ]
+        },
+        {
+          "id": "create-preview-export",
+          "name": "Phone preview, guides and content packs",
+          "status": "locally-tested",
+          "current": "Phone preview, composition guides and staged export produce ordered PNG/JPEG/WebP pages, multipage PDF, captions, alt text and a manifest.",
+          "boundary": "Safe-area guidance is conservative; destination applications can crop or overlay content differently.",
+          "evidence": [
+            "docs/omuse-create-qualification.md",
+            "docs/omuse-create-guide.md"
+          ],
+          "modules": [
+            "rust/src/social_preview.rs",
+            "rust/src/content_export.rs",
+            "rust/src/create_ui.rs"
+          ]
+        },
+        {
+          "id": "create-bulk",
+          "name": "CSV bulk creation",
+          "status": "locally-tested",
+          "current": "CSV rows bind typed text, image, visibility and alt fields to approved templates with validation, preview and meaningful output names.",
+          "boundary": "A representative user batch, row-error presentation and final naming review remain manual acceptance work.",
+          "evidence": [
+            "docs/omuse-create-and-ai-plan.md",
+            "docs/omuse-create-guide.md"
+          ],
+          "modules": [
+            "rust/src/create.rs",
+            "rust/src/create_ui.rs"
+          ]
+        },
+        {
+          "id": "create-assets",
+          "name": "Local asset library",
+          "status": "locally-tested",
+          "current": "Local photos, cutouts, logos, backgrounds and saved compositions can be searched, tagged, favourited and packaged into projects with provenance.",
+          "boundary": "This is a local library; cloud sync and collaborative asset governance are not claimed.",
+          "evidence": [
+            "docs/omuse-create-and-ai-plan.md",
+            "docs/omuse-create-guide.md"
+          ],
+          "modules": [
+            "rust/src/asset_library.rs",
+            "rust/src/asset_ui.rs"
+          ]
+        },
+        {
+          "id": "create-motion",
+          "name": "Motion and animated output",
+          "status": "locally-tested",
+          "current": "Page/layer fades, rise, slow pan, durations, transitions and local MP4/GIF export are implemented through FFmpeg.",
+          "boundary": "FFmpeg availability and user-media compatibility remain host-dependent; a saved assistant animation plan was not separately rendered in its live AI journey.",
+          "evidence": [
+            "docs/omuse-create-qualification.md",
+            "docs/omuse-create-guide.md"
+          ],
+          "modules": [
+            "rust/src/motion.rs",
+            "rust/src/motion_ui.rs"
+          ]
+        },
+        {
+          "id": "create-clips-subtitles",
+          "name": "Short clips, audio and subtitles",
+          "status": "locally-tested",
+          "current": "Supplied clips can be probed, trimmed and split; projects retain audio settings and editable SRT/WebVTT cues for soft or burned subtitles.",
+          "boundary": "Cancellation, unusual codecs and a broad user-media matrix remain release checks.",
+          "evidence": [
+            "docs/omuse-create-qualification.md",
+            "docs/omuse-create-guide.md"
+          ],
+          "modules": [
+            "rust/src/motion.rs",
+            "rust/src/motion_ui.rs"
+          ]
+        },
+        {
+          "id": "create-transcription",
+          "name": "Automatic transcription",
+          "status": "planned",
+          "current": "Subtitle import and editing exist; automatic transcription is documented as a future, separately qualified capability.",
+          "boundary": "There is no current transcription runtime or release claim.",
+          "evidence": [
+            "docs/omuse-create-and-ai-plan.md",
+            "docs/omuse-create-guide.md"
+          ],
+          "modules": []
+        },
+        {
+          "id": "create-scheduling",
+          "name": "Calendars, scheduling and publishing",
+          "status": "blocked-deferred",
+          "current": "Explicitly excluded from Omuse's product scope. Content sets may have names, briefs and versions without dates, publishing states or analytics.",
+          "boundary": "This is an exclusion, not an unfinished preview promise.",
+          "evidence": [
+            "docs/omuse-create-and-ai-plan.md",
+            "docs/omuse-create-release-notes.md"
+          ],
+          "modules": []
+        }
+      ]
+    },
+    {
+      "id": "ai",
+      "name": "AI",
+      "icon": "sparkles",
+      "summary": "Omuse keeps AI inside staged, reviewable document transactions; only a narrow Codex subscription journey has bounded live evidence.",
+      "items": [
+        {
+          "id": "ai-framework",
+          "name": "Ask Omuse job, review and history model",
+          "status": "locally-tested",
+          "current": "Provider routes, billing labels, Local-only mode, bounded jobs, review groups, stale-result protection, Keep, Undo and saved provenance are implemented.",
+          "boundary": "A local invariant does not prove provider availability, visual quality or cancellation after remote acceptance.",
+          "evidence": [
+            "docs/omuse-create-and-ai-plan.md",
+            "docs/omuse-create-qualification.md"
+          ],
+          "modules": [
+            "rust/src/ai.rs",
+            "rust/src/ai/jobs.rs",
+            "rust/src/ai/results.rs",
+            "rust/src/ai_history.rs",
+            "rust/src/ai_ui.rs"
+          ]
+        },
+        {
+          "id": "ai-codex",
+          "name": "Codex subscription route",
+          "status": "experimental",
+          "current": "A signed-in Codex CLI route passed bounded restoration of one Generate result, one new protected-subject Background edit and one six-page native design-assistant carousel.",
+          "boundary": "This does not qualify every account, runtime version, prompt, image operation or general provider support.",
+          "evidence": [
+            "docs/omuse-create-qualification.md",
+            "docs/omuse-create-release-notes.md"
+          ],
+          "modules": [
+            "rust/src/ai/codex.rs",
+            "rust/src/ai/process.rs",
+            "rust/src/ai/qualification.rs"
+          ]
+        },
+        {
+          "id": "ai-image-operations",
+          "name": "Generate and image-edit operations",
+          "status": "implemented-needs-qualification",
+          "current": "Generate, selection replacement, background edit, canvas expansion, removal, references, variations and refinement have source/UI paths.",
+          "boundary": "Replacement, expansion, removal, multi-variation cancellation and broader failure/restart cases still need live receipts before support claims.",
+          "evidence": [
+            "docs/omuse-create-and-ai-plan.md",
+            "docs/omuse-create-qualification.md"
+          ],
+          "modules": [
+            "rust/src/ai_edits.rs",
+            "rust/src/ai_native.rs",
+            "rust/src/ai_ui.rs"
+          ]
+        },
+        {
+          "id": "ai-design-assistant",
+          "name": "Native design assistant",
+          "status": "implemented-needs-qualification",
+          "current": "Design with me and Improve layout can propose bounded native plans that select pages, place packaged resources and instantiate components with overrides.",
+          "boundary": "Only the named Codex carousel has live evidence; arbitrary provider plans and assistant-led resizing need their own qualification.",
+          "evidence": [
+            "docs/omuse-create-and-ai-plan.md",
+            "docs/omuse-create-qualification.md"
+          ],
+          "modules": [
+            "rust/src/ai_native.rs",
+            "rust/src/creative_commands.rs",
+            "rust/src/ai_ui.rs"
+          ]
+        },
+        {
+          "id": "ai-caption",
+          "name": "Caption and alt-text drafting",
+          "status": "implemented-needs-qualification",
+          "current": "The assistant can stage caption and alt-text drafts for explicit review before keeping them in export metadata.",
+          "boundary": "Standalone caption drafting still needs a bounded live provider receipt and human content review.",
+          "evidence": [
+            "docs/omuse-create-and-ai-plan.md",
+            "docs/omuse-create-qualification.md"
+          ],
+          "modules": [
+            "rust/src/ai_ui.rs",
+            "rust/src/content_export.rs"
+          ]
+        },
+        {
+          "id": "ai-product-finishing",
+          "name": "Local product finishing",
+          "status": "implemented-needs-qualification",
+          "current": "Protected-subject background results can receive undoable local soft/contact shadow and subtle reflection layers without sending those choices to a provider.",
+          "boundary": "The source/UI path and local regression checks pass; the final visual quality of product shadows/reflections still needs a representative human review.",
+          "evidence": [
+            "docs/omuse-create-guide.md"
+          ],
+          "modules": [
+            "rust/src/product_ui.rs",
+            "rust/src/ai_edits.rs"
+          ]
+        },
+        {
+          "id": "ai-claude-grok",
+          "name": "Claude and Grok subscription routes",
+          "status": "blocked-deferred",
+          "current": "Adapters exist. The recorded qualification found Claude signed out; Grok's official runtime identity, account state and isolated operation remain unverified.",
+          "boundary": "Neither route should be advertised as supported until official sign-in, capability and in-app operation receipts exist.",
+          "evidence": [
+            "docs/omuse-create-qualification.md",
+            "docs/omuse-create-release-notes.md"
+          ],
+          "modules": [
+            "rust/src/ai/claude.rs",
+            "rust/src/ai/grok.rs",
+            "rust/src/ai/discovery.rs"
+          ]
+        },
+        {
+          "id": "ai-api-routes",
+          "name": "Direct API routes",
+          "status": "blocked-deferred",
+          "current": "Optional separately billed API access remains disabled pending an explicit key and billing-route decision.",
+          "boundary": "Omuse must never switch from subscription access to separately billed API use silently.",
+          "evidence": [
+            "docs/omuse-create-and-ai-plan.md",
+            "docs/omuse-create-release-notes.md"
+          ],
+          "modules": [
+            "rust/src/ai/auth.rs",
+            "rust/src/ai/discovery.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "formats-colour",
+      "name": "Formats and colour",
+      "icon": "swatch-book",
+      "summary": "Omuse preserves editable project state and common raster/media outputs while keeping colour and format limitations explicit.",
+      "items": [
+        {
+          "id": "formats-comp",
+          "name": "`.comp` projects",
+          "status": "locally-tested",
+          "current": "The Rust reader/writer covers project versions 1–7: canvas, hierarchy, transforms, opacity/blends, raster/live/folder masks and adjustment layers.",
+          "boundary": "Newer Rust-specific editable assets may render only as cached images in preserved older editors and may not survive resave there.",
+          "evidence": [
+            "docs/project-format.md",
+            "docs/rust-release-qualification.md"
+          ],
+          "modules": [
+            "rust/src/document.rs",
+            "rust/tests/advanced_persistence.rs",
+            "rust/tests/editor_engine.rs"
+          ]
+        },
+        {
+          "id": "formats-omuse",
+          "name": "`.omuse` collections",
+          "status": "locally-tested",
+          "current": "Multi-page native collections retain pages, resources, brand/components, Create history, motion and export metadata through save/reopen and recovery.",
+          "boundary": "This is the active native format; cross-version and independent macOS interchange still need broader external review.",
+          "evidence": [
+            "docs/omuse-create-qualification.md",
+            "docs/omuse-create-guide.md"
+          ],
+          "modules": [
+            "rust/src/create_project.rs",
+            "rust/src/create_history.rs"
+          ]
+        },
+        {
+          "id": "formats-raster",
+          "name": "Raster import and export",
+          "status": "locally-tested",
+          "current": "PNG, JPEG, TIFF, WebP and common image import paths support orientation, tagged colour conversion, staged publication and explicit JPEG matte/quality behavior.",
+          "boundary": "The 14 non-RAW corpus cases and current Rust/UI regressions pass, including warning-free TIFF alpha decoding. Broader format and clean-machine qualification remain separate.",
+          "evidence": [
+            "docs/photo-release-qualification.md",
+            "docs/photo-editing-hardening.md"
+          ],
+          "modules": [
+            "rust/src/document.rs",
+            "rust/src/raster.rs",
+            "rust/src/photo_io_ui.rs"
+          ]
+        },
+        {
+          "id": "formats-psd",
+          "name": "PSD subset",
+          "status": "locally-tested",
+          "current": "Flattened 8-bit RGB PSDs with Raw, PackBits, ZIP or ZIP prediction open as editable merged images; malformed and unsupported modes are rejected.",
+          "boundary": "Tagged PSD colour management and complete layered PSD parity are not supported; embedded ICC profiles currently trigger conversion guidance.",
+          "evidence": [
+            "docs/photo-editing-hardening.md"
+          ],
+          "modules": [
+            "rust/src/psd.rs",
+            "rust/src/document.rs"
+          ]
+        },
+        {
+          "id": "formats-colour-management",
+          "name": "ICC and working spaces",
+          "status": "implemented-needs-qualification",
+          "current": "ICC-tagged imports normalize through LittleCMS; editable sources can use sRGB, Linear sRGB or Display P3, and software display proofing exposes intents and black-point compensation.",
+          "boundary": "End-to-end wide-gamut compositing/export, calibrated monitor validation, compositor colour management, HDR display and print-proof accuracy are unqualified.",
+          "evidence": [
+            "docs/rust-advanced-workflows.md",
+            "docs/photo-release-qualification.md"
+          ],
+          "modules": [
+            "rust/src/color_management.rs",
+            "rust/src/precision.rs",
+            "rust/src/proofing.rs"
+          ]
+        },
+        {
+          "id": "formats-precision",
+          "name": "Retained 16-bit precision and export",
+          "status": "locally-tested",
+          "current": "High-bit-depth PNG/TIFF and RAW sources retain non-quantized 16-bit masters for editable processing and explicit 16-bit PNG/TIFF export.",
+          "boundary": "Both RAW references and retained/explicit PNG/TIFF samples pass exact 16-bit comparison; high-precision sources remain capped at 16,777,216 pixels. Standard export is 8-bit, while explicit PNG/TIFF export is 16-bit. Ordinary destructive painting requires an explicit conversion to 8-bit pixels.",
+          "evidence": [
+            "docs/photo-release-qualification.md",
+            "docs/rust-advanced-workflows.md"
+          ],
+          "modules": [
+            "rust/src/raster16.rs",
+            "rust/src/advanced16.rs",
+            "rust/src/document.rs"
+          ]
+        },
+        {
+          "id": "formats-hdr",
+          "name": "Persistent 32-bit HDR workflow",
+          "status": "blocked-deferred",
+          "current": "Not implemented as a persistent document or export mode.",
+          "boundary": "Existing HDR merge and P3 working-space features must not be described as a 32-bit floating-point HDR pipeline.",
+          "evidence": [
+            "docs/rust-advanced-workflows.md"
+          ],
+          "modules": []
+        }
+      ]
+    },
+    {
+      "id": "linux-experience",
+      "name": "Linux experience",
+      "icon": "monitor",
+      "summary": "The current product is a native GPUI/Omarchy application with strong local journeys and unresolved physical-device and portability gates.",
+      "items": [
+        {
+          "id": "linux-native-ui",
+          "name": "Native GPUI/Omarchy interface",
+          "status": "locally-tested",
+          "current": "The Studio shell, tool dock, Layers, Develop, Selection, Canvas, Create and Assistant inspectors, themes, dialogs and native canvas are implemented in Rust/GPUI.",
+          "boundary": "This is the active native app, distinct from the historical Swift/Qt Linux port and its older parity reports.",
+          "evidence": [
+            "docs/rust-studio-design.md",
+            "docs/rust-rewrite-status.md"
+          ],
+          "modules": [
+            "rust/src/main.rs",
+            "rust/src/studio_ui.rs",
+            "rust/src/display_surface.rs",
+            "rust/src/camera_canvas.rs"
+          ]
+        },
+        {
+          "id": "linux-wayland-xwayland",
+          "name": "Wayland and XWayland journeys",
+          "status": "locally-tested",
+          "current": "Production and installed-preview windows passed bounded native Wayland/XWayland editing journeys, including an 800×600 GPUI viewport and light/dark/reduced-motion checks.",
+          "boundary": "These journeys dispatch GPUI events in process and do not prove compositor-delivered physical input.",
+          "evidence": [
+            "docs/photo-editing-hardening.md",
+            "docs/omuse-create-qualification.md"
+          ],
+          "modules": [
+            "scripts/native-rust-check.py",
+            "rust/src/studio_ui.rs"
+          ]
+        },
+        {
+          "id": "linux-preview-install",
+          "name": "Isolated preview installation",
+          "status": "locally-tested",
+          "current": "The current production build passed Wayland and minimum-window XWayland journeys. The installed omuse-preview has the identical executable hash and passed its editing self-test from /tmp; both previous preview versions are preserved.",
+          "boundary": "A development-host install is not a clean-machine package or a portable Linux binary.",
+          "evidence": [
+            "docs/photo-release-qualification.md",
+            "docs/omuse-create-qualification.md",
+            "docs/public-release-readiness.md"
+          ],
+          "modules": [
+            "scripts/install-rust.sh",
+            "scripts/package-rust.sh"
+          ]
+        },
+        {
+          "id": "linux-physical-input",
+          "name": "Physical keyboard, pointer and Cua",
+          "status": "blocked-deferred",
+          "current": "The Omarchy-specific Cua path captured the exact app window in a disposable nested session, but foreground pointer/keyboard injection was refused. The main desktop plugin is inactive until a fresh desktop session.",
+          "boundary": "No physical-input pass is claimed. Real foreground keyboard/pointer, clipboard and file-dialog acceptance remain release gates.",
+          "evidence": [
+            "docs/omuse-create-qualification.md",
+            "docs/photo-release-qualification.md",
+            "docs/public-release-readiness.md"
+          ],
+          "modules": [
+            "scripts/native-rust-check.py"
+          ]
+        },
+        {
+          "id": "linux-tablet",
+          "name": "Tablet pressure and tilt",
+          "status": "blocked-deferred",
+          "current": "Wayland tablet-v2 pressure, tilt, tool identity and proximity events are wired, but physical tablet support is deferred for this preview.",
+          "boundary": "Synthetic backend tests do not establish device mapping, driver behavior or X11 pressure/tilt.",
+          "evidence": [
+            "docs/rust-advanced-workflows.md",
+            "docs/public-release-readiness.md"
+          ],
+          "modules": [
+            "rust/src/tablet_ui.rs",
+            "rust/src/brush_dynamics.rs"
+          ]
+        },
+        {
+          "id": "linux-displays-accessibility",
+          "name": "Displays, DPI and accessibility",
+          "status": "implemented-needs-qualification",
+          "current": "Minimum-window layouts, themes, reduced motion and bounded scale behavior have automated/native coverage.",
+          "boundary": "Real mixed-DPI/multi-monitor behavior, physical trackpad input and AT-SPI exact-window coverage remain unqualified.",
+          "evidence": [
+            "docs/rust-studio-design.md",
+            "docs/public-release-readiness.md",
+            "docs/omuse-create-qualification.md"
+          ],
+          "modules": [
+            "rust/src/studio_ui.rs",
+            "rust/src/preferences.rs"
+          ]
+        },
+        {
+          "id": "linux-portability",
+          "name": "Distribution portability",
+          "status": "blocked-deferred",
+          "current": "The preview targets this Arch/Omarchy x86_64 host and glibc 2.44. Omuse-native packaging/AppStream and clean supported-system installation are still pending.",
+          "boundary": "The tracked legacy Compositor Flatpak material is not an Omuse distribution package.",
+          "evidence": [
+            "docs/public-release-readiness.md",
+            "docs/rust-bundle.md"
+          ],
+          "modules": [
+            "scripts/package-rust.sh",
+            "scripts/install-rust.sh"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "reliability-release",
+      "name": "Reliability and release",
+      "icon": "shield-check",
+      "summary": "Transaction, recovery and bounds work is substantial, while public distribution still depends on current qualification and external release infrastructure.",
+      "items": [
+        {
+          "id": "reliability-transactions",
+          "name": "Undo, async work and publication safety",
+          "status": "locally-tested",
+          "current": "Document transactions, undo/redo, stale-result rejection, cancellable background open/export/save and staged publication guard against partial or late results.",
+          "boundary": "Cancellation cannot retract work already accepted by an external provider, and not every long-running workload has soak evidence.",
+          "evidence": [
+            "docs/photo-editing-hardening.md",
+            "docs/omuse-create-qualification.md"
+          ],
+          "modules": [
+            "rust/src/editor.rs",
+            "rust/src/save_guard.rs",
+            "rust/src/photo_io_ui.rs"
+          ]
+        },
+        {
+          "id": "reliability-recovery",
+          "name": "Save, recovery and interruption",
+          "status": "locally-tested",
+          "current": "Staged saves, external identity checks and isolated recovery preserve complete packages. The current suite also covers older lazy snapshots and newer edits across same-path background saves. Earlier multi-revision SIGKILL qualification remains recorded separately.",
+          "boundary": "Process interruption is not sudden power-loss durability; a clean filesystem and machine matrix remains untested.",
+          "evidence": [
+            "docs/desktop-history-qualification.md",
+            "docs/photo-editing-hardening.md",
+            "docs/omuse-create-qualification.md",
+            "docs/rust-release-qualification.md"
+          ],
+          "modules": [
+            "rust/src/document.rs",
+            "rust/src/save_guard.rs",
+            "rust/src/create_project.rs"
+          ]
+        },
+        {
+          "id": "reliability-bounds",
+          "name": "Resource and untrusted-input bounds",
+          "status": "implemented-needs-qualification",
+          "current": "Decoder, PSD, AI response, media probe, CSV/bulk, document and editable-source limits fail explicitly instead of silently overcommitting.",
+          "boundary": "A focused security and supply-chain review of untrusted imports and provider boundaries remains a public-release gate.",
+          "evidence": [
+            "docs/photo-editing-hardening.md",
+            "docs/public-release-readiness.md"
+          ],
+          "modules": [
+            "rust/src/document.rs",
+            "rust/src/psd.rs",
+            "rust/src/ai/process.rs",
+            "rust/src/motion.rs"
+          ]
+        },
+        {
+          "id": "release-current-suite",
+          "name": "Current candidate regression suite",
+          "status": "locally-tested",
+          "current": "The current changes passed 734 Rust tests: 326 library, 179 UI and 229 integration tests. The editing journey, six-page PNG/PDF/MP4/GIF exports, 80 editable templates, production Wayland/XWayland and matching installed-preview self-test also passed.",
+          "boundary": "Four manual timing benchmarks were excluded from the regression gate; the desktop comparison ran separately and passed all 18 cases. Local checks do not replace clean public-repository CI or broader hardware and live-provider acceptance.",
+          "evidence": [
+            "docs/desktop-history-qualification.md",
+            "docs/large-photo-history-qualification.md",
+            "docs/photo-release-qualification.md",
+            "docs/photo-editing-hardening.md"
+          ],
+          "modules": [
+            "scripts/test-rust.sh",
+            "scripts/photo-qualification.py",
+            "scripts/photo-stress.py",
+            "scripts/desktop-history-stress.py"
+          ]
+        },
+        {
+          "id": "release-legal",
+          "name": "Dependency notice gate",
+          "status": "blocked-deferred",
+          "current": "Exact upstream texts were recovered for `seahash` and `simd_helpers`; `hexf-parse 0.2.1` and `mac 0.1.1` remain unresolved.",
+          "boundary": "The two missing legal texts keep the public-binary notice gate open; generic licence boilerplate is intentionally rejected.",
+          "evidence": [
+            "docs/rust-license-findings.md",
+            "docs/public-release-readiness.md"
+          ],
+          "modules": [
+            "scripts/rust-license-inventory.py",
+            "rust/licenses/dependency-overrides/overrides.json"
+          ]
+        },
+        {
+          "id": "release-ci-github",
+          "name": "Remote CI and GitHub App connection",
+          "status": "blocked-deferred",
+          "current": "Rust workflow definitions exist, but the first clean public-repository run is pending and the GitHub App connection needed to operate that path is missing in the current session.",
+          "boundary": "Local tests and workflow files do not prove a green remote run for the exact release candidate.",
+          "evidence": [
+            "docs/public-release-readiness.md",
+            ".github/workflows/rust-validation.yml"
+          ],
+          "modules": []
+        },
+        {
+          "id": "release-artifact",
+          "name": "Clean install and release identity",
+          "status": "blocked-deferred",
+          "current": "The production and installed executable hashes match, native checks pass, and rollback copies are retained. A source-only public snapshot is prepared separately; a clean binary release/tag and clean target installation remain pending.",
+          "boundary": "No downloadable public preview should be claimed until that exact artifact path is reproduced on a clean supported system.",
+          "evidence": [
+            "docs/desktop-history-qualification.md",
+            "docs/photo-release-qualification.md",
+            "docs/public-release-readiness.md",
+            "docs/rust-bundle.md"
+          ],
+          "modules": [
+            "scripts/package-rust.sh",
+            "scripts/install-rust.sh"
+          ]
+        },
+        {
+          "id": "release-support-security",
+          "name": "Security, support and supply chain",
+          "status": "blocked-deferred",
+          "current": "Contribution and bug-report entry points exist; vulnerability reporting, owner-approved security policy, maintenance scope, dependency vulnerability review and signing/attestation decisions remain open.",
+          "boundary": "These are release-operation requirements rather than editor feature implementation.",
+          "evidence": [
+            "docs/public-release-readiness.md"
+          ],
+          "modules": []
+        },
+        {
+          "id": "release-interchange",
+          "name": "Independent macOS interchange",
+          "status": "planned",
+          "current": "The project formats and compatibility paths are documented, but independently reviewed macOS fixtures remain a planned qualification step.",
+          "boundary": "Historical parity reports and self-generated round trips are not independent cross-platform proof.",
+          "evidence": [
+            "docs/public-release-readiness.md",
+            "docs/project-format.md"
+          ],
+          "modules": [
+            "rust/src/document.rs",
+            "rust/tests/advanced_persistence.rs",
+            "rust/tests/editor_engine.rs"
+          ]
+        }
+      ]
+    }
+  ]
+}
+  </script>
+  <script>
+    (() => {
+      const root = document.getElementById("omuse-project-guide");
+      if (!root) return;
+      const dataNode = document.getElementById("omuse-guide-data");
+      const data = JSON.parse(dataNode.textContent);
+      const statusById = new Map(data.statusDefinitions.map(status => [status.id, status]));
+
+      const element = (tag, className, text) => {
+        const node = document.createElement(tag);
+        if (className) node.className = className;
+        if (text !== undefined) node.textContent = String(text).replace(/`([^`]+)`/g, "$1");
+        return node;
+      };
+
+      const statusDot = status => {
+        const dot = element("span", "status-dot");
+        dot.dataset.status = status;
+        dot.setAttribute("aria-hidden", "true");
+        return dot;
+      };
+
+      root.querySelector("#omuse-release-state").textContent = data.releaseState;
+      root.querySelector("#omuse-release-scope").textContent = data.releaseScope;
+      root.querySelector("#omuse-snapshot-date").textContent = data.snapshotDate;
+
+      const itemCount = data.categories.reduce((total, category) => total + category.items.length, 0);
+      root.querySelector("#omuse-feature-count").textContent = itemCount + " feature families";
+
+      const snapshot = root.querySelector("#omuse-snapshot");
+      data.releaseSnapshot.forEach(metric => {
+        const card = element("article", "card viz-stat");
+        card.append(
+          element("div", "text-small", metric.label),
+          element("div", "viz-stat-value", metric.value),
+          element("div", "text-small", metric.detail)
+        );
+        snapshot.append(card);
+      });
+
+      const legend = root.querySelector("#omuse-status-legend");
+      data.statusDefinitions.forEach(status => {
+        const key = element("div", "status-key text-small");
+        key.append(statusDot(status.id), element("span", "", status.label));
+        key.dataset.tooltip = status.meaning;
+        legend.append(key);
+      });
+
+      const categorySelect = root.querySelector("#omuse-category-select");
+      const panel = root.querySelector("#omuse-category-panel");
+
+      const appendEvidence = (container, item) => {
+        const details = element("details", "text-small");
+        const summary = element("summary", "", "Evidence and source paths");
+        details.append(summary);
+        const grid = element("div", "evidence-grid");
+        const evidenceGroup = element("div");
+        evidenceGroup.append(element("div", "", "Evidence"));
+        const evidenceList = element("ul");
+        item.evidence.forEach(path => {
+          const listItem = element("li");
+          listItem.append(element("code", "", path));
+          evidenceList.append(listItem);
+        });
+        evidenceGroup.append(evidenceList);
+
+        const sourceGroup = element("div");
+        sourceGroup.append(element("div", "", "Implementation"));
+        const sourceList = element("ul");
+        if (item.modules.length === 0) {
+          sourceList.append(element("li", "", "No shipped implementation path"));
+        } else {
+          item.modules.forEach(path => {
+            const listItem = element("li");
+            listItem.append(element("code", "", path));
+            sourceList.append(listItem);
+          });
+        }
+        sourceGroup.append(sourceList);
+        grid.append(evidenceGroup, sourceGroup);
+        details.append(grid);
+        container.append(details);
+      };
+
+      const renderCategory = index => {
+        const category = data.categories[index];
+        panel.replaceChildren();
+
+        const heading = element("div", "category-heading");
+        const titleGroup = element("div", "category-title");
+        const icon = element("i");
+        icon.dataset.lucide = category.icon;
+        icon.setAttribute("aria-hidden", "true");
+        const copy = element("div", "category-copy");
+        copy.append(
+          element("h2", "", category.name),
+          element("div", "category-summary", category.summary)
+        );
+        titleGroup.append(icon, copy);
+        heading.append(
+          titleGroup,
+          element("span", "text-small", category.items.length + " feature families")
+        );
+        panel.append(heading);
+
+        const list = element("div", "feature-list");
+        category.items.forEach(item => {
+          const row = element("article", "feature-row");
+          const identity = element("div", "feature-identity");
+          const titleLine = element("div", "feature-title-line");
+          titleLine.append(statusDot(item.status), element("span", "feature-name", item.name));
+          const status = statusById.get(item.status);
+          identity.append(titleLine, element("span", "text-small", status.label));
+
+          const detail = element("div", "feature-detail");
+          detail.append(
+            element("p", "feature-current", item.current),
+            element("p", "feature-boundary text-small", item.boundary)
+          );
+          appendEvidence(detail, item);
+          row.append(identity, detail);
+          list.append(row);
+        });
+        panel.append(list);
+        if (window.lucide && typeof window.lucide.createIcons === "function") {
+          window.lucide.createIcons({ attrs: { width: 16, height: 16 } });
+        }
+      };
+
+      data.categories.forEach((category, index) => {
+        const option = element("option", "", category.name);
+        option.value = String(index);
+        categorySelect.append(option);
+      });
+      categorySelect.addEventListener("change", event => {
+        renderCategory(Number(event.currentTarget.value));
+      });
+
+      renderCategory(0);
+    })();
+  </script>
+</section>

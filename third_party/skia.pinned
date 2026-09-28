@@ -1,0 +1,22 @@
+# Skia — vendored source provenance record.
+#
+# The actual source archive is NOT committed to this repo. flatpak-builder
+# fetches the URL below at build time and verifies the sha256 (declared in
+# com.wonderassembly.Compositor.yaml, Module "skia"). This file is the
+# human-readable pin record; the manifest is the source of truth.
+#
+# Build: static, GPU + Vulkan enabled (plan §8.4), self-contained third-party
+#        deps (skia_use_system_*=false). Vulkan headers/loader come from the
+#        Freedesktop 26.08 SDK (vulkan 1.4.357). GL/EGL enabled for the
+#        optional GL backend and for QVulkanWindow interop paths.
+#        GN args live in the manifest module build-commands.
+
+name:    skia
+version: canvaskit/0.42.0
+url:     https://github.com/google/skia/archive/refs/tags/canvaskit%2F0.42.0.tar.gz
+sha256:  3b574f9b0315d00b54c611ff6d827c29a1b65121ceed7278b451c20f0f8516a1
+gn_args_summary: |
+  is_official_build=true
+  skia_enable_ganesh=true skia_use_vulkan=true skia_use_gl=true skia_use_egl=true
+  skia_use_system_*=false  (icu/zlib/libpng/libjpeg/libwebp/harfbuzz/freetype/fontconfig)
+install: libskia.a + public headers (core, gpu, gpu/ganesh, gpu/vk) -> /app/lib, /app/include/skia

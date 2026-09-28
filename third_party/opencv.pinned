@@ -1,0 +1,21 @@
+# OpenCV — vendored source provenance record.
+#
+# The actual source archive is NOT committed to this repo. flatpak-builder
+# fetches the URL below at build time and verifies the sha256 (declared in
+# com.wonderassembly.Compositor.yaml, Module "opencv"). This file is the
+# human-readable pin record; the manifest is the source of truth.
+#
+# Build: static, minimal modules (core,imgproc), bundled third-party
+#        (BUILD_ZLIB/PNG/JPEG=ON), no image codecs (Qt6Gui does I/O).
+#        CMake opts live in the manifest module config-opts.
+
+name:    opencv
+version: 4.14.0
+url:     https://github.com/opencv/opencv/archive/refs/tags/4.14.0.tar.gz
+sha256:  ee8fb9b30eb60850431b4656447080e3737b56e45719c92b67f245950609f86e
+cmake_summary: |
+  -DBUILD_LIST=core,imgproc -DBUILD_SHARED_LIBS=OFF
+  -DBUILD_ZLIB=ON -DBUILD_PNG=ON -DBUILD_JPEG=ON
+  disable: tests/examples/docs/python/TIFF/WEBP/OPENJPEG/openexr/v4l/gtk/gstreamer/ffmpeg/ipp/eigen/opencl
+install: libopencv_core.a, libopencv_imgproc.a + headers -> /app/lib, /app/include/opencv4
+config:  OpenCVConfig.cmake -> /app/lib/cmake/opencv4/

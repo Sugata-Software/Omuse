@@ -1,0 +1,28 @@
+name: Omuse project guide
+
+on:
+  push:
+    paths:
+      - 'docs/project-status.json'
+      - 'docs/project-guide.fragment.html'
+      - 'scripts/update-project-guide.py'
+      - '.github/workflows/project-guide.yml'
+  pull_request:
+    paths:
+      - 'docs/project-status.json'
+      - 'docs/project-guide.fragment.html'
+      - 'scripts/update-project-guide.py'
+      - '.github/workflows/project-guide.yml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Check the guide matches its reviewed catalogue
+        run: python3 scripts/update-project-guide.py --check
