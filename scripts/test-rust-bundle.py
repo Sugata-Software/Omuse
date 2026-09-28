@@ -28,6 +28,7 @@ class BundleTests(unittest.TestCase):
     def make_tree(self, version: str = "one", target: str = "linux-x86_64") -> Path:
         root = self.base / f"tree-{version}" / "omuse-bundle"
         files = {
+            "install-app.py": (ROOT / "scripts/install-app.py").read_text(),
             "bin/omuse": (
                 "#!/bin/sh\nprintf '%s\\n' 'version=" + version + "' \"$@\"\n"
             ),
@@ -124,15 +125,9 @@ class BundleTests(unittest.TestCase):
         previous = prefix / "opt/omuse/omuse.previous"
         old = subprocess.run([str(previous)], check=True, text=True, stdout=subprocess.PIPE)
         new = subprocess.run([str(launcher)], check=True, text=True, stdout=subprocess.PIPE)
-        compatible = subprocess.run(
-            [str(prefix / "bin/compositor-rust")],
-            check=True,
-            text=True,
-            stdout=subprocess.PIPE,
-        )
+        self.assertFalse((prefix / "bin/compositor-rust").exists())
         self.assertEqual(old.stdout, "version=one\n")
         self.assertEqual(new.stdout, "version=two\n")
-        self.assertEqual(compatible.stdout, "version=two\n")
         self.assertTrue(
             (prefix / "share/icons/hicolor/256x256/apps/omuse.png").is_file()
         )

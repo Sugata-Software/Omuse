@@ -245,7 +245,7 @@
     {
       "label": "Public-release blockers",
       "value": "Open gates",
-      "detail": "Two dependency texts, remote CI completion, clean installation and physical desktop acceptance remain open. GitHub access is connected and the source preview is published.",
+      "detail": "Two dependency texts, clean-machine installation and physical desktop acceptance remain open. Source is published and the initial Rust CI passed. The new Linux-only tree adds one-command source installation, update, rollback and uninstall.",
       "status": "blocked-deferred"
     }
   ],
@@ -1021,18 +1021,21 @@
         },
         {
           "id": "linux-preview-install",
-          "name": "Isolated preview installation",
+          "name": "One-command install and rollback",
           "status": "locally-tested",
-          "current": "The current production build passed Wayland and minimum-window XWayland journeys. The installed omuse-preview has the identical executable hash and passed its editing self-test from /tmp; both previous preview versions are preserved.",
-          "boundary": "A development-host install is not a clean-machine package or a portable Linux binary.",
+          "current": "One curl command sets up Arch/Omarchy dependencies, builds the preview, verifies RAW/subject assets and installs Omuse. A real isolated install/update, complete rollback in both directions and uninstall passed on this host. All 31 installer/bundle tests passed, including failed writes and SIGTERM restoration.",
+          "boundary": "First install compiles source locally. No qualified prebuilt download or clean-machine acceptance is claimed. SIGKILL/power-loss installation recovery has not been qualified.",
           "evidence": [
-            "docs/photo-release-qualification.md",
-            "docs/omuse-create-qualification.md",
+            "docs/install-qualification.md",
+            "docs/install.md",
             "docs/public-release-readiness.md"
           ],
           "modules": [
+            "install.sh",
+            "scripts/install-app.py",
             "scripts/install-rust.sh",
-            "scripts/package-rust.sh"
+            "scripts/test-install.py",
+            "scripts/install-rust-bundle.sh"
           ]
         },
         {
@@ -1085,8 +1088,8 @@
           "id": "linux-portability",
           "name": "Distribution portability",
           "status": "blocked-deferred",
-          "current": "The preview targets this Arch/Omarchy x86_64 host and glibc 2.44. Omuse-native packaging/AppStream and clean supported-system installation are still pending.",
-          "boundary": "The tracked legacy Compositor Flatpak material is not an Omuse distribution package.",
+          "current": "Automatic source installation targets Arch/Omarchy x86_64. The active tree now contains native Linux Omuse; obsolete Mac/Qt/platform packages are archived in history. Omuse-native binary packaging/AppStream and clean-system acceptance remain pending.",
+          "boundary": "A successful source build on this development host does not certify other distributions or a portable prebuilt binary.",
           "evidence": [
             "docs/public-release-readiness.md",
             "docs/rust-bundle.md"
@@ -1193,8 +1196,8 @@
           "id": "release-ci-github",
           "name": "Public source and remote CI",
           "status": "implemented-needs-qualification",
-          "current": "Source preview published to Sugata-Software/Omuse through the verified GitHub connection. The complete source tree matches the local qualified snapshot. Guide validation passed; the first Rust validation workflow is running.",
-          "boundary": "Remote Rust validation has not completed at this snapshot. Local tests and a passing guide check do not establish a green remote build or a qualified public binary.",
+          "current": "Source preview is published to Sugata-Software/Omuse. Initial complete Rust validation and guide validation passed on GitHub. The Linux cleanup adds a separate fast installer/reference-fixture job alongside the full Rust job.",
+          "boundary": "The initial success belongs to d8c926e. The new installation/cleanup commit needs its own green remote run; neither establishes physical display support or binary-release qualification.",
           "evidence": [
             "docs/public-release-readiness.md",
             ".github/workflows/rust-validation.yml"
@@ -1205,7 +1208,7 @@
           "id": "release-artifact",
           "name": "Clean install and release identity",
           "status": "blocked-deferred",
-          "current": "The production and installed executable hashes match, native checks pass, and rollback copies are retained. The source preview is published with matching source-tree identity; a clean binary release/tag and clean target installation remain pending.",
+          "current": "The published source preview now has a one-command local build/install path and complete runtime rollback. The earlier production and preview hashes match their recorded evidence; a clean binary release/tag and clean target installation remain pending.",
           "boundary": "No downloadable public preview should be claimed until that exact artifact path is reproduced on a clean supported system.",
           "evidence": [
             "docs/desktop-history-qualification.md",

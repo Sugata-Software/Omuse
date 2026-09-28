@@ -7,7 +7,7 @@ usage() {
 Usage: install-rust-bundle.sh ARCHIVE [--prefix DIR]
 
 The default prefix is $HOME/.local. Use --prefix for an isolated test install.
-Omuse is installed separately from the older Compositor editions.
+Updates retain the previous complete Omuse installation for rollback.
 EOF
 }
 
@@ -101,7 +101,7 @@ if find "$bundle" ! -type d ! -type f -print | grep -q .; then
 fi
 for required in SHA256SUMS SOURCE-REVISION bin/omuse lib/libonnxruntime.so \
     lib/libraw.so models/u2netp.onnx share/icons/omuse.png share/icons/omuse.svg \
-    licenses/rust-dependency-inventory.json licenses/Rust-THIRD-PARTY-NOTICES.txt
+    licenses/rust-dependency-inventory.json licenses/Rust-THIRD-PARTY-NOTICES.txt install-app.py
 do
     [ -f "$bundle/$required" ] || { printf 'Bundle member is missing: %s\n' "$required" >&2; exit 1; }
 done
@@ -122,99 +122,12 @@ grep -qx 'target=linux-x86_64' "$bundle/SOURCE-REVISION" || {
     exit 1
 }
 
-app_dir=$prefix/opt/omuse
-legacy_app_dir=$prefix/opt/compositor-rust
-bin_dir=$prefix/bin
-applications_dir=$prefix/share/applications
-icon_dir=$prefix/share/icons/hicolor/256x256/apps
-scalable_icon_dir=$prefix/share/icons/hicolor/scalable/apps
-mkdir -p "$app_dir" "$bin_dir" "$applications_dir" "$icon_dir" "$scalable_icon_dir"
-
-# Install support files only after every bundle member has passed verification.
-for directory in lib models licenses; do
-    mkdir -p "$app_dir/$directory"
-    for source in "$bundle/$directory"/*; do
-        [ -f "$source" ] || continue
-        name=$(basename -- "$source")
-        mode=644
-        [ "$directory" = lib ] && mode=755
-        install -m "$mode" "$source" "$app_dir/$directory/$name.new"
-        mv -f -- "$app_dir/$directory/$name.new" "$app_dir/$directory/$name"
-    done
-done
-install -m 644 "$bundle/SOURCE-REVISION" "$app_dir/SOURCE-REVISION.new"
-mv -f -- "$app_dir/SOURCE-REVISION.new" "$app_dir/SOURCE-REVISION"
-
-install -m 755 "$bundle/bin/omuse" "$app_dir/omuse.new"
-if [ -f "$app_dir/omuse" ]; then
-    cp -p -- "$app_dir/omuse" "$app_dir/omuse.previous.new"
-    mv -f -- "$app_dir/omuse.previous.new" "$app_dir/omuse.previous"
-elif [ ! -f "$app_dir/omuse.previous" ] && [ -f "$legacy_app_dir/compositor-rust" ]; then
-    cp -p -- "$legacy_app_dir/compositor-rust" "$app_dir/omuse.previous.new"
-    mv -f -- "$app_dir/omuse.previous.new" "$app_dir/omuse.previous"
-fi
-mv -f -- "$app_dir/omuse.new" "$app_dir/omuse"
-
-install -m 644 "$bundle/share/icons/omuse.png" "$icon_dir/omuse.png.new"
-mv -f -- "$icon_dir/omuse.png.new" "$icon_dir/omuse.png"
-install -m 644 "$bundle/share/icons/omuse.svg" "$scalable_icon_dir/omuse.svg.new"
-mv -f -- "$scalable_icon_dir/omuse.svg.new" "$scalable_icon_dir/omuse.svg"
-python3 - "$app_dir/omuse" "$bin_dir/omuse.new" "$bin_dir/omuse" \
-    "$bin_dir/compositor-rust.new" "$applications_dir/omuse.desktop.new" <<'PY'
-import pathlib
-import shlex
-import sys
-
-executable, launcher_new, launcher, compatibility_new, desktop_new = sys.argv[1:]
-pathlib.Path(launcher_new).write_text(
-    "#!/bin/sh\nset -eu\nexec " + shlex.quote(executable) + ' "$@"\n',
-    encoding="utf-8",
-)
-pathlib.Path(compatibility_new).write_text(
-    "#!/bin/sh\nset -eu\nexec " + shlex.quote(launcher) + ' "$@"\n',
-    encoding="utf-8",
-)
-# Desktop Exec is parsed by the desktop-entry grammar, not a shell. Within a
-# quoted argument these five characters require backslash escaping.
-escaped = launcher.replace("\\", "\\\\")
-for character in ('"', '`', '$'):
-    escaped = escaped.replace(character, "\\" + character)
-escaped = escaped.replace("%", "%%")
-pathlib.Path(desktop_new).write_text(
-    "[Desktop Entry]\n"
-    "Type=Application\n"
-    "Name=Omuse\n"
-    "Comment=Native image editor\n"
-    f'Exec="{escaped}" %f\n'
-    "Icon=omuse\n"
-    "Terminal=false\n"
-    "Categories=Graphics;2DGraphics;RasterGraphics;\n"
-    "StartupNotify=true\n"
-    "StartupWMClass=omuse\n",
-    encoding="utf-8",
-)
-PY
-chmod 755 "$bin_dir/omuse.new" "$bin_dir/compositor-rust.new"
-mv -f -- "$bin_dir/omuse.new" "$bin_dir/omuse"
-mv -f -- "$bin_dir/compositor-rust.new" "$bin_dir/compositor-rust"
-mv -f -- "$applications_dir/omuse.desktop.new" "$applications_dir/omuse.desktop"
-
-legacy_desktop="$applications_dir/compositor-rust.desktop"
-retired_desktop="$legacy_desktop.retired-by-omuse"
-if [ -f "$legacy_desktop" ] \
-    && grep -qx 'Name=Compositor Rust' "$legacy_desktop" \
-    && grep -qx 'Icon=compositor-rust' "$legacy_desktop" \
-    && grep -qx 'StartupWMClass=compositor-rust' "$legacy_desktop"; then
-    if [ ! -e "$retired_desktop" ]; then
-        cp -p -- "$legacy_desktop" "$retired_desktop.new"
-        mv -f -- "$retired_desktop.new" "$retired_desktop"
-    fi
-    rm -f -- "$legacy_desktop"
-fi
-
-if command -v desktop-file-validate >/dev/null 2>&1; then
-    desktop-file-validate "$applications_dir/omuse.desktop"
-fi
-printf 'Installed Omuse: %s\n' "$bin_dir/omuse"
-printf 'Compatibility launcher: %s\n' "$bin_dir/compositor-rust"
-printf 'Previous executable, when present: %s\n' "$app_dir/omuse.previous"
+# Reuse the same verified generation install/rollback path as source installs.
+payload=$work/payload
+mkdir -p "$payload/icons"
+install -m 755 "$bundle/bin/omuse" "$payload/omuse"
+cp -R "$bundle/lib" "$bundle/models" "$bundle/licenses" "$payload/"
+cp "$bundle/share/icons/omuse.png" "$bundle/share/icons/omuse.svg" "$payload/icons/"
+cp "$bundle/SOURCE-REVISION" "$payload/SOURCE-REVISION"
+revision=$(sed -n 's/^source_revision=//p' "$bundle/SOURCE-REVISION")
+python3 "$bundle/install-app.py" install --prefix "$prefix" --payload "$payload" --revision "$revision"

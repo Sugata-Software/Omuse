@@ -55,6 +55,7 @@ for required in \
     "$repo_root/rust/assets/omuse.svg" \
     "$repo_root/LICENSE" \
     "$repo_root/scripts/install-rust-bundle.sh" \
+    "$repo_root/scripts/install-app.py" \
     "$repo_root/scripts/rust-license-inventory.py"
 do
     [ -f "$required" ] || { printf 'Required bundle input is missing: %s\n' "$required" >&2; exit 1; }
@@ -89,6 +90,7 @@ install -m 644 "$inventory/THIRD_PARTY_NOTICES.txt" \
 install -m 644 "$repo_root/rust/assets/omuse.png" "$root/share/icons/omuse.png"
 install -m 644 "$repo_root/rust/assets/omuse.svg" "$root/share/icons/omuse.svg"
 install -m 755 "$repo_root/scripts/install-rust-bundle.sh" "$root/install.sh"
+install -m 755 "$repo_root/scripts/install-app.py" "$root/install-app.py"
 
 dirty_label=false
 [ -n "$dirty" ] && dirty_label=true

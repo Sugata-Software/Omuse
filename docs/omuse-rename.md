@@ -47,10 +47,11 @@ canonical `OMUSE_` value takes precedence.
 Older names remain in the repository when changing them would break
 compatibility or falsify the record:
 
-- `docs/legacy-compositor-readme.md` preserves the original upstream README,
-  including its product, source-tree, bundle and release names.
-- The preserved Swift/Qt implementation, its source paths and its original
-  licenses remain attributed to Compositor.
+- [Source provenance](source-provenance.md) attributes the original Compositor
+  project and earlier Linux fork. Their full application trees and build
+  instructions remain in Git history, outside the current source layout.
+- The independent C reference kernels retain their original identifiers,
+  source hashes and copyright notice under `rust/tests/reference/`.
 - `.comp` wire-format identifiers and metadata remain stable for interchange.
 - Legacy executable, environment and XDG names may appear in migration and
   alias code.
@@ -61,6 +62,10 @@ New product documentation, commands, package contents and desktop presentation
 use Omuse. A remaining older name should therefore be attributable to one of
 the compatibility or historical cases above, rather than serving as the active
 application name.
+
+Fresh installations create the `omuse` command and desktop entry. An existing
+legacy command may be retained only as an upgrade compatibility alias; it is
+not a second public application or an additional command users need to learn.
 
 ## Verification checkpoint — 27 September 2026
 

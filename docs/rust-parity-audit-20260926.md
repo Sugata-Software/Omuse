@@ -1,6 +1,6 @@
 # Rust parity audit — 26 September 2026
 
-This audit compares the Rust rewrite with the preserved Mac source in the same repository. It distinguishes implementation from executed Linux tests and from macOS/hardware comparisons that have not been performed. The [current feature matrix](rust-rewrite-status.md) is the implementation index.
+This historical audit compared the Rust rewrite with the Mac source then preserved in the same repository. The earlier application is now retained in [Git history](source-provenance.md#application-lineage); this dated record is not a current product specification. It distinguishes implementation from executed Linux tests and from macOS/hardware comparisons that have not been performed. The [current feature matrix](rust-rewrite-status.md) is the implementation index.
 
 ## Closed implementation gaps
 
@@ -42,7 +42,7 @@ Keep the preserved candidate available. Offer a focused Rust-port proposal with 
 
 The generated references retain aggressive ordered effects, optics, luminance noise reduction, color noise reduction and sharpening, with intermediate prefixes to locate a regression. Advanced inputs include alpha 43, 128, 219 and 255; Basic/calibration also cover zero alpha and alpha 37. Assertions require exact alpha and at most two premultiplied RGB levels of error. The final ordered case is enforced, not ignored. Source SHA-256 values are embedded in the fixtures.
 
-The advanced color-noise reference excludes input alpha zero because the preserved C implementation allocates its chroma plane with `malloc`, skips those entries, then blurs the plane (`Compositor/Rendering/AdjustPixels.c`, color-noise block around lines 844–859). The Rust implementation initializes that scratch plane deterministically. A standalone [reproduction and review-only patch](upstream-color-noise-reproduction.md) now cover this candidate; the preserved C source is unchanged here.
+The advanced color-noise reference excludes input alpha zero because the preserved C implementation allocates its chroma plane with `malloc`, skips those entries, then blurs the plane (`rust/tests/reference/upstream-kernels/AdjustPixels.c`, color-noise block around lines 844–859). The Rust implementation initializes that scratch plane deterministically. A standalone [reproduction and review-only patch](upstream-color-noise-reproduction.md) now cover this candidate; the preserved C source is unchanged here.
 
 The source audit also confirmed that the Mac PSD reader rejects PSB and non-8-bit files. Those shared exclusions are format boundaries, not additional Rust parity gaps.
 

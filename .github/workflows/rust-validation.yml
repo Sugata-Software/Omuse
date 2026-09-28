@@ -2,12 +2,16 @@ name: Omuse Rust validation
 
 on:
   push:
-    branches: [main, GNU_Linux, rewrite/rust-gpui, 'feat/omuse-create-ai', 'release/**']
+    branches: [main, 'release/**']
     paths:
       - 'rust/**'
       - 'scripts/build-rust.sh'
       - 'scripts/prepare-rust-assets.sh'
       - 'scripts/install-rust.sh'
+      - 'install.sh'
+      - 'scripts/install-app.py'
+      - 'scripts/test-install.py'
+      - 'scripts/generate-rust-kernel-fixtures.py'
       - 'scripts/test-rust.sh'
       - 'scripts/native-rust-check.py'
       - 'scripts/native-display-check.py'
@@ -21,12 +25,16 @@ on:
       - '.github/workflows/rust-validation.yml'
       - 'rust-toolchain.toml'
   pull_request:
-    branches: [main, GNU_Linux, rewrite/rust-gpui]
+    branches: [main]
     paths:
       - 'rust/**'
       - 'scripts/build-rust.sh'
       - 'scripts/prepare-rust-assets.sh'
       - 'scripts/install-rust.sh'
+      - 'install.sh'
+      - 'scripts/install-app.py'
+      - 'scripts/test-install.py'
+      - 'scripts/generate-rust-kernel-fixtures.py'
       - 'scripts/test-rust.sh'
       - 'scripts/native-rust-check.py'
       - 'scripts/native-display-check.py'
@@ -49,6 +57,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  installer:
+    name: Linux installer and reference fixtures
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Verify installation, update, rollback and archive integrity
+        run: |
+          bash -n install.sh scripts/install-rust.sh scripts/install-rust-bundle.sh scripts/prepare-rust-assets.sh
+          python3 scripts/test-install.py
+          python3 scripts/test-rust-bundle.py
+          python3 scripts/generate-rust-kernel-fixtures.py
+          git diff --exit-code -- rust/tests/fixtures
+
   validate:
     name: Omuse format, check, UI tests, and editing journey
     runs-on: ubuntu-24.04
@@ -138,9 +160,6 @@ jobs:
             ${{ runner.temp }}/omuse-media
             ${{ runner.temp }}/omuse-create-recovery
           if-no-files-found: warn
-
-      - name: Verify offline installer isolation and integrity
-        run: python3 scripts/test-rust-bundle.py
 
       - name: Verify dependency notice overrides
         run: |

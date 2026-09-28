@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerate portable Camera Raw references from the preserved upstream C source."""
+"""Regenerate Camera Raw references from the attributed independent C kernels."""
 import ctypes as c
 import copy
 import hashlib
@@ -9,8 +9,8 @@ import subprocess
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-sources = [root / 'Compositor/Rendering' / f for f in ('AdjustPixels.c', 'LensPixels.c')]
-with tempfile.TemporaryDirectory(prefix='compositor-reference-') as temp:
+sources = [root / 'rust/tests/reference/upstream-kernels' / f for f in ('AdjustPixels.c', 'LensPixels.c')]
+with tempfile.TemporaryDirectory(prefix='omuse-kernel-reference-') as temp:
     library = Path(temp) / 'reference.so'
     subprocess.run(['cc', '-O2', '-shared', '-fPIC', *map(str, sources), '-lm', '-o', str(library)], check=True)
     lib = c.CDLL(str(library))

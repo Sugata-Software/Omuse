@@ -1,5 +1,5 @@
 #!/bin/sh
-# Build only the native Rust editor. The existing Swift/Qt build is untouched.
+# Build the native Omuse editor for Linux.
 set -eu
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 jobs=${CARGO_BUILD_JOBS:-2}

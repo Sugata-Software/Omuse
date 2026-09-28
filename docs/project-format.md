@@ -1,9 +1,8 @@
 # Omuse `.comp` project format, versions 1–7
 
 A `.comp` project is a directory package containing `manifest.json` and an
-`images/` directory of `<layer UUID>.png` assets. macOS presents the directory
-as a document package. Omuse reads and writes the same JSON manifest and asset
-layout through its native Rust document layer.
+`images/` directory of `<layer UUID>.png` assets. Omuse reads and writes the
+JSON manifest and asset layout through its native Rust document layer.
 
 The manifest retains the legacy `com.compositor.project` identifier for wire
 compatibility. Omuse writes version `7` for new saves (versions `1`–`6` remain
@@ -17,16 +16,15 @@ asset. The identifier is format metadata, not the active product name; see the
 Embedded PNGs preserve source pixels and transparency; transforms remain
 separate. Projects survive moving or deleting imported source photos. Omuse
 validates manifest data, writes package assets into a staged sibling and
-replaces the destination only after the package is complete. The preserved
-macOS and Swift/Qt implementations use their own coordinated or staged publish
-paths. Compatible implementations reject unsupported versions, invalid
+replaces the destination only after the package is complete. The reader rejects
+unsupported versions, invalid
 metadata, missing assets, unsafe paths and oversized data before replacing the
 live document.
 
 Limits: 30,000 pixels per canvas/image side, 100 million total source pixels,
 10,000 layers, 4 MiB manifest, 512 MiB per encoded asset. The active reader is
-implemented in `rust/src/document.rs`; the preserved source contract remains in
-`Compositor/IO/ProjectStore.swift`.
+implemented in `rust/src/document.rs`. The inherited format contract is
+attributed in [source provenance](source-provenance.md).
 
 Undo history, pixel selections, and viewport are session-only. Opening fits the canvas, restores the active layer, and starts with clean history. Future editable features must extend the schema and round-trip tests. PNG export is a flattened derivative and does not mark project edits saved.
 
@@ -42,7 +40,7 @@ Masks store 8-bit grayscale coverage without alpha (white reveals, black hides).
 
 Version 5 adds optional `maskSourceID`: the UUID of a non-group layer supplying live alpha in document coordinates. It multiplies the target’s alpha alongside its enabled raster mask. Source pixels, transform, opacity, raster mask and upstream live masks contribute coverage; visibility and RGB color do not. Sources remain independent layers. Missing references, self-links, cycles, group endpoints and chains over 256 nodes are rejected. Deletion can bake the live coverage into dependent image pixels (retaining their raster masks) or remove the links, as one undoable operation. Links survive image/canvas resize and crop. Older versions default to no live mask; older app builds reject v5.
 
-UI terminology: these alpha links are clipping masks. Option-click assigns the lower sibling’s base or releases the connection. Multiple clipped layers share one base, show indented above it, and release when moved outside the contiguous stack. The underlying `maskSourceID` representation is unchanged.
+UI terminology: these alpha links are clipping masks. Alt-click assigns the lower sibling’s base or releases the connection. Multiple clipped layers share one base, show indented above it, and release when moved outside the contiguous stack. The underlying `maskSourceID` representation is unchanged.
 
 Version 6 allows `maskFile` and `maskEnabled` on group records. A folder has no image, so its mask covers the folder's own transform rectangle (the canvas size when the folder was created); Image Size resamples it through that transform, and Canvas Size and Crop preserve its pixels, exactly as for layer masks. Groups are pass-through, so an enabled folder mask multiplies the coverage of every descendant layer, together with that layer's own mask and any enclosing folders' masks; clipping-mask coverage is unaffected. Files declaring versions 1–5 cannot give a group a mask, and older app builds reject v6.
 
@@ -70,10 +68,8 @@ An optional `effects` record contains independent `stroke`, `shadow`, `colorOver
 | 6 | Folder masks |
 | 7 | Adjustment layers |
 
-The compatibility schema sources are
-`Compositor/IO/ProjectStore.swift`, `ProjectLayerRecord.swift`,
-`LayerAdjustment.swift` and `LayerShape.swift`. Omuse's active Rust reader,
-writer and validation live in `rust/src/document.rs`, with round-trip coverage
-under `rust/tests/`. Run `scripts/test-rust.sh` for the current document and
-synthetic edit/save/reopen/export checks. The earlier Swift/Qt contract and its
-test paths remain documented in [retiring CompositorCore](retiring-compositorcore.md).
+Omuse's Rust reader, writer and validation live in `rust/src/document.rs`, with
+round-trip coverage under `rust/tests/`. Run `scripts/test-rust.sh` for the
+current document and synthetic edit/save/reopen/export checks. The inherited
+schema sources and the earlier implementation remain available through the
+[historical source snapshot](source-provenance.md#application-lineage).

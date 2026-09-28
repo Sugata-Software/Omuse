@@ -2,28 +2,30 @@
 set -euo pipefail
 
 repo=$(cd "$(dirname "$0")/.." && pwd)
-work=$(mktemp -d "${TMPDIR:-/tmp}/compositor-color-noise.XXXXXXXX")
+work=$(mktemp -d "${TMPDIR:-/tmp}/omuse-color-noise.XXXXXXXX")
 trap 'rm -rf "$work"' EXIT
 
 cc=${CC:-clang}
-common=(-std=c11 -O1 -g -Wall -Wextra -Werror -Wno-unused-parameter -I"$repo/Compositor/Rendering")
-harness="$repo/tests/upstream_color_noise_repro.c"
-allocator="$repo/tests/upstream_color_noise_allocator.h"
-source="$repo/Compositor/Rendering/AdjustPixels.c"
+reference="$repo/rust/tests/reference/upstream-kernels"
+reproduction="$repo/rust/tests/reference/color-noise"
+common=(-std=c11 -O1 -g -Wall -Wextra -Werror -Wno-unused-parameter -I"$reference")
+harness="$reproduction/upstream_color_noise_repro.c"
+allocator="$reproduction/upstream_color_noise_allocator.h"
+source="$reference/AdjustPixels.c"
 
 build() {
     local source_file=$1 output=$2
     "$cc" "${common[@]}" -include "$allocator" -Dmalloc=repro_malloc -Dfree=repro_free \
         -c "$source_file" -o "$work/adjust.o"
-    "$cc" "${common[@]}" "$harness" "$work/adjust.o" "$repo/Compositor/Rendering/LensPixels.c" -lm -o "$output"
+    "$cc" "${common[@]}" "$harness" "$work/adjust.o" "$reference/LensPixels.c" -lm -o "$output"
 }
 
-mkdir -p "$work/fixed/Compositor/Rendering"
-cp "$source" "$work/fixed/Compositor/Rendering/AdjustPixels.c"
-patch --quiet -d "$work/fixed" -p1 < "$repo/patches/color-noise-zero-alpha.patch"
+mkdir -p "$work/fixed"
+cp "$source" "$work/fixed/AdjustPixels.c"
+patch --quiet -d "$work/fixed" -p3 < "$reproduction/color-noise-zero-alpha.patch"
 
 build "$source" "$work/buggy"
-build "$work/fixed/Compositor/Rendering/AdjustPixels.c" "$work/fixed-bin"
+build "$work/fixed/AdjustPixels.c" "$work/fixed-bin"
 
 for variant in buggy fixed-bin; do
     for pattern in 0 63; do
@@ -56,7 +58,7 @@ if [[ "$bug_opaque_zero" != "$bug_opaque_pattern" || "$bug_opaque_zero" != "$fix
 fi
 
 if "$cc" -fsanitize=memory -fPIE -pie -O1 -g -std=c11 \
-    -I"$repo/Compositor/Rendering" "$harness" "$source" "$repo/Compositor/Rendering/LensPixels.c" -lm -o "$work/msan" 2>/dev/null; then
+    -I"$reference" "$harness" "$source" "$reference/LensPixels.c" -lm -o "$work/msan" 2>/dev/null; then
     set +e
     MSAN_OPTIONS=halt_on_error=1:exit_code=86 "$work/msan" mixed >"$work/msan.out" 2>"$work/msan.err"
     detector_status=$?

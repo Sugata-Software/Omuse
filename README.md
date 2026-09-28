@@ -1,5 +1,7 @@
 # Omuse
 
+### A native creative studio for Linux.
+
 <p align="center">
   <img src="rust/assets/omuse.svg" alt="Omuse logo" width="144">
 </p>
@@ -30,6 +32,39 @@ Omuse does not change the desktop theme.
 
 *Actual native preview on Omarchy. [Image credit](docs/media/README.md).*
 
+## Install
+
+On **Omarchy or Arch Linux (x86_64)**, open a terminal and run:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Sugata-Software/Omuse/main/install.sh | bash
+```
+
+Then open **Omuse** from your application launcher.
+
+The installer sets up dependencies, builds the preview, verifies the editor and
+installs it for your user. Camera RAW and local subject-selection assets are
+included. It asks for your password only if system packages need installing.
+Run the command as your normal desktop user; do not prefix it with `sudo`.
+
+**This preview currently builds from source.** Allow time for the first build
+and about 12 GB of free disk space. Later installs reuse the build cache.
+Prebuilt downloads will follow release qualification. You can
+[inspect the installer](install.sh) before running it.
+
+| Task | Command |
+| --- | --- |
+| Update | Run the same install command again |
+| Launch in a terminal | `~/.local/bin/omuse` |
+| Roll back an update | `~/.local/bin/omuse-manage rollback` |
+| Uninstall | `~/.local/bin/omuse-manage uninstall` |
+
+Updates keep the previous executable **and its runtime assets** together.
+Uninstall keeps your projects, settings and recovery files. The installer does
+not change your Omarchy theme or shell configuration. See the
+[installation guide](docs/install.md) for custom locations, cached downloads
+and troubleshooting.
+
 ## Highlights
 
 - Layers, groups, masks, clipping, blend modes, live adjustments and effects.
@@ -47,33 +82,16 @@ Omuse does not change the desktop theme.
   their documented limits.
 - Omarchy-aware controls, colours, theme watching and native Linux file dialogs.
 
-The categorized [project guide](docs/project-guide.md) tracks current features,
-planned work and release blockers, with a static visual snapshot for the
-conversation. The [Rust rewrite status](docs/rust-rewrite-status.md) has the
-detailed parity record. Advanced workflows and their
-limits are described in [Advanced workflows](docs/rust-advanced-workflows.md).
-The [Create guide](docs/omuse-create-guide.md) explains the new workflows; the
-[Create and AI coverage map](docs/omuse-create-and-ai-plan.md) separates source
-coverage from completed release qualification. The [real-photo qualification
-report](docs/photo-release-qualification.md) records independent photo checks,
-RAW/precision corrections and measured large-document limits. The [photo
-editing hardening report](docs/photo-editing-hardening.md) records the earlier
-editing fixes and installed-preview checks. The earlier [Create
-qualification record](docs/omuse-create-qualification.md) covers that workflow's
-initial qualification; [release readiness](docs/public-release-readiness.md)
-tracks the remaining public-release gates. Calendars and scheduling are outside
-Omuse's scope.
+Explore the [editing workflows](docs/rust-advanced-workflows.md),
+[Create guide](docs/omuse-create-guide.md) and
+[categorized project guide](docs/project-guide.md). The
+[release checklist](docs/public-release-readiness.md) distinguishes tested
+features from the remaining public-release work. Omuse focuses on creating
+content; calendars and scheduling are outside its scope.
 
-## Build and run
+## Build and contribute
 
-Omuse requires a Linux Rust development environment, a C/C++ toolchain,
-`pkg-config`, Wayland development libraries, libxkbcommon with X11 support,
-Fontconfig and LittleCMS 2 development libraries. A working Wayland or X11
-desktop graphics stack is required to open the application window.
-Motion export and clip tools require FFmpeg. Subscription AI uses a supported,
-signed-in official provider runtime; an API key is not required for local editing.
-
-From the repository root:
+For developers:
 
 ```sh
 git clone https://github.com/Sugata-Software/Omuse.git
@@ -82,45 +100,9 @@ scripts/build-rust.sh
 rust/target/release/omuse
 ```
 
-Open a project directly:
-
-```sh
-rust/target/release/omuse /path/to/Artwork.comp
-```
-
-For development through Cargo:
-
-```sh
-cargo run --manifest-path rust/Cargo.toml --release --locked
-```
-
-See the [complete Rust build, test and development guide](rust/README.md) for
-toolchain details, optional runtime assets, native checks and the source map.
-
-## Install
-
-Build and install the per-user application:
-
-```sh
-scripts/build-rust.sh
-scripts/install-rust.sh
-```
-
-The installer places the application at `~/.local/opt/omuse/omuse`, creates the
-`~/.local/bin/omuse` command and installs an **Omuse** desktop entry. Optional
-Camera RAW and subject-selection assets can be prepared before installation:
-
-```sh
-scripts/prepare-rust-assets.sh
-scripts/install-rust.sh rust/target/release/omuse
-```
-
-For transition compatibility, installation also provides the previous terminal
-command as an alias to `omuse`; new documentation and automation should use the
-canonical command.
-
-For offline packaging and isolated installation, see the
-[runtime bundle guide](docs/rust-bundle.md).
+The [Linux development guide](rust/README.md) covers build prerequisites,
+tests and the source map. Start with [CONTRIBUTING.md](CONTRIBUTING.md) for a
+fix or contribution. Omuse uses Rust and native Linux libraries.
 
 ## Projects and user data
 
@@ -136,8 +118,7 @@ New settings and application data use the XDG locations
 `$XDG_CONFIG_HOME/omuse` and `$XDG_DATA_HOME/omuse` (normally
 `~/.config/omuse` and `~/.local/share/omuse`). The rename keeps compatibility
 with earlier settings, shortcuts, brushes and recovery data. See the
-[rename compatibility contract](docs/omuse-rename.md) for the migration rules
-and the older names that remain intentionally in the repository.
+[rename compatibility contract](docs/omuse-rename.md) for the migration rules.
 
 ## Test and release evidence
 
@@ -149,7 +130,7 @@ scripts/test-rust.sh
 
 The complete test journey includes MP4/GIF export and requires FFmpeg.
 
-Automated headless checks do not replace native display, tablet, portal,
+Automated headless checks do not replace native display, portal,
 mixed-DPI or optional-backend qualification. The required evidence is listed in
 [Rust release gates](docs/rust-release-gates.md) and
 [save/recovery qualification](docs/rust-release-qualification.md).
@@ -161,15 +142,14 @@ Contributions and carefully scoped bug reports are welcome; start with
 [CONTRIBUTING.md](CONTRIBUTING.md). Use copies of important artwork while
 evaluating this preview.
 
-Omuse grew from the open-source Compositor project. Its original Swift/Qt
-README, build notes and release instructions are preserved verbatim in
-[the legacy Compositor README](docs/legacy-compositor-readme.md). The legacy
-implementation, source identifiers and license notices remain in the tree for
-compatibility, attribution and reference; they are not the active Omuse build
-path.
+Omuse grew from [Robbie Tilton's Compositor](https://github.com/robbietilton/Compositor)
+and [its earlier Linux fork](https://github.com/chiddekel/Compositor). We retain
+their original copyright notices and credit their contribution to the project
+format and editing foundations. Omuse is now developed as a native Linux
+application with its own interface, workflows and release path.
 
-The public repository starts from a source snapshot. Its origin and retained
-third-party notices are described in [source provenance](docs/source-provenance.md).
+See [acknowledgements and source provenance](docs/source-provenance.md) for
+upstream credits and the archived implementations.
 
 ## License
 

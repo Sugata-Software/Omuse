@@ -11,7 +11,8 @@ The source preview is published. Its first complete source commit is
 `d8c926e`, with Git tree `580d583266db090d18ca6159813a3ea0b343237f`, exactly
 matching the locally qualified source snapshot. The project-guide workflow
 passed. The first [Rust validation run](https://github.com/Sugata-Software/Omuse/actions/runs/36426033617)
-started on 28 September; its result is pending at this documentation snapshot.
+passed on 28 September, including the complete headless suite, editing/Create
+journeys, recovery checks, offline installer and dependency inventory.
 GitHub App access and source publication are no longer blockers.
 
 ## What is established
@@ -49,14 +50,20 @@ evidence for:
 - bounded Codex subscription background editing and an editable assistant
   carousel, with source-preserving review and Undo.
 
-These are local candidate results. They do not establish a clean remote build,
+The initial source snapshot also passed remote Ubuntu CI. Neither result establishes
 physical input support, all advertised provider operations or Linux portability.
+
+The [one-command installer](install.md) now builds the preview locally on
+Arch/Omarchy, with dependency setup, verified optional assets and complete
+installation rollback. The active tree contains Linux Omuse; old platform
+implementations remain in Git history with attribution. This improves access
+to the source preview without declaring a prebuilt binary release qualified.
 
 ## Before a downloadable public preview
 
 | Gate | Current state | Completion evidence |
 | --- | --- | --- |
-| Clean CI build | First public-repository Rust validation is running; guide validation passed | Green Rust workflow for the exact candidate commit, retained artifacts and notice inventory |
+| Clean CI build | First public-repository Rust and guide validation passed; the installer cleanup candidate needs its own green run | Green Rust workflow for the exact candidate commit, retained artifacts and notice inventory |
 | Dependency legal texts | Two unresolved entries in the locked graph; upstream texts recovered for `seahash` and `simd_helpers` | Resolve `hexf-parse` and `mac` by verifiable upstream terms or tested dependency changes; see the [notice review](rust-license-findings.md) |
 | Reproducible release identity | The hardening pass records tested source hashes, the production executable, native runs, installation and rollback; a clean public build/archive remains pending | One clean release commit/tag, fresh build, source-to-binary-to-archive hash ledger and reproducible packaging instructions |
 | Clean target installation | Passed only on the development host | Install, launch, upgrade and rollback on a clean supported Arch/Omarchy system |
@@ -79,8 +86,8 @@ for redistribution.
 - Run multi-machine long sessions and large-document/library workloads, with
   recovery after interruption and recorded resource use.
 - Validate `.comp` interchange using independently reviewed macOS fixtures.
-- Add an Omuse-native distribution package and AppStream metadata. The tracked
-  legacy Compositor Flatpak manifests are not Omuse distribution packages.
+- Add an Omuse-native distribution package and AppStream metadata. The obsolete
+  platform packages have been removed from the active source tree.
 - Test each supported distribution. The existing preview bundle was built on
   Arch with glibc 2.44 and is not a portable Linux binary.
 

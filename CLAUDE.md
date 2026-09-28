@@ -1,18 +1,14 @@
-## Skill routing
+# Omuse development
 
-When the user's request matches an available skill, invoke it via the Skill tool. When in doubt, invoke the skill.
+Read [AGENTS.md](AGENTS.md) for project-guide maintenance and
+[CONTRIBUTING.md](CONTRIBUTING.md) for the contributor workflow.
 
-Key routing rules:
-- Product ideas/brainstorming → invoke /office-hours
-- Strategy/scope → invoke /plan-ceo-review
-- Architecture → invoke /plan-eng-review
-- Design system/plan review → invoke /design-consultation or /plan-design-review
-- Full review pipeline → invoke /autoplan
-- Bugs/errors → invoke /investigate
-- QA/testing site behavior → invoke /qa or /qa-only
-- Code review/diff check → invoke /review
-- Visual polish → invoke /design-review
-- Ship/deploy/PR → invoke /ship or /land-and-deploy
-- Save progress → invoke /context-save
-- Resume context → invoke /context-restore
-- Author a backlog-ready spec/issue → invoke /spec
+Omuse is a native Linux application. Its Rust source and tests live in `rust/`;
+`rust/README.md` documents building, testing and architecture. The current tree
+does not contain the earlier application. Preserve `.comp` compatibility,
+upstream attribution and the independent reference fixtures when changing
+image processing or document handling.
+
+Keep private artwork, local qualification evidence, downloaded runtime assets
+and credentials out of commits. Separate measured results from unqualified
+features in the project guide and release notes.

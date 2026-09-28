@@ -1,6 +1,8 @@
 # Rust release gates
 
-The Rust application has its own Linux validation workflow. It does not replace or modify the preserved Swift/Qt workflows.
+Omuse's Linux validation workflow checks the native Rust application, its
+document workflows and installation tools. Earlier application workflows are
+preserved only in Git history.
 
 ## Pull request and push gate
 
@@ -15,7 +17,12 @@ The gate performs:
 5. `scripts/create-recovery-check.py --fixture PATH FRESH_EVIDENCE`, which independently opens six-page collections after repeated saves and a writer interrupted at the staged-before-publish boundary. This is process/filesystem qualification, not a power-loss simulation. Media and recovery artifacts are retained by CI.
 6. Dependency-notice override tests and an inventory of the locked dependency graph, retained for legal review.
 
-The workflow does not download the optional Camera RAW or subject-detection assets. Tests that require those assets must continue to fail or skip according to their explicit test contract; the workflow must not present an absent optional backend as exercised.
+The [first public workflow run passed](https://github.com/Sugata-Software/Omuse/actions/runs/36426033617).
+Each later revision still needs its own passing run. The workflow does not
+download the optional Camera RAW or subject-detection assets. Tests that
+require those assets must continue to fail or skip according to their explicit
+test contract; the workflow must not present an absent optional backend as
+exercised.
 
 ## Gates required before publishing a Linux build
 
@@ -51,4 +58,4 @@ The command runs `cargo metadata --locked --offline --all-features` for the Linu
 
 The inventory records application and validation dependency scopes separately and excludes the root application package. It records missing declarations, missing legal text, and unreadable or oversized declared files for human review. It does not decide license compatibility, satisfy attribution obligations by itself, or certify a package for release. Release review must resolve the findings against the exact dependency graph and candidate contents.
 
-For archives that omit their upstream notices, version-specific overrides retain exact source text with source revisions and hashes. The inventory rejects changed notice bytes, crate versions or upstream identity; CI verifies the overrides and retains the resulting inventory. The [current notice review](rust-license-findings.md) documents recovered texts and the four unresolved upstream findings.
+For archives that omit their upstream notices, version-specific overrides retain exact source text with source revisions and hashes. The inventory rejects changed notice bytes, crate versions or upstream identity; CI verifies the overrides and retains the resulting inventory. The [current notice review](rust-license-findings.md) documents recovered texts and the two unresolved upstream findings.

@@ -1,14 +1,15 @@
 # Omuse for Linux
 
-Omuse is the repository's active native Rust/GPUI image editor for Linux. The
-`Package.swift`, Qt host and older release instructions belong to the preserved
-upstream implementation and are not dependencies of the `omuse` executable.
+Omuse is a native Rust/GPUI image editor for Linux, with direct Omarchy theme
+integration. This guide is for building and contributing to the application.
+For normal use on Arch/Omarchy, run the [one-command installer](../README.md#install):
+it prepares dependencies and builds the current source preview locally. The
+first installation compiles the application and takes longer than an update.
 
-The preserved Compositor implementation remains available for attribution,
-format comparison and compatibility work. Omuse does not claim complete feature
-or pixel parity with the macOS application. See the
-[current feature and verification matrix](../docs/rust-rewrite-status.md) and
-the [rename compatibility contract](../docs/omuse-rename.md).
+See the [feature and verification matrix](../docs/rust-rewrite-status.md),
+[document compatibility contract](../docs/omuse-rename.md), and
+[source acknowledgements](../docs/source-provenance.md). Earlier application
+versions remain in Git history for format comparison and compatibility work.
 
 ## Build and run
 
@@ -27,13 +28,14 @@ cargo run --manifest-path rust/Cargo.toml --release --locked -- /path/to/Artwork
 
 The scripts default to two build jobs. Set `CARGO_BUILD_JOBS` to change this. Cargo's optional `CARGO_TARGET_DIR` is honored without embedding a machine-specific cache path. With Cargo's default target directory, the executable is `rust/target/release/omuse`. A clean build downloads and compiles GPUI's substantial dependency graph; incremental builds reuse it.
 
-No Swift toolchain, Qt SDK, Flatpak development runtime, or theme-helper process is used by the Rust executable. Existing build scripts for those components remain for the preserved version.
+The build uses Rust and the Linux libraries listed above. The current source
+tree contains one application and one development toolchain.
 
 For an offline installation of an already built candidate, see [the runtime bundle instructions](../docs/rust-bundle.md). Bundle qualification is specific to an executable and this Omarchy/Arch x86_64 host; it does not establish compatibility with every Linux distribution. The [rename checkpoint](../docs/omuse-rename.md) records verification of the Omuse identity.
 
 ## Omarchy integration
 
-The application uses [gpui-omarchy](https://github.com/huacnlee/gpui-omarchy) directly for themed controls and surfaces. `gpui_omarchy::init` loads the current theme and installs the upstream theme watcher. Buttons, text inputs, the shared color picker, focus behavior, and application colors use the library rather than a reconstructed Qt palette.
+The application uses [gpui-omarchy](https://github.com/huacnlee/gpui-omarchy) directly for themed controls and surfaces. `gpui_omarchy::init` loads the current theme and installs the upstream theme watcher. Buttons, text inputs, the shared color picker, focus behavior, and application colors use this common theme source.
 
 Dependencies are pinned as follows:
 
@@ -93,9 +95,9 @@ OMUSE_TEST_KEEP=1 scripts/test-rust.sh
 cargo test --manifest-path rust/Cargo.toml --release --locked --test raster_benchmark -- --ignored --nocapture
 ```
 
-The test script checks formatting, runs domain and headless GPUI tests with `--features ui-test`, then executes a synthetic draw/undo/save/reopen/export journey and a six-slide Create exercise including PDF, MP4 and GIF. Install FFmpeg to run the complete gate. It creates fresh temporary XDG directories and uses disposable test projects. It does not launch the preserved editor, modify the user's theme, or open existing artwork. `HOME` is not changed.
+The test script checks formatting, runs domain and headless GPUI tests with `--features ui-test`, then executes a synthetic draw/undo/save/reopen/export journey and a six-slide Create exercise including PDF, MP4 and GIF. Install FFmpeg to run the complete gate. It creates fresh temporary XDG directories and uses disposable test projects, leaving the user's theme and existing artwork unchanged. `HOME` is not changed.
 
-Headless GPUI interaction tests exercise real element hit-testing and event dispatch, but they do not substitute for physical tablet, driver, clipboard portal, file chooser, mixed-DPI, or monitor testing. The [save/recovery qualification harness](../docs/rust-release-qualification.md) adds bounded repeated saves and interruption checks using generated artwork. Final verified test counts and hardware observations belong in the release evidence, not in a guessed parity claim. The dedicated Rust workflow now checks the locked build and headless suite on Ubuntu; its first remote run remains unverified. It does not certify native display behavior or optional backends. See [release gates](../docs/rust-release-gates.md).
+Headless GPUI interaction tests exercise real element hit-testing and event dispatch, but they do not substitute for physical tablet, driver, clipboard portal, file chooser, mixed-DPI, or monitor testing. The [save/recovery qualification harness](../docs/rust-release-qualification.md) adds bounded repeated saves and interruption checks using generated artwork. Final verified test counts and hardware observations belong in the release evidence, not in a guessed parity claim. The dedicated Rust workflow checks the locked build and headless suite on Ubuntu; its [first published run passed](https://github.com/Sugata-Software/Omuse/actions/runs/36426033617). It does not certify native display behavior or optional backends. See [release gates](../docs/rust-release-gates.md).
 
 ## Source map
 
@@ -136,11 +138,11 @@ scripts/install-rust.sh /path/to/omuse
 ```
 
 The per-user desktop entry is **Omuse** and the terminal command is `omuse`.
-The executable is installed as `~/.local/opt/omuse/omuse`, with the launcher at
-`~/.local/bin/omuse`. Installing another build retains the previous executable
-as `~/.local/opt/omuse/omuse.previous`. The previous terminal command is
-installed as a compatibility alias to `omuse`; preserved upstream executables
-remain outside the active Omuse install path.
+The executable is installed under `~/.local/opt/omuse`, with the launcher at
+`~/.local/bin/omuse`. Fresh installations expose only this Omuse command.
+An existing legacy command may remain as an upgrade compatibility alias.
+The public installer supports updates and rollback; use the
+[installation guide](../README.md#install) for the supported commands.
 
 The native synthetic test runs in a separate process and uses only generated
 artwork. On this Hyprland machine, to record a verified window capture:

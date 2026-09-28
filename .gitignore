@@ -1,4 +1,4 @@
-# Build output
+# Build output, including local artifacts from earlier development checkouts
 dist/
 build/
 build-cmake/
@@ -7,15 +7,7 @@ build-qt/
 build-host/
 build-swift/
 .build/
-DerivedData/
-*.xcarchive
-*.dmg
-
-# Xcode per-user state
-xcuserdata/
-*.xcuserstate
-
-# macOS
+# Desktop metadata
 .DS_Store
 
 # Signing material and secrets — never commit
@@ -29,7 +21,7 @@ xcuserdata/
 .claude/settings.local.json
 BUILD_PLAN.md
 
-# Flatpak build artifacts (sources are fetched by flatpak-builder at build time)
+# Historical local packaging caches
 .flatpak-builder/
 build-dir/
 build-flatpak/

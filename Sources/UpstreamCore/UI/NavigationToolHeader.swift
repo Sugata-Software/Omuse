@@ -1,1 +1,0 @@
-../../../Compositor/UI/NavigationToolHeader.swift

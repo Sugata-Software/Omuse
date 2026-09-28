@@ -1,0 +1,12 @@
+{
+  "repository": "https://github.com/robbietilton/Compositor",
+  "revision": "75c421980ad2d289ea8244c54cfa3a649678d259",
+  "originalDirectory": "Compositor/Rendering",
+  "licence": "MIT",
+  "files": {
+    "AdjustPixels.c": "d189e641ad4cbf036f0f4912d27be2ac63ab16d14f27a21c8d455863f6ffb2be",
+    "AdjustPixels.h": "2398ab2da0873f06759df63e16c461baf9ca312de2327a8316f054dae44b7875",
+    "LensPixels.c": "06851d9d50f7d7a163cc97a5b889caba1ad0b44ef7b10accd8799405bae72d3c",
+    "LensPixels.h": "81d60f653de4f5d36d23cfe442b0c23ced1dfb500c7bbcb0c7fabed36904c73f"
+  }
+}
