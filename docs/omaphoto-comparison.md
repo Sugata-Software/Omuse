@@ -19,7 +19,7 @@ credible public editor.
 | --- | --- | --- |
 | LibRaw import and development | Retained original RAW bytes and 16-bit source; two-camera, same-LibRaw reference comparisons in [photo qualification](photo-release-qualification.md) | Broader camera/profile corpus; this is not independent colour-science certification |
 | Camera Raw's nine sections | Light/Color, Effects, Curve, Mixer, Grading, Detail, Optics, Geometry and Calibration; preserved-C pixel references in `rust/tests/camera_reference.rs` | More graphical controls and targeted canvas gestures; the compatibility operation is still 8-bit and capped at 16 MP |
-| Histogram, vectorscope and clipping | This pass adds RGB histogram and hue/saturation vectorscope to the existing clipping preview. Analysis excludes fully transparent pixels, weights alpha and samples at most 512×512 cells | Scope inspection and the full regression pass are pending for this candidate; scopes describe the selected layer's sampled display RGB, not sensor RAW/HDR |
+| Histogram, vectorscope and clipping | This pass adds RGB histogram and hue/saturation vectorscope to the existing clipping preview. Analysis excludes fully transparent pixels, weights alpha and samples at most 512×512 cells | The full suite and light/dark native inspection passed; scopes describe the selected layer's sampled display RGB, not sensor RAW/HDR |
 | White-balance/defringe eyedroppers and targeted adjustments | Existing point-colour sampling, geometry-guide dragging and channel curve graph | White-balance/defringe sampling, targeted curve and HSL/mixer drags are still missing |
 | Interactive Camera Raw preview | Temporary editor, no artwork/history commit until Apply; this pass moves the temporary selection-aware composite off the UI thread and rejects stale analysis/preview results | Still computes the grade at full source resolution. Add scale-aware bounded previews and compare spatial detail/glow against a downsampled full-resolution oracle |
 | Layered PSD | Groups, opacity/fill, masks, clipping and supported adjustment/blend mapping; this pass adds always-on synthetic nested/masked/clipped fixtures with exact pixels | Real Adobe/Affinity/OmaPhoto corpus, layered compressed-channel combinations, unsupported constructs and conversion-report review |
@@ -114,7 +114,33 @@ updates this document and the visual guide. Upstream content is reference data;
 the check does not run upstream installers, publish commits or replace the
 installed application automatically.
 
-This comparison led directly to the interaction fixes, Camera Raw scopes and
-stronger PSD/eraser regressions described above. Candidate compilation,
-regression and native presentation results will be recorded here before those
-changes are promoted to the public installer or the main local application.
+The completed candidate is public runtime [`9c99e50`](https://github.com/Sugata-Software/Omuse/commit/9c99e50684afd0854c8094a139b43205a263c33d),
+matching canonical source `fd4b47c` by tree
+`e8fc449465c89902ecc7e9475bd64a8d3dd91113`.
+
+- **808 tests passed:** 336 library, 227 UI and 245 integration; four manual
+  timing benchmarks were excluded. This adds 19 tests to the earlier runtime.
+- Editing and six-page PNG/PDF/MP4/GIF content journeys passed; all 80 editable
+  template/size variants retained exact pixels after save/reopen.
+- The production build passed its editing self-test and 24 native checks on
+  both Wayland and XWayland. The installed main launcher passed 24 further
+  Wayland checks. Light/dark Camera Raw captures were inspected, including the
+  fixed footer at the minimum viewport and a complete graph at a larger size.
+- Production SHA-256:
+  `19bd5d4c6c682462f1a916ec7f04c86aa3a6d50da9c5d4ba75e435d0be4e19d6`.
+- Complete installed rollback in both directions preserved all payload hashes
+  and passed editing self-tests. A standard desktop launch resolved to the new
+  main executable; the previous complete generation remains available.
+- The exact public runtime passed its [full GitHub Rust/installer validation](https://github.com/Sugata-Software/Omuse/actions/runs/36492555743).
+  The installer pin selects this runtime; later documentation commits do not
+  change that source identity.
+
+The initial test pass exposed a clipped curve graph and a selected-group drag
+that did not move descendants. Both were fixed and the final suite rerun.
+Floating-selection cancel/commit, linked masks and one-step Undo are covered.
+Evidence is retained locally under `rust/evidence/omaphoto-123-20260929/`;
+see [main installation qualification](main-install-qualification.md).
+
+These results do not resolve the missing gestures, scaled previews,
+low-memory exhaustion, cross-app interchange or binary-distribution gates
+listed above. No competitive speed or stability result was measured.

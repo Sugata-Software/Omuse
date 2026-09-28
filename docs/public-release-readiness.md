@@ -20,10 +20,14 @@ GitHub App access and source publication are no longer blockers.
 
 ## Current application and installation
 
-The tested application source is `1d5ccaa`. Its full GitHub Rust/installer and
-guide/reference workflows passed; the local qualification records 789 tests,
-editing/Create exports, all 80 size variants of 20 templates and the bounded live Codex
-assistant journey. The public installer now pins this tested runtime revision.
+The tested application source is `9c99e50`. Its [full GitHub Rust/installer
+workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36492555743) passed. Local qualification records
+808 tests, editing/Create exports, all 80 size variants of 20 templates,
+production Wayland/XWayland checks, and complete installed rollback. The
+[OmaPhoto comparison](omaphoto-comparison.md) explains the resulting editing
+improvements and remaining gaps. The public installer pins this runtime.
+The bounded live Codex assistant receipt remains tied to the earlier `1d5ccaa`
+candidate; this pass did not repeat provider requests.
 
 The laptop's main **Omuse** launcher now selects that exact tested executable
 and complete runtime assets. The prior main installation is retained as a
@@ -97,7 +101,7 @@ to Omuse without declaring a prebuilt binary release qualified.
 
 | Gate | Current state | Completion evidence |
 | --- | --- | --- |
-| Clean CI build | Installed runtime `1d5ccaa`: guide/reference and the [full Rust/installer run](https://github.com/Sugata-Software/Omuse/actions/runs/36483014873) passed completely. Later runtime changes require their own run | Green Rust workflow for the exact candidate commit, retained artifacts and notice inventory |
+| Clean CI build | Installed runtime `9c99e50`: the [full Rust/installer run](https://github.com/Sugata-Software/Omuse/actions/runs/36492555743) passed; guide/reference checks are current. Later runtime changes require their own run | Green Rust workflow for the exact candidate commit, retained artifacts and notice inventory |
 | Dependency legal texts | Two unresolved entries in the locked graph; upstream texts recovered for `seahash` and `simd_helpers` | Resolve `hexf-parse` and `mac` by verifiable upstream terms or tested dependency changes; see the [notice review](rust-license-findings.md) |
 | Reproducible release identity | The hardening pass records tested source hashes, the production executable, native runs, installation and rollback; a clean public build/archive remains pending | One clean release commit/tag, fresh build, source-to-binary-to-archive hash ledger and reproducible packaging instructions |
 | Clean target installation | Passed only on the development host | Install, launch, upgrade and rollback on a clean supported Arch/Omarchy system |

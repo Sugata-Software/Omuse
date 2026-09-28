@@ -167,6 +167,8 @@ Automated headless checks do not replace native display, portal,
 mixed-DPI or optional-backend qualification. The required evidence is listed in
 [Rust release gates](docs/rust-release-gates.md) and
 [save/recovery qualification](docs/rust-release-qualification.md).
+The maintained [OmaPhoto comparison](docs/omaphoto-comparison.md) connects
+upstream releases to implemented improvements and remaining qualification work.
 
 ## History and attribution
 

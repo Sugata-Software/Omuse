@@ -37,12 +37,13 @@ from source**; a downloadable binary release remains subject to the
 ## Tested source channel
 
 The public installer selects commit
-[`1d5ccaa4d0037f2353d698611497ce5aff46a577`](https://github.com/Sugata-Software/Omuse/commit/1d5ccaa4d0037f2353d698611497ce5aff46a577).
+[`9c99e50684afd0854c8094a139b43205a263c33d`](https://github.com/Sugata-Software/Omuse/commit/9c99e50684afd0854c8094a139b43205a263c33d).
 It fetches that exact revision and checks the resulting checkout before building.
-Both the [Rust/installer workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36483014873)
-and the [guide/reference workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36483014813)
-passed for this application source. See the [desktop and assistant evidence](cua-ai-qualification.md)
-for the bounded local checks.
+The [full Rust/installer workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36492555743) passed for this application source.
+The [OmaPhoto comparison and qualification](omaphoto-comparison.md) records its
+808 regression tests, native desktop checks and installed rollback verification.
+The earlier [desktop and assistant evidence](cua-ai-qualification.md) retains
+its own candidate and provider scope.
 
 The curl command downloads `install.sh` from `main`, so changes to the installer
 script take effect immediately. The application checkout is pinned separately:

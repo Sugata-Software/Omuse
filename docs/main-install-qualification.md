@@ -1,12 +1,47 @@
 # Main Omuse installation — 29 September 2026
 
-The laptop's normal **Omuse** command and desktop entry now open the tested
-Rust/GPUI application. The separate **Omuse Preview** launcher and the older
+The current main application is the OmaPhoto comparison candidate
+`9c99e50684afd0854c8094a139b43205a263c33d`. Its full [GitHub validation](https://github.com/Sugata-Software/Omuse/actions/runs/36492555743)
+passed, alongside **808 local tests**, editing/Create export journeys and all
+80 template variants. The [comparison](omaphoto-comparison.md) records the new
+Camera Raw scopes, background preview compositing, canvas/group interaction
+fixes, Eraser smoothing and stronger PSD regressions.
+
+- Production executable SHA-256:
+  `19bd5d4c6c682462f1a916ec7f04c86aa3a6d50da9c5d4ba75e435d0be4e19d6`.
+- Installed generation: `install-y4k24szz`, with clean public source receipt.
+- Previous generation: `install-mjdrhhwp` (`1d5ccaa`), retained for rollback.
+- All 19 payload files were verified after a complete rollback and reverse
+  switch; both versions passed isolated editing self-tests.
+- All 36 installer regressions passed after advancing the public source pin:
+  25 source/manager cases and 11 bundle cases.
+- Production passed 24 native checks on Wayland at 800×600 logical pixels and
+  on XWayland at its recorded 1264×766.7 viewport. Light/dark Camera Raw captures
+  were inspected. Compact dialogs scroll their body while retaining the footer.
+- The installed main launcher separately passed all 24 Wayland checks. Its
+  larger dark-theme capture shows the complete curve graph and scopes together.
+  The harness hashes the launcher; the underlying executable was hashed
+  independently as recorded above.
+- The unchanged earlier window was closed normally. A launch through the
+  `omuse.desktop` entry mapped a native Wayland window running the exact new
+  executable. Desktop-file validation passed; there remains one main Omuse entry.
+
+The curl installer selects this same tested source. User documents, settings and
+provider profiles were preserved. These are development-host and bounded native
+checks, not a clean-target or universal physical-input claim.
+
+## Initial main-app promotion (historical `1d5ccaa` baseline)
+
+The record below describes the earlier same-day promotion; its original hashes
+and evidence are retained for traceability.
+
+This promotion made the laptop's normal **Omuse** command and desktop entry
+open the tested Rust/GPUI application. The separate **Omuse Preview** launcher and the older
 Compositor menu entries were archived. Their application data was preserved.
 The unchanged older window was closed through a normal Wayland close request;
-the new main Omuse window remains open.
+the promoted main application was then launched and verified.
 
-## Installed identity and rollback
+### Installed identity and rollback
 
 The complete payload was promoted without recompiling:
 
@@ -26,7 +61,7 @@ The command is `~/.local/bin/omuse`; the desktop name is **Omuse** and the deskt
 file is `omuse.desktop`. `omuse-manage rollback` retains the existing recovery
 path. No project, settings or provider profile was merged or deleted.
 
-## Desktop checks
+### Desktop checks
 
 The installed main launcher passed all **24 native Wayland checks** at the
 800×600 logical viewport. These include painting, Undo/Redo, unsaved-work
@@ -47,9 +82,9 @@ Cua 0.29.1 could not resolve the quoted desktop command directly or confirm the
 native activation handoff; compositor/process readback established that the
 GTK launch succeeded. This does not add native Cua input qualification.
 
-## Public installer channel
+### Public installer channel
 
-The curl installer now fetches the exact tested public application revision
+This promotion changed the curl installer to fetch the exact tested public application revision
 instead of following development changes on `main`. It checks the resulting
 Git HEAD before building. A fresh fetch from the public GitHub repository
 returned the expected source commit and tree. The explicit `--source` development override remains

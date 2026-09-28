@@ -35,8 +35,8 @@
   "releaseSnapshot": [
     {
       "label": "Current regression suite",
-      "value": "789 tests passed",
-      "detail": "330 library, 218 UI and 241 integration tests passed, with four manual timing benchmarks excluded. Editing, six-page PNG/PDF/MP4/GIF exports and all 80 size variants of 20 templates passed. Final production passed its self-test and 24 native Wayland checks at 800x600. Cua verified a live native assistant plan, Keep/Undo, brush drag, Ctrl+Z and normal close in installed Preview 1d5ccaa. GitHub Rust/installer and guide/reference workflows passed for that runtime candidate. The exact tested payload is now the main Omuse application; its main launcher passed 24 native Wayland checks and complete rollback in both directions.",
+      "value": "808 tests passed",
+      "detail": "336 library, 227 UI and 245 integration tests passed; four manual timing benchmarks excluded. Editing, six-page PNG/PDF/MP4/GIF exports and all 80 template variants passed. Production passed 24 Wayland and 24 XWayland checks; the installed main launcher passed 24 further Wayland checks. Light/dark Camera Raw captures and complete rollback were verified. Exact public runtime 9c99e50 passed full GitHub Rust/installer validation and is installed as the main Omuse application. The earlier live Codex receipt remains tied to 1d5ccaa.",
       "status": "locally-tested"
     },
     {
@@ -48,7 +48,7 @@
     {
       "label": "Public-release blockers",
       "value": "Open gates",
-      "detail": "Two dependency texts, clean-machine installation and broader physical desktop acceptance remain open. Public runtime 1d5ccaa passed full Rust/installer and guide/reference CI. The one-command installer selects this tested revision, with update, rollback and uninstall.",
+      "detail": "Two dependency texts, clean-machine installation and broader physical desktop acceptance remain open. Runtime 9c99e50 passed full GitHub Rust/installer validation and local desktop/rollback checks; the one-command installer pins this tested revision.",
       "status": "blocked-deferred"
     }
   ],
@@ -129,9 +129,9 @@
         {
           "id": "photo-camera-scopes",
           "name": "Camera Raw scopes and preview responsiveness",
-          "status": "implemented-needs-qualification",
+          "status": "locally-tested",
           "current": "RGB histogram and hue/saturation vectorscope analyze the selected layer before clipping overlays. Alpha-weighted samples are bounded to 512×512 cells. Selection-aware preview compositing now runs on a background worker; cancelled and superseded work cannot replace the current dialog.",
-          "boundary": "Candidate tests are in progress. Scopes describe sampled 8-bit display RGB, not sensor RAW/HDR. The grade still computes at full resolution up to 16 MP; bounded scale-aware previews, white-balance/defringe sampling and targeted curve/mixer drags remain open.",
+          "boundary": "Scope, selected-preview, stale-result and cancellation regressions passed in the 808-test suite; light/dark native captures were inspected. Scopes describe sampled 8-bit display RGB, not sensor RAW/HDR. The grade still computes at full resolution up to 16 MP; bounded scale-aware previews, white-balance/defringe sampling and targeted curve/mixer drags remain open.",
           "evidence": [
             "docs/omaphoto-comparison.md",
             "rust/tests/camera_reference.rs"
@@ -752,7 +752,7 @@
           "id": "formats-psd",
           "name": "PSD subset",
           "status": "locally-tested",
-          "current": "Layered 8-bit PSD import retains supported groups, opacity/fill, masks, clipping and blend/adjustment mappings, with an import report. New always-on generated fixtures exercise nested group opacity, masks, clipping and Vivid/Linear/Pin Light/Hard Mix pixels; their candidate run is pending.",
+          "current": "Layered 8-bit PSD import retains supported groups, opacity/fill, masks, clipping and blend/adjustment mappings, with an import report. New always-on generated fixtures exercise nested group opacity, masks, clipping and Vivid/Linear/Pin Light/Hard Mix pixels; all passed as part of the 808-test candidate.",
           "boundary": "A supported subset, not a complete Photoshop document engine. Generated layered tests use raw channel compression; real application corpus, compressed-layer combinations and bidirectional .comp v9 interchange remain separate qualification work.",
           "evidence": [
             "docs/photo-editing-hardening.md",
@@ -837,7 +837,7 @@
           "name": "Keyboard shortcuts and command search",
           "status": "locally-tested",
           "current": "Ctrl+K opens a themed command search with 171 actions, 101 default bindings and a gesture reference. Search matches names, categories and current keys; Enter uses normal editor guards. Ctrl+Alt+K records, clears and resets shortcuts while preserving existing custom bindings. Linux punctuation events and custom Save during inline text have dedicated regressions.",
-          "boundary": "The original keyboard candidate passed 777 automated tests and native Wayland/XWayland journeys. The current 789-test AI candidate also has bounded Cua foreground evidence for command search, Enter/Ctrl+Enter, canvas Ctrl+Z and Ctrl+Q. Ctrl+Q from the AI prompt still requires Ctrl+K → Close. Alternate layouts, IME and broader physical acceptance remain open; Super and virtual-terminal chords are reserved.",
+          "boundary": "The original keyboard candidate passed 777 automated tests and native Wayland/XWayland journeys. The earlier 789-test AI candidate has bounded Cua foreground evidence for command search, Enter/Ctrl+Enter, canvas Ctrl+Z and Ctrl+Q. Ctrl+Q from the AI prompt still requires Ctrl+K → Close. Alternate layouts, IME and broader physical acceptance remain open; Super and virtual-terminal chords are reserved.",
           "evidence": [
             "docs/keyboard-qualification.md",
             "docs/keyboard-shortcuts.md",
@@ -852,9 +852,9 @@
         {
           "id": "linux-canvas-interaction",
           "name": "Canvas navigation and editing preferences",
-          "status": "implemented-needs-qualification",
+          "status": "locally-tested",
           "current": "The OmaPhoto comparison pass adds middle-button panning, fixes frontmost Auto Select when an already-selected layer overlaps, makes selected-group moves preserve descendants and linked masks in one Undo step, persists guide auto-show, and loads installed font names on first text-dialog use. Eraser now shares screen-space brush smoothing and release catch-up.",
-          "boundary": "Candidate regressions are pending. Foreground hardware, profile restart and unusually large font collections still need acceptance. Pencil intentionally remains unsmoothed.",
+          "boundary": "The 808-test suite passed, including combined-button/lost-release panning, frontmost/group/multiselection picking, linked masks, floating selections and lazy font caching. Foreground hardware, profile restart and unusually large font collections still need acceptance. Pencil intentionally remains unsmoothed.",
           "evidence": [
             "docs/omaphoto-comparison.md",
             "docs/keyboard-shortcuts.md"
@@ -1035,14 +1035,15 @@
           "id": "release-current-suite",
           "name": "Current candidate regression suite",
           "status": "locally-tested",
-          "current": "The photo-integrity changes passed 757 Rust tests: 326 library, 190 UI and 241 integration cases. All 23 new regressions, the editing journey, six-page PNG/PDF/MP4/GIF exports and 80 editable template variants passed. Production Wayland/XWayland and the installed preview each passed 22 native checks; complete rollback passed in both directions.",
-          "boundary": "Four manual timing benchmarks were excluded. Historical performance, camera-corpus and provider receipts remain tied to their earlier candidates; this pass does not repeat those measurements or replace physical hardware and clean-machine acceptance.",
+          "current": "Public runtime 9c99e50 passed 808 local tests (336 library, 227 UI, 245 integration), editing/Create exports and 80 template variants. Production Wayland/XWayland and the installed main launcher each passed 24 checks; exact rollback and normal desktop launch were verified. Full GitHub Rust/installer validation passed.",
+          "boundary": "Four manual timing benchmarks were excluded. Earlier performance, camera-corpus and live provider receipts retain their original candidates. This pass does not establish cross-app speed/stability superiority, clean-target installation or universal physical input support.",
           "evidence": [
             "docs/photo-integrity-hardening.md",
             "docs/desktop-history-qualification.md",
             "docs/large-photo-history-qualification.md",
             "docs/photo-release-qualification.md",
-            "docs/photo-editing-hardening.md"
+            "docs/photo-editing-hardening.md",
+            "docs/omaphoto-comparison.md"
           ],
           "modules": [
             "scripts/test-rust.sh",
@@ -1131,8 +1132,8 @@
         {
           "id": "release-competitor-comparison",
           "name": "OmaPhoto release comparison",
-          "status": "implemented-needs-qualification",
-          "current": "OmaPhoto v1.2.3 at 96ce546 was compared with actual Omuse code and tests; a maintained matrix records editing, interaction, interchange and distribution gaps. A daily release check is configured in the project thread.",
+          "status": "locally-tested",
+          "current": "OmaPhoto v1.2.3 at 96ce546 was compared with actual Omuse code and tests; a maintained matrix records editing, interaction, interchange and distribution gaps. A daily release check is configured in the project thread. The resulting fixes passed 808 tests and are installed as the main application; the maintained comparison records the exact source and native evidence.",
           "boundary": "Neither application has been benchmarked against the other on this hardware. OmaPhoto currently ships broader native packages. The scheduled comparison does not publish commits, install competitors or replace the current application.",
           "evidence": [
             "docs/omaphoto-comparison.md",
