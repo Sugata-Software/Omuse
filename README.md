@@ -13,6 +13,21 @@ Source is available for evaluation; a supported public binary release has not
 been qualified yet. See the [release-readiness checklist](docs/public-release-readiness.md)
 for the remaining gates and the evidence behind this status.
 
+<p align="center">
+  <a href="docs/media/omuse-sunset-muse.mp4">
+    <img src="docs/media/omuse-sunset-muse-poster.jpg" alt="Omuse content collection shown in the Sunset Muse promo" width="900">
+  </a>
+</p>
+
+<p align="center">
+  <a href="docs/media/omuse-sunset-muse.mp4"><strong>&#9654; Watch the two-minute Sunset Muse promo</strong></a>
+  &middot;
+  <a href="docs/media/omuse-sunset-muse-credits.md">Media credits</a>
+</p>
+
+The film presents selected preview workflows. Current qualification evidence
+and remaining release gates are recorded in the release-readiness checklist.
+
 Omuse is a native image editor for Linux, built in Rust with GPUI and designed
 to feel at home on Omarchy. It combines a compact studio interface with layered
 editing, painting, selections, live adjustments, editable text and shapes,
