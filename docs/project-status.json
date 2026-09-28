@@ -36,7 +36,7 @@
     {
       "label": "Current regression suite",
       "value": "757 tests passed",
-      "detail": "326 library, 190 UI and 241 integration tests passed, including 23 new regressions. The editing journey, six-page PNG/PDF/MP4/GIF exports and all 80 editable templates passed. Production desktop and installation checks for this candidate are pending.",
+      "detail": "326 library, 190 UI and 241 integration tests passed, including 23 new regressions. Editing, six-page PNG/PDF/MP4/GIF exports, 80 templates, production Wayland/XWayland and the installed preview passed. Complete rollback passed in both directions.",
       "status": "locally-tested"
     },
     {
@@ -815,9 +815,10 @@
           "id": "linux-wayland-xwayland",
           "name": "Wayland and XWayland journeys",
           "status": "locally-tested",
-          "current": "Earlier production and installed-preview windows passed bounded native Wayland/XWayland editing journeys, including an 800\u00d7600 GPUI viewport and light/dark/reduced-motion checks. The photo-integrity candidate still needs its production desktop checks.",
+          "current": "The photo-integrity production executable passed 22 native Wayland and 22 XWayland checks, including the 800\u00d7600 light-theme viewport. The matching installed-preview launcher passed the same 22 checks with reduced motion. Captures were visually inspected.",
           "boundary": "These journeys dispatch GPUI events in process and do not prove compositor-delivered physical input.",
           "evidence": [
+            "docs/photo-integrity-hardening.md",
             "docs/photo-editing-hardening.md",
             "docs/omuse-create-qualification.md"
           ],
@@ -830,9 +831,10 @@
           "id": "linux-preview-install",
           "name": "One-command install and rollback",
           "status": "locally-tested",
-          "current": "One curl command sets up Arch/Omarchy dependencies, builds the preview, verifies RAW/subject assets and installs Omuse. A real isolated install/update, complete rollback in both directions and uninstall passed on this host. All 31 installer/bundle tests passed, including failed writes and SIGTERM restoration.",
+          "current": "One curl command sets up Arch/Omarchy dependencies, builds the preview, verifies RAW/subject assets and installs Omuse. A real isolated install/update, complete rollback in both directions and uninstall passed on this host. All 31 installer/bundle tests passed, including failed writes and SIGTERM restoration. The photo-integrity preview update passed its editing self-test, installed-launcher native check and rollback in both directions while retaining matching runtime assets.",
           "boundary": "First install compiles source locally. No qualified prebuilt download or clean-machine acceptance is claimed. SIGKILL/power-loss installation recovery has not been qualified.",
           "evidence": [
+            "docs/photo-integrity-hardening.md",
             "docs/install-qualification.md",
             "docs/install.md",
             "docs/public-release-readiness.md"
@@ -849,7 +851,7 @@
           "id": "linux-physical-input",
           "name": "Physical keyboard, pointer and Cua",
           "status": "blocked-deferred",
-          "current": "The Omarchy-specific Cua path captured the exact app window in a disposable nested session, but foreground pointer/keyboard injection was refused. The main desktop plugin is inactive until a fresh desktop session.",
+          "current": "Earlier Omarchy-specific Cua work captured the exact app window in a disposable nested session, but foreground input was refused in that run. On 29 September the host status check still reports the main desktop plugin installed but inactive. Current native checks dispatch GPUI events in process.",
           "boundary": "No physical-input pass is claimed. Real foreground keyboard/pointer, clipboard and file-dialog acceptance remain release gates.",
           "evidence": [
             "docs/omuse-create-qualification.md",
@@ -972,7 +974,7 @@
           "id": "release-current-suite",
           "name": "Current candidate regression suite",
           "status": "locally-tested",
-          "current": "The photo-integrity changes passed 757 Rust tests: 326 library, 190 UI and 241 integration cases. All 23 added regressions, the editing journey, six-page PNG/PDF/MP4/GIF exports and 80 editable template variants passed. Production native and installed-preview checks for this candidate remain pending.",
+          "current": "The photo-integrity changes passed 757 Rust tests: 326 library, 190 UI and 241 integration cases. All 23 new regressions, the editing journey, six-page PNG/PDF/MP4/GIF exports and 80 editable template variants passed. Production Wayland/XWayland and the installed preview each passed 22 native checks; complete rollback passed in both directions.",
           "boundary": "Four manual timing benchmarks were excluded. Historical performance, camera-corpus and provider receipts remain tied to their earlier candidates; this pass does not repeat those measurements or replace physical hardware and clean-machine acceptance.",
           "evidence": [
             "docs/photo-integrity-hardening.md",
@@ -1006,9 +1008,9 @@
         {
           "id": "release-ci-github",
           "name": "Public source and remote CI",
-          "status": "locally-tested",
-          "current": "Source preview is published to Sugata-Software/Omuse. The Linux cleanup and installer candidate 971c419 passed both the fast installer/reference-fixture job and the complete Rust validation job on GitHub.",
-          "boundary": "That remote success belongs to 971c419. Subsequent hardening changes need their own candidate run; CI does not establish physical display support or binary-release qualification.",
+          "status": "implemented-needs-qualification",
+          "current": "The photo-integrity source is published as b2f6e85. Its project-guide and Linux installer/reference checks passed on GitHub; the full Rust workflow is running. The preceding Linux installer candidate 971c419 passed its full remote suite.",
+          "boundary": "Full remote validation for b2f6e85 remains pending. Local checks do not establish physical display support, clean-machine installation or binary-release qualification.",
           "evidence": [
             "docs/public-release-readiness.md",
             ".github/workflows/rust-validation.yml"
@@ -1019,9 +1021,10 @@
           "id": "release-artifact",
           "name": "Clean install and release identity",
           "status": "blocked-deferred",
-          "current": "The published source preview now has a one-command local build/install path and complete runtime rollback. The earlier production and preview hashes match their recorded evidence; a clean binary release/tag and clean target installation remain pending.",
+          "current": "The published source preview has a one-command local build/install path and complete runtime rollback. The photo-integrity production and installed-preview executable hashes match; native checks and rollback passed. A clean binary release/tag and clean target installation remain pending.",
           "boundary": "No downloadable public preview should be claimed until that exact artifact path is reproduced on a clean supported system.",
           "evidence": [
+            "docs/photo-integrity-hardening.md",
             "docs/desktop-history-qualification.md",
             "docs/photo-release-qualification.md",
             "docs/public-release-readiness.md",

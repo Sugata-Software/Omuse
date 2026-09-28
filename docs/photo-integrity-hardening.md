@@ -1,7 +1,8 @@
 # Photo integrity and recovery hardening
 
-The 29 September 2026 pass tightens ordinary editing, 16-bit output and collection recovery in
-the native Linux editor. Each original failure was reproduced before its fix.
+The 29 September 2026 pass tightens ordinary editing, 16-bit output and
+collection recovery in the native Linux editor. Each original failure was
+reproduced before its fix.
 
 ## Corrected behavior
 
@@ -39,7 +40,12 @@ This includes 23 added regression cases. The headless editing self-test,
 six-page PNG/PDF/MP4/GIF exports and all 80 editable template variants passed.
 The catalog retains its advisory content-guide warnings; this is not a new
 visual review of every template.
-Production desktop and installed-preview checks for this candidate are pending.
+
+The production executable passed 22 native Wayland checks and the same 22
+checks through XWayland at the 800×600 logical viewport in the light theme.
+The installed preview launcher passed all 22 checks with reduced motion.
+Captures of these synthetic-artwork windows were visually inspected. These
+journeys dispatch GPUI events in process, rather than proving physical input.
 
 The new cases are in `rust/tests/raster16_export.rs`,
 `rust/tests/raster_clipping_descendants.rs`,
@@ -51,6 +57,21 @@ partially transparent clipping, child-mask coverage, source-state preservation,
 page collection state, recovered artwork and the prior recovery package after
 a failed conversion. Editor interaction tests dispatch drag and Undo/Redo
 events through GPUI; they do not establish physical pointer delivery.
+
+## Published source and installed preview
+
+The runtime changes are published in
+[`b2f6e85`](https://github.com/Sugata-Software/Omuse/commit/b2f6e854a96b72e1715d9048f0d7f4885e569efa).
+The production and installed-preview executable SHA-256 is
+`52a9e0656e2a463c7c2b7d25c4212aa190913b8b8ed341b34f86c055e77055d9`.
+The preview retains the matching runtime assets and the previous complete
+installation. Rollback to the prior executable (`5e7d8b9c…`) and forward to
+this candidate both passed their self-tests and exact executable/asset checks.
+The older separate application remains available.
+
+The GitHub project-guide and installer/reference jobs passed for this source;
+the full [Rust run](https://github.com/Sugata-Software/Omuse/actions/runs/36454128430)
+is pending. No public binary release is implied by this source checkpoint.
 
 ## Remaining boundaries
 
