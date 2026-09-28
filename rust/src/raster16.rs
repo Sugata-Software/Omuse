@@ -231,6 +231,13 @@ fn validate_document(doc: &Document) -> Result<()> {
         }
     }
     collect(&doc.layers, &mut links);
+    ensure!(
+        u64::from(doc.width)
+            .saturating_mul(u64::from(doc.height))
+            .saturating_mul(links.len() as u64)
+            <= crate::model::MAX_PIXELS,
+        "Live mask dependency surfaces exceed 16-bit renderer memory limit"
+    );
     for (target, source) in &links {
         let source_layer = doc
             .find_layer(source)
@@ -248,8 +255,8 @@ fn validate_document(doc: &Document) -> Result<()> {
             .map(|(_, s)| s.as_str())
         {
             ensure!(
-                seen.insert(current),
-                "Live mask dependency cycle involving {target}"
+                seen.insert(current) && seen.len() <= 256,
+                "Live mask dependency cycle or excessive depth involving {target}"
             );
             current = next;
         }
@@ -321,9 +328,105 @@ fn render_layers<'a>(
     live: &HashMap<String, Rgba16Image>,
 ) -> Result<()> {
     ensure!(depth < MAX_DEPTH, "Layer nesting exceeds 64 levels");
-    for layer in layers {
+    let mut skip_until = 0;
+    for (index, layer) in layers.iter().enumerate() {
+        if index < skip_until {
+            continue;
+        }
         if !layer.visible || layer.opacity <= 0. {
             continue;
+        }
+        if !layer.is_group()
+            && layer
+                .metadata
+                .get("maskSourceID")
+                .is_none_or(Value::is_null)
+        {
+            let mut end = index + 1;
+            while end < layers.len()
+                && layers[end]
+                    .metadata
+                    .get("maskSourceID")
+                    .and_then(Value::as_str)
+                    == Some(layer.id.as_str())
+            {
+                end += 1;
+            }
+            if end > index + 1 {
+                // A contiguous clipping stack changes the base's colour, not
+                // its coverage. Rendering each child source-over against the
+                // canvas would instead add the base alpha repeatedly.
+                let mut base = layer.clone();
+                base.blend_mode = "Normal".into();
+                let blend_if = crate::advanced::layer_blend_if(&base)?;
+                if blend_if.is_some() {
+                    if let Some(state) = base.advanced.as_mut() {
+                        std::sync::Arc::make_mut(state).recipe.blend_if = None;
+                    }
+                    if let Some(metadata) = base.metadata.as_object_mut() {
+                        metadata.remove(crate::advanced::RASTER_BLEND_IF_KEY);
+                    }
+                }
+                let mut plane =
+                    ImageBuffer::from_pixel(target.width(), target.height(), Rgba([0; 4]));
+                render_layers(
+                    &mut plane,
+                    std::slice::from_ref(&base),
+                    depth,
+                    inherited_opacity,
+                    inherited_masks,
+                    live,
+                )?;
+                let alpha: Vec<u16> = plane.pixels().map(|pixel| pixel[3]).collect();
+                // Evaluate the base's tonal cutout against its original colour
+                // and the real backdrop, before the clipped colours replace it.
+                let tonal_alpha: Option<Vec<f32>> = blend_if.as_ref().map(|settings| {
+                    plane
+                        .pixels()
+                        .zip(target.pixels())
+                        .map(|(source, backdrop)| {
+                            crate::advanced_ops::blend_if_coverage_normalized(
+                                source.0.map(|value| f32::from(value) / 65_535.),
+                                backdrop.0.map(|value| f32::from(value) / 65_535.),
+                                settings,
+                            )
+                        })
+                        .collect()
+                });
+                for pixel in plane.pixels_mut() {
+                    pixel[3] = 65_535;
+                }
+                for child in &layers[index + 1..end] {
+                    let mut child = child.clone();
+                    if let Some(metadata) = child.metadata.as_object_mut() {
+                        metadata.remove("maskSourceID");
+                    }
+                    render_layers(
+                        &mut plane,
+                        std::slice::from_ref(&child),
+                        depth,
+                        inherited_opacity,
+                        &[],
+                        live,
+                    )?;
+                }
+                let blend = mode(&layer.blend_mode).unwrap_or(Mode::Normal);
+                for (index, ((destination, source), alpha)) in target
+                    .pixels_mut()
+                    .zip(plane.pixels())
+                    .zip(alpha)
+                    .enumerate()
+                {
+                    let mut pixel = source.0;
+                    pixel[3] = (f32::from(alpha)
+                        * tonal_alpha.as_ref().map_or(1., |values| values[index]))
+                    .round() as u16;
+                    destination.0 =
+                        from_linear(over(to_linear(destination.0), to_linear(pixel), blend));
+                }
+                skip_until = end;
+                continue;
+            }
         }
         if layer.is_group() {
             ensure!(
@@ -346,13 +449,21 @@ fn render_layers<'a>(
                 live,
             )?;
         } else if let Some(image) = source_image(layer)? {
+            // A clipped group can contain separately linked descendants. Keep
+            // their surfaces available, but only apply a link when it remains
+            // declared on this layer (the clipping stack clears its own link).
+            let live_mask = layer
+                .metadata
+                .get("maskSourceID")
+                .and_then(Value::as_str)
+                .and_then(|_| live.get(&layer.id));
             draw_image(
                 target,
                 &image,
                 layer,
                 inherited_opacity,
                 inherited_masks,
-                live.get(&layer.id),
+                live_mask,
             );
         }
     }
@@ -756,6 +867,19 @@ fn mask_enabled(layer: &Layer) -> bool {
 }
 
 fn build_live_masks(doc: &Document) -> Result<HashMap<String, Rgba16Image>> {
+    fn parent_opacity(layers: &[Layer], id: &str, opacity: f32) -> Option<f32> {
+        for layer in layers {
+            if layer.id == id {
+                return Some(opacity);
+            }
+            if let Some(found) =
+                parent_opacity(&layer.children, id, opacity * layer.opacity.clamp(0., 1.))
+            {
+                return Some(found);
+            }
+        }
+        None
+    }
     let mut links = Vec::new();
     fn collect(layers: &[Layer], out: &mut Vec<(String, String)>) {
         for l in layers {
@@ -767,16 +891,48 @@ fn build_live_masks(doc: &Document) -> Result<HashMap<String, Rgba16Image>> {
     }
     collect(&doc.layers, &mut links);
     let mut result = HashMap::new();
-    for (target, source) in links {
-        let layer = doc
-            .find_layer(&source)
-            .ok_or_else(|| anyhow::anyhow!("Missing live mask source {source}"))?;
-        let mut copy = layer.clone();
-        copy.visible = true;
-        let mut plane = ImageBuffer::from_pixel(doc.width, doc.height, Rgba([0; 4]));
-        render_layers(&mut plane, std::slice::from_ref(&copy), 0, 1., &[], &result)?;
-        result.insert(target, plane);
+    // Layer order is a painting order, not a dependency order: a linked mask
+    // may refer to a source (or another linked source) later in the document.
+    for _ in 0..=links.len() {
+        let mut changed = false;
+        for (target, source) in &links {
+            if result.contains_key(target) {
+                continue;
+            }
+            let layer = doc
+                .find_layer(source)
+                .ok_or_else(|| anyhow::anyhow!("Missing live mask source {source}"))?;
+            if layer
+                .metadata
+                .get("maskSourceID")
+                .and_then(Value::as_str)
+                .is_some()
+                && !result.contains_key(&layer.id)
+            {
+                continue;
+            }
+            let mut copy = layer.clone();
+            copy.visible = true;
+            let mut plane = ImageBuffer::from_pixel(doc.width, doc.height, Rgba([0; 4]));
+            render_layers(
+                &mut plane,
+                std::slice::from_ref(&copy),
+                0,
+                parent_opacity(&doc.layers, source, 1.).unwrap_or(1.),
+                &[],
+                &result,
+            )?;
+            result.insert(target.clone(), plane);
+            changed = true;
+        }
+        if !changed {
+            break;
+        }
     }
+    ensure!(
+        result.len() == links.len(),
+        "Unresolved live mask dependency"
+    );
     Ok(result)
 }
 

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "snapshotDate": "2026-09-28",
+  "snapshotDate": "2026-09-29",
   "project": "Omuse",
   "releaseScope": "Native Rust/GPUI preview for Arch/Omarchy Linux x86_64",
   "releaseState": "Source preview; public binary release is not qualified",
@@ -35,8 +35,8 @@
   "releaseSnapshot": [
     {
       "label": "Current regression suite",
-      "value": "734 tests passed",
-      "detail": "326 library, 179 UI and 229 integration tests; all 80 templates and the Create exports passed. Production Wayland/XWayland and the matching installed preview also passed.",
+      "value": "757 tests passed",
+      "detail": "326 library, 190 UI and 241 integration tests passed, including 23 new regressions. The editing journey, six-page PNG/PDF/MP4/GIF exports and all 80 editable templates passed. Production desktop and installation checks for this candidate are pending.",
       "status": "locally-tested"
     },
     {
@@ -63,9 +63,10 @@
           "id": "photo-core-tools",
           "name": "Core raster editing",
           "status": "locally-tested",
-          "current": "Brush, Pencil, Eraser, Fill, Gradient, Crop, Resize, Move, Clone, Blur, Smudge, Liquify, Heal, Spot Heal and destructive filters are wired into the native editor with undo/redo.",
+          "current": "Brush, Pencil, Eraser, Fill, Gradient, Crop, Resize, Move, Clone, Blur, Smudge, Liquify, Heal, Spot Heal and destructive filters are wired into the native editor with undo/redo. Moving rotated/reflected layers preserves their transforms; proportional resizing can cross its anchor, and corner distortion preserves pixel orientation without baking stationary clicks.",
           "boundary": "Bounded local journeys do not establish every brush size, transform, colour space or long-session workload.",
           "evidence": [
+            "docs/photo-integrity-hardening.md",
             "docs/photo-release-qualification.md",
             "docs/photo-editing-hardening.md",
             "rust/tests/photo_workflow.rs"
@@ -130,7 +131,7 @@
           "name": "Embedded RAW development",
           "status": "locally-tested",
           "current": "LibRaw import retains original bytes and a 16-bit editable source. After visual review rejected a grossly magenta result, the corrected Nikon and Canon outputs both match the independent C++ camera-white-balance PPM16 references exactly for every retained sample and were visually inspected as natural.",
-          "boundary": "The earlier two-camera evidence uses the same pinned LibRaw engine, not an independent audit of LibRaw colour science or a general camera-colour claim. The current 734-test suite passed with the Nikon RAW fixture enabled; the full 16-case corpus was not repeated for the history/ownership changes.",
+          "boundary": "The earlier two-camera evidence uses the same pinned LibRaw engine, not an independent audit of LibRaw colour science or a general camera-colour claim. The earlier 734-test suite passed with the Nikon RAW fixture enabled; the full 16-case corpus was not repeated for the history/ownership or photo-integrity changes.",
           "evidence": [
             "docs/photo-release-qualification.md",
             "docs/rust-runtime-assets.md"
@@ -208,9 +209,10 @@
           "id": "layers-hierarchy",
           "name": "Layer hierarchy and compositing",
           "status": "locally-tested",
-          "current": "Pixel layers, groups, transforms, opacity, blend modes, clipping, visibility, locking, reorder/copy and grouped editing are implemented.",
+          "current": "Pixel layers, groups, transforms, opacity, blend modes, clipping, visibility, locking, reorder/copy and grouped editing are implemented. Clipped groups retain independent live-mask links on descendant layers in both renderers.",
           "boundary": "Cross-window layer drops and complete parity with every legacy Mac gesture remain outside the current evidence.",
           "evidence": [
+            "docs/photo-integrity-hardening.md",
             "docs/rust-studio-design.md",
             "docs/project-format.md"
           ],
@@ -424,9 +426,10 @@
           "id": "create-collections",
           "name": "Pages, artboards and carousels",
           "status": "locally-tested",
-          "current": "`.omuse` collections support mixed page sizes, page strips, reorder/duplicate, shared backgrounds, numbering and collection undo/redo.",
+          "current": "`.omuse` collections support mixed page sizes, page strips, reorder/duplicate, shared backgrounds, numbering and collection undo/redo. New and duplicate pages reject invalid dimensions, names and aggregate canvas overflow before changing or loading the collection.",
           "boundary": "Older application builds may not understand Create metadata; keep the full collection package intact.",
           "evidence": [
+            "docs/photo-integrity-hardening.md",
             "docs/omuse-create-qualification.md",
             "docs/omuse-create-guide.md"
           ],
@@ -759,9 +762,10 @@
           "id": "formats-precision",
           "name": "Retained 16-bit precision and export",
           "status": "locally-tested",
-          "current": "High-bit-depth PNG/TIFF and RAW sources retain non-quantized 16-bit masters for editable processing and explicit 16-bit PNG/TIFF export.",
-          "boundary": "Both RAW references and retained/explicit PNG/TIFF samples pass exact 16-bit comparison; high-precision sources remain capped at 16,777,216 pixels. Standard export is 8-bit, while explicit PNG/TIFF export is 16-bit. Ordinary destructive painting requires an explicit conversion to 8-bit pixels.",
+          "current": "High-bit-depth PNG/TIFF and RAW sources retain non-quantized 16-bit masters for editable processing and explicit 16-bit PNG/TIFF export. Clipping stacks preserve base transparency, masks and Blend If; live-mask chains resolve independently of layer order and include source parent opacity.",
+          "boundary": "Both RAW references and retained/explicit PNG/TIFF samples pass exact 16-bit comparison; high-precision sources remain capped at 16,777,216 pixels. Standard export is 8-bit, while explicit PNG/TIFF export is 16-bit. Ordinary destructive painting requires an explicit conversion to 8-bit pixels. A confirmed remaining difference is High quality downsampling: the 16-bit renderer uses bilinear sampling while the canvas uses scale-aware Lanczos, so reduced fine patterns can alias.",
           "evidence": [
+            "docs/photo-integrity-hardening.md",
             "docs/photo-release-qualification.md",
             "docs/rust-advanced-workflows.md"
           ],
@@ -811,7 +815,7 @@
           "id": "linux-wayland-xwayland",
           "name": "Wayland and XWayland journeys",
           "status": "locally-tested",
-          "current": "Production and installed-preview windows passed bounded native Wayland/XWayland editing journeys, including an 800\u00d7600 GPUI viewport and light/dark/reduced-motion checks.",
+          "current": "Earlier production and installed-preview windows passed bounded native Wayland/XWayland editing journeys, including an 800\u00d7600 GPUI viewport and light/dark/reduced-motion checks. The photo-integrity candidate still needs its production desktop checks.",
           "boundary": "These journeys dispatch GPUI events in process and do not prove compositor-delivered physical input.",
           "evidence": [
             "docs/photo-editing-hardening.md",
@@ -930,9 +934,10 @@
           "id": "reliability-recovery",
           "name": "Save, recovery and interruption",
           "status": "locally-tested",
-          "current": "Staged saves, external identity checks and isolated recovery preserve complete packages. The current suite also covers older lazy snapshots and newer edits across same-path background saves. Earlier multi-revision SIGKILL qualification remains recorded separately.",
+          "current": "Staged saves, external identity checks and isolated recovery preserve complete packages. Photo-to-collection and reverse recovery conversions stage the complete replacement before an atomic exchange. Failed staging, failed exchange and cancellation retain or discard the appropriate snapshot; retry succeeds. Same-path background save and older interruption evidence remain covered separately.",
           "boundary": "Process interruption is not sudden power-loss durability; a clean filesystem and machine matrix remains untested.",
           "evidence": [
+            "docs/photo-integrity-hardening.md",
             "docs/desktop-history-qualification.md",
             "docs/photo-editing-hardening.md",
             "docs/omuse-create-qualification.md",
@@ -941,16 +946,18 @@
           "modules": [
             "rust/src/document.rs",
             "rust/src/save_guard.rs",
-            "rust/src/create_project.rs"
+            "rust/src/create_project.rs",
+            "rust/src/recovery.rs"
           ]
         },
         {
           "id": "reliability-bounds",
           "name": "Resource and untrusted-input bounds",
           "status": "implemented-needs-qualification",
-          "current": "Decoder, PSD, AI response, media probe, CSV/bulk, document and editable-source limits fail explicitly instead of silently overcommitting.",
+          "current": "Decoder, PSD, AI response, media probe, CSV/bulk, document and editable-source limits fail explicitly instead of silently overcommitting. Explicit 16-bit export bounds live-mask surfaces and dependency depth before allocation and preserves existing output on rejection.",
           "boundary": "A focused security and supply-chain review of untrusted imports and provider boundaries remains a public-release gate.",
           "evidence": [
+            "docs/photo-integrity-hardening.md",
             "docs/photo-editing-hardening.md",
             "docs/public-release-readiness.md"
           ],
@@ -965,9 +972,10 @@
           "id": "release-current-suite",
           "name": "Current candidate regression suite",
           "status": "locally-tested",
-          "current": "The current changes passed 734 Rust tests: 326 library, 179 UI and 229 integration tests. The editing journey, six-page PNG/PDF/MP4/GIF exports, 80 editable templates, production Wayland/XWayland and matching installed-preview self-test also passed.",
-          "boundary": "Four manual timing benchmarks were excluded from the regression gate; the desktop comparison ran separately and passed all 18 cases. Local checks do not replace clean public-repository CI or broader hardware and live-provider acceptance.",
+          "current": "The photo-integrity changes passed 757 Rust tests: 326 library, 190 UI and 241 integration cases. All 23 added regressions, the editing journey, six-page PNG/PDF/MP4/GIF exports and 80 editable template variants passed. Production native and installed-preview checks for this candidate remain pending.",
+          "boundary": "Four manual timing benchmarks were excluded. Historical performance, camera-corpus and provider receipts remain tied to their earlier candidates; this pass does not repeat those measurements or replace physical hardware and clean-machine acceptance.",
           "evidence": [
+            "docs/photo-integrity-hardening.md",
             "docs/desktop-history-qualification.md",
             "docs/large-photo-history-qualification.md",
             "docs/photo-release-qualification.md",
@@ -998,9 +1006,9 @@
         {
           "id": "release-ci-github",
           "name": "Public source and remote CI",
-          "status": "implemented-needs-qualification",
-          "current": "Source preview is published to Sugata-Software/Omuse. Initial complete Rust validation and guide validation passed on GitHub. The Linux cleanup adds a separate fast installer/reference-fixture job alongside the full Rust job.",
-          "boundary": "The initial success belongs to d8c926e. The new installation/cleanup commit needs its own green remote run; neither establishes physical display support or binary-release qualification.",
+          "status": "locally-tested",
+          "current": "Source preview is published to Sugata-Software/Omuse. The Linux cleanup and installer candidate 971c419 passed both the fast installer/reference-fixture job and the complete Rust validation job on GitHub.",
+          "boundary": "That remote success belongs to 971c419. Subsequent hardening changes need their own candidate run; CI does not establish physical display support or binary-release qualification.",
           "evidence": [
             "docs/public-release-readiness.md",
             ".github/workflows/rust-validation.yml"

@@ -824,7 +824,6 @@ fn draw_layers<'a>(
                 for p in plane.pixels_mut() {
                     p[3] = 255;
                 }
-                let no_links = HashMap::new();
                 for child in &layers[index + 1..end] {
                     let mut child = child.clone();
                     if let Some(metadata) = child.metadata.as_object_mut() {
@@ -836,7 +835,7 @@ fn draw_layers<'a>(
                         depth,
                         inherited_opacity,
                         &[],
-                        &no_links,
+                        live_masks,
                     );
                 }
                 let blend = mode(&layer.blend_mode).unwrap_or(Mode::Normal);
@@ -855,11 +854,18 @@ fn draw_layers<'a>(
                 continue;
             }
         }
+        // Clipping stacks remove only their immediate child's link. Keep the
+        // shared dependency surfaces available to nested descendants, while
+        // avoiding a second application of the base mask to that child.
+        let live_mask = layer
+            .metadata
+            .get("maskSourceID")
+            .and_then(serde_json::Value::as_str)
+            .and_then(|_| live_masks.get(&layer.id));
         if let Some(adjustment) = layer.metadata.get("adjustment").filter(|v| !v.is_null()) {
             if let Ok(adjusted) = crate::effects::apply_adjustment(target, adjustment) {
                 let blend = mode(&layer.blend_mode).unwrap_or(Mode::Normal);
                 let base = (layer.opacity * inherited_opacity).clamp(0.0, 1.0);
-                let live = live_masks.get(&layer.id);
                 let own_mask = (mask_enabled(layer) && layer.mask.is_some())
                     .then(|| FolderSampler::new(layer))
                     .flatten();
@@ -870,7 +876,7 @@ fn draw_layers<'a>(
                     if let Some(mask) = &own_mask {
                         amount *= mask.coverage(f64::from(x) + 0.5, f64::from(y) + 0.5);
                     }
-                    if let Some(clip) = live {
+                    if let Some(clip) = live_mask {
                         amount *= f32::from(clip.get_pixel(x, y)[3]) / 255.0;
                     }
                     for folder in inherited_masks {
@@ -925,7 +931,7 @@ fn draw_layers<'a>(
                             &derived,
                             inherited_opacity,
                             inherited_masks,
-                            live_masks.get(&layer.id),
+                            live_mask,
                         );
                         continue;
                     }
@@ -937,7 +943,7 @@ fn draw_layers<'a>(
                 layer,
                 inherited_opacity,
                 inherited_masks,
-                live_masks.get(&layer.id),
+                live_mask,
             );
         }
     }

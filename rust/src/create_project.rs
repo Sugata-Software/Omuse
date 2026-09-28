@@ -771,26 +771,35 @@ impl Project {
     }
 
     pub fn add_page(&mut self, name: impl Into<String>, document: Document) -> Result<String> {
+        let name = name.into();
+        self.validate_page_admission(&name, document.width, document.height)?;
+        let page = Page::from_document(name, document);
+        let id = page.id.clone();
+        self.pages.push(page);
+        Ok(id)
+    }
+
+    /// Apply the same limits to imports, new canvases and duplicates before
+    /// allocating pixels, loading a lazy source or changing the page list.
+    /// An admitted page must not make the collection impossible to save/undo.
+    fn validate_page_admission(&self, name: &str, width: u32, height: u32) -> Result<()> {
         ensure!(
             self.pages.len() < MAX_PAGES,
             "Project already has {MAX_PAGES} pages"
         );
-        let name = name.into();
-        ensure!(valid_label(&name, 2_048), "Invalid page name");
+        ensure!(valid_label(name, 2_048), "Invalid page name");
+        ensure!(valid_dimensions(width, height), "Invalid page dimensions");
         let existing_pixels = self.pages.iter().try_fold(0u64, |total, page| {
             total
                 .checked_add(u64::from(page.width) * u64::from(page.height))
                 .context("Project canvas pixel count overflow")
         })?;
         ensure!(
-            existing_pixels.saturating_add(u64::from(document.width) * u64::from(document.height))
+            existing_pixels.saturating_add(u64::from(width) * u64::from(height))
                 <= MAX_TOTAL_PAGE_CANVAS_PIXELS,
             "Project pages exceed the authored canvas pixel budget"
         );
-        let page = Page::from_document(name, document);
-        let id = page.id.clone();
-        self.pages.push(page);
-        Ok(id)
+        Ok(())
     }
 
     pub fn add_blank_page(
@@ -799,21 +808,21 @@ impl Project {
         width: u32,
         height: u32,
     ) -> Result<String> {
-        ensure!(valid_dimensions(width, height), "Invalid page dimensions");
+        let name = name.into();
+        // Reject a full collection or invalid name before allocating the new
+        // canvas; add_page repeats the cheap check for imported documents.
+        self.validate_page_admission(&name, width, height)?;
         self.add_page(name, Document::new(width, height))
     }
 
     pub fn duplicate_page(&mut self, id: &str) -> Result<String> {
-        ensure!(
-            self.pages.len() < MAX_PAGES,
-            "Project already has {MAX_PAGES} pages"
-        );
         let index = self
             .pages
             .iter()
             .position(|page| page.id == id)
             .context("Page not found")?;
         let name = format!("{} copy", self.pages[index].name);
+        self.validate_page_admission(&name, self.pages[index].width, self.pages[index].height)?;
         let source = self.source.clone();
         let mut document = self.pages[index].load(source.as_ref())?.clone();
         document.name = name.clone();

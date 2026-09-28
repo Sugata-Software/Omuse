@@ -59,6 +59,16 @@ impl TransformGeometry {
             placement,
         })
     }
+    /// Geometric TL/TR/BR/BL order. Distortion applies source reflections in
+    /// the editor, so these corners must not be reordered by the flip flags.
+    pub fn corners(&self) -> [CanvasPoint; 4] {
+        [
+            self.handles[0],
+            self.handles[2],
+            self.handles[4],
+            self.handles[6],
+        ]
+    }
     pub fn hit_test(&self, point: CanvasPoint, tolerance: f32) -> Option<HitTarget> {
         if !tolerance.is_finite() || tolerance < 0. {
             return None;
@@ -195,7 +205,11 @@ impl TransformDrag {
                     } else if sy == 0. {
                         width / self.original.width
                     } else {
-                        (local_x * sx * self.original.width + local_y * sy * self.original.height)
+                        // Project onto the aspect-ratio ray in the pointer's
+                        // quadrant. Orientation is carried by the flip flags;
+                        // signed spans here would collapse a reflected drag.
+                        (raw_width.abs() * self.original.width
+                            + raw_height.abs() * self.original.height)
                             / (self.original.width * self.original.width
                                 + self.original.height * self.original.height)
                     }
@@ -259,6 +273,9 @@ impl TransformDrag {
 }
 
 pub fn selection_bounds(editor: &Editor, ids: &[String]) -> Option<LayerPlacement> {
+    if let [id] = ids {
+        return editor.layer_placement(id);
+    }
     let mut points = Vec::new();
     for id in ids {
         let placement = editor.layer_placement(id)?;
@@ -410,6 +427,193 @@ mod tests {
             .unwrap()
             .updated(CanvasPoint { x: 22., y: 26. }, DragModifiers::default());
         assert_eq!((resized.width, resized.height), (12., 6.));
+    }
+    #[test]
+    fn moving_one_rotated_flipped_layer_preserves_its_transform_and_undo() {
+        let mut editor = Editor::new(Document::new(80, 60));
+        let id = editor.active_layer.clone();
+        let original = LayerPlacement {
+            rotation: 37.,
+            flip_x: true,
+            flip_y: true,
+            ..placement()
+        };
+        assert!(editor.set_layer_placement(&id, original));
+        let original = editor.layer_placement(&id).unwrap();
+        let bounds = selection_bounds(&editor, std::slice::from_ref(&id)).unwrap();
+        assert_eq!(bounds, original, "a single layer needs its oriented bounds");
+        let start = CanvasPoint { x: 14., y: 22. };
+        let draft = TransformDrag::new(bounds, start, DragMode::Move)
+            .unwrap()
+            .updated(CanvasPoint { x: 21., y: 19. }, DragModifiers::default());
+        let depth = editor.undo_depth();
+        assert!(commit_drag(
+            &mut editor,
+            std::slice::from_ref(&id),
+            bounds,
+            draft
+        ));
+        let moved = editor.layer_placement(&id).unwrap();
+        assert_eq!(
+            moved,
+            LayerPlacement {
+                x: original.x + 7.,
+                y: original.y - 3.,
+                ..original
+            }
+        );
+        assert_eq!(editor.undo_depth(), depth + 1);
+        assert!(editor.undo());
+        assert_eq!(editor.layer_placement(&id).unwrap(), original);
+        assert!(editor.redo());
+        assert_eq!(editor.layer_placement(&id).unwrap(), moved);
+    }
+    #[test]
+    fn proportional_corner_drag_can_cross_its_anchor_without_collapsing() {
+        for rotation in [0., 37., 90.] {
+            for from_center in [false, true] {
+                for (mirror_x, mirror_y) in [(true, false), (false, true), (true, true)] {
+                    let original = LayerPlacement {
+                        rotation,
+                        flip_x: true,
+                        ..placement()
+                    };
+                    let start = placement_point(original, HANDLE_UNITS[4]);
+                    let anchor_unit = if from_center {
+                        CanvasPoint { x: 0.5, y: 0.5 }
+                    } else {
+                        HANDLE_UNITS[0]
+                    };
+                    let anchor = placement_point(original, anchor_unit);
+                    let distance = if from_center { 1. } else { 2. };
+                    let local_x = original.width * distance * if mirror_x { -1. } else { 1. };
+                    let local_y = original.height * distance * if mirror_y { -1. } else { 1. };
+                    let (sin, cos) = rotation.to_radians().sin_cos();
+                    let target = CanvasPoint {
+                        x: anchor.x + local_x * cos - local_y * sin,
+                        y: anchor.y + local_x * sin + local_y * cos,
+                    };
+                    let draft = TransformDrag::new(original, start, DragMode::Resize(4))
+                        .unwrap()
+                        .updated(
+                            target,
+                            DragModifiers {
+                                lock_ratio: true,
+                                from_center,
+                                shift: false,
+                            },
+                        );
+                    assert!((draft.width - 16.).abs() < 0.0001, "{draft:?}");
+                    assert!((draft.height - 8.).abs() < 0.0001, "{draft:?}");
+                    assert_eq!(draft.flip_x, original.flip_x ^ mirror_x);
+                    assert_eq!(draft.flip_y, original.flip_y ^ mirror_y);
+                    let kept_anchor = placement_point(
+                        draft,
+                        CanvasPoint {
+                            x: if mirror_x {
+                                1. - anchor_unit.x
+                            } else {
+                                anchor_unit.x
+                            },
+                            y: if mirror_y {
+                                1. - anchor_unit.y
+                            } else {
+                                anchor_unit.y
+                            },
+                        },
+                    );
+                    assert!(kept_anchor.distance(anchor) < 0.0001);
+                }
+            }
+        }
+    }
+    #[test]
+    fn distortion_moves_the_visible_handle_on_a_flipped_layer() {
+        for (flip_x, flip_y) in [(true, false), (false, true), (true, true)] {
+            let p = LayerPlacement {
+                rotation: 37.,
+                flip_x,
+                flip_y,
+                ..placement()
+            };
+            let start = placement_point(p, HANDLE_UNITS[0]);
+            let corners = TransformGeometry::new(p, 0.).unwrap().corners();
+            let result = TransformDrag::new(p, start, DragMode::Distort(0))
+                .unwrap()
+                .with_corners(corners)
+                .unwrap()
+                .distorted_corners(
+                    CanvasPoint {
+                        x: start.x + 3.,
+                        y: start.y - 2.,
+                    },
+                    false,
+                )
+                .unwrap();
+            for index in 0..4 {
+                let expected = if index == 0 {
+                    CanvasPoint {
+                        x: corners[index].x + 3.,
+                        y: corners[index].y - 2.,
+                    }
+                } else {
+                    corners[index]
+                };
+                assert_eq!(result[index], expected, "flip_x={flip_x}, flip_y={flip_y}");
+            }
+        }
+    }
+    #[test]
+    fn distortion_preserves_reflected_pixel_orientation_and_undo() {
+        use image::{Rgba, RgbaImage};
+        for (flip_x, flip_y) in [(true, false), (false, true), (true, true)] {
+            let mut document = Document::new(20, 16);
+            // Every pixel differs: a double reflection cannot pass unnoticed.
+            document.layers[0].image = Some(
+                RgbaImage::from_fn(8, 6, |x, y| Rgba([(x * 30) as u8, (y * 40) as u8, 83, 255]))
+                    .into(),
+            );
+            let mut editor = Editor::new(document);
+            let id = editor.active_layer.clone();
+            let original = LayerPlacement {
+                x: 4.,
+                y: 3.,
+                width: 8.,
+                height: 6.,
+                rotation: 0.,
+                flip_x,
+                flip_y,
+            };
+            assert!(editor.set_layer_placement(&id, original));
+            let before = omuse::raster::composite(&editor.document);
+            let geometry = TransformGeometry::new(
+                selection_bounds(&editor, std::slice::from_ref(&id)).unwrap(),
+                0.,
+            )
+            .unwrap();
+            let drag = TransformDrag::new(original, geometry.handles[0], DragMode::Distort(0))
+                .unwrap()
+                .with_corners(geometry.corners())
+                .unwrap();
+            let corners = drag.distorted_corners(geometry.handles[0], false).unwrap();
+            let depth = editor.undo_depth();
+            assert!(
+                editor
+                    .distort_layer(&id, corners.map(|p| (p.x, p.y)))
+                    .unwrap()
+            );
+            assert_eq!(
+                omuse::raster::composite(&editor.document),
+                before,
+                "flip_x={flip_x}, flip_y={flip_y}"
+            );
+            assert_eq!(editor.undo_depth(), depth + 1);
+            assert!(editor.undo());
+            assert_eq!(editor.layer_placement(&id), Some(original));
+            assert_eq!(omuse::raster::composite(&editor.document), before);
+            assert!(editor.redo());
+            assert_eq!(omuse::raster::composite(&editor.document), before);
+        }
     }
     #[test]
     fn group_bounds_include_rotated_corners_and_commit_as_one_editor_step() {

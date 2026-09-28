@@ -29,6 +29,14 @@ struct State {
     error: Option<String>,
     #[cfg(test)]
     pause_next_save: Option<Arc<std::sync::Barrier>>,
+    #[cfg(test)]
+    pause_before_format_exchange: Option<FormatExchangePause>,
+}
+
+#[cfg(test)]
+struct FormatExchangePause {
+    staged: std::sync::mpsc::Sender<()>,
+    resume: std::sync::mpsc::Receiver<()>,
 }
 struct Shared {
     state: Mutex<State>,
@@ -129,6 +137,8 @@ impl Recovery {
                 error: None,
                 #[cfg(test)]
                 pause_next_save: None,
+                #[cfg(test)]
+                pause_before_format_exchange: None,
             }),
             changed: Condvar::new(),
         });
@@ -365,6 +375,101 @@ fn recovery_publish_is_current(shared: &Shared) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn save_snapshot_at(
+    snapshot: RecoverySnapshot,
+    shared: &Shared,
+    path: &Path,
+) -> anyhow::Result<()> {
+    match snapshot {
+        RecoverySnapshot::Document(doc) => {
+            document::save_checked(&doc, path, || recovery_publish_is_current(shared))
+        }
+        RecoverySnapshot::Project(mut project) => {
+            project.save_checked(path, || recovery_publish_is_current(shared))
+        }
+    }
+}
+
+struct RecoveryStage(PathBuf);
+impl Drop for RecoveryStage {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
+    }
+}
+
+fn save_snapshot(snapshot: RecoverySnapshot, shared: &Shared, path: &Path) -> anyhow::Result<()> {
+    let changes_format = match &snapshot {
+        RecoverySnapshot::Document(_) => path.join("project.json").is_file(),
+        RecoverySnapshot::Project(_) => path.join("manifest.json").is_file(),
+    };
+    if !changes_format {
+        return save_snapshot_at(snapshot, shared, path);
+    }
+
+    // A photo can become a Create collection in the same window. Both package
+    // writers correctly refuse to overwrite another format at a user-selected
+    // save path, but this UUID destination belongs exclusively to this worker.
+    // Stage the new format separately and exchange only after it is complete:
+    // clearing the old recovery first would lose it if conversion failed.
+    anyhow::ensure!(
+        fs::symlink_metadata(path)?.file_type().is_dir(),
+        "Recovery destination must be a directory"
+    );
+    let parent = path
+        .parent()
+        .ok_or_else(|| anyhow::anyhow!("Recovery directory is unavailable"))?;
+    let stage_path = parent.join(format!(".omuse-recovery-stage-{}", uuid::Uuid::new_v4()));
+    fs::create_dir(&stage_path)?;
+    let stage = RecoveryStage(stage_path);
+    let prepared = stage.0.join("snapshot.comp");
+    save_snapshot_at(snapshot, shared, &prepared)?;
+    #[cfg(test)]
+    {
+        let pause = shared.lock().pause_before_format_exchange.take();
+        if let Some(pause) = pause {
+            let _ = pause.staged.send(());
+            // Dropping the test's sender also releases the worker, so a failed
+            // assertion cannot leave Recovery::drop waiting on this hook.
+            let _ = pause.resume.recv();
+        }
+    }
+    recovery_publish_is_current(shared)?;
+    exchange_recovery(&prepared, path)?;
+    // Publication has succeeded; match the package writers' best-effort
+    // parent sync rather than reporting a completed exchange as an old save.
+    let _ = File::open(parent).and_then(|directory| directory.sync_all());
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn exchange_recovery(from: &Path, to: &Path) -> anyhow::Result<()> {
+    use anyhow::Context;
+    use std::{ffi::CString, os::unix::ffi::OsStrExt};
+    unsafe extern "C" {
+        fn renameat2(
+            olddirfd: i32,
+            oldpath: *const std::ffi::c_char,
+            newdirfd: i32,
+            newpath: *const std::ffi::c_char,
+            flags: u32,
+        ) -> i32;
+    }
+    let from = CString::new(from.as_os_str().as_bytes())?;
+    let to = CString::new(to.as_os_str().as_bytes())?;
+    // SAFETY: owned NUL-terminated paths live through the call; RENAME_EXCHANGE
+    // swaps complete directories atomically on the same recovery filesystem.
+    if unsafe { renameat2(-100, from.as_ptr(), -100, to.as_ptr(), 2) } != 0 {
+        return Err(std::io::Error::last_os_error())
+            .context("Recovery format conversion failed; previous recovery retained");
+    }
+    Ok(())
+}
+
+#[cfg(not(target_os = "linux"))]
+fn exchange_recovery(_: &Path, _: &Path) -> anyhow::Result<()> {
+    anyhow::bail!("Atomic recovery format conversion is only implemented on Linux")
+}
+
 fn writer(shared: &Shared, path: &Path) {
     loop {
         let work = {
@@ -409,14 +514,7 @@ fn writer(shared: &Shared, path: &Path) {
                         pause.wait();
                     }
                 }
-                let result = match doc {
-                    RecoverySnapshot::Document(doc) => {
-                        document::save_checked(&doc, path, || recovery_publish_is_current(shared))
-                    }
-                    RecoverySnapshot::Project(mut project) => {
-                        project.save_checked(path, || recovery_publish_is_current(shared))
-                    }
-                };
+                let result = save_snapshot(doc, shared, path);
                 let mut state = shared.lock();
                 state.in_flight = false;
                 state.error = result
@@ -598,6 +696,37 @@ mod tests {
     }
 
     #[test]
+    fn clear_during_collection_conversion_does_not_publish_or_leave_a_draft() {
+        let temp = tempfile::tempdir().unwrap();
+        let recovery = Recovery::at(temp.path().to_owned());
+        let photo = Document::new(8, 8);
+        recovery.schedule(&photo, true);
+        let path = recovery.wait_idle_for_test(Duration::from_secs(5)).unwrap();
+        let mut project = omuse::create_project::Project::new("Campaign", photo);
+        project.add_blank_page("Second", 12, 9).unwrap();
+
+        let barrier = Arc::new(std::sync::Barrier::new(2));
+        recovery.shared.lock().pause_next_save = Some(barrier.clone());
+        recovery.schedule_project(&project, true);
+        barrier.wait();
+        thread::scope(|scope| {
+            let clear = scope.spawn(|| recovery.clear());
+            wait_until(|| recovery.shared.lock().clear_requested.is_some());
+            barrier.wait();
+            clear.join().unwrap();
+        });
+        drop(recovery);
+        assert!(!path.exists());
+        assert!(fs::read_dir(temp.path()).unwrap().all(|entry| {
+            !entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with(".omuse")
+        }));
+    }
+
+    #[test]
     fn concurrent_clear_waiters_all_receive_acknowledgments() {
         let temp = tempfile::tempdir().unwrap();
         let recovery = Recovery::at(temp.path().to_owned());
@@ -711,6 +840,266 @@ mod tests {
 #[cfg(test)]
 mod create_recovery_tests {
     use super::*;
+
+    fn pause_staged_conversion(
+        recovery: &Recovery,
+        project: &omuse::create_project::Project,
+    ) -> std::sync::mpsc::Sender<()> {
+        let (staged, ready) = std::sync::mpsc::channel();
+        let (resume, receiver) = std::sync::mpsc::channel();
+        recovery.shared.lock().pause_before_format_exchange = Some(FormatExchangePause {
+            staged,
+            resume: receiver,
+        });
+        recovery.schedule_project(project, true);
+        ready
+            .recv_timeout(Duration::from_secs(5))
+            .expect("Conversion did not reach the completed staging boundary");
+        resume
+    }
+
+    fn staged_snapshot(root: &Path) -> PathBuf {
+        let stages: Vec<_> = fs::read_dir(root)
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .filter(|path| {
+                path.file_name()
+                    .unwrap()
+                    .to_string_lossy()
+                    .starts_with(".omuse-recovery-stage-")
+            })
+            .collect();
+        assert_eq!(stages.len(), 1);
+        stages[0].join("snapshot.comp")
+    }
+
+    fn assert_recovered_artwork(actual: &Document, expected: &Document) {
+        assert_eq!(
+            (actual.width, actual.height),
+            (expected.width, expected.height)
+        );
+        assert_eq!(actual.background, expected.background);
+        assert_eq!(
+            actual.metadata["documentID"],
+            expected.metadata["documentID"]
+        );
+        assert_eq!(actual.layers.len(), expected.layers.len());
+        for (actual, expected) in actual.layers.iter().zip(&expected.layers) {
+            assert_eq!(actual.id, expected.id);
+            assert_eq!(actual.name, expected.name);
+            assert_eq!(actual.image, expected.image);
+        }
+    }
+
+    #[test]
+    fn converting_an_edited_photo_to_a_collection_replaces_its_recovery() {
+        let temp = tempfile::tempdir().unwrap();
+        let recovery = Recovery::at(temp.path().to_owned());
+        let mut photo = Document::new(8, 8);
+        photo.layers[0]
+            .image
+            .as_mut()
+            .unwrap()
+            .put_pixel(2, 3, image::Rgba([18, 52, 86, 255]));
+        recovery.schedule(&photo, true);
+        let path = recovery.wait_idle_for_test(Duration::from_secs(5)).unwrap();
+        assert!(path.join("manifest.json").is_file());
+
+        let mut project = omuse::create_project::Project::new("Photo campaign", photo.clone());
+        let first = project.active_page_id().to_owned();
+        let second = project.add_blank_page("New card", 12, 9).unwrap();
+        project.set_active_page(&second).unwrap();
+        project.page_document_mut(&second).unwrap().layers[0]
+            .image
+            .as_mut()
+            .unwrap()
+            .put_pixel(4, 5, image::Rgba([144, 120, 60, 255]));
+        recovery.schedule_project(&project, true);
+        recovery.wait_idle_for_test(Duration::from_secs(5)).unwrap();
+        drop(recovery);
+
+        let mut restored = omuse::create_project::Project::open(&path).unwrap();
+        assert_eq!(restored.title, "Photo campaign");
+        assert_eq!(restored.page_ids(), vec![first.clone(), second.clone()]);
+        assert_eq!(restored.active_page_id(), second);
+        for page in [&first, &second] {
+            assert_recovered_artwork(
+                restored.page_document(page).unwrap(),
+                project.page_document(page).unwrap(),
+            );
+        }
+        assert!(!path.join("manifest.json").exists());
+        let observer = Recovery::at(temp.path().to_owned());
+        assert_eq!(observer.available(), Some(path));
+    }
+
+    #[test]
+    fn collection_recovery_can_be_replaced_by_a_photo_snapshot() {
+        let temp = tempfile::tempdir().unwrap();
+        let recovery = Recovery::at(temp.path().to_owned());
+        let mut project = omuse::create_project::Project::new("Campaign", Document::new(8, 8));
+        project.add_blank_page("Second", 12, 9).unwrap();
+        recovery.schedule_project(&project, true);
+        let path = recovery.wait_idle_for_test(Duration::from_secs(5)).unwrap();
+
+        let mut photo = Document::new(9, 7);
+        photo.layers[0]
+            .image
+            .as_mut()
+            .unwrap()
+            .put_pixel(3, 4, image::Rgba([66, 99, 132, 255]));
+        recovery.schedule(&photo, true);
+        recovery.wait_idle_for_test(Duration::from_secs(5)).unwrap();
+        drop(recovery);
+
+        assert!(!path.join("project.json").exists());
+        assert_recovered_artwork(&document::open(&path).unwrap(), &photo);
+    }
+
+    #[test]
+    fn a_failed_collection_conversion_retains_the_last_photo_recovery() {
+        let temp = tempfile::tempdir().unwrap();
+        let recovery = Recovery::at(temp.path().to_owned());
+        let photo = Document::new(8, 8);
+        recovery.schedule(&photo, true);
+        let path = recovery.wait_idle_for_test(Duration::from_secs(5)).unwrap();
+        let previous = omuse::save_guard::package_stamp(&path).unwrap();
+
+        let mut project = omuse::create_project::Project::new("Campaign", photo.clone());
+        let second = project.add_blank_page("Invalid page", 12, 9).unwrap();
+        // Fail after the first page has been staged, so recovery must retain
+        // its old package while disposing of a partially prepared collection.
+        project.page_document_mut(&second).unwrap().layers[0].blend_mode = "Invalid".into();
+        recovery.schedule_project(&project, true);
+        assert!(recovery.wait_idle_for_test(Duration::from_secs(5)).is_err());
+        assert_eq!(omuse::save_guard::package_stamp(&path), Some(previous));
+        assert_recovered_artwork(&document::open(&path).unwrap(), &photo);
+        assert!(fs::read_dir(temp.path()).unwrap().all(|entry| {
+            !entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with(".omuse")
+        }));
+
+        project.page_document_mut(&second).unwrap().layers[0].blend_mode = "Normal".into();
+        recovery.schedule_project(&project, true);
+        recovery.wait_idle_for_test(Duration::from_secs(5)).unwrap();
+        assert!(recovery.error().is_none());
+        assert_eq!(
+            omuse::create_project::Project::open(&path)
+                .unwrap()
+                .page_ids(),
+            project.page_ids()
+        );
+    }
+
+    #[test]
+    fn clear_after_collection_staging_prevents_the_final_format_exchange() {
+        let temp = tempfile::tempdir().unwrap();
+        let recovery = Recovery::at(temp.path().to_owned());
+        let mut photo = Document::new(8, 8);
+        photo.layers[0]
+            .image
+            .as_mut()
+            .unwrap()
+            .put_pixel(2, 3, image::Rgba([18, 52, 86, 255]));
+        recovery.schedule(&photo, true);
+        let path = recovery.wait_idle_for_test(Duration::from_secs(5)).unwrap();
+        let previous = omuse::save_guard::package_stamp(&path).unwrap();
+        let mut project = omuse::create_project::Project::new("Campaign", photo.clone());
+        project.add_blank_page("Second", 12, 9).unwrap();
+
+        let resume = pause_staged_conversion(&recovery, &project);
+        let prepared = staged_snapshot(temp.path());
+        assert_eq!(
+            omuse::create_project::Project::open(&prepared)
+                .unwrap()
+                .page_ids(),
+            project.page_ids(),
+            "the replacement must already be complete when clear arrives"
+        );
+        assert_eq!(omuse::save_guard::package_stamp(&path), Some(previous));
+        assert_recovered_artwork(&document::open(&path).unwrap(), &photo);
+
+        thread::scope(|scope| {
+            // Keep this sender inside the scope so an assertion failure drops
+            // it before the scope waits for the blocked clear thread.
+            let resume = resume;
+            let clear = scope.spawn(|| recovery.clear());
+            let deadline = Instant::now() + Duration::from_secs(5);
+            while recovery.shared.lock().clear_requested.is_none() {
+                assert!(Instant::now() < deadline, "Clear request was not queued");
+                thread::sleep(Duration::from_millis(5));
+            }
+            assert_eq!(omuse::save_guard::package_stamp(&path), Some(previous));
+            drop(resume);
+            clear.join().unwrap();
+        });
+
+        recovery.wait_idle_for_test(Duration::from_secs(5)).unwrap();
+        assert!(!path.exists());
+        assert!(fs::read_dir(temp.path()).unwrap().all(|entry| {
+            !entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with(".omuse")
+        }));
+    }
+
+    #[test]
+    fn failed_final_format_exchange_retains_the_previous_recovery_and_can_retry() {
+        let temp = tempfile::tempdir().unwrap();
+        let recovery = Recovery::at(temp.path().to_owned());
+        let mut photo = Document::new(8, 8);
+        photo.layers[0]
+            .image
+            .as_mut()
+            .unwrap()
+            .put_pixel(2, 3, image::Rgba([18, 52, 86, 255]));
+        recovery.schedule(&photo, true);
+        let path = recovery.wait_idle_for_test(Duration::from_secs(5)).unwrap();
+        let previous = omuse::save_guard::package_stamp(&path).unwrap();
+        let mut project = omuse::create_project::Project::new("Campaign", photo.clone());
+        project.add_blank_page("Second", 12, 9).unwrap();
+
+        let resume = pause_staged_conversion(&recovery, &project);
+        let prepared = staged_snapshot(temp.path());
+        assert!(prepared.join("project.json").is_file());
+        // Cause the real outer renameat2 exchange to fail with ENOENT after
+        // staging succeeds. The old destination remains present throughout.
+        fs::remove_dir_all(&prepared).unwrap();
+        drop(resume);
+
+        assert!(recovery.wait_idle_for_test(Duration::from_secs(5)).is_err());
+        assert!(
+            recovery
+                .error()
+                .unwrap()
+                .contains("format conversion failed; previous recovery retained")
+        );
+        assert_eq!(omuse::save_guard::package_stamp(&path), Some(previous));
+        assert_recovered_artwork(&document::open(&path).unwrap(), &photo);
+        assert!(fs::read_dir(temp.path()).unwrap().all(|entry| {
+            !entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with(".omuse")
+        }));
+
+        recovery.schedule_project(&project, true);
+        recovery.wait_idle_for_test(Duration::from_secs(5)).unwrap();
+        assert!(recovery.error().is_none());
+        assert_eq!(
+            omuse::create_project::Project::open(&path)
+                .unwrap()
+                .page_ids(),
+            project.page_ids()
+        );
+    }
+
     #[test]
     fn complete_collection_recovers_after_window_ends() {
         let temp = tempfile::tempdir().unwrap();

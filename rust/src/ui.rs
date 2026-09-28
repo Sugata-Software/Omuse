@@ -1266,13 +1266,10 @@ impl EditorView {
                 }
             };
             self.drag_start = Some((x, y));
-            let corners = [
-                bounds.point(0., 0.),
-                bounds.point(1., 0.),
-                bounds.point(1., 1.),
-                bounds.point(0., 1.),
-            ]
-            .map(|(x, y)| CanvasPoint { x, y });
+            let Some(geometry) = TransformGeometry::new(bounds, 0.) else {
+                return;
+            };
+            let corners = geometry.corners();
             self.transform_drag = TransformDrag::new(bounds, pointer, mode)
                 .and_then(|drag| drag.with_corners(corners));
             self.distort_draft = matches!(mode, DragMode::Distort(_)).then_some(corners);
@@ -1844,8 +1841,19 @@ impl EditorView {
             Tool::Move => {
                 if let Some(corners) = self.distort_draft.take() {
                     let id = self.editor.active_layer.clone();
-                    match self.editor.distort_layer(&id, corners.map(|p| (p.x, p.y))) {
+                    let unchanged = self
+                        .transform_drag
+                        .as_ref()
+                        .and_then(|drag| drag.original_corners)
+                        == Some(corners);
+                    let result = if unchanged {
+                        Ok(false)
+                    } else {
+                        self.editor.distort_layer(&id, corners.map(|p| (p.x, p.y)))
+                    };
+                    match result {
                         Ok(true) => self.status = "Corner distortion applied".into(),
+                        Ok(false) if unchanged => self.status = "Transform unchanged".into(),
                         Ok(false) => {
                             self.status = "Rasterize and unlock this layer before distorting".into()
                         }
@@ -8868,14 +8876,82 @@ mod interaction_tests {
     }
 
     #[gpui_kit::test]
+    fn dragging_a_rotated_flipped_photo_keeps_its_shape_and_undo(cx: &mut TestAppContext) {
+        cx.update(crate::init_test_theme);
+        cx.update(bind_keys);
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            let mut view = EditorView::new(None, window, cx);
+            view.dialog = Dialog::None;
+            view.editor = Editor::new(Document::new(128, 96));
+            let id = view.editor.active_layer.clone();
+            let original = view.editor.layer_placement(&id).unwrap();
+            assert!(view.editor.set_layer_placement(
+                &id,
+                omuse::editor::LayerPlacement {
+                    rotation: 37.,
+                    flip_x: true,
+                    flip_y: true,
+                    ..original
+                }
+            ));
+            view.layer_selection.click(id, SelectionAction::Replace);
+            view.tool = Tool::Move;
+            view.zoom = 2.;
+            view.refresh(cx);
+            view
+        });
+        cx.simulate_resize(size(px(1200.), px(800.)));
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        let center = cx.debug_bounds("artwork").unwrap().center();
+        let (original, depth) = cx.update(|_, cx| {
+            let editor = &view.read(cx).editor;
+            (
+                editor.layer_placement(&editor.active_layer).unwrap(),
+                editor.undo_depth(),
+            )
+        });
+        let destination = center + point(px(20.), px(-12.));
+        cx.simulate_mouse_down(center, MouseButton::Left, Modifiers::default());
+        cx.simulate_mouse_move(destination, Some(MouseButton::Left), Modifiers::default());
+        cx.simulate_mouse_up(destination, MouseButton::Left, Modifiers::default());
+        let expected = omuse::editor::LayerPlacement {
+            x: original.x + 10.,
+            y: original.y - 6.,
+            ..original
+        };
+        cx.update(|_, cx| {
+            let editor = &view.read(cx).editor;
+            assert_eq!(editor.layer_placement(&editor.active_layer), Some(expected));
+            assert_eq!(editor.undo_depth(), depth + 1);
+        });
+        cx.simulate_keystrokes("ctrl-z");
+        cx.update(|_, cx| {
+            let editor = &view.read(cx).editor;
+            assert_eq!(editor.layer_placement(&editor.active_layer), Some(original));
+        });
+        cx.simulate_keystrokes("ctrl-shift-z");
+        cx.update(|_, cx| {
+            let editor = &view.read(cx).editor;
+            assert_eq!(editor.layer_placement(&editor.active_layer), Some(expected));
+        });
+    }
+
+    #[gpui_kit::test]
     fn ctrl_handle_distortion_is_one_transaction_and_escape_cancels(cx: &mut TestAppContext) {
         cx.update(crate::init_test_theme);
+        cx.update(bind_keys);
         let (view, cx) = cx.add_window_view(|window, cx| {
             let mut view = EditorView::new(None, window, cx);
             view.dialog = Dialog::None;
             let mut doc = Document::new(64, 48);
-            doc.layers[0].image =
-                Some(image::RgbaImage::from_pixel(64, 48, image::Rgba([120, 60, 30, 255])).into());
+            doc.layers[0].image = Some(
+                image::RgbaImage::from_fn(64, 48, |x, y| {
+                    image::Rgba([(x * 4) as u8, (y * 5) as u8, 83, 255])
+                })
+                .into(),
+            );
+            doc.layers[0].scale_x = -1.;
+            doc.layers[0].scale_y = -1.;
             view.editor = Editor::new(doc);
             let id = view.editor.active_layer.clone();
             view.layer_selection.click(id, SelectionAction::Replace);
@@ -8893,7 +8969,19 @@ mod interaction_tests {
             control: true,
             ..Default::default()
         };
+        let before = cx.update(|_, cx| raster::composite(&view.read(cx).editor.document));
         let depth = cx.update(|_, cx| view.read(cx).editor.undo_depth());
+        // Clicking a handle without dragging must not bake the transform or
+        // create an undo step.
+        cx.simulate_mouse_down(corner, MouseButton::Left, modifiers);
+        cx.simulate_mouse_up(corner, MouseButton::Left, modifiers);
+        cx.update(|_, cx| {
+            let editor = &view.read(cx).editor;
+            let placement = editor.layer_placement(&editor.active_layer).unwrap();
+            assert!(placement.flip_x && placement.flip_y);
+            assert_eq!(editor.undo_depth(), depth);
+            assert_eq!(raster::composite(&editor.document), before);
+        });
         cx.simulate_mouse_down(corner, MouseButton::Left, modifiers);
         cx.simulate_mouse_move(moved, Some(MouseButton::Left), modifiers);
         cx.update(|_, cx| assert!(view.read(cx).distort_draft.is_some()));
@@ -8903,7 +8991,22 @@ mod interaction_tests {
         cx.simulate_mouse_down(corner, MouseButton::Left, modifiers);
         cx.simulate_mouse_move(moved, Some(MouseButton::Left), modifiers);
         cx.simulate_mouse_up(moved, MouseButton::Left, modifiers);
-        cx.update(|_, cx| assert_eq!(view.read(cx).editor.undo_depth(), depth + 1));
+        cx.update(|_, cx| {
+            let editor = &view.read(cx).editor;
+            assert_eq!(editor.undo_depth(), depth + 1);
+            let pixels = raster::composite(&editor.document);
+            // The asymmetric artwork must still run right-to-left and
+            // bottom-to-top after a real corner move.
+            assert!(pixels.get_pixel(16, 24)[0] > pixels.get_pixel(48, 24)[0]);
+            assert!(pixels.get_pixel(32, 12)[1] > pixels.get_pixel(32, 36)[1]);
+        });
+        cx.simulate_keystrokes("ctrl-z");
+        cx.update(|_, cx| {
+            let editor = &view.read(cx).editor;
+            assert_eq!(raster::composite(&editor.document), before);
+            let placement = editor.layer_placement(&editor.active_layer).unwrap();
+            assert!(placement.flip_x && placement.flip_y);
+        });
     }
 
     #[gpui_kit::test]

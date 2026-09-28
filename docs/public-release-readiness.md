@@ -1,6 +1,6 @@
 # Public release readiness
 
-**28 September 2026: source preview; public binary release is not yet qualified.**
+**29 September 2026: source preview; public binary release is not yet qualified.**
 
 The canonical public repository is
 [Sugata-Software/Omuse](https://github.com/Sugata-Software/Omuse). The first
@@ -13,12 +13,20 @@ matching the locally qualified source snapshot. The project-guide workflow
 passed. The first [Rust validation run](https://github.com/Sugata-Software/Omuse/actions/runs/36426033617)
 passed on 28 September, including the complete headless suite, editing/Create
 journeys, recovery checks, offline installer and dependency inventory.
+The Linux cleanup and installer candidate `971c419` also passed its complete
+[Rust validation run](https://github.com/Sugata-Software/Omuse/actions/runs/36439517375),
+including the separate installer/reference job and the full Rust job.
 GitHub App access and source publication are no longer blockers.
 
 ## What is established
 
+The [photo integrity hardening pass](photo-integrity-hardening.md) passed
+757 Rust tests, including 23 new regressions for clipping/masks, transform
+gestures, collection admission and recovery format transitions. Production
+desktop and installed-preview checks for this candidate are pending.
+
 The [desktop ownership qualification](desktop-history-qualification.md)
-records the current 734 passing Rust tests, 80 editable template variants,
+records its 734 passing Rust tests, 80 editable template variants,
 production Wayland/XWayland journeys and matching preview installation with
 rollback. Create releases its redundant page raster owners between edits;
 complete save/export/recovery snapshots remain immutable. Editing during a
@@ -63,7 +71,7 @@ to the source preview without declaring a prebuilt binary release qualified.
 
 | Gate | Current state | Completion evidence |
 | --- | --- | --- |
-| Clean CI build | First public-repository Rust and guide validation passed; the installer cleanup candidate needs its own green run | Green Rust workflow for the exact candidate commit, retained artifacts and notice inventory |
+| Clean CI build | Initial source and Linux installer/cleanup candidate `971c419` passed full Rust and guide validation; subsequent changes require their own candidate run | Green Rust workflow for the exact candidate commit, retained artifacts and notice inventory |
 | Dependency legal texts | Two unresolved entries in the locked graph; upstream texts recovered for `seahash` and `simd_helpers` | Resolve `hexf-parse` and `mac` by verifiable upstream terms or tested dependency changes; see the [notice review](rust-license-findings.md) |
 | Reproducible release identity | The hardening pass records tested source hashes, the production executable, native runs, installation and rollback; a clean public build/archive remains pending | One clean release commit/tag, fresh build, source-to-binary-to-archive hash ledger and reproducible packaging instructions |
 | Clean target installation | Passed only on the development host | Install, launch, upgrade and rollback on a clean supported Arch/Omarchy system |
