@@ -45,8 +45,8 @@ opening the vector workspace and F7 toggling the inspector.
 The final functional suite passed **777 tests**: 326 library, 210 UI and 241
 integration tests, with no failures and four manual timing benchmarks excluded.
 This includes 20 additional tests over the 757-test photo-integrity baseline.
-The editing self-test and six-page PNG/PDF/MP4/GIF export journey passed.
-The final template run and installed-preview receipt are still being finalized.
+The editing self-test, six-page PNG/PDF/MP4/GIF export journey and all
+80 editable template variants passed.
 
 Coverage includes command search typing/navigation/execution, empty and
 unavailable results, Undo, modal focus at 800×600, typing in sidebar fields,
@@ -78,6 +78,30 @@ Native harness SHA-256:
 
 These are native GPUI windows with events dispatched in process. They do
 not establish physical keyboard delivery by the compositor.
+
+## Published source and installed preview
+
+The runtime is published as
+[`26211b5`](https://github.com/Sugata-Software/Omuse/commit/26211b54140d8ebae5322d8a1347f743ef2455ae),
+with Git tree `097c61ddeb935ee7b91e3d6fc7270a0919d0a86c`, matching the locally
+built source checkpoint. The production executable was installed from the
+clean public checkout into the separate Preview installation. Its self-test
+and all **24 native checks through the installed launcher** passed, with
+reduced motion. The resulting command-search capture was visually inspected.
+
+The installed executable matches the production SHA-256 above. The launcher
+receipt hashes the small launcher script separately; it is not the executable
+hash. RAW/subject runtime assets were preserved and verified. The complete
+previous installation remains the rollback generation, and the older separate
+application was verified unchanged. Rollback machinery was qualified in the
+[earlier installer pass](install-qualification.md); this pass verified the
+retained generation rather than repeating an unchanged rollback implementation.
+
+GitHub's [guide/reference run](https://github.com/Sugata-Software/Omuse/actions/runs/36461980133)
+passed. The [Rust workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36461980019)
+passed the installer/reference job and all-target checking; its full Rust job
+was still running at this checkpoint. Local success is not a claim that the
+remote workflow has finished.
 
 ## Physical acceptance remaining
 

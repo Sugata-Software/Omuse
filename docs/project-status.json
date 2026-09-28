@@ -36,7 +36,7 @@
     {
       "label": "Current regression suite",
       "value": "777 tests passed",
-      "detail": "326 library, 210 UI and 241 integration tests passed. The keyboard pass adds 20 regressions, 171 searchable commands and 101 defaults. Editing and six-page PNG/PDF/MP4/GIF exports passed; production Wayland/XWayland each passed 24 native checks at 800\u00d7600. Preview installation is next.",
+      "detail": "326 library, 210 UI and 241 integration tests passed. The keyboard pass adds 20 regressions, 171 searchable commands and 101 defaults. Editing, six-page PNG/PDF/MP4/GIF exports and 80 templates passed. Production Wayland/XWayland and the installed Preview each passed 24 native checks; matching runtime assets and the complete rollback generation are retained.",
       "status": "locally-tested"
     },
     {
@@ -831,7 +831,7 @@
           "id": "linux-wayland-xwayland",
           "name": "Wayland and XWayland journeys",
           "status": "locally-tested",
-          "current": "The keyboard production executable passed 24 native Wayland and 24 XWayland checks at the 800\u00d7600 logical viewport. System-theme command search and light-theme shortcut editor captures were visually inspected. This includes Ctrl+K, New layer, Enter and Ctrl+Z with focus restoration.",
+          "current": "The keyboard production executable passed 24 native Wayland and 24 XWayland checks at the 800\u00d7600 logical viewport. System-theme command search and light-theme shortcut editor captures were visually inspected. This includes Ctrl+K, New layer, Enter and Ctrl+Z with focus restoration. The installed Preview passed the same 24 checks with reduced motion and its capture was visually inspected.",
           "boundary": "These journeys dispatch GPUI events in process and do not prove compositor-delivered physical input.",
           "evidence": [
             "docs/keyboard-qualification.md",
@@ -848,9 +848,10 @@
           "id": "linux-preview-install",
           "name": "One-command install and rollback",
           "status": "locally-tested",
-          "current": "One curl command sets up Arch/Omarchy dependencies, builds the preview, verifies RAW/subject assets and installs Omuse. A real isolated install/update, complete rollback in both directions and uninstall passed on this host. All 31 installer/bundle tests passed, including failed writes and SIGTERM restoration. The photo-integrity preview update passed its editing self-test, installed-launcher native check and rollback in both directions while retaining matching runtime assets.",
+          "current": "One curl command sets up Arch/Omarchy dependencies, builds the preview, verifies RAW/subject assets and installs Omuse. A real isolated install/update, complete rollback in both directions and uninstall passed on this host. All 31 installer/bundle tests passed, including failed writes and SIGTERM restoration. The photo-integrity preview update passed its editing self-test, installed-launcher native check and rollback in both directions while retaining matching runtime assets. The keyboard candidate 26211b5 is now installed in Preview: self-test and 24 native checks passed, and the executable/assets, prior complete generation and untouched older application were verified.",
           "boundary": "First install compiles source locally. No qualified prebuilt download or clean-machine acceptance is claimed. SIGKILL/power-loss installation recovery has not been qualified.",
           "evidence": [
+            "docs/keyboard-qualification.md",
             "docs/photo-integrity-hardening.md",
             "docs/install-qualification.md",
             "docs/install.md",
@@ -1026,9 +1027,10 @@
           "id": "release-ci-github",
           "name": "Public source and remote CI",
           "status": "locally-tested",
-          "current": "The photo-integrity source b2f6e85 passed the complete Rust workflow, installer/reference checks and project-guide validation on GitHub. The keyboard command-search changes still need their own published candidate run.",
-          "boundary": "Remote success belongs to b2f6e85. CI does not establish physical desktop input, clean-machine installation or binary-release qualification.",
+          "current": "Keyboard source 26211b5 is published. Its guide/reference workflow, installer/reference job and Rust all-target check passed on GitHub; the full Rust suite is running. The prior photo-integrity b2f6e85 workflow passed completely.",
+          "boundary": "The new full remote Rust job is pending. CI does not establish physical desktop input, clean-machine installation or binary-release qualification.",
           "evidence": [
+            "docs/keyboard-qualification.md",
             "docs/public-release-readiness.md",
             ".github/workflows/rust-validation.yml"
           ],
