@@ -205,7 +205,7 @@ impl EditorView {
         let tooltip = if chord.is_empty() {
             label.into()
         } else {
-            format!("{label} · {chord}")
+            format!("{label} · {}", shortcuts::display_chord(chord))
         };
         with_tooltip(
             self.control(id, "", cx)
@@ -317,6 +317,12 @@ impl EditorView {
             .child(self.studio_icon_action("new", "New document", "file-plus-2", cx))
             .child(self.studio_icon_action("open", "Open document", "folder-open", cx))
             .child(self.studio_icon_action("import", "Import image", "image", cx))
+            .child(self.studio_icon_action(
+                "command-search",
+                "Search commands and shortcuts",
+                "search",
+                cx,
+            ))
             .child(
                 button("workspace-create", "Create", ButtonVariant::Secondary, cx)
                     .debug_selector(|| "workspace-create".into())
@@ -504,15 +510,15 @@ impl EditorView {
                         Tool::Text => "text",
                         _ => tool.studio_id(),
                     };
-                    let chord = if tool == Tool::Hand {
-                        "Space"
-                    } else {
-                        self.shortcuts.chord(key)
-                    };
+                    let chord = self.shortcuts.chord(key);
                     let label = if chord.is_empty() {
                         tool.studio_label().into()
                     } else {
-                        format!("{} · {chord}", tool.studio_label())
+                        format!(
+                            "{} · {}",
+                            tool.studio_label(),
+                            shortcuts::display_chord(chord)
+                        )
                     };
                     row = row.child(with_tooltip(
                         button(tool.studio_id(), "", ButtonVariant::Secondary, cx)
@@ -619,10 +625,7 @@ impl EditorView {
                                 .p_0()
                                 .accessibility_label("Decrease brush size")
                                 .on_click(cx.listener(|this, _, window, cx| {
-                                    this.editor.brush.size =
-                                        (this.editor.brush.size / 1.25).max(1.);
-                                    this.focus.focus(window, cx);
-                                    cx.notify();
+                                    this.command("brush-smaller", window, cx);
                                 })),
                         )
                         .child(
@@ -639,10 +642,7 @@ impl EditorView {
                                 .p_0()
                                 .accessibility_label("Increase brush size")
                                 .on_click(cx.listener(|this, _, window, cx| {
-                                    this.editor.brush.size =
-                                        (this.editor.brush.size * 1.25).min(1024.);
-                                    this.focus.focus(window, cx);
-                                    cx.notify();
+                                    this.command("brush-larger", window, cx);
                                 })),
                         ),
                 )

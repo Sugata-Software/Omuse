@@ -28,7 +28,7 @@ The executable uses Rust, GPUI via `gpui-kit`, and direct upstream `gpui-omarchy
 | Canvas size/Trim | Nine anchors, pixel/percent/inch/centimeter units, relative dimensions and original-aspect lock, transparent/foreground/background/black/white/custom extension fill; transparent or corner-color trim with per-edge choices | Broader Mac boundary comparisons |
 | Gradients | Linear/radial, foreground-background/transparent, reverse/opacity, draft preview Apply/Cancel and mask target | Wider Mac edge comparisons |
 | Export | Atomic PNG/JPEG/WebP/TIFF with sRGB ICC; format-specific JPEG quality/matte, encoded preview and resolution controls; PNG/JPEG/TIFF DPI metadata | External color-managed viewer checks; WebP has no standard DPI field here |
-| Shortcuts | Recording, search and gesture reference, collision/reserved-key validation, persisted remaps, unbound advanced commands | Full Mac command/context coverage and keyboard-layout testing |
+| Shortcuts | Ctrl+K executable command search, 171 commands, 101 defaults, gesture reference, recording/clearing/reset, conflict checks and preserved remaps | Physical keyboard-layout, IME and desktop-reserved chord qualification |
 | Desktop | Direct Omarchy theme integration, Linux file dialogs with path fallback, separate launcher, persisted grid/guide/ruler/snapping preferences | Physical theme changes, tablet pressure/tilt, mixed-DPI monitors and long-session stability |
 
 ## Advanced editing workspaces

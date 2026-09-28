@@ -5,12 +5,16 @@ mod advanced_ui;
 mod ai_ui;
 #[path = "asset_ui.rs"]
 mod asset_ui;
+#[path = "command_search_ui.rs"]
+mod command_search_ui;
 #[path = "create_design_ui.rs"]
 mod create_design_ui;
 #[path = "create_previews.rs"]
 mod create_previews;
 #[path = "create_ui.rs"]
 mod create_ui;
+#[path = "keyboard_ui.rs"]
+mod keyboard_ui;
 #[path = "motion_ui.rs"]
 mod motion_ui;
 #[path = "photo_io_ui.rs"]
@@ -95,15 +99,16 @@ pub fn bind_keys(cx: &mut App) {
 fn install_shortcuts(settings: &Shortcuts, previous: &Shortcuts, cx: &mut App) {
     // Shadow only editor bindings; preserve GPUI text-input and dialog bindings.
     for (id, _, default) in shortcuts::DEFINITIONS {
+        let context = if *id == "command-search" {
+            "Omuse"
+        } else {
+            "Omuse && !Input"
+        };
         for chord in [*default, previous.chord(id)] {
             if chord.is_empty() {
                 continue;
             }
-            cx.bind_keys([KeyBinding::new(
-                chord,
-                gpui_kit::NoAction,
-                Some("Omuse && !Input"),
-            )]);
+            cx.bind_keys([KeyBinding::new(chord, gpui_kit::NoAction, Some(context))]);
         }
     }
     for (id, _, _) in shortcuts::DEFINITIONS {
@@ -113,7 +118,11 @@ fn install_shortcuts(settings: &Shortcuts, previous: &Shortcuts, cx: &mut App) {
         cx.bind_keys([KeyBinding::new(
             settings.chord(id),
             Command { name: (*id).into() },
-            Some("Omuse && !Input"),
+            Some(if *id == "command-search" {
+                "Omuse"
+            } else {
+                "Omuse && !Input"
+            }),
         )]);
     }
 }
@@ -147,29 +156,29 @@ enum Tool {
 impl Tool {
     fn name(self) -> &'static str {
         match self {
-            Self::Brush => "Brush  B",
-            Self::Pencil => "Pencil  P",
-            Self::Eraser => "Eraser  E",
-            Self::Fill => "Fill  F",
-            Self::Gradient => "Gradient  G",
-            Self::Rectangle => "Rectangle select  M",
-            Self::Ellipse => "Ellipse select  O",
-            Self::Move => "Move layer  V",
-            Self::Picker => "Sample color  I",
-            Self::Clone => "Clone stamp  S",
-            Self::Heal => "Healing clone  H",
+            Self::Brush => "Brush",
+            Self::Pencil => "Pencil",
+            Self::Eraser => "Eraser",
+            Self::Fill => "Fill",
+            Self::Gradient => "Gradient",
+            Self::Rectangle => "Rectangle select",
+            Self::Ellipse => "Ellipse select",
+            Self::Move => "Move layer",
+            Self::Picker => "Sample color",
+            Self::Clone => "Clone stamp",
+            Self::Heal => "Healing clone",
             Self::SpotHeal => "Spot healing",
-            Self::Wand => "Magic wand  W",
+            Self::Wand => "Magic wand",
             Self::Object => "Connected subject",
             Self::ShapeRect => "Rectangle shape",
             Self::ShapeEllipse => "Ellipse shape",
             Self::Line => "Line",
-            Self::Lasso => "Lasso  L",
-            Self::Hand => "Pan  Space",
+            Self::Lasso => "Lasso",
+            Self::Hand => "Hand",
             Self::BlurBrush => "Blur brush",
             Self::Smudge => "Smudge",
             Self::Liquify => "Liquify",
-            Self::Text => "Type  T",
+            Self::Text => "Type",
         }
     }
 }
@@ -197,6 +206,7 @@ enum Dialog {
     Nest,
     Trim,
     Shortcuts,
+    CommandSearch,
     Transform,
     ResizeImage,
     Shape,
@@ -337,6 +347,7 @@ pub struct EditorView {
     shortcuts: Shortcuts,
     shortcut_draft: Shortcuts,
     recording: Option<String>,
+    command_search: command_search_ui::CommandSearchState,
     show_grid: bool,
     effect_kind: usize,
     live_filter: bool,
@@ -561,6 +572,10 @@ impl EditorView {
         let weak = cx.entity().downgrade();
         cx.intercept_keystrokes(move |event, window, cx| {
             let _ = weak.update(cx, |this, cx| {
+                if this.command_search_key(&event.keystroke, window, cx) {
+                    cx.stop_propagation();
+                    return;
+                }
                 if this.inline_text.is_some() && this.focus.contains_focused(window, cx) {
                     let key = event.keystroke.key.as_str();
                     let modifiers = event.keystroke.modifiers;
@@ -572,18 +587,19 @@ impl EditorView {
                         && !modifiers.shift
                         && !modifiers.alt
                         && !modifiers.platform;
-                    let control_shift_only = modifiers.control
-                        && modifiers.shift
-                        && !modifiers.alt
-                        && !modifiers.platform;
+                    let chord = event.keystroke.unparse();
+                    let save = this.shortcuts.chord("save") == chord;
+                    let save_as = this.shortcuts.chord("save-as") == chord;
                     if (key == "escape" && unmodified)
                         || (key == "enter" && control_only)
-                        || (key == "s" && (control_only || control_shift_only))
+                        || save
+                        || save_as
                     {
                         cx.stop_propagation();
-                        let committed = this.finish_inline_text(!unmodified, window, cx);
-                        if committed && key == "s" {
-                            if control_shift_only {
+                        let cancel = key == "escape" && unmodified;
+                        let committed = this.finish_inline_text(!cancel, window, cx);
+                        if committed && (save || save_as) {
+                            if save_as {
                                 this.save_dialog(false, window, cx);
                             } else {
                                 this.save(window, cx);
@@ -833,6 +849,7 @@ impl EditorView {
             shortcuts: Shortcuts::load(&shortcuts::settings_path()).unwrap_or_default(),
             shortcut_draft: Shortcuts::default(),
             recording: None,
+            command_search: command_search_ui::CommandSearchState::new(window, cx),
             show_grid: preferences.grid,
             effect_kind: 0,
             live_filter: false,
@@ -1935,6 +1952,7 @@ impl EditorView {
         self.dialog_generation += 1;
         self.dialog = if import { Dialog::Import } else { Dialog::Open };
         self.path_input.update(cx, |state, cx| {
+            state.set_placeholder("File path", window, cx);
             state.set_value("", window, cx);
             state.focus(window, cx);
         });
@@ -2045,6 +2063,7 @@ impl EditorView {
                     })
             });
         self.path_input.update(cx, |state, cx| {
+            state.set_placeholder("File path", window, cx);
             state.set_value(default.to_string_lossy().to_string(), window, cx);
             state.focus(window, cx);
         });
@@ -2831,7 +2850,11 @@ impl EditorView {
             cx.notify();
             return;
         }
+        if self.handle_keyboard_command(name, window, cx) {
+            return;
+        }
         match name {
+            "command-search" => self.open_command_search(window, cx),
             "ask-omuse" => {
                 self.inspector_tab = studio_ui::InspectorTab::Assistant;
                 self.inspector_visible = true;
@@ -3106,9 +3129,11 @@ impl EditorView {
                 self.shortcut_draft = self.shortcuts.clone();
                 self.recording = None;
                 self.dialog = Dialog::Shortcuts;
-                self.path_input
-                    .update(cx, |state, cx| state.set_value("", window, cx));
-                self.modal_focus.focus(window, cx);
+                self.path_input.update(cx, |state, cx| {
+                    state.set_value("", window, cx);
+                    state.set_placeholder("Search commands, categories or shortcuts…", window, cx);
+                    state.focus(window, cx);
+                });
             }
             "copy" => self.copy(false, cx),
             "cut" => self.copy(true, cx),
@@ -3511,6 +3536,7 @@ impl EditorView {
                     .map(|l| l.name.clone())
                     .unwrap_or_default();
                 self.path_input.update(cx, |state, cx| {
+                    state.set_placeholder("Layer name", window, cx);
                     state.set_value(name, window, cx);
                     state.focus(window, cx);
                 });
@@ -5869,6 +5895,9 @@ impl EditorView {
             .into_any_element()
     }
     fn dialog_view(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        if self.dialog == Dialog::CommandSearch {
+            return self.command_search_view(window, cx);
+        }
         let t = cx.omarchy().clone();
         let title = match self.dialog {
             Dialog::Unsaved => "Save your changes?",
@@ -5886,6 +5915,7 @@ impl EditorView {
             Dialog::Nest => "Move selected layers into a group",
             Dialog::Trim => "Trim canvas",
             Dialog::Shortcuts => "Keyboard shortcuts",
+            Dialog::CommandSearch => "Commands & shortcuts",
             Dialog::Transform => "Transform layer",
             Dialog::ResizeImage => "Resize image",
             Dialog::Shape => "Edit shape",
@@ -6782,34 +6812,50 @@ impl EditorView {
                 }
                 body = body.child("Negative scale flips an axis. Applying creates one undo step.");
             } else if self.dialog == Dialog::Shortcuts {
-                body = body.child(
-                    "Choose Record, then press a key combination. Escape cancels recording.",
-                );
+                body = body.child("Record a key combination, or Clear to leave a command unbound. Escape cancels recording. Apply saves changes; Cancel discards them.");
+                body = body.child("Super belongs to Omarchy. Search also matches categories and your current shortcuts.");
                 body = body.child(input("shortcut-search", &self.path_input, window, cx));
-                body=body.child("Gestures: Space-drag pans · Alt-click chooses a clone source · Ctrl-drag transform corner distorts · Shift constrains transforms · Alt-drop copies layers · Drag a mask or effect to copy it.");
-                let query = self.path_input.read(cx).value().to_lowercase();
-                for (id, label, _) in shortcuts::DEFINITIONS {
-                    if !query.is_empty()
-                        && !label.to_lowercase().contains(&query)
-                        && !id.contains(&query)
-                        && !self
-                            .shortcut_draft
-                            .chord(id)
-                            .to_lowercase()
-                            .contains(&query)
-                    {
-                        continue;
-                    }
-                    let id = (*id).to_string();
-                    let chord = self.shortcut_draft.chord(&id).to_string();
-                    let recording = self.recording.as_deref() == Some(id.as_str());
+                let query = self.path_input.read(cx).value();
+                let entries = self.shortcut_draft.search(&query);
+                body = body.child(
+                    div()
+                        .text_sm()
+                        .text_color(t.secondary)
+                        .child(format!("{} commands", entries.len())),
+                );
+                for entry in entries {
+                    let id = entry.definition.id;
+                    let recording = self.recording.as_deref() == Some(id);
+                    let chord = if entry.chord.is_empty() {
+                        "Unbound".into()
+                    } else {
+                        shortcuts::display_chord(&entry.chord)
+                    };
                     body = body.child(
                         div()
                             .flex()
                             .items_center()
                             .gap_2()
-                            .child(div().flex_1().child(*label))
-                            .child(chord)
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .flex()
+                                    .flex_col()
+                                    .child(entry.definition.label)
+                                    .child(
+                                        div()
+                                            .text_size(px(10.))
+                                            .text_color(t.secondary)
+                                            .child(shortcuts::category(id)),
+                                    ),
+                            )
+                            .child(
+                                div()
+                                    .text_size(px(11.))
+                                    .font_family(t.mono_font.clone())
+                                    .child(chord),
+                            )
                             .child(
                                 button(
                                     SharedString::from(format!("record-{id}")),
@@ -6817,10 +6863,60 @@ impl EditorView {
                                     ButtonVariant::Outline,
                                     cx,
                                 )
+                                .debug_selector(move || format!("record-{id}"))
                                 .on_click(cx.listener(
                                     move |this, _, window, cx| {
-                                        this.recording = Some(id.clone());
+                                        this.recording = Some(id.into());
                                         this.modal_focus.focus(window, cx);
+                                        this.status =
+                                            "Press the new shortcut; Escape cancels recording"
+                                                .into();
+                                        cx.notify();
+                                    },
+                                )),
+                            )
+                            .child(
+                                button(
+                                    SharedString::from(format!("clear-shortcut-{id}")),
+                                    "Clear",
+                                    ButtonVariant::Secondary,
+                                    cx,
+                                )
+                                .debug_selector(move || format!("clear-shortcut-{id}"))
+                                .disabled(entry.chord.is_empty())
+                                .on_click(cx.listener(
+                                    move |this, _, _, cx| {
+                                        match this.shortcut_draft.clear(id) {
+                                            Ok(()) => {
+                                                this.status =
+                                                    "Shortcut cleared. Apply to save.".into()
+                                            }
+                                            Err(error) => this.status = error.to_string(),
+                                        }
+                                        this.recording = None;
+                                        cx.notify();
+                                    },
+                                )),
+                            )
+                            .child(
+                                button(
+                                    SharedString::from(format!("default-shortcut-{id}")),
+                                    "Default",
+                                    ButtonVariant::Secondary,
+                                    cx,
+                                )
+                                .debug_selector(move || format!("default-shortcut-{id}"))
+                                .disabled(!self.shortcut_draft.overrides.contains_key(id))
+                                .on_click(cx.listener(
+                                    move |this, _, _, cx| {
+                                        match this.shortcut_draft.reset(id) {
+                                            Ok(()) => {
+                                                this.status =
+                                                    "Default restored. Apply to save.".into()
+                                            }
+                                            Err(error) => this.status = error.to_string(),
+                                        }
+                                        this.recording = None;
                                         cx.notify();
                                     },
                                 )),
@@ -6837,6 +6933,7 @@ impl EditorView {
                     .on_click(cx.listener(|this, _, _, cx| {
                         this.shortcut_draft = Shortcuts::default();
                         this.recording = None;
+                        this.status = "Defaults restored in this draft. Apply to save.".into();
                         cx.notify();
                     })),
                 );
@@ -7439,7 +7536,7 @@ impl EditorView {
         }
         let advanced_workspace = matches!(
             self.dialog,
-            Dialog::Pro | Dialog::Workflow | Dialog::VectorPath
+            Dialog::Pro | Dialog::Workflow | Dialog::VectorPath | Dialog::Shortcuts
         );
         let dialog_width = if advanced_workspace {
             (f32::from(window.viewport_size().width) - 32.).clamp(560., 960.)
@@ -7607,7 +7704,7 @@ impl Render for EditorView {
                 }
             }))
             .on_action(cx.listener(move |this, action: &Command, w, cx| {
-                if !modal && this.focus.is_focused(w) {
+                if !modal && (this.focus.is_focused(w) || action.name == "command-search") {
                     this.command(&action.name, w, cx);
                 }
             }))
@@ -7671,14 +7768,6 @@ impl Render for EditorView {
                 match event.keystroke.key.as_str() {
                     "space" => {
                         this.space_down = true;
-                    }
-                    "[" => {
-                        this.editor.brush.size = (this.editor.brush.size / 1.25).max(1.);
-                        cx.notify();
-                    }
-                    "]" => {
-                        this.editor.brush.size = (this.editor.brush.size * 1.25).min(1024.);
-                        cx.notify();
                     }
                     "escape" => {
                         if this.cancel_photo_io() {
@@ -10778,6 +10867,39 @@ impl EditorView {
                     cx.background_executor().timer(std::time::Duration::from_millis(10)).await;
                 }
                 ensure!(image::open(&photo_export)?.to_rgba8()==edited,"native photo export differs");
+                // Exercise the actual keymap and modal routing in the native window.
+                // These are in-process GPUI events, not compositor-injected input.
+                view.update_in(cx, |this, window, cx| {
+                    this.install_opened_content(Document::new(32,24), None);
+                    this.path = None;
+                    this.dialog = Dialog::None;
+                    this.focus.focus(window, cx);
+                    this.refresh(cx);
+                })?;
+                cx.update(|window,cx| { window.refresh(); window.draw(cx).clear(cx); })?;
+                cx.update(|window,cx| window.dispatch_event(gpui_kit::PlatformInput::KeyDown(KeyDownEvent {
+                    keystroke: gpui_kit::Keystroke::parse("ctrl-k").unwrap(), is_held: false, prefer_character_input: false,
+                }),cx))?;
+                cx.update(|window,cx| { window.refresh(); window.draw(cx).clear(cx); })?;
+                view.update_in(cx, |this, window, cx| -> anyhow::Result<()> {
+                    ensure!(this.dialog == Dialog::CommandSearch, "command search did not open from Ctrl+K");
+                    this.native_command_query("new layer", window, cx);
+                    Ok(())
+                })??;
+                cx.update(|window,cx| { window.refresh(); window.draw(cx).clear(cx); })?;
+                cx.update(|window,cx| window.dispatch_event(gpui_kit::PlatformInput::KeyDown(KeyDownEvent {
+                    keystroke: gpui_kit::Keystroke::parse("enter").unwrap(), is_held: false, prefer_character_input: false,
+                }),cx))?;
+                view.update_in(cx, |this, window, _| -> anyhow::Result<()> {
+                    ensure!(this.dialog == Dialog::None && this.editor.document.layers.len() == 2 && this.editor.undo_depth() == 1, "command search must run New layer exactly once");
+                    ensure!(this.focus.is_focused(window), "command search did not restore canvas focus");
+                    Ok(())
+                })??;
+                cx.update(|window,cx| { window.refresh(); window.draw(cx).clear(cx); })?;
+                cx.update(|window,cx| window.dispatch_event(gpui_kit::PlatformInput::KeyDown(KeyDownEvent {
+                    keystroke: gpui_kit::Keystroke::parse("ctrl-z").unwrap(), is_held: false, prefer_character_input: false,
+                }),cx))?;
+                ensure!(view.update(cx, |this,_| this.editor.document.layers.len() == 1)?, "keyboard undo did not reverse palette command");
                 view.update_in(cx,|this,_window,_cx|{
                     this.install_opened_content(Document::new(640,480),None);
                     this.path=None;this.live_stamp=None;this.dialog=Dialog::None;
@@ -10791,7 +10913,10 @@ impl EditorView {
                         this.begin_inline_text(None,(80.,110.),Some(objects::ObjectSize { width: 320., height: 160. }),window,cx);
                         this.inline_text.as_ref().unwrap().input.update(cx,|s,cx|s.set_value("Edit directly on canvas\nOmuse on Linux",window,cx));
                     } else if let Ok(panel) = omuse::identity::env_var("OMUSE_NATIVE_PANEL") {
-                        if matches!(panel.as_str(), "create" | "templates" | "assistant" | "content-export" | "motion") {
+                        if matches!(panel.as_str(), "commands" | "shortcuts") {
+                            this.command(if panel == "commands" { "command-search" } else { "shortcuts" }, window, cx);
+                            if panel == "commands" { this.native_command_query("mask", window, cx); }
+                        } else if matches!(panel.as_str(), "create" | "templates" | "assistant" | "content-export" | "motion") {
                             this.prepare_create_inspection(&panel,cx)?;
                             this.command("fit",window,cx);
                         } else if matches!(panel.as_str(), "filter-stack" | "blend-if" | "advanced-retouch" | "controlled-removal" | "editable-warp" | "refine-workspace" | "brush-studio" | "smart-source" | "colour-management" | "automation" | "multi-image" | "vector-path" | "vector-mask") {
@@ -10853,7 +10978,7 @@ impl EditorView {
                     }
                 }
                 cx.update(|window,cx|{window.refresh();window.draw(cx).clear(cx)})?;
-                let report=serde_json::json!({"status":"passed","renderer":"GPUI native window","checks":["coalesced in-progress stroke preview","pointer painting","undo","redo","unsaved guard","save","reopen pixel equality","light theme retains artwork","system theme following","inline text insert/edit","live adjustment insert/reopen","live effects","live-document save/reopen","luminosity selection and undo","colour range mask save/reopen","16-bit source import retains exact samples","editable filter preview and Apply","editable source save/reopen and undo","16-bit export pixel equality","background photo open","photo adjustment crop resize and undo redo","background photo export pixel equality"]});
+                let report=serde_json::json!({"status":"passed","renderer":"GPUI native window","checks":["coalesced in-progress stroke preview","pointer painting","undo","redo","unsaved guard","save","reopen pixel equality","light theme retains artwork","system theme following","inline text insert/edit","live adjustment insert/reopen","live effects","live-document save/reopen","luminosity selection and undo","colour range mask save/reopen","16-bit source import retains exact samples","editable filter preview and Apply","editable source save/reopen and undo","16-bit export pixel equality","background photo open","photo adjustment crop resize and undo redo","background photo export pixel equality","command palette keyboard open search execute","palette command keyboard undo and focus restoration"]});
                 std::fs::write(dir.join("native-results.json"),serde_json::to_vec_pretty(&report)?).context("write native report")?;
                 println!("Native GUI journey passed: {}",dir.display());
                 Ok::<(),anyhow::Error>(())

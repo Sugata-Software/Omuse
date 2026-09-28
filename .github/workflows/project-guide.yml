@@ -6,12 +6,18 @@ on:
       - 'docs/project-status.json'
       - 'docs/project-guide.fragment.html'
       - 'scripts/update-project-guide.py'
+      - 'rust/src/shortcuts.rs'
+      - 'scripts/generate-keyboard-shortcuts.py'
+      - 'docs/keyboard-shortcuts.md'
       - '.github/workflows/project-guide.yml'
   pull_request:
     paths:
       - 'docs/project-status.json'
       - 'docs/project-guide.fragment.html'
       - 'scripts/update-project-guide.py'
+      - 'rust/src/shortcuts.rs'
+      - 'scripts/generate-keyboard-shortcuts.py'
+      - 'docs/keyboard-shortcuts.md'
       - '.github/workflows/project-guide.yml'
   workflow_dispatch: {}
 
@@ -26,3 +32,5 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Check the guide matches its reviewed catalogue
         run: python3 scripts/update-project-guide.py --check
+      - name: Check the keyboard reference matches the command catalog
+        run: python3 scripts/generate-keyboard-shortcuts.py --check

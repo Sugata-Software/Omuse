@@ -232,8 +232,8 @@
   "releaseSnapshot": [
     {
       "label": "Current regression suite",
-      "value": "757 tests passed",
-      "detail": "326 library, 190 UI and 241 integration tests passed, including 23 new regressions. Editing, six-page PNG/PDF/MP4/GIF exports, 80 templates, production Wayland/XWayland and the installed preview passed. Complete rollback passed in both directions.",
+      "value": "777 tests passed",
+      "detail": "326 library, 210 UI and 241 integration tests passed. The keyboard pass adds 20 regressions, 171 searchable commands and 101 defaults. Editing and six-page PNG/PDF/MP4/GIF exports passed; production Wayland/XWayland each passed 24 native checks at 800×600. Preview installation is next.",
       "status": "locally-tested"
     },
     {
@@ -1009,12 +1009,29 @@
           ]
         },
         {
+          "id": "linux-keyboard-command-search",
+          "name": "Keyboard shortcuts and command search",
+          "status": "locally-tested",
+          "current": "Ctrl+K opens a themed command search with 171 actions, 101 default bindings and a gesture reference. Search matches names, categories and current keys; Enter uses normal editor guards. Ctrl+Alt+K records, clears and resets shortcuts while preserving existing custom bindings. Linux punctuation events and custom Save during inline text have dedicated regressions.",
+          "boundary": "777 automated tests and production native Wayland/XWayland journeys passed. Compositor-delivered keyboard input, alternate layouts and IME combinations remain separate acceptance work. Super and Linux virtual-terminal chords are reserved.",
+          "evidence": [
+            "docs/keyboard-qualification.md",
+            "docs/keyboard-shortcuts.md"
+          ],
+          "modules": [
+            "rust/src/shortcuts.rs",
+            "rust/src/command_search_ui.rs",
+            "rust/src/keyboard_ui.rs"
+          ]
+        },
+        {
           "id": "linux-wayland-xwayland",
           "name": "Wayland and XWayland journeys",
           "status": "locally-tested",
-          "current": "The photo-integrity production executable passed 22 native Wayland and 22 XWayland checks, including the 800×600 light-theme viewport. The matching installed-preview launcher passed the same 22 checks with reduced motion. Captures were visually inspected.",
+          "current": "The keyboard production executable passed 24 native Wayland and 24 XWayland checks at the 800×600 logical viewport. System-theme command search and light-theme shortcut editor captures were visually inspected. This includes Ctrl+K, New layer, Enter and Ctrl+Z with focus restoration.",
           "boundary": "These journeys dispatch GPUI events in process and do not prove compositor-delivered physical input.",
           "evidence": [
+            "docs/keyboard-qualification.md",
             "docs/photo-integrity-hardening.md",
             "docs/photo-editing-hardening.md",
             "docs/omuse-create-qualification.md"
@@ -1048,7 +1065,7 @@
           "id": "linux-physical-input",
           "name": "Physical keyboard, pointer and Cua",
           "status": "blocked-deferred",
-          "current": "Earlier Omarchy-specific Cua work captured the exact app window in a disposable nested session, but foreground input was refused in that run. On 29 September the host status check still reports the main desktop plugin installed but inactive. Current native checks dispatch GPUI events in process.",
+          "current": "The 29 September keyboard pass rechecked cua-omarchy status: installed but inactive in the current desktop session. A fresh login is still required for the compositor input route. Native journeys dispatch GPUI events in process; earlier nested-session Cua captures do not establish foreground delivery.",
           "boundary": "No physical-input pass is claimed. Real foreground keyboard/pointer, clipboard and file-dialog acceptance remain release gates.",
           "evidence": [
             "docs/omuse-create-qualification.md",
@@ -1205,9 +1222,9 @@
         {
           "id": "release-ci-github",
           "name": "Public source and remote CI",
-          "status": "implemented-needs-qualification",
-          "current": "The photo-integrity source is published as b2f6e85. Its project-guide and Linux installer/reference checks passed on GitHub; the full Rust workflow is running. The preceding Linux installer candidate 971c419 passed its full remote suite.",
-          "boundary": "Full remote validation for b2f6e85 remains pending. Local checks do not establish physical display support, clean-machine installation or binary-release qualification.",
+          "status": "locally-tested",
+          "current": "The photo-integrity source b2f6e85 passed the complete Rust workflow, installer/reference checks and project-guide validation on GitHub. The keyboard command-search changes still need their own published candidate run.",
+          "boundary": "Remote success belongs to b2f6e85. CI does not establish physical desktop input, clean-machine installation or binary-release qualification.",
           "evidence": [
             "docs/public-release-readiness.md",
             ".github/workflows/rust-validation.yml"

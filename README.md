@@ -81,6 +81,7 @@ and troubleshooting.
 - Layered PSD import, Camera RAW development and local subject selection within
   their documented limits.
 - Omarchy-aware controls, colours, theme watching and native Linux file dialogs.
+- Searchable, executable commands and customizable Photoshop-inspired shortcuts.
 
 Explore the [editing workflows](docs/rust-advanced-workflows.md),
 [Create guide](docs/omuse-create-guide.md) and
@@ -88,6 +89,21 @@ Explore the [editing workflows](docs/rust-advanced-workflows.md),
 [release checklist](docs/public-release-readiness.md) distinguishes tested
 features from the remaining public-release work. Omuse focuses on creating
 content; calendars and scheduling are outside its scope.
+
+## Work from the keyboard
+
+Press **Ctrl+K** or click the search icon to find and run any of **171 commands**.
+Search by action, tool, category or key combination; use **↑ / ↓** and **Enter**
+to run, or **Esc** to return to your canvas. Commands without a shortcut are
+available here too.
+
+There are **101 default shortcuts**, including familiar tools, **Ctrl+L** for
+Levels, **Ctrl+M** for Curves, **Ctrl+U** for Hue/Saturation, and **[ / ]** for
+brush size. **Ctrl+Alt+K** opens the recorder for customizing, clearing and
+restoring bindings. Super stays available to Omarchy.
+
+See the [complete keyboard and gesture reference](docs/keyboard-shortcuts.md)
+for all commands, text-editing behaviour and changes from earlier defaults.
 
 ## Build and contribute
 

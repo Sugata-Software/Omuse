@@ -76,6 +76,7 @@ studio_icons!(
     ("folder-open", "folder-open"),
     ("file-plus-2", "file-plus-2"),
     ("keyboard", "keyboard"),
+    ("search", "search"),
     ("undo-2", "undo-2"),
     ("redo-2", "redo-2"),
     ("eye", "eye"),

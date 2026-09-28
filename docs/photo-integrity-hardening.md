@@ -69,9 +69,8 @@ installation. Rollback to the prior executable (`5e7d8b9c…`) and forward to
 this candidate both passed their self-tests and exact executable/asset checks.
 The older separate application remains available.
 
-The GitHub project-guide and installer/reference jobs passed for this source;
-the full [Rust run](https://github.com/Sugata-Software/Omuse/actions/runs/36454128430)
-is pending. No public binary release is implied by this source checkpoint.
+The GitHub project-guide and installer/reference jobs passed for this source,
+as did the complete [Rust run](https://github.com/Sugata-Software/Omuse/actions/runs/36454128430). No public binary release is implied by this source checkpoint.
 
 ## Remaining boundaries
 

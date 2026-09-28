@@ -22,6 +22,7 @@ export XDG_CACHE_HOME="$scratch/cache"
 export XDG_STATE_HOME="$scratch/state"
 mkdir -p "$XDG_DATA_HOME" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME" "$XDG_STATE_HOME"
 cd "$repo_root"
+python3 scripts/generate-keyboard-shortcuts.py --check
 cargo fmt --manifest-path rust/Cargo.toml -- --check
 cargo test --manifest-path rust/Cargo.toml --release --locked --features ui-test --jobs "$jobs" -- --test-threads=1
 cargo run --manifest-path rust/Cargo.toml --release --locked --features ui-test --jobs "$jobs" -- --self-test "$scratch/journey"

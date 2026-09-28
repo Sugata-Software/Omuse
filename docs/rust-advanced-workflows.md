@@ -2,7 +2,7 @@
 
 This ledger covers the thirteen advanced workstreams requested on 27 September 2026. The recorded verification below belongs to the pre-rename **Compositor Rust** checkpoint and remains historical evidence; the active product is Omuse. The recorded rollback baseline is `766fcd5`; the original Swift/Qt application remains separate. This checkpoint does not certify Mac parity or physical tablet/display support.
 
-Most entry points are in the right-hand **Develop** inspector, under **Editable workflows** or **Paths & automation**. Refinement, controlled removal and range tools are in the **Selection** inspector. Commands also appear in Keyboard shortcuts (`Ctrl+Alt+K`) for assigning a binding; advanced commands have no default binding.
+Most entry points are in the right-hand **Develop** inspector, under **Editable workflows** or **Paths & automation**. Refinement, controlled removal and range tools are in the **Selection** inspector. Press **Ctrl+K** to search and run these commands, including those without a default shortcut. **Ctrl+Alt+K** opens the shortcut recorder; the [keyboard reference](keyboard-shortcuts.md) lists every command and current default.
 
 ## Shared editing and persistence behavior
 

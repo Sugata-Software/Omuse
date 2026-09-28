@@ -32,6 +32,9 @@ refresh the conversation guide as part of its completion record.
 The `Omuse project guide` CI workflow checks that the tracked fragment matches
 the catalogue when either changes. It detects stale generated data; reviewing
 feature claims and evidence remains part of the implementation work.
+The same workflow checks the generated [keyboard reference](keyboard-shortcuts.md)
+against `rust/src/shortcuts.rs`. Regenerate it with
+`python3 scripts/generate-keyboard-shortcuts.py` when changing command definitions.
 
 ## Private hosted copy
 
