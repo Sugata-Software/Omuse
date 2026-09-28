@@ -1250,6 +1250,108 @@ mod tests {
         }
     }
 
+    struct SyntheticLayer<'a> {
+        name: &'a str,
+        blend: &'a str,
+        opacity: u8,
+        clipping: bool,
+        section: Option<u32>,
+        pixels: Option<Vec<[u8; 4]>>,
+        mask: Option<Vec<u8>>,
+    }
+
+    fn synthetic_layered_psd(width: u32, height: u32, layers: &[SyntheticLayer<'_>]) -> Vec<u8> {
+        let pixel_count = width as usize * height as usize;
+        let mut records = Vec::new();
+        let mut channel_data = Vec::new();
+        for layer in layers {
+            assert_eq!(layer.blend.len(), 4);
+            let raster = layer.pixels.as_ref();
+            if let Some(pixels) = raster {
+                assert_eq!(pixels.len(), pixel_count);
+            }
+            if let Some(mask) = &layer.mask {
+                assert_eq!(mask.len(), pixel_count);
+                assert!(raster.is_some(), "only raster layers may carry a mask");
+            }
+            let (bottom, right) = if raster.is_some() {
+                (height as i32, width as i32)
+            } else {
+                (0, 0)
+            };
+            for value in [0i32, 0, bottom, right] {
+                records.extend_from_slice(&value.to_be_bytes());
+            }
+            let channel_count = if raster.is_some() {
+                4 + usize::from(layer.mask.is_some())
+            } else {
+                0
+            };
+            records.extend_from_slice(&(channel_count as u16).to_be_bytes());
+            if let Some(pixels) = raster {
+                for channel in [0i16, 1, 2, -1] {
+                    records.extend_from_slice(&channel.to_be_bytes());
+                    records.extend_from_slice(&((pixel_count + 2) as u32).to_be_bytes());
+                    channel_data.extend_from_slice(&0u16.to_be_bytes());
+                    channel_data.extend(pixels.iter().map(|pixel| {
+                        if channel == -1 {
+                            pixel[3]
+                        } else {
+                            pixel[channel as usize]
+                        }
+                    }));
+                }
+                if let Some(mask) = &layer.mask {
+                    records.extend_from_slice(&(-2i16).to_be_bytes());
+                    records.extend_from_slice(&((pixel_count + 2) as u32).to_be_bytes());
+                    channel_data.extend_from_slice(&0u16.to_be_bytes());
+                    channel_data.extend_from_slice(mask);
+                }
+            }
+            records.extend_from_slice(b"8BIM");
+            records.extend_from_slice(layer.blend.as_bytes());
+            records.push(layer.opacity);
+            records.push(u8::from(layer.clipping));
+            records.extend_from_slice(&[0, 0]); // visible flags and filler
+
+            let mut extra = Vec::new();
+            if layer.mask.is_some() {
+                extra.extend_from_slice(&20u32.to_be_bytes());
+                for value in [0i32, 0, height as i32, width as i32] {
+                    extra.extend_from_slice(&value.to_be_bytes());
+                }
+                extra.extend_from_slice(&[0, 0, 0, 0]); // default, flags and padding
+            } else {
+                extra.extend_from_slice(&0u32.to_be_bytes());
+            }
+            extra.extend_from_slice(&0u32.to_be_bytes()); // blending ranges
+            assert!(layer.name.len() <= u8::MAX as usize);
+            extra.push(layer.name.len() as u8);
+            extra.extend_from_slice(layer.name.as_bytes());
+            while extra.len() % 4 != 0 {
+                extra.push(0);
+            }
+            if let Some(section) = layer.section {
+                extra.extend_from_slice(b"8BIM");
+                extra.extend_from_slice(b"lsct");
+                extra.extend_from_slice(&4u32.to_be_bytes());
+                extra.extend_from_slice(&section.to_be_bytes());
+            }
+            records.extend_from_slice(&(extra.len() as u32).to_be_bytes());
+            records.extend_from_slice(&extra);
+        }
+
+        let mut layer_info = Vec::new();
+        layer_info.extend_from_slice(&(layers.len() as i16).to_be_bytes());
+        layer_info.extend_from_slice(&records);
+        layer_info.extend_from_slice(&channel_data);
+        let mut layer_section = Vec::new();
+        layer_section.extend_from_slice(&(layer_info.len() as u32).to_be_bytes());
+        layer_section.extend_from_slice(&layer_info);
+        layer_section.extend_from_slice(&0u32.to_be_bytes()); // global layer mask
+        flattened_psd(width, height, 4, &layer_section, 0, &[])
+    }
+
     #[test]
     fn embedded_icc_psd_is_rejected_before_pixel_decode() {
         let profile = image_resource(1039, b"", &[0x01, 0x23, 0x45]);
@@ -1364,6 +1466,145 @@ mod tests {
         .unwrap_err()
         .to_string();
         assert!(error.contains("truncated PSD layer information"));
+    }
+
+    #[test]
+    fn generated_layered_psd_preserves_group_opacity_mask_and_clipping_stack() {
+        let transparent = [0, 0, 0, 0];
+        let psd = synthetic_layered_psd(
+            4,
+            1,
+            &[
+                SyntheticLayer {
+                    name: "Group divider",
+                    blend: "pass",
+                    opacity: 255,
+                    clipping: false,
+                    section: Some(3),
+                    pixels: None,
+                    mask: None,
+                },
+                SyntheticLayer {
+                    name: "Inside",
+                    blend: "norm",
+                    opacity: 255,
+                    clipping: false,
+                    section: None,
+                    pixels: Some(vec![
+                        [0, 255, 0, 255],
+                        transparent,
+                        transparent,
+                        transparent,
+                    ]),
+                    mask: None,
+                },
+                SyntheticLayer {
+                    name: "Half opacity group",
+                    blend: "pass",
+                    opacity: 128,
+                    clipping: false,
+                    section: Some(1),
+                    pixels: None,
+                    mask: None,
+                },
+                SyntheticLayer {
+                    name: "Masked base",
+                    blend: "norm",
+                    opacity: 255,
+                    clipping: false,
+                    section: None,
+                    pixels: Some(vec![
+                        transparent,
+                        transparent,
+                        [255, 0, 0, 255],
+                        [255, 0, 0, 255],
+                    ]),
+                    mask: Some(vec![0, 0, 255, 0]),
+                },
+                SyntheticLayer {
+                    name: "Clipped blue",
+                    blend: "norm",
+                    opacity: 255,
+                    clipping: true,
+                    section: None,
+                    pixels: Some(vec![
+                        transparent,
+                        transparent,
+                        [0, 0, 255, 255],
+                        [0, 0, 255, 255],
+                    ]),
+                    mask: None,
+                },
+            ],
+        );
+        let document = parse(&psd, "Generated layers").unwrap();
+        assert!(crate::raster::validate(&document).is_empty());
+        assert_eq!(document.layers.len(), 3);
+        let group = &document.layers[0];
+        assert!(group.is_group());
+        assert_eq!(group.name, "Half opacity group");
+        assert_eq!(group.opacity, 128.0 / 255.0);
+        assert_eq!(group.children.len(), 1);
+        assert_eq!(group.children[0].name, "Inside");
+        let base = &document.layers[1];
+        assert!(base.mask.is_some());
+        assert_eq!(base.mask.as_ref().unwrap().get_pixel(2, 0)[0], 255);
+        assert_eq!(base.mask.as_ref().unwrap().get_pixel(3, 0)[0], 0);
+        let clipped = &document.layers[2];
+        assert_eq!(
+            clipped.metadata["maskSourceID"].as_str(),
+            Some(base.id.as_str())
+        );
+
+        let composite = crate::raster::composite(&document);
+        assert_eq!(composite.get_pixel(0, 0).0, [0, 255, 0, 128]);
+        assert_eq!(composite.get_pixel(1, 0).0, [0, 0, 0, 0]);
+        assert_eq!(composite.get_pixel(2, 0).0, [0, 0, 255, 255]);
+        assert_eq!(composite.get_pixel(3, 0).0, [0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn generated_layered_psd_blend_keys_have_independent_expected_pixels() {
+        let base = [128, 128, 64, 255];
+        let source = [64, 128, 255, 255];
+        for (key, name, expected) in [
+            ("vLit", "Vivid Light", [2, 129, 255, 255]),
+            ("lLit", "Linear Light", [1, 129, 255, 255]),
+            ("pLit", "Pin Light", [128, 128, 255, 255]),
+            ("hMix", "Hard Mix", [0, 255, 255, 255]),
+        ] {
+            let psd = synthetic_layered_psd(
+                1,
+                1,
+                &[
+                    SyntheticLayer {
+                        name: "Backdrop",
+                        blend: "norm",
+                        opacity: 255,
+                        clipping: false,
+                        section: None,
+                        pixels: Some(vec![base]),
+                        mask: None,
+                    },
+                    SyntheticLayer {
+                        name: "Blend",
+                        blend: key,
+                        opacity: 255,
+                        clipping: false,
+                        section: None,
+                        pixels: Some(vec![source]),
+                        mask: None,
+                    },
+                ],
+            );
+            let document = parse(&psd, name).unwrap();
+            assert_eq!(document.layers[1].blend_mode, name);
+            assert_eq!(
+                crate::raster::composite(&document).get_pixel(0, 0).0,
+                expected,
+                "{name}"
+            );
+        }
     }
 
     #[test]

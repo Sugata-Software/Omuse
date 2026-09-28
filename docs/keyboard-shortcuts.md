@@ -256,6 +256,7 @@ These temporary gestures are fixed so they remain available while other shortcut
 | Action | Gesture |
 |---|---:|
 | Temporarily pan the canvas | Hold Space and drag |
+| Pan the canvas from any tool | Middle-button drag |
 | Zoom the canvas | Scroll over the canvas |
 | Pan the canvas with a wheel | Shift+Scroll over the canvas |
 | Choose a Clone or Heal source | Alt+Click the canvas |

@@ -230,6 +230,14 @@ enum Dialog {
     Gradient,
 }
 
+enum CameraRawResult {
+    Preview {
+        pixels: image::RgbaImage,
+        scopes: Arc<omuse::photo_scopes::PhotoScopes>,
+    },
+    Apply(image::RgbaImage),
+}
+
 struct InlineTextDraft {
     layer: Option<String>,
     style: objects::LiveTextStyle,
@@ -310,7 +318,7 @@ pub struct EditorView {
     text_origin: Option<(f32, f32)>,
     inline_text: Option<InlineTextDraft>,
     text_hit_pending: Option<String>,
-    font_names: Vec<String>,
+    font_names: Option<Vec<String>>,
     shape_corner_radius: f32,
     shape_line_width: f32,
     resize_resolution: f64,
@@ -344,6 +352,7 @@ pub struct EditorView {
     jpeg_preview_task: Option<u64>,
     lasso: Vec<(f32, f32)>,
     pan_pointer: Option<Point<Pixels>>,
+    middle_pan_pointer: Option<Point<Pixels>>,
     space_down: bool,
     shortcuts: Shortcuts,
     shortcut_draft: Shortcuts,
@@ -365,6 +374,9 @@ pub struct EditorView {
     camera_curve: Entity<crate::curve_editor::CurveEditor>,
     camera_curve_channel: usize,
     camera_canvas: Entity<crate::camera_canvas::CameraCanvas>,
+    camera_scopes: Option<Arc<omuse::photo_scopes::PhotoScopes>>,
+    camera_scopes_generation: u64,
+    camera_scopes_preview: bool,
     camera_clip_shadows: bool,
     camera_clip_highlights: bool,
     camera_draft: serde_json::Value,
@@ -759,12 +771,6 @@ impl EditorView {
         }
         cx.observe(&detail_inputs[9], |_, _, cx| cx.notify())
             .detach();
-        let mut font_names = cx.text_system().all_font_names();
-        font_names.sort_by_key(|name| name.to_lowercase());
-        font_names.dedup_by(|a, b| a.eq_ignore_ascii_case(b));
-        if font_names.is_empty() {
-            font_names.push("sans-serif".into());
-        }
         let mut view = Self {
             editor,
             path: valid_path,
@@ -810,7 +816,7 @@ impl EditorView {
             text_origin: None,
             inline_text: None,
             text_hit_pending: None,
-            font_names,
+            font_names: None,
             shape_corner_radius: 0.,
             shape_line_width: 4.,
             resize_resolution: 72.,
@@ -846,6 +852,7 @@ impl EditorView {
             jpeg_preview_task: None,
             lasso: Vec::new(),
             pan_pointer: None,
+            middle_pan_pointer: None,
             space_down: false,
             shortcuts: Shortcuts::load(&shortcuts::settings_path()).unwrap_or_default(),
             shortcut_draft: Shortcuts::default(),
@@ -867,6 +874,9 @@ impl EditorView {
             camera_curve,
             camera_curve_channel: 0,
             camera_canvas,
+            camera_scopes: None,
+            camera_scopes_generation: 0,
+            camera_scopes_preview: false,
             camera_clip_shadows: false,
             camera_clip_highlights: false,
             camera_draft: serde_json::Value::Null,
@@ -950,6 +960,7 @@ impl EditorView {
     fn finish_interaction(&mut self, cx: &mut Context<Self>) {
         self.tablet_painting = false;
         self.pan_pointer = None;
+        self.middle_pan_pointer = None;
         if self.guide_drag.take().is_some() {
             self.drag_start = None;
             cx.notify();
@@ -1164,6 +1175,18 @@ impl EditorView {
         }
         cx.notify();
     }
+    fn ensure_font_names(&mut self, cx: &App) {
+        if self.font_names.is_some() {
+            return;
+        }
+        let mut names = cx.text_system().all_font_names();
+        names.sort_by_key(|name| name.to_lowercase());
+        names.dedup_by(|a, b| a.eq_ignore_ascii_case(b));
+        if names.is_empty() {
+            names.push("sans-serif".into());
+        }
+        self.font_names = Some(names);
+    }
     fn coordinates(&self, position: Point<Pixels>) -> (f32, f32) {
         let bounds = self.viewport.get();
         let w = self.editor.document.width as f32 * self.zoom;
@@ -1182,6 +1205,13 @@ impl EditorView {
             return;
         }
         self.focus.focus(window, cx);
+        if self.middle_pan_pointer.is_some() {
+            if self.tool == Tool::Hand || self.space_down {
+                self.pan_pointer = Some(event.position);
+                self.middle_pan_pointer = Some(event.position);
+            }
+            return;
+        }
         if self.tool == Tool::Hand || self.space_down {
             self.pan_pointer = Some(event.position);
             return;
@@ -1219,18 +1249,31 @@ impl EditorView {
                         .then_some(HitTarget::Move)
                 }
             });
-            let existing_hit = if (event.modifiers.control || event.modifiers.shift)
-                && candidate == Some(HitTarget::Move)
-            {
-                None
-            } else {
-                candidate
-            };
             let hit_layer = self
                 .preferences
                 .auto_select
                 .then(|| hit_layer_at(&self.editor, x, y))
                 .flatten();
+            let frontmost_unselected = hit_layer
+                .as_ref()
+                .is_some_and(|id| !self.layer_selection.ids.contains(id));
+            let single_raster_selected = match self.layer_selection.ids.as_slice() {
+                [id] => self
+                    .editor
+                    .document
+                    .find_layer(id)
+                    .is_some_and(|layer| !layer.is_group()),
+                _ => false,
+            };
+            let existing_hit = if candidate == Some(HitTarget::Move)
+                && (event.modifiers.control
+                    || event.modifiers.shift
+                    || (frontmost_unselected && single_raster_selected))
+            {
+                None
+            } else {
+                candidate
+            };
             if existing_hit.is_none() {
                 if let Some(id) = hit_layer {
                     let action = if event.modifiers.control {
@@ -1497,14 +1540,44 @@ impl EditorView {
             _ => {}
         }
     }
+    fn middle_down(&mut self, event: &MouseDownEvent, window: &mut Window, cx: &mut Context<Self>) {
+        if self.dialog != Dialog::None || self.busy {
+            return;
+        }
+        if self.inline_text.is_some()
+            || self.tablet_painting
+            || (self.drag_start.is_some() && self.pan_pointer.is_none())
+        {
+            return;
+        }
+        self.focus.focus(window, cx);
+        self.middle_pan_pointer = Some(event.position);
+        if self.pan_pointer.is_some() {
+            self.pan_pointer = Some(event.position);
+        }
+        cx.notify();
+    }
     fn moved(&mut self, event: &MouseMoveEvent, window: &mut Window, cx: &mut Context<Self>) {
         if self.dialog != Dialog::None || self.busy {
             return;
         }
-        if let Some(last) = self.pan_pointer {
+        if event.pressed_button.is_none() {
+            let primary = self.pan_pointer.take().is_some();
+            let middle = self.middle_pan_pointer.take().is_some();
+            if primary || middle {
+                cx.notify();
+                return;
+            }
+        }
+        if let Some(last) = self.middle_pan_pointer.or(self.pan_pointer) {
             self.pan.0 += f32::from(event.position.x - last.x);
             self.pan.1 += f32::from(event.position.y - last.y);
-            self.pan_pointer = Some(event.position);
+            if self.pan_pointer.is_some() {
+                self.pan_pointer = Some(event.position);
+            }
+            if self.middle_pan_pointer.is_some() {
+                self.middle_pan_pointer = Some(event.position);
+            }
             cx.notify();
             return;
         }
@@ -1905,6 +1978,11 @@ impl EditorView {
         }
         self.changed(cx);
     }
+    fn middle_up(&mut self, _: &MouseUpEvent, _: &mut Window, cx: &mut Context<Self>) {
+        if self.middle_pan_pointer.take().is_some() {
+            cx.notify();
+        }
+    }
     fn request(&mut self, what: Pending, window: &mut Window, cx: &mut Context<Self>) {
         if self.dialog != Dialog::None {
             return;
@@ -2178,6 +2256,7 @@ impl EditorView {
                 {
                     if self.editor.add_guide(axis, pos).is_some() {
                         self.show_guides = true;
+                        self.persist_preferences(cx);
                         self.dialog = Dialog::None;
                         self.changed(cx);
                     } else {
@@ -3019,12 +3098,13 @@ impl EditorView {
                 let source = source.as_arc();
                 let _ = self
                     .camera_canvas
-                    .update(cx, |canvas, cx| canvas.set_source(source, cx));
+                    .update(cx, |canvas, cx| canvas.set_source(source.clone(), cx));
                 self.dialog = Dialog::CameraRaw;
                 self.camera_draft =
                     serde_json::to_value(omuse::camera_raw::Settings::default()).unwrap();
                 self.camera_section = 0;
                 self.load_camera_form(window, cx);
+                self.start_camera_scopes(source, cx);
             }
             "select-subject" | "remove-background" => {
                 self.start_subject(name == "select-subject", window, cx)
@@ -4173,6 +4253,29 @@ impl EditorView {
         self.status = format!("{} {label}", if add { "Added" } else { "Removed last" });
         cx.notify();
     }
+    fn start_camera_scopes(&mut self, source: Arc<image::RgbaImage>, cx: &mut Context<Self>) {
+        self.camera_scopes = None;
+        self.camera_scopes_preview = false;
+        self.camera_scopes_generation += 1;
+        let scope_generation = self.camera_scopes_generation;
+        let dialog_generation = self.dialog_generation;
+        let task = cx
+            .background_executor()
+            .spawn(async move { Arc::new(omuse::photo_scopes::PhotoScopes::analyze(&source)) });
+        cx.spawn(async move |view, cx| {
+            let scopes = task.await;
+            let _ = view.update(cx, |this, cx| {
+                if this.dialog == Dialog::CameraRaw
+                    && this.dialog_generation == dialog_generation
+                    && this.camera_scopes_generation == scope_generation
+                {
+                    this.camera_scopes = Some(scopes);
+                    cx.notify();
+                }
+            });
+        })
+        .detach();
+    }
     fn start_camera_raw(
         &mut self,
         settings: omuse::camera_raw::Settings,
@@ -4190,12 +4293,49 @@ impl EditorView {
             return;
         };
         let generation = self.dialog_generation;
+        // A late initial-source analysis must not overwrite a graded preview.
+        self.camera_scopes_generation += 1;
+        let preview_editor = preview.then(|| {
+            let mut editor = Editor::new(self.editor.document.clone());
+            editor.active_layer = id.clone();
+            editor.selection = self.editor.selection.clone();
+            editor
+        });
+        let clip_shadows = self.camera_clip_shadows;
+        let clip_highlights = self.camera_clip_highlights;
         self.busy = true;
         self.status = "Developing preview…".into();
         cx.notify();
-        let task = cx
-            .background_executor()
-            .spawn(async move { omuse::camera_raw::apply(&source, &settings) });
+        let task = cx.background_executor().spawn(async move {
+            let image = omuse::camera_raw::apply(&source, &settings)?;
+            if let Some(mut editor) = preview_editor {
+                editor.apply_image_operation(|_| Ok(image))?;
+                let layer = editor
+                    .document
+                    .find_layer_mut(&id)
+                    .ok_or_else(|| anyhow::anyhow!("Preview layer is unavailable"))?;
+                let image = layer
+                    .image
+                    .as_ref()
+                    .ok_or_else(|| anyhow::anyhow!("Preview pixels are unavailable"))?;
+                // Analyze the selected-area result, before the false-colour
+                // clipping overlay. Composite the temporary document on the
+                // worker too, so the editor can still process Cancel.
+                let scopes = Arc::new(omuse::photo_scopes::PhotoScopes::analyze(image));
+                if clip_shadows || clip_highlights {
+                    layer.image = Some(
+                        omuse::camera_raw::clipping_preview(image, clip_shadows, clip_highlights)
+                            .into(),
+                    );
+                }
+                Ok::<_, anyhow::Error>(CameraRawResult::Preview {
+                    pixels: raster::composite(&editor.document),
+                    scopes,
+                })
+            } else {
+                Ok(CameraRawResult::Apply(image))
+            }
+        });
         cx.spawn(async move |view, cx| {
             let result = task.await;
             let _ = view.update(cx, |this, cx| {
@@ -4204,33 +4344,20 @@ impl EditorView {
                     return;
                 }
                 match result {
-                    Ok(result) => {
-                        if preview {
-                            let result = omuse::camera_raw::clipping_preview(
-                                &result,
-                                this.camera_clip_shadows,
-                                this.camera_clip_highlights,
-                            );
-                            let mut editor = Editor::new(this.editor.document.clone());
-                            editor.active_layer = id;
-                            editor.selection = this.editor.selection.clone();
-                            match editor.apply_image_operation(|_| Ok(result)) {
-                                Ok(_) => {
-                                    let pixels = raster::composite(&editor.document);
-                                    this.display.replace(&pixels);
-                                    this.status = "Preview — original pixels are unchanged".into();
-                                }
-                                Err(e) => this.status = e.to_string(),
+                    Ok(CameraRawResult::Preview { pixels, scopes }) => {
+                        this.display.replace(&pixels);
+                        this.camera_scopes = Some(scopes);
+                        this.camera_scopes_preview = true;
+                        this.status = "Preview — original pixels are unchanged".into();
+                    }
+                    Ok(CameraRawResult::Apply(result)) => {
+                        match this.editor.apply_image_operation(|_| Ok(result)) {
+                            Ok(_) => {
+                                this.dialog = Dialog::None;
+                                this.status = "Camera Raw applied".into();
+                                this.changed(cx);
                             }
-                        } else {
-                            match this.editor.apply_image_operation(|_| Ok(result)) {
-                                Ok(_) => {
-                                    this.dialog = Dialog::None;
-                                    this.status = "Camera Raw applied".into();
-                                    this.changed(cx);
-                                }
-                                Err(e) => this.status = e.to_string(),
-                            }
+                            Err(e) => this.status = e.to_string(),
                         }
                     }
                     Err(e) => this.status = format!("Development failed: {e:#}"),
@@ -5642,9 +5769,12 @@ impl EditorView {
                 }),
             )
             .on_mouse_down(MouseButton::Left, cx.listener(Self::down))
+            .on_mouse_down(MouseButton::Middle, cx.listener(Self::middle_down))
             .on_mouse_move(cx.listener(Self::moved))
             .on_mouse_up(MouseButton::Left, cx.listener(Self::up))
             .on_mouse_up_out(MouseButton::Left, cx.listener(Self::up))
+            .on_mouse_up(MouseButton::Middle, cx.listener(Self::middle_up))
+            .on_mouse_up_out(MouseButton::Middle, cx.listener(Self::middle_up))
             .on_scroll_wheel(cx.listener(|this, event: &ScrollWheelEvent, _, cx| {
                 let d = event.delta.pixel_delta(px(24.));
                 if event.modifiers.shift {
@@ -5900,6 +6030,9 @@ impl EditorView {
         if self.dialog == Dialog::CommandSearch {
             return self.command_search_view(window, cx);
         }
+        if self.dialog == Dialog::Text {
+            self.ensure_font_names(cx);
+        }
         let t = cx.omarchy().clone();
         let title = match self.dialog {
             Dialog::Unsaved => "Save your changes?",
@@ -6137,6 +6270,17 @@ impl EditorView {
                 body = body
                     .child("Develops locally with LibRaw. The original camera file is unchanged.");
             } else if self.dialog == Dialog::CameraRaw {
+                body = body.child(crate::camera_scopes::panel(
+                    self.camera_scopes.clone(),
+                    if self.busy {
+                        "Updating preview…"
+                    } else if self.camera_scopes_preview {
+                        "Last preview · before clipping warnings"
+                    } else {
+                        "Original layer"
+                    },
+                    cx,
+                ));
                 let mut tabs = div().flex().flex_wrap().gap_1();
                 for (i, (_, name)) in crate::camera_controls::SECTIONS.iter().enumerate() {
                     tabs = tabs.child(
@@ -7043,6 +7187,8 @@ impl EditorView {
                     .gap_1();
                 for font in self
                     .font_names
+                    .as_deref()
+                    .unwrap_or_default()
                     .iter()
                     .filter(|font| query.is_empty() || font.to_lowercase().contains(&query))
                     .take(64)
@@ -9133,6 +9279,118 @@ mod interaction_tests {
     }
 
     #[gpui_kit::test]
+    fn camera_scopes_follow_selected_preview_without_clipping_or_history(cx: &mut TestAppContext) {
+        cx.update(crate::init_test_theme);
+        let source = image::RgbaImage::from_raw(
+            4,
+            1,
+            vec![
+                0, 0, 0, 255, 80, 40, 20, 255, 60, 60, 60, 255, 90, 90, 90, 0,
+            ],
+        )
+        .unwrap();
+        let original = source.clone();
+        let settings = omuse::camera_raw::Settings {
+            exposure: 1.,
+            ..Default::default()
+        };
+        let graded = omuse::camera_raw::apply(&source, &settings).unwrap();
+        let mut expected = source.clone();
+        expected.put_pixel(0, 0, *graded.get_pixel(0, 0));
+        expected.put_pixel(1, 0, *graded.get_pixel(1, 0));
+        let expected_scopes = omuse::photo_scopes::PhotoScopes::analyze(&expected);
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            let mut app = EditorView::new(None, window, cx);
+            app.dialog = Dialog::None;
+            let mut doc = Document::new(4, 1);
+            doc.layers[0].image = Some(source.into());
+            app.editor = Editor::new(doc);
+            app.editor.select_rectangle(0., 0., 2., 1.);
+            app.refresh(cx);
+            app
+        });
+        cx.simulate_resize(size(px(900.), px(700.)));
+        let depth = cx.update(|window, cx| {
+            view.update(cx, |app, cx| {
+                app.command("camera-raw", window, cx);
+                // Start before initial-source analysis completes: its late result
+                // must not replace the scopes for this developed preview.
+                app.camera_clip_shadows = true;
+                app.camera_clip_highlights = true;
+                app.start_camera_raw(settings, true, cx);
+                app.editor.undo_depth()
+            })
+        });
+        cx.run_until_parked();
+        cx.update(|window, cx| {
+            let app = view.read(cx);
+            assert!(!app.busy, "{}", app.status);
+            assert!(app.camera_scopes_preview, "{}", app.status);
+            assert_eq!(app.camera_scopes.as_deref(), Some(&expected_scopes));
+            assert_eq!(
+                app.editor.document.layers[0].image.as_deref(),
+                Some(&original)
+            );
+            assert_eq!(app.editor.undo_depth(), depth);
+            window.draw(cx).clear(cx);
+        });
+        assert!(cx.debug_bounds("camera-scopes").is_some());
+        cx.simulate_keystrokes("escape");
+        cx.update(|_, cx| {
+            let app = view.read(cx);
+            assert_eq!(app.dialog, Dialog::None);
+            assert_eq!(
+                app.editor.document.layers[0].image.as_deref(),
+                Some(&original)
+            );
+            assert_eq!(app.editor.undo_depth(), depth);
+        });
+    }
+
+    #[gpui_kit::test]
+    fn late_camera_scope_and_preview_jobs_cannot_replace_a_new_dialog(cx: &mut TestAppContext) {
+        cx.update(crate::init_test_theme);
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            let mut app = EditorView::new(None, window, cx);
+            app.dialog = Dialog::None;
+            app.editor = Editor::new(Document::new(8, 8));
+            app.refresh(cx);
+            app
+        });
+        cx.update(|window, cx| {
+            view.update(cx, |app, cx| {
+                app.command("camera-raw", window, cx);
+                app.start_camera_raw(omuse::camera_raw::Settings::default(), true, cx);
+                // The same transition made by Cancel, followed by a fresh Camera
+                // Raw dialog. Leave both older worker completions queued.
+                app.dialog_generation += 1;
+                app.busy = false;
+                app.dialog = Dialog::None;
+                app.command("camera-raw", window, cx);
+                let fresh = Arc::new(image::RgbaImage::from_pixel(
+                    8,
+                    8,
+                    image::Rgba([1, 2, 3, 255]),
+                ));
+                app.start_camera_scopes(fresh, cx);
+                app.status = "New dialog".into();
+            })
+        });
+        cx.run_until_parked();
+        cx.update(|_, cx| {
+            let app = view.read(cx);
+            let scopes = app.camera_scopes.as_ref().unwrap();
+            assert!(!app.camera_scopes_preview);
+            assert_eq!(scopes.rgb[0][1], 64 * 255);
+            assert_eq!(scopes.rgb[1][2], 64 * 255);
+            assert_eq!(scopes.rgb[2][3], 64 * 255);
+            assert_eq!(app.status, "New dialog");
+            assert!(!app.busy);
+            assert_eq!(app.editor.undo_depth(), 0);
+        });
+    }
+
+    #[gpui_kit::test]
     fn camera_preview_gestures_update_draft_without_touching_artwork(cx: &mut TestAppContext) {
         cx.update(crate::init_test_theme);
         let (view, cx) = cx.add_window_view(|window, cx| {
@@ -9230,6 +9488,252 @@ mod interaction_tests {
     }
 
     #[gpui_kit::test]
+    fn middle_button_pan_handles_combined_buttons_and_lost_release(cx: &mut TestAppContext) {
+        cx.update(crate::init_test_theme);
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            let mut view = EditorView::new(None, window, cx);
+            view.dialog = Dialog::None;
+            view.editor = Editor::new(Document::new(128, 96));
+            view.tool = Tool::Brush;
+            view.zoom = 1.;
+            view.refresh(cx);
+            view
+        });
+        cx.simulate_resize(size(px(1200.), px(800.)));
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        let center = cx.debug_bounds("artwork").unwrap().center();
+        let first = center - point(px(80.), px(50.));
+        let second = first + point(px(30.), px(20.));
+
+        for tool in [Tool::Brush, Tool::Fill] {
+            view.update(cx, |view, _| view.tool = tool);
+            let before = cx.update(|_, cx| raster::composite(&view.read(cx).editor.document));
+            cx.simulate_mouse_down(center, MouseButton::Middle, Modifiers::default());
+            cx.simulate_mouse_down(center, MouseButton::Left, Modifiers::default());
+            cx.simulate_mouse_up(center, MouseButton::Left, Modifiers::default());
+            cx.simulate_mouse_up(center, MouseButton::Middle, Modifiers::default());
+            cx.update(|_, cx| {
+                let view = view.read(cx);
+                assert_eq!(raster::composite(&view.editor.document), before);
+                assert!(view.drag_start.is_none());
+                assert_eq!(view.editor.undo_depth(), 0);
+            });
+        }
+
+        view.update(cx, |view, _| view.tool = Tool::Move);
+        cx.simulate_mouse_down(center, MouseButton::Left, Modifiers::default());
+        cx.update(|_, cx| assert!(view.read(cx).transform_drag.is_some()));
+        cx.simulate_mouse_down(second, MouseButton::Middle, Modifiers::default());
+        cx.update(|_, cx| {
+            let view = view.read(cx);
+            assert!(view.middle_pan_pointer.is_none());
+            assert!(view.transform_drag.is_some());
+            assert_eq!(view.pan, (0., 0.));
+        });
+        cx.simulate_mouse_up(center, MouseButton::Left, Modifiers::default());
+
+        cx.simulate_mouse_down(first, MouseButton::Middle, Modifiers::default());
+        cx.simulate_mouse_move(second, Some(MouseButton::Middle), Modifiers::default());
+        cx.update(|_, cx| {
+            let view = view.read(cx);
+            assert_eq!(view.pan, (30., 20.));
+            assert!(view.drag_start.is_none());
+            assert_eq!(view.editor.undo_depth(), 0);
+        });
+        cx.simulate_mouse_up(second, MouseButton::Middle, Modifiers::default());
+        cx.update(|_, cx| assert!(view.read(cx).middle_pan_pointer.is_none()));
+
+        view.update(cx, |view, cx| {
+            view.tool = Tool::Hand;
+            cx.notify();
+        });
+        let left_start = center - point(px(60.), px(30.));
+        let middle_start = center + point(px(90.), px(70.));
+        let together = center - point(px(40.), px(30.));
+        cx.simulate_mouse_down(left_start, MouseButton::Left, Modifiers::default());
+        cx.simulate_mouse_down(middle_start, MouseButton::Middle, Modifiers::default());
+        cx.simulate_mouse_move(together, Some(MouseButton::Left), Modifiers::default());
+        cx.update(|_, cx| {
+            let view = view.read(cx);
+            assert_eq!(view.pan, (-100., -80.));
+            assert!(view.pan_pointer.is_some() && view.middle_pan_pointer.is_some());
+        });
+        cx.simulate_mouse_up(together, MouseButton::Middle, Modifiers::default());
+        let left_only = together + point(px(15.), px(5.));
+        cx.simulate_mouse_move(left_only, Some(MouseButton::Left), Modifiers::default());
+        cx.simulate_mouse_up(left_only, MouseButton::Left, Modifiers::default());
+        cx.update(|_, cx| {
+            let view = view.read(cx);
+            assert_eq!(view.pan, (-85., -75.));
+            assert!(view.pan_pointer.is_none() && view.middle_pan_pointer.is_none());
+        });
+
+        let held = cx.update(|_, cx| view.read(cx).pan);
+        cx.simulate_mouse_down(center, MouseButton::Middle, Modifiers::default());
+        cx.simulate_mouse_move(center + point(px(20.), px(20.)), None, Modifiers::default());
+        cx.simulate_mouse_move(
+            center + point(px(40.), px(40.)),
+            Some(MouseButton::Middle),
+            Modifiers::default(),
+        );
+        cx.update(|_, cx| {
+            let view = view.read(cx);
+            assert_eq!(view.pan, held);
+            assert!(view.middle_pan_pointer.is_none());
+        });
+    }
+
+    #[gpui_kit::test]
+    fn auto_select_prefers_frontmost_visible_nested_layer_and_can_be_disabled(
+        cx: &mut TestAppContext,
+    ) {
+        cx.update(crate::init_test_theme);
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            let mut view = EditorView::new(None, window, cx);
+            view.dialog = Dialog::None;
+            view.editor = Editor::new(Document::new(80, 60));
+            let bottom = view.editor.document.layers[0].id.clone();
+
+            let candidate = Layer::paint("Nested frontmost visible", 80, 60);
+            let candidate_id = candidate.id.clone();
+            let mut hidden_child = Layer::paint("Hidden child", 80, 60);
+            hidden_child.visible = false;
+            let mut transparent_child = Layer::paint("Zero opacity child", 80, 60);
+            transparent_child.opacity = 0.;
+            let mut group = Layer::group("Top group");
+            group.children = vec![candidate, hidden_child, transparent_child];
+            view.editor.document.layers.push(group);
+            let mut hidden_root = Layer::paint("Hidden root", 80, 60);
+            hidden_root.visible = false;
+            view.editor.document.layers.push(hidden_root);
+            let mut transparent_root = Layer::paint("Zero opacity root", 80, 60);
+            transparent_root.opacity = 0.;
+            view.editor.document.layers.push(transparent_root);
+
+            assert_eq!(
+                hit_layer_at(&view.editor, 40., 30.),
+                Some(candidate_id.clone())
+            );
+            view.editor.active_layer = bottom.clone();
+            view.select_layer_ids(vec![bottom]);
+            view.tool = Tool::Move;
+            view.preferences.auto_select = true;
+            view.preferences.transform_box = true;
+            view.zoom = 1.;
+            view.refresh(cx);
+            view
+        });
+        let (bottom, candidate, group) = cx.update(|_, cx| {
+            let view = view.read(cx);
+            (
+                view.editor.document.layers[0].id.clone(),
+                view.editor.document.layers[1].children[0].id.clone(),
+                view.editor.document.layers[1].id.clone(),
+            )
+        });
+        cx.simulate_resize(size(px(1200.), px(800.)));
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        let center = cx.debug_bounds("artwork").unwrap().center();
+        cx.simulate_mouse_down(center, MouseButton::Left, Modifiers::default());
+        cx.simulate_mouse_up(center, MouseButton::Left, Modifiers::default());
+        cx.update(|_, cx| {
+            let view = view.read(cx);
+            assert_eq!(view.editor.active_layer, candidate);
+            assert_eq!(view.layer_selection.ids, vec![candidate.clone()]);
+        });
+
+        view.update(cx, |view, cx| {
+            view.editor.active_layer = bottom.clone();
+            view.select_layer_ids(vec![bottom.clone()]);
+            view.preferences.auto_select = false;
+            cx.notify();
+        });
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.simulate_mouse_down(center, MouseButton::Left, Modifiers::default());
+        cx.simulate_mouse_up(center, MouseButton::Left, Modifiers::default());
+        cx.update(|_, cx| {
+            let view = view.read(cx);
+            assert_eq!(view.editor.active_layer, bottom);
+            assert_eq!(view.layer_selection.ids, vec![bottom.clone()]);
+        });
+
+        let before = cx.update(|_, cx| view.read(cx).editor.layer_placement(&candidate).unwrap());
+        view.update(cx, |view, cx| {
+            view.editor.active_layer = group.clone();
+            view.select_layer_ids(vec![group.clone()]);
+            view.preferences.auto_select = true;
+            cx.notify();
+        });
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        let destination = center + point(px(12.), px(7.));
+        cx.simulate_mouse_down(center, MouseButton::Left, Modifiers::default());
+        cx.simulate_mouse_move(destination, Some(MouseButton::Left), Modifiers::default());
+        cx.simulate_mouse_up(destination, MouseButton::Left, Modifiers::default());
+        cx.update(|_, cx| {
+            let view = view.read(cx);
+            let after = view.editor.layer_placement(&candidate).unwrap();
+            assert_eq!(view.editor.active_layer, group);
+            assert_eq!(view.layer_selection.ids, vec![group.clone()]);
+            assert_eq!((after.x - before.x, after.y - before.y), (12., 7.));
+        });
+    }
+
+    #[gpui_kit::test]
+    fn auto_select_preserves_a_multiselection_when_its_union_gap_is_dragged(
+        cx: &mut TestAppContext,
+    ) {
+        cx.update(crate::init_test_theme);
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            let mut view = EditorView::new(None, window, cx);
+            view.dialog = Dialog::None;
+            view.editor = Editor::new(Document::new(100, 60));
+            let background = view.editor.active_layer.clone();
+            let mut left = Layer::paint("Left", 20, 20);
+            left.offset_x = 10.;
+            left.offset_y = 20.;
+            let left_id = left.id.clone();
+            let mut right = Layer::paint("Right", 20, 20);
+            right.offset_x = 70.;
+            right.offset_y = 20.;
+            let right_id = right.id.clone();
+            view.editor.document.layers.extend([left, right]);
+            view.editor.active_layer = right_id.clone();
+            view.select_layer_ids(vec![left_id, right_id]);
+            view.tool = Tool::Move;
+            view.preferences.auto_select = true;
+            view.preferences.transform_box = true;
+            view.zoom = 1.;
+            assert_eq!(hit_layer_at(&view.editor, 50., 30.), Some(background));
+            view.refresh(cx);
+            view
+        });
+        let (selected, before) = cx.update(|_, cx| {
+            let view = view.read(cx);
+            let selected = view.layer_selection.ids.clone();
+            let placements = selected
+                .iter()
+                .map(|id| view.editor.layer_placement(id).unwrap())
+                .collect::<Vec<_>>();
+            (selected, placements)
+        });
+        cx.simulate_resize(size(px(1200.), px(800.)));
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        let center = cx.debug_bounds("artwork").unwrap().center();
+        let destination = center + point(px(9.), px(4.));
+        cx.simulate_mouse_down(center, MouseButton::Left, Modifiers::default());
+        cx.simulate_mouse_move(destination, Some(MouseButton::Left), Modifiers::default());
+        cx.simulate_mouse_up(destination, MouseButton::Left, Modifiers::default());
+        cx.update(|_, cx| {
+            let view = view.read(cx);
+            assert_eq!(view.layer_selection.ids, selected);
+            for (id, before) in selected.iter().zip(before) {
+                let after = view.editor.layer_placement(id).unwrap();
+                assert_eq!((after.x - before.x, after.y - before.y), (9., 4.));
+            }
+        });
+    }
+
+    #[gpui_kit::test]
     fn visible_guide_drags_once_and_move_pointer_snaps(cx: &mut TestAppContext) {
         cx.update(crate::init_test_theme);
         let (view, cx) = cx.add_window_view(|window, cx| {
@@ -9260,6 +9764,29 @@ mod interaction_tests {
                 snap_canvas_point(&view.editor, CanvasPoint { x: 81., y: 15. }, true, true, 3.,),
                 CanvasPoint { x: 80., y: 16. }
             );
+        });
+    }
+
+    #[gpui_kit::test]
+    fn adding_a_guide_persists_its_auto_shown_state(cx: &mut TestAppContext) {
+        cx.update(crate::init_test_theme);
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            let mut view = EditorView::new(None, window, cx);
+            view.dialog = Dialog::Guide;
+            view.editor = Editor::new(Document::new(128, 96));
+            view.show_guides = false;
+            view.preferences.guides = false;
+            view.detail_inputs[0].update(cx, |input, cx| input.set_value("vertical", window, cx));
+            view.detail_inputs[1].update(cx, |input, cx| input.set_value("42", window, cx));
+            view
+        });
+        view.update_in(cx, |view, window, cx| view.confirm_dialog(window, cx));
+        cx.update(|_, cx| {
+            let view = view.read(cx);
+            assert_eq!(view.dialog, Dialog::None);
+            assert!(view.show_guides && view.preferences.guides);
+            assert_eq!(view.editor.guides().len(), 1);
+            assert_eq!(view.editor.guides()[0].position, 42.);
         });
     }
 
@@ -9631,6 +10158,51 @@ mod interaction_tests {
             assert!(
                 second[2] > second[0] && second[3] > 0,
                 "second clone: {second:?}"
+            );
+        });
+    }
+
+    #[gpui_kit::test]
+    fn installed_fonts_load_only_when_text_dialog_opens_and_stay_cached(cx: &mut TestAppContext) {
+        cx.update(crate::init_test_theme);
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            let mut view = EditorView::new(None, window, cx);
+            view.dialog = Dialog::None;
+            view
+        });
+        cx.simulate_resize(size(px(1000.), px(700.)));
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.update(|_, cx| assert!(view.read(cx).font_names.is_none()));
+
+        view.update(cx, |view, cx| {
+            view.dialog = Dialog::Text;
+            cx.notify();
+        });
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        view.update(cx, |view, cx| {
+            let fonts = view
+                .font_names
+                .as_mut()
+                .expect("fonts loaded on first open");
+            assert!(!fonts.is_empty());
+            fonts.push("Omuse cached-font sentinel".into());
+            view.dialog = Dialog::None;
+            cx.notify();
+        });
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        view.update(cx, |view, cx| {
+            view.dialog = Dialog::Text;
+            cx.notify();
+        });
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.update(|_, cx| {
+            assert!(
+                view.read(cx)
+                    .font_names
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .any(|name| name == "Omuse cached-font sentinel")
             );
         });
     }

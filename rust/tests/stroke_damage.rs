@@ -257,19 +257,35 @@ fn accumulated_damage_matches_interpolated_stamps_and_frozen_clone_source() {
 
 #[test]
 fn smoothing_slack_has_no_damage_and_release_discards_pending_bounds() {
-    let mut e = editor();
-    e.brush.smoothing = 5.;
-    assert!(e.begin_stroke(2.5, 3.5, 1., PaintTool::Brush));
-    assert!(e.take_stroke_damage().is_some());
-    assert!(e.continue_stroke(5.5, 3.5, 1.));
-    assert_eq!(e.take_stroke_damage(), None);
-    let before = pixels(&e);
-    assert!(e.continue_stroke(12.5, 3.5, 1.));
-    let expected = changed_rect(&before, &pixels(&e)).unwrap();
-    damage(&mut e, expected, false);
-    assert!(e.finish_stroke());
-    assert_eq!(e.take_stroke_damage(), None);
-    assert_eq!(pixels(&e).get_pixel(12, 3).0, e.brush.color);
+    for tool in [PaintTool::Brush, PaintTool::Eraser] {
+        let mut e = editor();
+        if tool == PaintTool::Eraser {
+            e.document.layers[0].image =
+                Some(RgbaImage::from_pixel(24, 20, Rgba(e.brush.color)).into());
+        }
+        e.brush.smoothing = 5.;
+        assert!(e.begin_stroke(2.5, 3.5, 1., tool));
+        assert!(e.take_stroke_damage().is_some());
+        let before_slack = e.document.layers[0].image.clone().unwrap();
+        assert!(e.continue_stroke(5.5, 3.5, 1.));
+        assert_eq!(e.take_stroke_damage(), None);
+        assert!(before_slack.shares_pixels_with(e.document.layers[0].image.as_ref().unwrap()));
+        assert_eq!(pixels(&e), before_slack.to_image());
+        let before = pixels(&e);
+        assert!(e.continue_stroke(12.5, 3.5, 1.));
+        let expected = changed_rect(&before, &pixels(&e)).unwrap();
+        damage(&mut e, expected, false);
+        assert!(e.finish_stroke());
+        assert_eq!(e.take_stroke_damage(), None);
+        assert_eq!(
+            pixels(&e).get_pixel(12, 3).0,
+            if tool == PaintTool::Eraser {
+                [0; 4]
+            } else {
+                e.brush.color
+            }
+        );
+    }
 }
 
 #[test]

@@ -1,6 +1,7 @@
 mod adjustment_controls;
 mod camera_canvas;
 mod camera_controls;
+mod camera_scopes;
 mod curve_editor;
 mod display_surface;
 mod preferences;

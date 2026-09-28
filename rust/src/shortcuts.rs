@@ -232,6 +232,7 @@ define_commands! {
 /// Temporary and pointer gestures that are intentionally not remappable.
 pub const GESTURES: &[(&str, &str)] = &[
     ("Temporarily pan the canvas", "Hold Space and drag"),
+    ("Pan the canvas from any tool", "Middle-button drag"),
     ("Zoom the canvas", "Scroll over the canvas"),
     (
         "Pan the canvas with a wheel",

@@ -76,7 +76,7 @@ pub struct Brush {
     pub size: f32,
     pub opacity: f32,
     pub hardness: f32,
-    /// Pulled-string length in screen points. Zero preserves unsmoothed input exactly.
+    /// Brush/eraser pulled-string length in screen points. Zero preserves unsmoothed input exactly.
     pub smoothing: f32,
 }
 impl Default for Brush {
@@ -247,6 +247,13 @@ struct Stroke {
     pointer: (f32, f32, f32),
     last_input: InputPoint,
     dynamics: Option<editor_dynamics::StrokeState>,
+}
+impl Stroke {
+    fn uses_smoothing(&self) -> bool {
+        self.clone.is_none()
+            && matches!(self.tool, PaintTool::Brush | PaintTool::Eraser)
+            && self.brush.smoothing > 0.
+    }
 }
 #[derive(Clone, Copy)]
 struct CloneStroke {
@@ -834,8 +841,7 @@ impl Editor {
         let pressure = input.pressure.clamp(0., 1.);
         stroke.pointer = (input.x, input.y, pressure);
         let (mut target_x, mut target_y) = (input.x, input.y);
-        if stroke.clone.is_none() && stroke.tool == PaintTool::Brush && stroke.brush.smoothing > 0.
-        {
+        if stroke.uses_smoothing() {
             let radius = stroke.brush.smoothing / zoom.max(0.01);
             let (dx, dy) = (
                 input.x - stroke.smoothing_anchor.0,
@@ -1165,9 +1171,7 @@ impl Editor {
     }
     pub fn finish_stroke(&mut self) -> bool {
         if let Some(stroke) = &self.stroke
-            && stroke.clone.is_none()
-            && stroke.tool == PaintTool::Brush
-            && stroke.brush.smoothing > 0.
+            && stroke.uses_smoothing()
             && (stroke.pointer.0 != stroke.smoothing_anchor.0
                 || stroke.pointer.1 != stroke.smoothing_anchor.1)
         {

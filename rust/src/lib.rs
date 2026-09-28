@@ -22,6 +22,7 @@ pub mod retouch;
 
 pub mod adjustment_kernels;
 pub mod camera_raw;
+pub mod photo_scopes;
 pub mod retouch_brush;
 pub mod spot_heal;
 

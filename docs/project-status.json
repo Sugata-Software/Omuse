@@ -127,6 +127,23 @@
           ]
         },
         {
+          "id": "photo-camera-scopes",
+          "name": "Camera Raw scopes and preview responsiveness",
+          "status": "implemented-needs-qualification",
+          "current": "RGB histogram and hue/saturation vectorscope analyze the selected layer before clipping overlays. Alpha-weighted samples are bounded to 512×512 cells. Selection-aware preview compositing now runs on a background worker; cancelled and superseded work cannot replace the current dialog.",
+          "boundary": "Candidate tests are in progress. Scopes describe sampled 8-bit display RGB, not sensor RAW/HDR. The grade still computes at full resolution up to 16 MP; bounded scale-aware previews, white-balance/defringe sampling and targeted curve/mixer drags remain open.",
+          "evidence": [
+            "docs/omaphoto-comparison.md",
+            "rust/tests/camera_reference.rs"
+          ],
+          "modules": [
+            "rust/src/photo_scopes.rs",
+            "rust/src/camera_scopes.rs",
+            "rust/src/camera_raw.rs",
+            "rust/src/ui.rs"
+          ]
+        },
+        {
           "id": "photo-raw",
           "name": "Embedded RAW development",
           "status": "locally-tested",
@@ -735,10 +752,11 @@
           "id": "formats-psd",
           "name": "PSD subset",
           "status": "locally-tested",
-          "current": "Flattened 8-bit RGB PSDs with Raw, PackBits, ZIP or ZIP prediction open as editable merged images; malformed and unsupported modes are rejected.",
-          "boundary": "Tagged PSD colour management and complete layered PSD parity are not supported; embedded ICC profiles currently trigger conversion guidance.",
+          "current": "Layered 8-bit PSD import retains supported groups, opacity/fill, masks, clipping and blend/adjustment mappings, with an import report. New always-on generated fixtures exercise nested group opacity, masks, clipping and Vivid/Linear/Pin Light/Hard Mix pixels; their candidate run is pending.",
+          "boundary": "A supported subset, not a complete Photoshop document engine. Generated layered tests use raw channel compression; real application corpus, compressed-layer combinations and bidirectional .comp v9 interchange remain separate qualification work.",
           "evidence": [
-            "docs/photo-editing-hardening.md"
+            "docs/photo-editing-hardening.md",
+            "docs/omaphoto-comparison.md"
           ],
           "modules": [
             "rust/src/psd.rs",
@@ -829,6 +847,23 @@
             "rust/src/shortcuts.rs",
             "rust/src/command_search_ui.rs",
             "rust/src/keyboard_ui.rs"
+          ]
+        },
+        {
+          "id": "linux-canvas-interaction",
+          "name": "Canvas navigation and editing preferences",
+          "status": "implemented-needs-qualification",
+          "current": "The OmaPhoto comparison pass adds middle-button panning, fixes frontmost Auto Select when an already-selected layer overlaps, persists guide auto-show, and loads installed font names only when the text dialog first needs them. Eraser now shares screen-space brush smoothing and release catch-up.",
+          "boundary": "Candidate regressions are pending. Foreground hardware, profile restart and unusually large font collections still need acceptance. Pencil intentionally remains unsmoothed.",
+          "evidence": [
+            "docs/omaphoto-comparison.md",
+            "docs/keyboard-shortcuts.md"
+          ],
+          "modules": [
+            "rust/src/ui.rs",
+            "rust/src/editor.rs",
+            "rust/src/preferences.rs",
+            "rust/src/shortcuts.rs"
           ]
         },
         {
@@ -1091,6 +1126,19 @@
             "rust/tests/advanced_persistence.rs",
             "rust/tests/editor_engine.rs"
           ]
+        },
+        {
+          "id": "release-competitor-comparison",
+          "name": "OmaPhoto release comparison",
+          "status": "implemented-needs-qualification",
+          "current": "OmaPhoto v1.2.3 at 96ce546 was compared with actual Omuse code and tests; a maintained matrix records editing, interaction, interchange and distribution gaps. A daily release check is configured in the project thread.",
+          "boundary": "Neither application has been benchmarked against the other on this hardware. OmaPhoto currently ships broader native packages. The scheduled comparison does not publish commits, install competitors or replace the current application.",
+          "evidence": [
+            "docs/omaphoto-comparison.md",
+            "docs/rust-performance-roadmap.md",
+            "docs/public-release-readiness.md"
+          ],
+          "modules": []
         }
       ]
     }

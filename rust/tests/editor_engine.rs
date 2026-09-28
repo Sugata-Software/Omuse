@@ -148,6 +148,133 @@ fn pulled_string_smoothing_ignores_slack_and_finishes_at_pointer() {
     );
 }
 #[test]
+fn eraser_smoothing_preserves_color_opacity_and_finishes_in_one_undo_step() {
+    let mut e = editor();
+    let original = image::RgbaImage::from_pixel(16, 16, Rgba([240, 60, 20, 192]));
+    e.document.layers[0].image = Some(original.clone().into());
+    e.brush.size = 1.;
+    e.brush.hardness = 1.;
+    e.brush.smoothing = 5.;
+    e.brush.opacity = 0.5;
+    assert!(e.begin_stroke(1.5, 6.5, 1., PaintTool::Eraser));
+    assert!(e.continue_stroke_at_zoom(4.5, 6.5, 1., 1.));
+    assert_eq!(pixel(&e, 4, 6), [240, 60, 20, 192]);
+    assert!(e.continue_stroke_at_zoom(14.5, 6.5, 1., 1.));
+    assert_eq!(pixel(&e, 8, 6), [240, 60, 20, 96]);
+    assert_eq!(pixel(&e, 13, 6), [240, 60, 20, 192]);
+    // Overlapping smoothed segments must share the same per-stroke opacity cap.
+    assert!(e.continue_stroke_at_zoom(1.5, 6.5, 1., 1.));
+    assert_eq!(pixel(&e, 8, 6), [240, 60, 20, 96]);
+    assert!(e.continue_stroke_at_zoom(14.5, 6.5, 1., 1.));
+    assert!(e.finish_stroke());
+    for x in 1..15 {
+        assert_eq!(pixel(&e, x, 6), [240, 60, 20, 96], "pixel {x}");
+    }
+    assert_eq!(e.undo_depth(), 1);
+    let after = e.document.layers[0].image.clone();
+    assert!(e.undo());
+    assert_eq!(
+        e.document.layers[0].image.as_ref().unwrap().to_image(),
+        original
+    );
+    assert!(e.redo());
+    assert_eq!(e.document.layers[0].image, after);
+}
+#[test]
+fn brush_and_eraser_smoothing_keep_the_same_screen_distance_at_each_zoom() {
+    for tool in [PaintTool::Brush, PaintTool::Eraser] {
+        for zoom in [0.5, 1., 2., 4.] {
+            let mut e = Editor::new(Document::new(96, 16));
+            let original = [35, 70, 105, 255];
+            e.document.layers[0].image =
+                Some(image::RgbaImage::from_pixel(96, 16, Rgba(original)).into());
+            e.brush.size = 1.;
+            e.brush.hardness = 1.;
+            e.brush.smoothing = 8.;
+            e.brush.color = [220, 140, 60, 255];
+            let result = match tool {
+                PaintTool::Brush => e.brush.color,
+                PaintTool::Eraser => [0; 4],
+                PaintTool::Pencil => unreachable!(),
+            };
+            let pointer_x = 16.5 + 24. / zoom;
+            assert!(e.begin_stroke(16.5, 6.5, 1., tool));
+            assert!(e.continue_stroke_at_zoom(pointer_x, 6.5, 1., zoom));
+            let last_changed = (0..96).rfind(|&x| pixel(&e, x, 6) != original).unwrap();
+            let lag_in_screen_points = (pointer_x - (last_changed as f32 + 0.5)) * zoom;
+            assert_eq!(lag_in_screen_points, 8., "{tool:?} at zoom {zoom}");
+            assert_eq!(pixel(&e, last_changed, 6), result);
+            assert_eq!(pixel(&e, pointer_x as u32, 6), original);
+            assert!(e.finish_stroke());
+            assert_eq!(pixel(&e, pointer_x as u32, 6), result);
+        }
+    }
+}
+#[test]
+fn pencil_ignores_smoothing_and_zero_smoothing_keeps_eraser_immediate() {
+    for tool in [PaintTool::Pencil, PaintTool::Eraser] {
+        let mut e = editor();
+        e.document.layers[0].image =
+            Some(image::RgbaImage::from_pixel(16, 16, Rgba([35, 70, 105, 255])).into());
+        e.brush.size = 1.;
+        e.brush.hardness = 1.;
+        e.brush.smoothing = if tool == PaintTool::Pencil { 100. } else { 0. };
+        e.brush.color = [220, 140, 60, 255];
+        assert!(e.begin_stroke(1.5, 6.5, 1., tool));
+        assert!(e.continue_stroke(4.5, 6.5, 1.));
+        assert_eq!(
+            pixel(&e, 4, 6),
+            if tool == PaintTool::Pencil {
+                e.brush.color
+            } else {
+                [0; 4]
+            }
+        );
+        assert!(e.finish_stroke());
+    }
+}
+#[test]
+fn eraser_smoothing_on_masks_catches_up_without_changing_source_pixels() {
+    let mut e = editor();
+    e.document.layers[0].mask = Some(image::RgbaImage::from_pixel(16, 16, Rgba([255; 4])).into());
+    let source = e.document.layers[0].image.clone().unwrap();
+    e.brush.size = 1.;
+    e.brush.hardness = 1.;
+    e.brush.smoothing = 5.;
+    assert!(e.begin_mask_stroke(1.5, 6.5, 1., PaintTool::Eraser));
+    assert!(e.continue_stroke(4.5, 6.5, 1.));
+    assert_eq!(
+        e.document.layers[0]
+            .mask
+            .as_ref()
+            .unwrap()
+            .get_pixel(4, 6)
+            .0,
+        [255; 4]
+    );
+    assert!(e.finish_stroke());
+    assert_eq!(
+        e.document.layers[0]
+            .mask
+            .as_ref()
+            .unwrap()
+            .get_pixel(4, 6)
+            .0,
+        [0, 0, 0, 255]
+    );
+    assert!(source.shares_pixels_with(e.document.layers[0].image.as_ref().unwrap()));
+    assert_eq!(e.undo_depth(), 1);
+    assert!(e.undo());
+    assert!(
+        e.document.layers[0]
+            .mask
+            .as_ref()
+            .unwrap()
+            .pixels()
+            .all(|p| p.0 == [255; 4])
+    );
+}
+#[test]
 fn unified_mask_edit_respects_placement_source_and_undo() {
     let mut e = editor();
     let id = e.active_layer.clone();
