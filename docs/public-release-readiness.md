@@ -7,6 +7,13 @@ The canonical public repository is
 release should be scoped to **Arch/Omarchy, Linux x86_64**. Broader Linux support
 requires its own packaging and test evidence.
 
+The source preview is published. Its first complete source commit is
+`d8c926e`, with Git tree `580d583266db090d18ca6159813a3ea0b343237f`, exactly
+matching the locally qualified source snapshot. The project-guide workflow
+passed. The first [Rust validation run](https://github.com/Sugata-Software/Omuse/actions/runs/36426033617)
+started on 28 September; its result is pending at this documentation snapshot.
+GitHub App access and source publication are no longer blockers.
+
 ## What is established
 
 The [desktop ownership qualification](desktop-history-qualification.md)
@@ -49,7 +56,7 @@ physical input support, all advertised provider operations or Linux portability.
 
 | Gate | Current state | Completion evidence |
 | --- | --- | --- |
-| Clean CI build | Pending first run in the public repository | Green Rust workflow for the exact candidate commit, retained artifacts and notice inventory |
+| Clean CI build | First public-repository Rust validation is running; guide validation passed | Green Rust workflow for the exact candidate commit, retained artifacts and notice inventory |
 | Dependency legal texts | Two unresolved entries in the locked graph; upstream texts recovered for `seahash` and `simd_helpers` | Resolve `hexf-parse` and `mac` by verifiable upstream terms or tested dependency changes; see the [notice review](rust-license-findings.md) |
 | Reproducible release identity | The hardening pass records tested source hashes, the production executable, native runs, installation and rollback; a clean public build/archive remains pending | One clean release commit/tag, fresh build, source-to-binary-to-archive hash ledger and reproducible packaging instructions |
 | Clean target installation | Passed only on the development host | Install, launch, upgrade and rollback on a clean supported Arch/Omarchy system |

@@ -48,7 +48,7 @@
     {
       "label": "Public-release blockers",
       "value": "Open gates",
-      "detail": "Two dependency texts, remote CI/GitHub App connection, clean installation and physical desktop acceptance remain open.",
+      "detail": "Two dependency texts, remote CI completion, clean installation and physical desktop acceptance remain open. GitHub access is connected and the source preview is published.",
       "status": "blocked-deferred"
     }
   ],
@@ -994,10 +994,10 @@
         },
         {
           "id": "release-ci-github",
-          "name": "Remote CI and GitHub App connection",
-          "status": "blocked-deferred",
-          "current": "Rust workflow definitions exist, but the first clean public-repository run is pending and the GitHub App connection needed to operate that path is missing in the current session.",
-          "boundary": "Local tests and workflow files do not prove a green remote run for the exact release candidate.",
+          "name": "Public source and remote CI",
+          "status": "implemented-needs-qualification",
+          "current": "Source preview published to Sugata-Software/Omuse through the verified GitHub connection. The complete source tree matches the local qualified snapshot. Guide validation passed; the first Rust validation workflow is running.",
+          "boundary": "Remote Rust validation has not completed at this snapshot. Local tests and a passing guide check do not establish a green remote build or a qualified public binary.",
           "evidence": [
             "docs/public-release-readiness.md",
             ".github/workflows/rust-validation.yml"
@@ -1008,7 +1008,7 @@
           "id": "release-artifact",
           "name": "Clean install and release identity",
           "status": "blocked-deferred",
-          "current": "The production and installed executable hashes match, native checks pass, and rollback copies are retained. A source-only public snapshot is prepared separately; a clean binary release/tag and clean target installation remain pending.",
+          "current": "The production and installed executable hashes match, native checks pass, and rollback copies are retained. The source preview is published with matching source-tree identity; a clean binary release/tag and clean target installation remain pending.",
           "boundary": "No downloadable public preview should be claimed until that exact artifact path is reproduced on a clean supported system.",
           "evidence": [
             "docs/desktop-history-qualification.md",
