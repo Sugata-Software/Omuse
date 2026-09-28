@@ -7691,7 +7691,7 @@ impl EditorView {
         } else {
             560.
         };
-        let dialog_height = if advanced_workspace {
+        let dialog_height = if advanced_workspace || self.dialog == Dialog::CameraRaw {
             (f32::from(window.viewport_size().height) - 48.).clamp(480., 820.)
         } else {
             540.
@@ -9894,6 +9894,9 @@ mod interaction_tests {
         });
         cx.update(|window, cx| window.draw(cx).clear(cx));
         let graph = cx.debug_bounds("camera-curve-editor").unwrap();
+        let body = cx.debug_bounds("dialog-body").unwrap();
+        assert!(graph.origin.y >= body.origin.y);
+        assert!(graph.origin.y + graph.size.height <= body.origin.y + body.size.height);
         cx.simulate_mouse_down(graph.center(), MouseButton::Left, Modifiers::default());
         cx.simulate_mouse_up(graph.center(), MouseButton::Left, Modifiers::default());
         cx.update(|_, cx| {
