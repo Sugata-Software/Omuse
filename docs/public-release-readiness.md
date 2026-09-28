@@ -1,13 +1,13 @@
 # Public release readiness
 
-**29 September 2026: source preview; public binary release is not yet qualified.**
+**29 September 2026: Omuse source installation is available; downloadable binaries are not yet qualified.**
 
 The canonical public repository is
 [Sugata-Software/Omuse](https://github.com/Sugata-Software/Omuse). The first
 release should be scoped to **Arch/Omarchy, Linux x86_64**. Broader Linux support
 requires its own packaging and test evidence.
 
-The source preview is published. Its first complete source commit is
+The application source is published. Its first complete source commit is
 `d8c926e`, with Git tree `580d583266db090d18ca6159813a3ea0b343237f`, exactly
 matching the locally qualified source snapshot. The project-guide workflow
 passed. The first [Rust validation run](https://github.com/Sugata-Software/Omuse/actions/runs/36426033617)
@@ -17,6 +17,19 @@ The Linux cleanup and installer candidate `971c419` also passed its complete
 [Rust validation run](https://github.com/Sugata-Software/Omuse/actions/runs/36439517375),
 including the separate installer/reference job and the full Rust job.
 GitHub App access and source publication are no longer blockers.
+
+## Current application and installation
+
+The tested application source is `1d5ccaa`. Its full GitHub Rust/installer and
+guide/reference workflows passed; the local qualification records 789 tests,
+editing/Create exports, all 80 size variants of 20 templates and the bounded live Codex
+assistant journey. The public installer now pins this tested runtime revision.
+
+The laptop's main **Omuse** launcher now selects that exact tested executable
+and complete runtime assets. The prior main installation is retained as a
+rollback generation. See [main installation qualification](main-install-qualification.md).
+Historical records below retain the former **Omuse Preview** name for the
+isolated installation used during testing; it is not a separate public product.
 
 ## What is established
 
@@ -74,17 +87,17 @@ evidence for:
 The initial source snapshot also passed remote Ubuntu CI. Neither result establishes
 physical input support, all advertised provider operations or Linux portability.
 
-The [one-command installer](install.md) now builds the preview locally on
+The [one-command installer](install.md) builds a tested Omuse revision locally on
 Arch/Omarchy, with dependency setup, verified optional assets and complete
 installation rollback. The active tree contains Linux Omuse; old platform
 implementations remain in Git history with attribution. This improves access
-to the source preview without declaring a prebuilt binary release qualified.
+to Omuse without declaring a prebuilt binary release qualified.
 
-## Before a downloadable public preview
+## Before a downloadable binary release
 
 | Gate | Current state | Completion evidence |
 | --- | --- | --- |
-| Clean CI build | Keyboard candidate `26211b5`: guide/reference and the [full Rust run](https://github.com/Sugata-Software/Omuse/actions/runs/36461980019) passed completely. Later source changes require their own run | Green Rust workflow for the exact candidate commit, retained artifacts and notice inventory |
+| Clean CI build | Installed runtime `1d5ccaa`: guide/reference and the [full Rust/installer run](https://github.com/Sugata-Software/Omuse/actions/runs/36483014873) passed completely. Later runtime changes require their own run | Green Rust workflow for the exact candidate commit, retained artifacts and notice inventory |
 | Dependency legal texts | Two unresolved entries in the locked graph; upstream texts recovered for `seahash` and `simd_helpers` | Resolve `hexf-parse` and `mac` by verifiable upstream terms or tested dependency changes; see the [notice review](rust-license-findings.md) |
 | Reproducible release identity | The hardening pass records tested source hashes, the production executable, native runs, installation and rollback; a clean public build/archive remains pending | One clean release commit/tag, fresh build, source-to-binary-to-archive hash ledger and reproducible packaging instructions |
 | Clean target installation | Passed only on the development host | Install, launch, upgrade and rollback on a clean supported Arch/Omarchy system |
@@ -101,7 +114,7 @@ for redistribution.
 ## Before calling it stable or portable
 
 - Test multi-monitor and mixed-DPI behaviour on real hardware. Tablet support
-  is deferred and is not a gate for this preview; pressure/tilt are not qualified.
+  is deferred and is not a gate for the initial release; pressure/tilt are not qualified.
 - Test RAW development and local subject inference on representative inputs;
   loading an optional shared library is not image-quality qualification.
 - Run multi-machine long sessions and large-document/library workloads, with
@@ -128,5 +141,5 @@ evidence directory contains superseded failures and personal filesystem paths;
 it must not be uploaded wholesale. The detailed qualification record identifies
 the corrected native and template receipts.
 
-The promo is a preview feature trailer. Preserve its photo and music credits
+The promo is an Omuse feature trailer. Preserve its photo and music credits
 when publishing it, and do not infer release readiness from the trailer.

@@ -3,7 +3,7 @@
 Omuse is a native Rust/GPUI image editor for Linux, with direct Omarchy theme
 integration. This guide is for building and contributing to the application.
 For normal use on Arch/Omarchy, run the [one-command installer](../README.md#install):
-it prepares dependencies and builds the current source preview locally. The
+it prepares dependencies and builds the tested application revision locally. The
 first installation compiles the application and takes longer than an update.
 
 See the [feature and verification matrix](../docs/rust-rewrite-status.md),

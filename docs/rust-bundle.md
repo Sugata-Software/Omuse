@@ -1,6 +1,6 @@
 # Omuse offline runtime bundle
 
-For the public preview, start with the [one-command installer](install.md).
+To install Omuse, start with the [one-command installer](install.md).
 This guide is for developers preparing and verifying offline artifacts.
 
 The runtime bundle is an offline, per-user package for the already-built Rust executable. Qualification is specific to a recorded executable on the project's Linux x86_64 Omarchy/Arch test host. The [rename checkpoint](omuse-rename.md) records verification of the Omuse package. A dynamically linked executable still requires compatible system libraries on another Linux distribution.

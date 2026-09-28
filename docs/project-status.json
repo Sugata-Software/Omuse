@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "snapshotDate": "2026-09-29",
   "project": "Omuse",
-  "releaseScope": "Native Rust/GPUI preview for Arch/Omarchy Linux x86_64",
-  "releaseState": "Source preview; public binary release is not qualified",
+  "releaseScope": "Native Rust/GPUI application for Arch/Omarchy Linux x86_64",
+  "releaseState": "Source installation available; downloadable binary qualification remains open",
   "visualizationMirror": "omuse-project-guide.html",
   "statusDefinitions": [
     {
@@ -36,7 +36,7 @@
     {
       "label": "Current regression suite",
       "value": "789 tests passed",
-      "detail": "330 library, 218 UI and 241 integration tests passed, with four manual timing benchmarks excluded. Editing, six-page PNG/PDF/MP4/GIF exports and all 80 templates passed. Final production passed its self-test and 24 native Wayland checks at 800x600. Cua verified a live native assistant plan, Keep/Undo, brush drag, Ctrl+Z and normal close in installed Preview 1d5ccaa. GitHub Rust/installer and guide/reference workflows passed for that runtime candidate.",
+      "detail": "330 library, 218 UI and 241 integration tests passed, with four manual timing benchmarks excluded. Editing, six-page PNG/PDF/MP4/GIF exports and all 80 size variants of 20 templates passed. Final production passed its self-test and 24 native Wayland checks at 800x600. Cua verified a live native assistant plan, Keep/Undo, brush drag, Ctrl+Z and normal close in installed Preview 1d5ccaa. GitHub Rust/installer and guide/reference workflows passed for that runtime candidate. The exact tested payload is now the main Omuse application; its main launcher passed 24 native Wayland checks and complete rollback in both directions.",
       "status": "locally-tested"
     },
     {
@@ -48,7 +48,7 @@
     {
       "label": "Public-release blockers",
       "value": "Open gates",
-      "detail": "Two dependency texts, clean-machine installation and physical desktop acceptance remain open. Source is published and the initial Rust CI passed. The new Linux-only tree adds one-command source installation, update, rollback and uninstall.",
+      "detail": "Two dependency texts, clean-machine installation and broader physical desktop acceptance remain open. Public runtime 1d5ccaa passed full Rust/installer and guide/reference CI. The one-command installer selects this tested revision, with update, rollback and uninstall.",
       "status": "blocked-deferred"
     }
   ],
@@ -849,12 +849,13 @@
           ]
         },
         {
-          "id": "linux-preview-install",
+          "id": "linux-install",
           "name": "One-command install and rollback",
           "status": "locally-tested",
-          "current": "One curl command sets up Arch/Omarchy dependencies, builds the preview, verifies RAW/subject assets and installs Omuse. A real isolated install/update, complete rollback in both directions and uninstall passed on this host. All 31 installer/bundle tests passed, including failed writes and SIGTERM restoration. The photo-integrity preview update passed its editing self-test, installed-launcher native check and rollback in both directions while retaining matching runtime assets. The current assistant candidate 1d5ccaa is installed in Preview with a clean public source receipt: its self-test, 24 native Wayland checks and bounded Cua AI/brush journey passed. Executable/assets, prior complete generation and untouched older application were verified.",
+          "current": "The one-command installer builds tested public runtime 1d5ccaa, verifies RAW/subject assets and installs one Omuse application. The exact tested payload is now installed behind the laptop’s normal Omuse command and desktop entry; the separate Preview and legacy menu entries are archived. All payload hashes match; the installed main launcher passed 24 native Wayland checks, desktop launch and rollback in both directions. All 36 installer/bundle tests passed, including real Git checks that newer main changes are not installed automatically and unavailable revisions preserve the active app. User data and the older session were preserved.",
           "boundary": "First install compiles source locally. No qualified prebuilt download or clean-machine acceptance is claimed. SIGKILL/power-loss installation recovery has not been qualified.",
           "evidence": [
+            "docs/main-install-qualification.md",
             "docs/keyboard-qualification.md",
             "docs/photo-integrity-hardening.md",
             "docs/install-qualification.md",
@@ -1033,9 +1034,10 @@
           "id": "release-ci-github",
           "name": "Public source and remote CI",
           "status": "locally-tested",
-          "current": "AI GUI source c0a7200 is published with an exact source-tree match. Its guide/reference workflow passed and the Rust workflow is running. The previous keyboard source passed its full Rust workflow. The licensed two-minute Sunset Muse promo is published with a README preview.",
-          "boundary": "The new runtime still needs its completed export, desktop and remote Rust receipts. CI does not establish clean-machine installation or public-binary qualification.",
+          "current": "Public runtime 1d5ccaa and its qualification record are published with exact source-tree matches. Its full Rust/installer workflow and guide/reference workflow passed. The licensed two-minute Sunset Muse promo is published in the README. The public installer pins this tested runtime instead of following main.",
+          "boundary": "Installer-channel changes have separate local transaction tests. CI does not establish clean-machine installation or public-binary qualification.",
           "evidence": [
+            "docs/main-install-qualification.md",
             "docs/keyboard-qualification.md",
             "docs/public-release-readiness.md",
             ".github/workflows/rust-validation.yml",
@@ -1048,9 +1050,10 @@
           "id": "release-artifact",
           "name": "Clean install and release identity",
           "status": "blocked-deferred",
-          "current": "The published source preview has a one-command local build/install path and complete runtime rollback. The photo-integrity production and installed-preview executable hashes match; native checks and rollback passed. A clean binary release/tag and clean target installation remain pending.",
-          "boundary": "No downloadable public preview should be claimed until that exact artifact path is reproduced on a clean supported system.",
+          "current": "Omuse has a one-command source install path pinned to tested public runtime 1d5ccaa, with complete runtime rollback. The laptop’s main Omuse executable matches the qualified payload; installed-launcher native checks, desktop launch and rollback passed. A clean binary release/tag and clean target installation remain pending.",
+          "boundary": "A downloadable binary still requires resolved notices and a reproduced artifact path on a clean supported system.",
           "evidence": [
+            "docs/main-install-qualification.md",
             "docs/photo-integrity-hardening.md",
             "docs/desktop-history-qualification.md",
             "docs/photo-release-qualification.md",

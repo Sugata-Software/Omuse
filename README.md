@@ -8,10 +8,9 @@
 
 [![Rust validation](https://github.com/Sugata-Software/Omuse/actions/workflows/rust-validation.yml/badge.svg)](https://github.com/Sugata-Software/Omuse/actions/workflows/rust-validation.yml)
 
-**Development preview.** Omuse is preparing for its first public release.
-Source is available for evaluation; a supported public binary release has not
-been qualified yet. See the [release-readiness checklist](docs/public-release-readiness.md)
-for the remaining gates and the evidence behind this status.
+**Omuse is available to install on Omarchy and Arch Linux.** The one-command
+installer builds a tested source revision and adds the normal **Omuse** app.
+Downloadable binaries are still undergoing [release qualification](docs/public-release-readiness.md).
 
 <p align="center">
   <a href="docs/media/omuse-sunset-muse.mp4">
@@ -25,7 +24,7 @@ for the remaining gates and the evidence behind this status.
   <a href="docs/media/omuse-sunset-muse-credits.md">Media credits</a>
 </p>
 
-The film presents selected preview workflows. Current qualification evidence
+The film presents selected Omuse workflows. Current qualification evidence
 and remaining release gates are recorded in the release-readiness checklist.
 
 Omuse is a native image editor for Linux, built in Rust with GPUI and designed
@@ -45,7 +44,7 @@ Omuse does not change the desktop theme.
 
 ![Omuse editing a photograph with live exposure and colour-balance layers](docs/media/omuse-photo-editor.png)
 
-*Actual native preview on Omarchy. [Image credit](docs/media/README.md).*
+*Actual Omuse session on Omarchy. [Image credit](docs/media/README.md).*
 
 ## Install
 
@@ -57,12 +56,15 @@ curl -fsSL https://raw.githubusercontent.com/Sugata-Software/Omuse/main/install.
 
 Then open **Omuse** from your application launcher.
 
-The installer sets up dependencies, builds the preview, verifies the editor and
+The installer sets up dependencies, builds Omuse, verifies the editor and
 installs it for your user. Camera RAW and local subject-selection assets are
 included. It asks for your password only if system packages need installing.
 Run the command as your normal desktop user; do not prefix it with `sudo`.
+The installer pins the [tested application revision](docs/install.md#tested-source-channel);
+application changes on `main` are built only after that pin advances. The installer
+script itself is downloaded from `main`.
 
-**This preview currently builds from source.** Allow time for the first build
+**The current installer builds from source.** Allow time for the first build
 and about 12 GB of free disk space. Later installs reuse the build cache.
 Prebuilt downloads will follow release qualification. You can
 [inspect the installer](install.sh) before running it.
@@ -86,7 +88,7 @@ and troubleshooting.
 - Brush, Pencil, Eraser, Fill, Gradient, Clone, Heal and selection tools.
 - Editable text and shapes, Bézier paths, vector masks and transform workflows.
 - Layered `.comp` documents and packaged multi-page `.omuse` projects.
-- Brand kits, 20 editable templates, rich text, reusable components, image
+- Brand kits, 20 editable templates with 80 tested size variants, rich text, reusable components, image
   frames, CSV variants and a searchable local asset library.
 - Social previews, ordered raster/PDF content packs, captions and image descriptions.
 - Layer and page animation, MP4/GIF export, audio, editable subtitles and clip tools.
@@ -171,7 +173,7 @@ mixed-DPI or optional-backend qualification. The required evidence is listed in
 Omuse is developed by [Sugata Software](https://github.com/Sugata-Software).
 Contributions and carefully scoped bug reports are welcome; start with
 [CONTRIBUTING.md](CONTRIBUTING.md). Use copies of important artwork while
-evaluating this preview.
+evaluating Omuse.
 
 Omuse grew from [Robbie Tilton's Compositor](https://github.com/robbietilton/Compositor)
 and [its earlier Linux fork](https://github.com/chiddekel/Compositor). We retain

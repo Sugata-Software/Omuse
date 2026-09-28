@@ -1,6 +1,6 @@
 # Contributing to Omuse
 
-Omuse is a native Linux creative application in development preview, written
+Omuse is a native Linux creative application, written
 in Rust with GPUI and direct Omarchy theme integration. Application code and
 tests live in `rust/`. The earlier application is preserved in Git history;
 see [source provenance](docs/source-provenance.md) for attribution and the
@@ -15,7 +15,7 @@ small independent reference suite retained for compatibility tests.
   compatible version explicitly.
 - For normal installation on Arch/Omarchy, use the one-command installer in
   the [README](README.md). It prepares dependencies and builds the current
-  source preview locally; the first installation takes longer than an update.
+  tested source revision locally; the first installation takes longer than an update.
 - For development, install the documented Linux libraries and FFmpeg, then run
   `scripts/build-rust.sh` and `scripts/test-rust.sh`.
 - Use a branch and submit a focused pull request to `main`. Describe the user

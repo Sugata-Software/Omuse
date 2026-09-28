@@ -1,6 +1,6 @@
 # Install Omuse
 
-Omuse's development preview supports **Omarchy / Arch Linux on x86_64**.
+The Omuse installer supports **Omarchy / Arch Linux on x86_64**.
 Run this in a terminal as your regular desktop user:
 
 ```sh
@@ -16,7 +16,7 @@ first, or download and inspect it before running `bash install.sh`.
 1. The installer checks the platform and installs missing system build/media
    packages through pacman. Only this step uses sudo, and pacman shows its usual
    confirmation unless you explicitly pass `--yes`.
-2. It downloads the current source preview from Sugata Software's public GitHub
+2. It downloads the tested source revision from Sugata Software's public GitHub
    repository and uses the pinned Rust toolchain. A matching installed compiler
    is reused. If needed, Rust is installed for the user without replacing distro
    Rust or editing shell startup files.
@@ -30,13 +30,38 @@ first, or download and inspect it before running `bash install.sh`.
 The first build is substantial: allow time and about **12 GB of free disk
 space**. Two build jobs are used by default. Later installs reuse Cargo outputs
 and verified runtime assets. A stable source cache avoids unnecessary recompilation;
-updates refuse to overwrite local edits in that cache. This is a **source preview installer**; it does not
-claim that a portable, qualified binary release is available.
+updates refuse to overwrite local edits in that cache. This installer **builds
+from source**; a downloadable binary release remains subject to the
+[release qualification gates](public-release-readiness.md).
+
+## Tested source channel
+
+The public installer selects commit
+[`1d5ccaa4d0037f2353d698611497ce5aff46a577`](https://github.com/Sugata-Software/Omuse/commit/1d5ccaa4d0037f2353d698611497ce5aff46a577).
+It fetches that exact revision and checks the resulting checkout before building.
+Both the [Rust/installer workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36483014873)
+and the [guide/reference workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36483014813)
+passed for this application source. See the [desktop and assistant evidence](cua-ai-qualification.md)
+for the bounded local checks.
+
+The curl command downloads `install.sh` from `main`, so changes to the installer
+script take effect immediately. The application checkout is pinned separately:
+application-source changes on `main` are not built until the pin advances.
+Maintainers advance `omuse_release_revision`
+in `install.sh` only after the new public runtime commit passes its automated and
+applicable desktop checks. A failed fetch or revision mismatch preserves the
+installed application. Developers can explicitly select their own checkout with
+`--source`; that path bypasses the tested source channel.
+
+The installation receipt is `~/.local/opt/omuse/current/SOURCE-REVISION`.
+It records the application source, even when the installer or documentation has
+a newer commit. This is a source selection guarantee, not a claim of reproducible
+binary output across different machines.
 
 ## Update, rollback and remove
 
-Run the same curl command to update. A failed build or self-test leaves the
-installed application active. Updates keep the previous executable and its
+Run the same curl command to install the latest tested revision. A failed build
+or self-test leaves the installed application active. Updates keep the previous executable and its
 matching runtime assets together, so rollback does not mix library versions:
 
 ```sh

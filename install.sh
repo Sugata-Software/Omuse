@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
-# Omuse preview installer. Run as your regular desktop user, never with sudo.
+# Omuse installer. Run as your regular desktop user, never with sudo.
 set -Eeuo pipefail
+
+# Advance only to a public runtime commit with completed release validation.
+# Documentation and ongoing work on main do not change the installed editor.
+readonly omuse_release_revision=1d5ccaa4d0037f2353d698611497ce5aff46a577
 
 usage() {
     cat <<'EOF'
@@ -9,8 +13,8 @@ Omuse — native creative tools for Linux
 Install or update:
   curl -fsSL https://raw.githubusercontent.com/Sugata-Software/Omuse/main/install.sh | bash
 
-This preview builds locally on Arch/Omarchy x86_64. The first build takes time;
-later installs reuse downloaded dependencies and compiled code.
+Omuse builds locally on Arch/Omarchy x86_64 from a tested source revision.
+The first build takes time; later installs reuse downloads and compiled code.
 
 Options (with a pipe, use bash -s -- OPTIONS):
   --prefix DIR          Install under DIR instead of ~/.local
@@ -20,7 +24,7 @@ Options (with a pipe, use bash -s -- OPTIONS):
   --uninstall           Remove Omuse; keep projects, settings and recovery
   --no-deps             Use existing build dependencies; skip pacman
   --no-runtime-assets   Skip Camera RAW / local subject-selection assets
-  --source DIR          Build an existing checkout instead of downloading main
+  --source DIR          Build a development checkout instead of the tested revision
   -h, --help            Show this help
 EOF
 }
@@ -57,7 +61,7 @@ main() {
         python3 "$prefix/opt/omuse/manage.py" "$action" --prefix "$prefix"
         return
     fi
-    [[ $(uname -m) == x86_64 ]] || fail 'The preview installer currently supports Linux x86_64.'
+    [[ $(uname -m) == x86_64 ]] || fail 'The installer currently supports Linux x86_64.'
     if [[ -n $source_dir ]]; then
         [[ -f $source_dir/rust/Cargo.toml && -f $source_dir/scripts/install-app.py ]] || fail '--source must be an Omuse checkout.'
         source_dir=$(cd -- "$source_dir" && pwd)
@@ -67,7 +71,7 @@ main() {
     if ((deps)) && [[ " $ID $ID_LIKE " != *' arch '* && $ID != omarchy ]]; then
         fail 'Automatic setup supports Arch/Omarchy. On another Linux distribution, install the dependencies in rust/README.md and use --no-deps.'
     fi
-    step 'Install Omuse development preview'
+    step 'Install Omuse'
     printf 'Destination: %s\nFirst install: compiles Rust locally; allow time and about 12 GB of free disk space.\n' "$prefix"
     printf 'Includes Camera RAW and local subject tools unless --no-runtime-assets is set.\n'
     if ((deps)); then
@@ -111,20 +115,24 @@ main() {
     trap 'exit 143' TERM
     trap 'printf "\nOmuse installation stopped. Your previous app is preserved.\nLog: %s\n" "$log" >&2' ERR
     if [[ -z $source_dir ]]; then
-        step 'Fetch the current Omuse source preview'
+        step "Fetch tested Omuse source ${omuse_release_revision:0:12}"
         source_dir=$cache/source
         local repository=https://github.com/Sugata-Software/Omuse.git
         if [[ ! -e $source_dir ]]; then
-            git clone --quiet --depth 1 --branch main --single-branch "$repository" "$work/source"
+            git init --quiet "$work/source"
+            git -C "$work/source" remote add origin "$repository"
+            git -C "$work/source" fetch --quiet --depth 1 origin "$omuse_release_revision"
+            git -C "$work/source" checkout --quiet --detach FETCH_HEAD
             printf '%s\n' "$repository" > "$work/source/.git/omuse-installer"
             mv -- "$work/source" "$source_dir"
         else
             [[ -f $source_dir/.git/omuse-installer && ! -L $source_dir ]] || fail "Unrecognized source cache: $source_dir"
             [[ $(git -C "$source_dir" remote get-url origin) == "$repository" ]] || fail 'The source cache has an unexpected origin.'
             [[ -z $(git -C "$source_dir" status --porcelain --untracked-files=normal) ]] || fail "The source cache has local edits. Preserve them before updating: $source_dir"
-            git -C "$source_dir" fetch --quiet --depth 1 origin main
+            git -C "$source_dir" fetch --quiet --depth 1 origin "$omuse_release_revision"
             git -C "$source_dir" checkout --quiet --detach FETCH_HEAD
         fi
+        [[ $(git -C "$source_dir" rev-parse HEAD) == "$omuse_release_revision" ]] || fail 'Downloaded source does not match the tested revision.'
     fi
     local revision toolchain
     revision=$(git -C "$source_dir" rev-parse HEAD)

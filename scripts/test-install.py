@@ -11,6 +11,7 @@ import importlib.util
 import io
 import os
 from pathlib import Path
+import re
 import shlex
 import shutil
 import subprocess
@@ -302,6 +303,10 @@ class BootstrapTests(unittest.TestCase):
         self.base = Path(self.temporary.name)
         self.source = self.base / "source"
         self.source.mkdir()
+        self.published_revision = re.search(
+            r"^readonly omuse_release_revision=([0-9a-f]{40})$",
+            (ROOT / "install.sh").read_text(), re.MULTILINE).group(1)
+        self.release_revision = self.published_revision
         self.prefix = self.base / "installed"
         for relative in ("scripts/install-rust.sh", "scripts/install-app.py", "rust/assets/omuse.png", "rust/assets/omuse.svg", "LICENSE", "rust-toolchain.toml", "rust/Cargo.toml"):
             dest = self.source / relative
@@ -330,14 +335,17 @@ class BootstrapTests(unittest.TestCase):
     def bootstrap(self, *args, use_cache=False):
         source_args = [] if use_cache else ["--source", str(self.source)]
         return subprocess.run(["bash", "-s", "--", "--no-deps", "--no-runtime-assets", *source_args, "--prefix", str(self.prefix), *args],
-            input=(ROOT / "install.sh").read_text(), text=True, capture_output=True, env=self.env)
+            input=(ROOT / "install.sh").read_text().replace(self.published_revision, self.release_revision),
+            text=True, capture_output=True, env=self.env)
 
     def prepare_git_fixture(self):
         real_git = shutil.which("git")
         subprocess.run([real_git, "init", "--quiet", "-b", "main", str(self.source)], check=True)
         subprocess.run([real_git, "-C", str(self.source), "add", "."], check=True)
         subprocess.run([real_git, "-C", str(self.source), "-c", "user.name=Installer Test", "-c", "user.email=test@example.invalid", "commit", "--quiet", "-m", "Synthetic source"], check=True)
-        # Exercise real shallow clone/fetch/checkout locally, without network.
+        self.release_revision = subprocess.check_output(
+            [real_git, "-C", str(self.source), "rev-parse", "HEAD"], text=True).strip()
+        # Exercise real shallow fetch/checkout locally, without network.
         (self.mock / "git").write_text(
             "#!/usr/bin/env python3\nimport subprocess,sys\n"
             f"real_git={real_git!r}\nlocal_url={self.source.as_uri()!r}\n"
@@ -375,6 +383,99 @@ class BootstrapTests(unittest.TestCase):
         self.assertIn("source cache has local edits", result.stderr + result.stdout)
         self.assertIn("user's local edit", manifest.read_text())
         self.assertEqual(os.readlink(self.prefix / "opt/omuse/current"), current)
+
+    def test_newer_main_does_not_replace_the_tested_source_revision(self):
+        self.prepare_git_fixture()
+        real_git = shutil.which("git")
+        manifest = self.source / "rust/Cargo.toml"
+        manifest.write_text(manifest.read_text() + "\n# unqualified main change\n")
+        subprocess.run([real_git, "-C", str(self.source), "add", "."], check=True)
+        subprocess.run([real_git, "-C", str(self.source), "-c", "user.name=Installer Test",
+                        "-c", "user.email=test@example.invalid", "commit", "--quiet", "-m", "Unqualified change"], check=True)
+        for _ in range(2):
+            result = self.bootstrap(use_cache=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            checkout = self.base / "cache/omuse/installer/source"
+            self.assertEqual(subprocess.check_output(
+                [real_git, "-C", str(checkout), "rev-parse", "HEAD"], text=True).strip(), self.release_revision)
+            self.assertNotIn("unqualified main change", (checkout / "rust/Cargo.toml").read_text())
+            receipt = (self.prefix / "opt/omuse/current/SOURCE-REVISION").read_text()
+            self.assertIn(f"source_revision={self.release_revision}\n", receipt)
+
+    def test_unavailable_source_revision_preserves_the_installed_app(self):
+        self.prepare_git_fixture()
+        first = self.bootstrap(use_cache=True)
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        current = os.readlink(self.prefix / "opt/omuse/current")
+        self.release_revision = "0" * 40
+        result = self.bootstrap(use_cache=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(os.readlink(self.prefix / "opt/omuse/current"), current)
+        self.assertEqual(list((self.base / "cache/omuse/installer").glob("run.*")), [])
+
+    def commit_fixture_update(self, body):
+        real_git = shutil.which("git")
+        (self.source / "scripts/build-rust.sh").write_text(body)
+        subprocess.run([real_git, "-C", str(self.source), "add", "."], check=True)
+        subprocess.run([real_git, "-C", str(self.source), "-c", "user.name=Installer Test",
+                        "-c", "user.email=test@example.invalid", "commit", "--quiet", "-m", "Next tested version"], check=True)
+        self.release_revision = subprocess.check_output(
+            [real_git, "-C", str(self.source), "rev-parse", "HEAD"], text=True).strip()
+
+    def installed_state(self):
+        state = {}
+        for path in self.prefix.rglob("*"):
+            relative = str(path.relative_to(self.prefix))
+            if path.is_symlink():
+                state[relative] = ("link", os.readlink(path))
+            elif path.is_file():
+                state[relative] = ("file", hashlib.sha256(path.read_bytes()).hexdigest(), path.stat().st_mode & 0o777)
+        return state
+
+    def test_cached_upgrade_advances_to_new_tested_revision_and_retains_rollback(self):
+        self.prepare_git_fixture()
+        first_revision = self.release_revision
+        first = self.bootstrap(use_cache=True)
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        first_generation = (self.prefix / "opt/omuse/current").resolve()
+        self.commit_fixture_update((self.source / "scripts/build-rust.sh").read_text().replace(
+            "synthetic Omuse", "updated Omuse"))
+        result = self.bootstrap(use_cache=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        checkout = self.base / "cache/omuse/installer/source"
+        self.assertEqual(subprocess.check_output(
+            [shutil.which("git"), "-C", str(checkout), "rev-parse", "HEAD"], text=True).strip(), self.release_revision)
+        app = self.prefix / "opt/omuse"
+        self.assertIn(f"source_revision={self.release_revision}\n", (app / "current/SOURCE-REVISION").read_text())
+        self.assertEqual((app / "previous").resolve(), first_generation)
+        self.assertIn(f"source_revision={first_revision}\n", (app / "previous/SOURCE-REVISION").read_text())
+        self.assertEqual(subprocess.check_output([str(self.prefix / "bin/omuse")], text=True).strip(), "updated Omuse")
+        rollback = self.bootstrap("--rollback")
+        self.assertEqual(rollback.returncode, 0, rollback.stdout + rollback.stderr)
+        self.assertEqual(subprocess.check_output([str(self.prefix / "bin/omuse")], text=True).strip(), "synthetic Omuse")
+
+    def assert_failed_cached_upgrade_preserves_install(self, *, self_test):
+        self.prepare_git_fixture()
+        first = self.bootstrap(use_cache=True)
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        before = self.installed_state()
+        body = '#!/bin/bash\nset -eu\nexit 42\n'
+        if self_test:
+            body = ('#!/bin/bash\nset -eu\nmkdir -p "$CARGO_TARGET_DIR/release"\n'
+                    'printf \'#!/bin/sh\\nexit 42\\n\' > "$CARGO_TARGET_DIR/release/omuse"\n'
+                    'chmod +x "$CARGO_TARGET_DIR/release/omuse"\n')
+        self.commit_fixture_update(body)
+        result = self.bootstrap(use_cache=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.installed_state(), before)
+        self.assertEqual(subprocess.check_output([str(self.prefix / "bin/omuse")], text=True).strip(), "synthetic Omuse")
+        self.assertEqual(list((self.base / "cache/omuse/installer").glob("run.*")), [])
+
+    def test_cached_upgrade_build_failure_preserves_complete_install(self):
+        self.assert_failed_cached_upgrade_preserves_install(self_test=False)
+
+    def test_cached_upgrade_self_test_failure_preserves_complete_install(self):
+        self.assert_failed_cached_upgrade_preserves_install(self_test=True)
 
     def test_piped_install_and_uninstall_from_unrelated_directory(self):
         result = self.bootstrap()

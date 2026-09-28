@@ -1,11 +1,11 @@
 name: Bug report
-description: Report a reproducible problem in the Omuse preview.
+description: Report a reproducible problem in Omuse.
 title: "[Bug] "
 body:
   - type: markdown
     attributes:
       value: |
-        Omuse is a development preview. Use copies of important artwork.
+        Include the installed source revision and use a copy of your artwork to reproduce the problem.
         This issue is public: do not include credentials, private artwork or provider transcripts.
         Do not submit security exploit details through this form.
   - type: input

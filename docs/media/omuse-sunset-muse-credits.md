@@ -21,7 +21,7 @@ the MP4 metadata.
 ## Photographs
 
 The original photographs are retained unmodified. Omuse-generated edits are
-used to demonstrate preview workflows. No photographer or depicted brand is
+used to demonstrate Omuse workflows. No photographer or depicted brand is
 presented as endorsing Omuse.
 
 - **Mountain lake:** Willian Justen de Vasconcellos,

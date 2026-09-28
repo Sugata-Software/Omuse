@@ -1,20 +1,20 @@
-# Public preview media
+# Public media
 
 ## Sunset Muse promo
 
-`omuse-sunset-muse.mp4` is the two-minute public preview film featured in the
+`omuse-sunset-muse.mp4` is the two-minute Omuse promo film featured in the
 project README. It is a web-ready, fast-start MP4 with H.264 video and stereo
 AAC audio. `omuse-sunset-muse-poster.jpg` is a frame decoded from the finished
 film at 61 seconds; it is not a separate mockup.
 
-The film presents selected preview workflows. It is promotional media rather
+The film presents selected Omuse workflows. It is promotional media rather
 than release-qualification evidence. See the
 [complete media credits and licence record](omuse-sunset-muse-credits.md) for
 the music, photographs, modifications and file hashes.
 
 ## Photo editor capture
 
-`omuse-photo-editor.png` is an actual capture of the native Omuse preview on
+`omuse-photo-editor.png` is an actual capture of the native Omuse app on
 Omarchy, showing a retained source photograph with live exposure and colour
 balance adjustment layers. The photograph was edited through Omuse's Rust
 engine. This is an application capture, not a UI mockup.
