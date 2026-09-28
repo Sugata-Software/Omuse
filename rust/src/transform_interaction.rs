@@ -311,6 +311,21 @@ pub fn commit_drag(
     original_box: LayerPlacement,
     draft: LayerPlacement,
 ) -> bool {
+    let contains_group = ids.iter().any(|id| {
+        editor
+            .document
+            .find_layer(id)
+            .is_some_and(|layer| layer.is_group())
+    });
+    if contains_group
+        && draft.width == original_box.width
+        && draft.height == original_box.height
+        && draft.rotation == original_box.rotation
+        && draft.flip_x == original_box.flip_x
+        && draft.flip_y == original_box.flip_y
+    {
+        return editor.move_layers(ids, draft.x - original_box.x, draft.y - original_box.y);
+    }
     if ids.len() == 1 {
         editor.set_layer_placement(&ids[0], draft)
     } else {
@@ -659,6 +674,99 @@ mod tests {
         };
         assert!(commit_drag(&mut editor, &ids, bounds, draft));
         assert_eq!(editor.undo_depth(), depth + 1);
+    }
+    #[test]
+    fn moving_a_selected_group_moves_descendants_and_linked_masks_as_one_step() {
+        let mut editor = Editor::new(Document::new(20, 20));
+        let child = editor.active_layer.clone();
+        assert!(editor.add_mask(&child, true));
+        let child_before = editor.layer_placement(&child).unwrap();
+        let mask_before = editor.mask_placement(&child).unwrap();
+        let group = editor
+            .group_layers(std::slice::from_ref(&child), "Group")
+            .unwrap();
+        let ids = vec![group];
+        let bounds = selection_bounds(&editor, &ids).unwrap();
+        let depth = editor.undo_depth();
+        let draft = LayerPlacement {
+            x: bounds.x + 5.,
+            y: bounds.y + 3.,
+            ..bounds
+        };
+
+        assert!(commit_drag(&mut editor, &ids, bounds, draft));
+        let child_after = editor.layer_placement(&child).unwrap();
+        let mask_after = editor.mask_placement(&child).unwrap();
+        assert_eq!(
+            (child_after.x, child_after.y),
+            (child_before.x + 5., child_before.y + 3.)
+        );
+        assert_eq!(
+            (mask_after.x, mask_after.y),
+            (mask_before.x + 5., mask_before.y + 3.)
+        );
+        assert_eq!(editor.undo_depth(), depth + 1);
+        assert!(editor.undo());
+        assert_eq!(editor.layer_placement(&child), Some(child_before));
+        assert_eq!(editor.mask_placement(&child), Some(mask_before));
+    }
+    #[test]
+    fn floating_selection_translation_keeps_its_existing_commit_and_cancel_path() {
+        let mut editor = Editor::new(Document::new(8, 8));
+        let source = editor.active_layer.clone();
+        editor
+            .document
+            .find_layer_mut(&source)
+            .unwrap()
+            .image
+            .as_mut()
+            .unwrap()
+            .put_pixel(2, 2, image::Rgba([200, 30, 10, 255]));
+        editor.select_rectangle(2., 2., 1., 1.);
+        let original = editor
+            .document
+            .find_layer(&source)
+            .unwrap()
+            .image
+            .clone();
+
+        let floating = editor.begin_floating_selection().unwrap().unwrap();
+        let placement = editor.layer_placement(&floating).unwrap();
+        assert!(commit_drag(
+            &mut editor,
+            std::slice::from_ref(&floating),
+            placement,
+            LayerPlacement {
+                x: placement.x + 2.,
+                ..placement
+            },
+        ));
+        assert!(editor.cancel_floating_selection());
+        assert_eq!(editor.document.layers.len(), 1);
+        assert_eq!(editor.document.find_layer(&source).unwrap().image, original);
+
+        let floating = editor.begin_floating_selection().unwrap().unwrap();
+        let placement = editor.layer_placement(&floating).unwrap();
+        assert!(commit_drag(
+            &mut editor,
+            std::slice::from_ref(&floating),
+            placement,
+            LayerPlacement {
+                x: placement.x + 2.,
+                ..placement
+            },
+        ));
+        assert!(editor.commit_floating_selection().unwrap());
+        assert_eq!(editor.undo_depth(), 1);
+        let image = editor
+            .document
+            .find_layer(&source)
+            .unwrap()
+            .image
+            .as_ref()
+            .unwrap();
+        assert_eq!(image.get_pixel(2, 2).0, [0; 4]);
+        assert_eq!(image.get_pixel(4, 2).0, [200, 30, 10, 255]);
     }
     #[test]
     fn additive_and_toggle_selection_keep_a_primary() {

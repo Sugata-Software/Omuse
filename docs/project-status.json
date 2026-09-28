@@ -853,7 +853,7 @@
           "id": "linux-canvas-interaction",
           "name": "Canvas navigation and editing preferences",
           "status": "implemented-needs-qualification",
-          "current": "The OmaPhoto comparison pass adds middle-button panning, fixes frontmost Auto Select when an already-selected layer overlaps, persists guide auto-show, and loads installed font names only when the text dialog first needs them. Eraser now shares screen-space brush smoothing and release catch-up.",
+          "current": "The OmaPhoto comparison pass adds middle-button panning, fixes frontmost Auto Select when an already-selected layer overlaps, makes selected-group moves preserve descendants and linked masks in one Undo step, persists guide auto-show, and loads installed font names on first text-dialog use. Eraser now shares screen-space brush smoothing and release catch-up.",
           "boundary": "Candidate regressions are pending. Foreground hardware, profile restart and unusually large font collections still need acceptance. Pencil intentionally remains unsmoothed.",
           "evidence": [
             "docs/omaphoto-comparison.md",
@@ -863,7 +863,8 @@
             "rust/src/ui.rs",
             "rust/src/editor.rs",
             "rust/src/preferences.rs",
-            "rust/src/shortcuts.rs"
+            "rust/src/shortcuts.rs",
+            "rust/src/transform_interaction.rs"
           ]
         },
         {
