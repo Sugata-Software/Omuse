@@ -2,8 +2,9 @@
 
 The laptop's normal **Omuse** command and desktop entry now open the tested
 Rust/GPUI application. The separate **Omuse Preview** launcher and the older
-Compositor menu entries were archived. Their application data and the running
-older session were preserved.
+Compositor menu entries were archived. Their application data was preserved.
+The unchanged older window was closed through a normal Wayland close request;
+the new main Omuse window remains open.
 
 ## Installed identity and rollback
 
