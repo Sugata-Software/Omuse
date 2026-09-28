@@ -723,12 +723,7 @@ mod tests {
             .unwrap()
             .put_pixel(2, 2, image::Rgba([200, 30, 10, 255]));
         editor.select_rectangle(2., 2., 1., 1.);
-        let original = editor
-            .document
-            .find_layer(&source)
-            .unwrap()
-            .image
-            .clone();
+        let original = editor.document.find_layer(&source).unwrap().image.clone();
 
         let floating = editor.begin_floating_selection().unwrap().unwrap();
         let placement = editor.layer_placement(&floating).unwrap();
