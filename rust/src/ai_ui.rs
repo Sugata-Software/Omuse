@@ -493,8 +493,17 @@ impl EditorView {
     pub(super) fn ai_inspector(&self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let t = cx.omarchy().clone();
         let ai_busy = self.ai_busy();
+        // A completed proposal gets its own scroll state and starts at the top.
+        // Starter controls should not push the result below the visible panel.
+        let body_id: SharedString = if self.ai.connections_visible {
+            "ai-connections-content".into()
+        } else if let Some(proposal) = &self.ai.result {
+            format!("ai-review-{}", proposal.id).into()
+        } else {
+            "ai-conversation".into()
+        };
         let mut body = div()
-            .id("ai-conversation")
+            .id(body_id)
             .flex_1()
             .min_h_0()
             .overflow_y_scroll()
@@ -502,7 +511,7 @@ impl EditorView {
             .flex_col()
             .gap_3()
             .p_3();
-        if !self.ai.connections_visible {
+        if !self.ai.connections_visible && self.ai.result.is_none() {
             body = body.child(self.ai_task_controls(window, cx));
         }
         if self.ai.connections_visible {
@@ -679,12 +688,19 @@ impl EditorView {
                 .border_1()
                 .border_color(t.accent.opacity(0.5))
                 .rounded(px(6.))
-                .child(div().font_weight(FontWeight::SEMIBOLD).child(format!(
-                    "Review group {} · variation {}/{}",
-                    short_result_group(&proposal.group_id),
-                    proposal.variation_index,
-                    proposal.variation_total
-                )))
+                .child(
+                    div()
+                        .debug_selector(|| "ai-review-title".into())
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .child(if proposal.variation_total > 1 {
+                            format!(
+                                "Review your result · {} of {}",
+                                proposal.variation_index, proposal.variation_total
+                            )
+                        } else {
+                            "Review your result".into()
+                        }),
+                )
                 .child(label(proposal.summary.clone(), cx));
             let plan_changes = proposal
                 .plan_json
@@ -4942,6 +4958,43 @@ mod tests {
         view.ai.history_root = root.join("history");
         view.ai.history = vec![stored.clone()];
         stored
+    }
+
+    #[gpui_kit::test]
+    fn completed_review_is_visible_before_starters_at_minimum_window(cx: &mut TestAppContext) {
+        cx.update(crate::init_test_theme);
+        let temporary = tempfile::tempdir().unwrap();
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            let mut view = EditorView::new(None, window, cx);
+            view.recovery = Recovery::at(temporary.path().join("recovery"));
+            view.dialog = Dialog::None;
+            view.editor = Editor::new(Document::new(40, 30));
+            view.inspector_tab = studio_ui::InspectorTab::Assistant;
+            view.inspector_visible = true;
+            view.ai.checking = true;
+            view.refresh(cx);
+            view
+        });
+        cx.simulate_resize(size(px(800.), px(600.)));
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        assert!(cx.debug_bounds("ai-starter-0").is_some());
+        view.update_in(cx, |view, _, cx| {
+            let stored = retained_history_fixture(view, temporary.path());
+            view.select_ai_history(&stored.id, cx);
+        });
+        cx.run_until_parked();
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        let title = cx.debug_bounds("ai-review-title").expect("review title");
+        let inspector = cx.debug_bounds("ai-inspector").unwrap();
+        let prompt = cx.debug_bounds("ai-prompt").unwrap();
+        assert!(title.origin.y >= inspector.origin.y);
+        assert!(title.bottom_right().y < prompt.origin.y);
+        assert!(cx.debug_bounds("ai-starter-0").is_none());
+
+        view.update_in(cx, |view, _, cx| view.clear_ai_result(cx));
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        assert!(cx.debug_bounds("ai-review-title").is_none());
+        assert!(cx.debug_bounds("ai-starter-0").is_some());
     }
 
     #[gpui_kit::test]
