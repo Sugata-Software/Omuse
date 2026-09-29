@@ -20,3 +20,15 @@ or release readiness changes. The user uses it as the overview of Omuse.
 
 See `docs/project-guide.md` for the update workflow and
 `docs/public-release-readiness.md` for the public-release gates.
+
+# Release notes and upstream comparison
+
+- Maintain `CHANGELOG.md` for user-visible implemented changes. Planned work
+  belongs in the project guide, not among shipped features.
+- Keep numbered notes under `docs/releases/` tied to their exact tested public
+  runtime and follow `docs/releases/README.md`. Never move published tags or
+  silently replace a release's notes or source identity.
+- The OmaPhoto watch covers the whole repository, not just release tags.
+  `docs/omaphoto-watch.json` records the reviewed baseline. Separate proposed
+  pull requests, merged unreleased code and published releases, and compare
+  actual source/tests before updating `docs/omaphoto-comparison.md`.

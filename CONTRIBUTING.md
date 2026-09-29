@@ -20,6 +20,9 @@ small independent reference suite retained for compatibility tests.
   `scripts/build-rust.sh` and `scripts/test-rust.sh`.
 - Use a branch and submit a focused pull request to `main`. Describe the user
   problem, resulting behaviour, validation and any remaining limitation.
+- Add user-visible changes to **Unreleased** in [CHANGELOG.md](CHANGELOG.md).
+  Follow the [release policy](docs/releases/README.md) when preparing a numbered
+  release; features, tests and published downloads must have separate evidence.
 
 Tests create disposable projects and separate XDG directories. Native desktop,
 tablet and display checks are separate from headless tests. Live provider tests

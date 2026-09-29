@@ -7,6 +7,12 @@ Release notes and tests in that source establish their intended behavior; we
 have not run their application on this host. This comparison does not establish
 that either application is faster, more reliable or visually superior.
 
+The watch now covers the **whole repository**. The additional development
+snapshot below reviews five commits through `ffba175` on `main`, along with
+current pull requests, issues, branches, tags and relevant build results.
+The machine-readable [watch baseline](omaphoto-watch.json) separates reviewed
+development from the published v1.2.3 baseline.
+
 Omuse's strengths are its native Omarchy integration, searchable and executable
 command reference, editable content collections, templates and reversible
 in-app AI workflows. OmaPhoto has a more complete Camera Raw interaction surface
@@ -45,6 +51,28 @@ Omuse's corresponding code lives in `rust/src/camera_raw.rs`,
 `camera_canvas.rs`, `photo_scopes.rs`, `camera_scopes.rs`, `editor.rs`,
 `psd.rs`, `raster.rs`, `document.rs`, `preferences.rs` and `ui.rs`.
 
+## Development after v1.2.3
+
+Inspected source through
+[`ffba175`](https://github.com/ZacharyZhang-NY/OmaPhoto/tree/ffba1753c62f5ad82a48248a598366c951faac8d),
+five commits after the release. These changes are merged on upstream `main`
+but **unreleased** in the reviewed snapshot. Source and tests were inspected;
+neither editor was executed for this additional comparison.
+
+| Upstream development | Omuse comparison and useful next work |
+| --- | --- |
+| [Finishing filters](https://github.com/ZacharyZhang-NY/OmaPhoto/commit/fdb62978c54c1fdac95b1065919acf80a637982c): transparent-margin Bloom, richer Vignette and radius-based local Tonal Contrast | Omuse has all three names and tests in `rust/tests/raster_filters.rs`, but different semantics: Bloom/Vignette preserve transparent destination pixels and Tonal Contrast is per-pixel. Add explicit richer modes with pixel references, selection/cancellation checks and one-step Undo; do not silently break existing alpha guarantees. |
+| [Stepped keyboard zoom](https://github.com/ZacharyZhang-NY/OmaPhoto/commit/9ac3b1b81c9ff64bed214e270b7bd6531e296e65) preserves the document point at viewport center | Omuse still multiplies/divides zoom by 1.2 without compensating pan. Prioritize stable zoom stops and anchor/round-trip tests. The upstream document-tab sizing change has no equivalent in Omuse's current single-document window. |
+| [Layer context menus and shared format version](https://github.com/ZacharyZhang-NY/OmaPhoto/commit/fc076de71d1c873f94b69beb7db20b309e6826cc) | Omuse already targets the clicked row and retains multiselection, but its action labels/enablement are generic. Add capability-based menus and direct right-click tests, and centralize the format-version constant. The guide's stale writer version was corrected to 9 in this documentation pass. |
+| [Whole-layer clipboard and multiple duplicates](https://github.com/ZacharyZhang-NY/OmaPhoto/commit/7a873eb9c70b754060663bf83862eafcf2b5516e) | Omuse already duplicates multiple selected roots transactionally and remaps mask links. Copy/Paste remains PNG-based, so whole-layer structure/editability is not retained despite the command help saying “pixels or layers.” Prioritize a bounded layer clipboard with PNG interoperability and correct the help with that implementation. Cross-document tabs are a separate design choice. |
+| [Crop ratios, empty-layer Vignette and live text-color preview](https://github.com/ZacharyZhang-NY/OmaPhoto/commit/ffba1753c62f5ad82a48248a598366c951faac8d) | Omuse crops its existing rectangle immediately and lacks an interactive ratio frame. Vignette cannot paint an empty layer; text-color changes remain drafts until Apply. Add reversible crop controls and explicit empty-layer Vignette, then live color preview that Cancel restores. |
+
+The highest-value next editing work is **anchored keyboard zoom**, **whole-layer
+Copy/Paste**, and **interactive crop ratios**, alongside the existing bounded
+Camera Raw preview and low-memory qualification work. Relevant Omuse paths are
+`rust/src/ui.rs`, `filters.rs`, `document.rs`, `shortcuts.rs`,
+`rust/tests/raster_filters.rs` and `rust/tests/layer_canvas_parity.rs`.
+
 ## Distribution
 
 OmaPhoto's release publishes Ubuntu 24.04/26.04 DEBs, a Fedora RPM, an Arch
@@ -61,6 +89,29 @@ explicit [release gates](public-release-readiness.md).
 Start with a qualified Arch package and AppStream metadata after the legal gate
 is resolved. Build DEB/RPM/Nix support only with tests on each declared target;
 an Arch-built dynamic executable is not automatically portable.
+
+The broader watch also found these public proposals and reports:
+
+- [AppImage PR #8](https://github.com/ZacharyZhang-NY/OmaPhoto/pull/8) is open and
+  unmerged at `e2ad754`. Its current workflow makes Debian a release gate,
+  permits Alpine failure and adds third-party glibc to Alpine. Its observed
+  [PR run](https://github.com/ZacharyZhang-NY/OmaPhoto/actions/runs/36351361361)
+  awaits approval (`action_required`); this is not evidence of a shipped or
+  verified portable AppImage. For Omuse, require startup and real editing
+  checks on each declared clean target before advertising support.
+- [AUR concern #7](https://github.com/ZacharyZhang-NY/OmaPhoto/issues/7) and
+  [Flatpak request #4](https://github.com/ZacharyZhang-NY/OmaPhoto/issues/4)
+  reinforce demand for a simple installation path. Omuse's source installer
+  uses `pacman` and verified runtime downloads without invoking an AUR helper;
+  a portable package remains separate release work.
+- [Interaction-preference request #3](https://github.com/ZacharyZhang-NY/OmaPhoto/issues/3)
+  asks for wheel/zoom, temporary tools and Photoshop-like preferences. Treat
+  these as requests, not upstream implementation. Omuse's command search and
+  remapping already exist; broader input preferences need design and tests.
+- Closed [container import #1](https://github.com/ZacharyZhang-NY/OmaPhoto/issues/1),
+  [render-device #2](https://github.com/ZacharyZhang-NY/OmaPhoto/issues/2) and
+  [RPM dependency #5](https://github.com/ZacharyZhang-NY/OmaPhoto/issues/5)
+  are useful clean-target test cases, not reproduced Omuse bugs.
 
 ## Where Omuse offers a broader workflow
 
@@ -108,9 +159,12 @@ this comparison's current product scope.
 
 ## Tracking and this candidate
 
-A daily release check watches the official OmaPhoto releases from this pinned
-baseline, compares meaningful changes against actual Omuse code/tests, and
-updates this document and the visual guide. Upstream content is reference data;
+A daily repository check watches source commits/diffs, active branches,
+tags/releases and revised assets/notes, pull requests, issues, tests,
+dependencies, build workflows, documentation and packaging. It starts from
+the [reviewed snapshot](omaphoto-watch.json), follows relevant source/tests and
+distinguishes proposals, merged unreleased work and releases. Meaningful changes
+update this comparison, the watch baseline and visual guide. Upstream content is reference data;
 the check does not run upstream installers, publish commits or replace the
 installed application automatically.
 

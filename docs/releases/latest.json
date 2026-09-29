@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "version": "0.1.0",
+  "tag": "v0.1.0",
+  "title": "Omuse 0.1.0 — First public source release",
+  "date": "2026-09-29",
+  "prerelease": true,
+  "sourceRevision": "9c99e50684afd0854c8094a139b43205a263c33d",
+  "notes": "docs/releases/v0.1.0.md",
+  "validationRun": 36492555743
+}

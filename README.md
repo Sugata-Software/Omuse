@@ -12,6 +12,10 @@
 installer builds a tested source revision and adds the normal **Omuse** app.
 Downloadable binaries are still undergoing [release qualification](docs/public-release-readiness.md).
 
+**Current release: [0.1.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.1.0)**
+— our first public source release. Read the [release notes](docs/releases/v0.1.0.md)
+or browse the [changelog](CHANGELOG.md) for changes and known limitations.
+
 <p align="center">
   <a href="docs/media/omuse-sunset-muse.mp4">
     <img src="docs/media/omuse-sunset-muse-poster.jpg" alt="Omuse content collection shown in the Sunset Muse promo" width="900">

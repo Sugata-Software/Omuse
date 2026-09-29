@@ -1,0 +1,68 @@
+name: Omuse source release notes
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/releases/**'
+      - 'scripts/release-notes.py'
+      - 'scripts/test-release-notes.py'
+      - '.github/workflows/release-notes.yml'
+      - 'rust/Cargo.toml'
+      - 'install.sh'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/releases/**'
+      - 'scripts/release-notes.py'
+      - 'scripts/test-release-notes.py'
+      - '.github/workflows/release-notes.yml'
+      - 'rust/Cargo.toml'
+      - 'install.sh'
+
+permissions:
+  contents: read
+
+# Serialize main publications without cancelling a request whose outcome could
+# already be committed by GitHub. Exact reruns verify and leave it unchanged.
+concurrency:
+  group: omuse-source-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Validate reviewed source release declaration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    outputs:
+      publish: ${{ steps.intent.outputs.publish }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Check source pin, package version and release notes offline
+        run: python3 scripts/release-notes.py --check
+      - name: Test fail-closed publication and idempotence
+        run: python3 scripts/test-release-notes.py
+      - name: Determine whether this reviewed push requests publication
+        id: intent
+        run: python3 scripts/release-notes.py --publication-requested >> "$GITHUB_OUTPUT"
+
+  publish:
+    name: Publish the declared source release once
+    needs: check
+    if: needs.check.outputs.publish == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'Sugata-Software/Omuse'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Verify public source and passing CI, then publish immutable notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/release-notes.py --publish

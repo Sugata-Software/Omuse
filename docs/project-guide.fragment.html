@@ -200,7 +200,7 @@
   "snapshotDate": "2026-09-29",
   "project": "Omuse",
   "releaseScope": "Native Rust/GPUI application for Arch/Omarchy Linux x86_64",
-  "releaseState": "Source installation available; downloadable binary qualification remains open",
+  "releaseState": "Omuse 0.1.0 source release; downloadable binary qualification remains open",
   "visualizationMirror": "omuse-project-guide.html",
   "statusDefinitions": [
     {
@@ -230,6 +230,12 @@
     }
   ],
   "releaseSnapshot": [
+    {
+      "label": "Numbered source release",
+      "value": "Omuse 0.1.0",
+      "detail": "First public source release for Arch/Omarchy x86_64, tied to tested runtime 9c99e50. Grouped release notes, a changelog and publication checks keep version, installer pin and evidence aligned. GitHub marks this early source release as a pre-release; binaries and stable-release gates remain open.",
+      "status": "locally-tested"
+    },
     {
       "label": "Current regression suite",
       "value": "808 tests passed",
@@ -1240,7 +1246,8 @@
             "docs/large-photo-history-qualification.md",
             "docs/photo-release-qualification.md",
             "docs/photo-editing-hardening.md",
-            "docs/omaphoto-comparison.md"
+            "docs/omaphoto-comparison.md",
+            "docs/releases/v0.1.0.md"
           ],
           "modules": [
             "scripts/test-rust.sh",
@@ -1328,12 +1335,13 @@
         },
         {
           "id": "release-competitor-comparison",
-          "name": "OmaPhoto release comparison",
+          "name": "OmaPhoto whole-repository comparison",
           "status": "locally-tested",
-          "current": "OmaPhoto v1.2.3 at 96ce546 was compared with actual Omuse code and tests; a maintained matrix records editing, interaction, interchange and distribution gaps. A daily release check is configured in the project thread. The resulting fixes passed 808 tests and are installed as the main application; the maintained comparison records the exact source and native evidence.",
-          "boundary": "Neither application has been benchmarked against the other on this hardware. OmaPhoto currently ships broader native packages. The scheduled comparison does not publish commits, install competitors or replace the current application.",
+          "current": "The daily watch covers commits, active branches, tags/releases, PRs, issues, source/tests, build workflows, dependencies, docs and packaging. In addition to v1.2.3, five merged but unreleased commits through ffba175 were reviewed. A checked-in snapshot records exact refs and release-note hashes. New priorities include anchored keyboard zoom, whole-layer Copy/Paste and crop ratios; AppImage/Flatpak remain upstream proposals.",
+          "boundary": "The additional source/tests were inspected, not executed. Existing 808-test/native evidence belongs to runtime 9c99e50; neither app has been benchmarked against the other. The scheduled watch does not publish or install software. Open PRs and user reports do not prove released behavior.",
           "evidence": [
             "docs/omaphoto-comparison.md",
+            "docs/omaphoto-watch.json",
             "docs/rust-performance-roadmap.md",
             "docs/public-release-readiness.md"
           ],

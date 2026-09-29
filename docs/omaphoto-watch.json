@@ -1,0 +1,268 @@
+{
+  "schemaVersion": 1,
+  "repository": "https://github.com/ZacharyZhang-NY/OmaPhoto",
+  "reviewedAt": "2026-09-29",
+  "defaultBranch": "main",
+  "reviewedHead": "ffba1753c62f5ad82a48248a598366c951faac8d",
+  "reviewStatus": "Source, tests and public metadata reviewed; upstream code was not executed",
+  "releaseBaseline": {
+    "tag": "v1.2.3",
+    "commit": "96ce546508a920e10f2747ad3907da6eb87f4700"
+  },
+  "branches": [
+    {
+      "name": "main",
+      "sha": "ffba1753c62f5ad82a48248a598366c951faac8d"
+    }
+  ],
+  "tags": [
+    {
+      "ref": "refs/tags/v1.0.0",
+      "objectSha": "20f56cd7ba8eca8ef946bdff327277386cbb20d3",
+      "objectType": "tag"
+    },
+    {
+      "ref": "refs/tags/v1.0.1",
+      "objectSha": "2af4616d17b18a269b25c0e3d191e84c9f5ca2fe",
+      "objectType": "tag"
+    },
+    {
+      "ref": "refs/tags/v1.2.3",
+      "objectSha": "5de746dc828227df50f1998790c630a530d075bf",
+      "objectType": "tag"
+    }
+  ],
+  "releases": [
+    {
+      "tag": "v1.2.3",
+      "id": 398286844,
+      "publishedAt": "2026-09-28T13:39:34Z",
+      "updatedAt": "2026-09-28T13:41:47Z",
+      "prerelease": false,
+      "notesSha256": "416c896c9150379941c1158ae417bd24fabbbac882914e9288a5e60693e4a13a",
+      "assets": [
+        {
+          "name": "omaphoto-noble_amd64.deb",
+          "size": 174831920,
+          "updatedAt": "2026-09-28T13:39:33Z",
+          "digest": "sha256:9648439e2945937d5083e182282fb4722288168a6a16c3419d4e5f17889dae99"
+        },
+        {
+          "name": "omaphoto-resolute_amd64.deb",
+          "size": 174970768,
+          "updatedAt": "2026-09-28T13:39:33Z",
+          "digest": "sha256:b46b1c1ed42641f3028bb6bc8f332b2b51d342b709662dc710e74837edcfa3ef"
+        },
+        {
+          "name": "omaphoto-x86_64.pkg.tar.zst",
+          "size": 173906085,
+          "updatedAt": "2026-09-28T13:39:33Z",
+          "digest": "sha256:ac6369f2a0f136b3525ff269cfcc271a3077def73c4cd5222a230d39361befd0"
+        },
+        {
+          "name": "omaphoto.x86_64.rpm",
+          "size": 173552172,
+          "updatedAt": "2026-09-28T13:39:32Z",
+          "digest": "sha256:bd6f3ec9bf3a55de635aceb292ebb8ad0059780aee11f230602f343ea82be76d"
+        },
+        {
+          "name": "SHA256SUMS",
+          "size": 365,
+          "updatedAt": "2026-09-28T13:39:28Z",
+          "digest": "sha256:ac7b8333a101da6a6389eada639b5b3f8501d0ef5d01f2c282ce59932165316a"
+        }
+      ]
+    },
+    {
+      "tag": "v1.0.1",
+      "id": 397352094,
+      "publishedAt": "2026-09-26T18:39:26Z",
+      "updatedAt": "2026-09-26T18:39:26Z",
+      "prerelease": false,
+      "notesSha256": "80442871b69fe6d034cad4be13e2b37d783d38332d2e85c1d3cbcb856bb8e14b",
+      "assets": [
+        {
+          "name": "omaphoto-noble_amd64.deb",
+          "size": 174525112,
+          "updatedAt": "2026-09-26T18:39:22Z",
+          "digest": "sha256:af082540b3ab4c09ffd0fa65b1b2d32981d7712cff260f8521108940341ec150"
+        },
+        {
+          "name": "omaphoto-resolute_amd64.deb",
+          "size": 174617314,
+          "updatedAt": "2026-09-26T18:39:26Z",
+          "digest": "sha256:f1c8486fbfe8bd61671daa23d949885aa3a08a83645a8681730526132418b5c6"
+        },
+        {
+          "name": "omaphoto-x86_64.pkg.tar.zst",
+          "size": 173669634,
+          "updatedAt": "2026-09-26T18:39:22Z",
+          "digest": "sha256:201b523af922f97a4233c180d0f29ef07975237dac70c26dc51d7b1a14903fc3"
+        },
+        {
+          "name": "omaphoto.x86_64.rpm",
+          "size": 173343476,
+          "updatedAt": "2026-09-26T18:39:21Z",
+          "digest": "sha256:5bfce9648ac9d349f830a818533d678f6379928bee49f179aa09a2978aa4b9d7"
+        },
+        {
+          "name": "SHA256SUMS",
+          "size": 365,
+          "updatedAt": "2026-09-26T18:39:14Z",
+          "digest": "sha256:c01a423fd3d2e482ee3e820697f14da21776acf77c152954c8e627437e0958e0"
+        }
+      ]
+    },
+    {
+      "tag": "v1.0.0",
+      "id": 397090124,
+      "publishedAt": "2026-09-26T04:51:04Z",
+      "updatedAt": "2026-09-26T04:51:04Z",
+      "prerelease": false,
+      "notesSha256": "80442871b69fe6d034cad4be13e2b37d783d38332d2e85c1d3cbcb856bb8e14b",
+      "assets": [
+        {
+          "name": "omaphoto-x86_64.pkg.tar.zst",
+          "size": 166532364,
+          "updatedAt": "2026-09-26T04:51:02Z",
+          "digest": "sha256:959136a1a5e894baf9629aa0bdeabd0f8345ddfc38d8a4d526b76f56ef223b10"
+        },
+        {
+          "name": "omaphoto.x86_64.rpm",
+          "size": 167529537,
+          "updatedAt": "2026-09-26T04:51:02Z",
+          "digest": "sha256:b295743b87237ca525f462944d278b3acc979d254a5938f43fffefc00401f78c"
+        },
+        {
+          "name": "omaphoto_amd64.deb",
+          "size": 174524956,
+          "updatedAt": "2026-09-26T04:51:03Z",
+          "digest": "sha256:10dddc4404589234ceea190714521b721b10bf298a1399fd6028e4d8cbe30521"
+        },
+        {
+          "name": "SHA256SUMS",
+          "size": 265,
+          "updatedAt": "2026-09-26T04:50:53Z",
+          "digest": "sha256:093dc6a6a539e285db30c1375f0768025d50add64d78ae6ddf67024422d46b5d"
+        }
+      ]
+    }
+  ],
+  "recentCommits": [
+    {
+      "sha": "ffba1753c62f5ad82a48248a598366c951faac8d",
+      "date": "2026-09-29T01:03:16Z",
+      "summary": "Crop ratios and selection start, Vignette on empty layers, text colour previews (12.10c); mutation runs use 12 cores"
+    },
+    {
+      "sha": "7a873eb9c70b754060663bf83862eafcf2b5516e",
+      "date": "2026-09-28T23:09:46Z",
+      "summary": "Whole layers on the clipboard and several duplicates (12.10b)"
+    },
+    {
+      "sha": "fc076de71d1c873f94b69beb7db20b309e6826cc",
+      "date": "2026-09-28T19:28:21Z",
+      "summary": "The format version in one place and the layer context menu (12.10a)"
+    },
+    {
+      "sha": "9ac3b1b81c9ff64bed214e270b7bd6531e296e65",
+      "date": "2026-09-28T17:18:10Z",
+      "summary": "Stepped keyboard zoom and a steady tab strip (12.9b)"
+    },
+    {
+      "sha": "fdb62978c54c1fdac95b1065919acf80a637982c",
+      "date": "2026-09-28T14:50:06Z",
+      "summary": "Finishing filters: Vignette, Bloom / Glow, Tonal Contrast (12.9a)"
+    }
+  ],
+  "pullRequests": [
+    {
+      "number": 8,
+      "title": "Add a self-contained AppImage build, verified on two minimal containers",
+      "state": "open",
+      "head": "e2ad7549b7fdbaf0b4c2b198b43ed98ed77c9984",
+      "updatedAt": "2026-09-28T02:49:30Z",
+      "mergedAt": null,
+      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/pull/8"
+    }
+  ],
+  "issues": [
+    {
+      "number": 7,
+      "title": "AUR?",
+      "state": "open",
+      "updatedAt": "2026-09-28T16:12:57Z",
+      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/7"
+    },
+    {
+      "number": 4,
+      "title": "[Feature Request] Package and publish as a Flatpak on Flathub",
+      "state": "open",
+      "updatedAt": "2026-09-26T21:04:41Z",
+      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/4"
+    },
+    {
+      "number": 2,
+      "title": "Docker dev run shows black/stale areas without the host DRM render device",
+      "state": "closed",
+      "updatedAt": "2026-09-26T19:42:50Z",
+      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/2"
+    },
+    {
+      "number": 1,
+      "title": "Docker dev run cannot import files from the host",
+      "state": "closed",
+      "updatedAt": "2026-09-26T19:42:49Z",
+      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/1"
+    },
+    {
+      "number": 5,
+      "title": "Failed to resolve the transaction",
+      "state": "closed",
+      "updatedAt": "2026-09-26T19:42:47Z",
+      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/5"
+    },
+    {
+      "number": 6,
+      "title": "This aproche.",
+      "state": "open",
+      "updatedAt": "2026-09-26T19:15:00Z",
+      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/6"
+    },
+    {
+      "number": 3,
+      "title": "Feature request: configurable Photoshop-style interaction preferences",
+      "state": "open",
+      "updatedAt": "2026-09-26T08:04:22Z",
+      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/3"
+    }
+  ],
+  "workflowSignals": [
+    {
+      "id": 36429213792,
+      "name": "Release",
+      "head": "96ce546508a920e10f2747ad3907da6eb87f4700",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/actions/runs/36429213792"
+    },
+    {
+      "id": 36351361361,
+      "name": "Build AppImage",
+      "head": "e2ad7549b7fdbaf0b4c2b198b43ed98ed77c9984",
+      "status": "completed",
+      "conclusion": "action_required",
+      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/actions/runs/36351361361"
+    }
+  ],
+  "collectionCoverage": {
+    "branches": "1 of 1",
+    "tags": "3 of 3",
+    "releases": "3 of 3",
+    "issues": "7 of 7 excluding pull requests",
+    "pullRequests": "1 of 1",
+    "commits": "All 5 commits from release baseline to reviewed main; not a review of every historical commit",
+    "workflowRuns": "Latest 5 inspected; release and current AppImage PR runs recorded"
+  },
+  "nextReview": "Compare new or changed refs, notes/assets, PRs, issues and relevant workflow results to this snapshot. Read source/tests for meaningful changes and advance only the parts actually reviewed. Do not treat proposals, green builds or unreleased commits as shipped/qualified features."
+}

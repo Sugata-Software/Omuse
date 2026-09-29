@@ -2,9 +2,15 @@
 
 **29 September 2026: Omuse source installation is available; downloadable binaries are not yet qualified.**
 
+The first numbered source release is **0.1.0**. Its
+[release notes](releases/v0.1.0.md) identify the tested runtime, installation,
+changes and limitations; the [release policy](releases/README.md) keeps future
+versions and evidence consistent. It is marked as a GitHub pre-release while
+stable-release gates remain open. This does not add a separate Preview app.
+
 The canonical public repository is
 [Sugata-Software/Omuse](https://github.com/Sugata-Software/Omuse). The first
-release should be scoped to **Arch/Omarchy, Linux x86_64**. Broader Linux support
+source release is scoped to **Arch/Omarchy, Linux x86_64**. Broader Linux support
 requires its own packaging and test evidence.
 
 The application source is published. Its first complete source commit is

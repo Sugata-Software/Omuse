@@ -1,17 +1,22 @@
-# Omuse `.comp` project format, versions 1–7
+# Omuse `.comp` project format, versions 1–9
 
 A `.comp` project is a directory package containing `manifest.json` and an
 `images/` directory of `<layer UUID>.png` assets. Omuse reads and writes the
 JSON manifest and asset layout through its native Rust document layer.
 
 The manifest retains the legacy `com.compositor.project` identifier for wire
-compatibility. Omuse writes version `7` for new saves (versions `1`–`6` remain
+compatibility. Omuse writes version `9` for new saves (versions `1`–`8` remain
 readable) and records the sRGB working space. It stores document UUID, pixel
 dimensions, active layer UUID, and layers in bottom-to-top order. Each layer
 stores its UUID, name, visibility, transform (origin, size, clockwise rotation,
 flips, sampling), and optional image filename. Blank layers have no image
 asset. The identifier is format metadata, not the active product name; see the
 [rename compatibility contract](omuse-rename.md).
+
+Readers supporting only older format versions cannot open a new version-9
+save. The application version (currently 0.1.0) and project format version are
+independent. A shared format number is not proof of complete cross-app
+interchange; independently authored fixtures remain a qualification gap.
 
 Embedded PNGs preserve source pixels and transparency; transforms remain
 separate. Projects survive moving or deleting imported source photos. Omuse
@@ -67,6 +72,8 @@ An optional `effects` record contains independent `stroke`, `shadow`, `colorOver
 | 5 | Live alpha links (`maskSourceID`) |
 | 6 | Folder masks |
 | 7 | Adjustment layers |
+| 8 | Document guides and pass-through group opacity |
+| 9 | Current writer baseline; full feature validation still applies |
 
 Omuse's Rust reader, writer and validation live in `rust/src/document.rs`, with
 round-trip coverage under `rust/tests/`. Run `scripts/test-rust.sh` for the

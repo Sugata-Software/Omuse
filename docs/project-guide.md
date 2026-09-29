@@ -1,6 +1,6 @@
 # Omuse project guide
 
-The static visual guide groups supported preview workflows and planned work
+The static visual guide groups implemented workflows and planned work
 into eight categories. It distinguishes local test evidence from implemented
 but unqualified routes, experiments, plans and release blockers. It never
 calculates an invented percentage of release readiness.
@@ -35,6 +35,10 @@ feature claims and evidence remains part of the implementation work.
 The same workflow checks the generated [keyboard reference](keyboard-shortcuts.md)
 against `rust/src/shortcuts.rs`. Regenerate it with
 `python3 scripts/generate-keyboard-shortcuts.py` when changing command definitions.
+
+Numbered release notes live under [releases/](releases/README.md), with a concise
+history in [CHANGELOG.md](../CHANGELOG.md). The guide describes the current
+project state, while each release note retains its own tested runtime and limits.
 
 ## Private hosted copy
 

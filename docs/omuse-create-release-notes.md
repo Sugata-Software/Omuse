@@ -1,5 +1,10 @@
 # Omuse Create + AI preview release notes
 
+**Historical candidate record.** These notes preserve the isolated installation
+and qualification state from 28 September. For the current numbered source
+release and normal Omuse installation, read [Omuse 0.1.0](releases/v0.1.0.md).
+The separate Preview launcher described below is no longer the main app entry.
+
 **Preview status — 28 September 2026.** Candidate
 `b178ad273ae9627836b753d584925f3bf7e1a003` (binary SHA-256
 `eeec22afb6c4eb5cf7f6840c4cece6b50c1c9827b21c3d929ba994cab1b73dca`)

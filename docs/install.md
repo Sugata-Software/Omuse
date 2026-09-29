@@ -36,6 +36,10 @@ from source**; a downloadable binary release remains subject to the
 
 ## Tested source channel
 
+The initial numbered source release is [Omuse 0.1.0](releases/v0.1.0.md).
+Its Git tag identifies the tested runtime; the normal curl command follows the
+current tested channel and may advance to later qualified releases.
+
 The public installer selects commit
 [`9c99e50684afd0854c8094a139b43205a263c33d`](https://github.com/Sugata-Software/Omuse/commit/9c99e50684afd0854c8094a139b43205a263c33d).
 It fetches that exact revision and checks the resulting checkout before building.
