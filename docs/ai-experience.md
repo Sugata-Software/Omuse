@@ -36,6 +36,23 @@ the provider. Omuse never copies a password or silently switches to a separately
 billed API. Unsupported routes remain unavailable; first use of an untested
 operation is explicitly labelled and can use subscription allowance.
 
+Open **Ask Omuse → Connections**. When **ChatGPT via Codex** says **Signed in**,
+an **Assistant · not tested** or **Images · not tested** label means that route
+is ready for an explicit first request; it is not an error. You do not need a
+separate login or test button in Omuse. To make an image, choose **Generate
+image**, write the brief, select **Generate image**, review the proposal, then
+select **Keep result** to add it to the canvas.
+
+**Unverified** means Omuse found a runtime entry point but could not prove its
+identity. **Sign in needed** means the runtime passed its identity checks but
+its provider account is not available. Sign in with the official provider
+runtime when needed, then use **Refresh** in Connections to check again.
+
+Known 0.3.0 issue: on Omarchy, a Codex or Claude installation managed by mise
+can be reported as **Unverified** when desktop discovery finds the mise shim
+instead of the installed provider runtime. A detection fix is in development;
+it is not part of the released 0.3.0 build.
+
 Codex can optionally report remaining allowance and reset windows through its
 [official app-server protocol](https://learn.chatgpt.com/docs/app-server).
 The display is a snapshot from the last connection check. Missing information

@@ -6,6 +6,12 @@ for numbering, qualification and publication.
 
 ## Unreleased
 
+- Resolve Omarchy's mise-managed provider shims to the installed runtime before
+  checking its identity. This fixes signed-in Codex installations appearing as
+  Unverified after launching Omuse from the desktop. Wrapper, account and
+  isolation checks remain enforced. Clarify first-use connection labels in the
+  manual; see the [connection fix record](docs/ai-desktop-connection-fix.md).
+
 Planned editor work and remaining release gates are tracked in the
 [project guide](docs/project-guide.md).
 

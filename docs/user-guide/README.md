@@ -70,6 +70,19 @@ separate Assistant and Images routes, and their available operations. Provider
 sign-in stays with that provider. A subscription request may use its allowance;
 Omuse does not silently switch it to a separately billed API.
 
+For ChatGPT via Codex, **Signed in** means the connection is ready. An
+**Assistant · not tested** or **Images · not tested** label marks an operation
+awaiting its first explicit request; no separate login or test button is needed.
+To try image generation, choose **Generate image**, write the brief, select
+**Generate image**, review the proposal, then select **Keep result**.
+
+**Unverified** means Omuse could not prove the discovered runtime's identity.
+**Sign in needed** means its identity passed but its provider account is not
+available. Sign in through the official provider runtime if needed, then select
+**Refresh** in Connections. Omuse 0.3.0 has a known Omarchy issue where
+mise-managed Codex or Claude shims can appear as **Unverified** even when the
+provider is signed in. A detection fix is in development and is not released.
+
 Read the request-context card before submitting: image edits share a canvas
 image and edit mask. **Local-only** stops new remote requests for the collection.
 See [AI connection and review instructions](../ai-experience.md). Availability

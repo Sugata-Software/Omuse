@@ -240,7 +240,7 @@ fn validate_identity(
     config: &DiscoveryConfig,
     deadline: Instant,
 ) -> Result<ValidatedClient, AiError> {
-    let executable = candidate.canonicalize()?;
+    let executable = resolve_provider_executable(provider, candidate, config, deadline)?;
     if !executable.is_file() || is_shell_wrapper(&executable)? {
         return Err(AiError::IdentityUnverified(
             "Provider entry point is an unverified wrapper".into(),
@@ -321,6 +321,104 @@ fn validate_identity(
         // cached subscription authentication.
         operation_profile_qualified: provider != ProviderId::GrokBuild,
     })
+}
+
+/// Resolve the symlink shims created by mise without treating a general
+/// wrapper as a provider runtime. Mise installs shims as
+/// `<data-dir>/mise/shims/<command> -> <mise executable>`; only that exact
+/// shape is allowed to run the manager. The runtime returned by `mise which`
+/// still has to pass every normal provider identity and isolation probe.
+fn resolve_provider_executable(
+    provider: ProviderId,
+    candidate: &Path,
+    config: &DiscoveryConfig,
+    deadline: Instant,
+) -> Result<PathBuf, AiError> {
+    let executable = candidate.canonicalize()?;
+    if !executable.is_file() || is_shell_wrapper(&executable)? {
+        return Err(AiError::IdentityUnverified(
+            "Provider entry point is an unverified wrapper".into(),
+        ));
+    }
+    if !is_recognized_mise_shim(candidate, &executable, provider.command_name())? {
+        return Ok(executable);
+    }
+
+    let capture = capture_bounded_cancellable(
+        &executable,
+        ["--quiet", "which", provider.command_name()],
+        &config.work_dir,
+        remaining(config, deadline)?,
+        4096,
+        &config.cancellation,
+    )?;
+    if !capture.status.success() || capture.truncated {
+        return Err(AiError::IdentityUnverified(
+            "Runtime manager could not resolve the provider executable".into(),
+        ));
+    }
+    resolved_mise_runtime(
+        &capture.stdout,
+        candidate,
+        &executable,
+        provider.command_name(),
+    )
+}
+
+fn is_recognized_mise_shim(
+    candidate: &Path,
+    canonical_target: &Path,
+    command_name: &str,
+) -> Result<bool, AiError> {
+    let metadata = fs::symlink_metadata(candidate)?;
+    let parent = candidate.parent();
+    Ok(metadata.file_type().is_symlink()
+        && candidate
+            .file_name()
+            .is_some_and(|name| name == command_name)
+        && parent
+            .and_then(Path::file_name)
+            .is_some_and(|name| name == "shims")
+        && parent
+            .and_then(Path::parent)
+            .and_then(Path::file_name)
+            .is_some_and(|name| name == "mise")
+        && canonical_target
+            .file_name()
+            .is_some_and(|name| name == "mise")
+        && canonical_target.is_file()
+        && !is_shell_wrapper(canonical_target)?)
+}
+
+fn resolved_mise_runtime(
+    output: &[u8],
+    candidate: &Path,
+    mise_executable: &Path,
+    command_name: &str,
+) -> Result<PathBuf, AiError> {
+    let output = std::str::from_utf8(output).map_err(|_| mise_resolution_unverified())?;
+    let output = output.strip_suffix('\n').unwrap_or(output);
+    if output.is_empty() || output.chars().any(char::is_control) {
+        return Err(mise_resolution_unverified());
+    }
+    let path = Path::new(output);
+    if !path.is_absolute() || path.file_name().is_none_or(|name| name != command_name) {
+        return Err(mise_resolution_unverified());
+    }
+    let runtime = path
+        .canonicalize()
+        .map_err(|_| mise_resolution_unverified())?;
+    let candidate_target = candidate
+        .canonicalize()
+        .map_err(|_| mise_resolution_unverified())?;
+    if runtime == mise_executable || runtime == candidate_target || !runtime.is_file() {
+        return Err(mise_resolution_unverified());
+    }
+    Ok(runtime)
+}
+
+fn mise_resolution_unverified() -> AiError {
+    AiError::IdentityUnverified("Runtime manager returned an invalid provider executable".into())
 }
 
 fn provider_help_is_valid(provider: ProviderId, output: &[u8]) -> bool {
@@ -479,9 +577,15 @@ mod tests {
     use super::*;
     use std::{
         fs,
-        os::unix::fs::PermissionsExt,
+        os::unix::fs::{PermissionsExt, symlink},
         sync::atomic::{AtomicUsize, Ordering as AtomicOrdering},
     };
+
+    fn write_executable_fixture(path: &Path, contents: &[u8]) {
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, contents).unwrap();
+        fs::set_permissions(path, fs::Permissions::from_mode(0o700)).unwrap();
+    }
 
     #[test]
     fn discovery_rejects_command_name_only_shell_wrappers() {
@@ -503,6 +607,105 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[test]
+    fn mise_shim_recognition_requires_symlink_layout_target_and_non_wrapper() {
+        let root = tempfile::tempdir().unwrap();
+        let shims = root.path().join("mise/shims");
+        fs::create_dir_all(&shims).unwrap();
+
+        let mise = root.path().join("bin/mise");
+        write_executable_fixture(&mise, b"\x7fELFfixture");
+        let codex_shim = shims.join("codex");
+        symlink(&mise, &codex_shim).unwrap();
+        assert!(
+            is_recognized_mise_shim(&codex_shim, &mise.canonicalize().unwrap(), "codex").unwrap()
+        );
+
+        let unrelated_shims = root.path().join("other/shims");
+        fs::create_dir_all(&unrelated_shims).unwrap();
+        let unrelated_shim = unrelated_shims.join("codex");
+        symlink(&mise, &unrelated_shim).unwrap();
+        assert!(
+            !is_recognized_mise_shim(&unrelated_shim, &mise.canonicalize().unwrap(), "codex")
+                .unwrap()
+        );
+
+        let unrelated = root.path().join("bin/provider");
+        write_executable_fixture(&unrelated, b"\x7fELFfixture");
+        let claude_shim = shims.join("claude");
+        symlink(&unrelated, &claude_shim).unwrap();
+        assert!(
+            !is_recognized_mise_shim(&claude_shim, &unrelated.canonicalize().unwrap(), "claude")
+                .unwrap()
+        );
+
+        let wrapper = root.path().join("wrapper/mise");
+        write_executable_fixture(&wrapper, b"#!/bin/sh\nexit 0\n");
+        let grok_shim = shims.join("grok");
+        symlink(&wrapper, &grok_shim).unwrap();
+        assert!(
+            !is_recognized_mise_shim(&grok_shim, &wrapper.canonicalize().unwrap(), "grok").unwrap()
+        );
+    }
+
+    #[test]
+    fn mise_resolution_accepts_one_absolute_existing_provider_path() {
+        let root = tempfile::tempdir().unwrap();
+        let mise = root.path().join("bin/mise");
+        let runtime = root.path().join("installs/codex");
+        let candidate = root.path().join("mise/shims/codex");
+        write_executable_fixture(&mise, b"\x7fELFfixture");
+        write_executable_fixture(&runtime, b"\x7fELFfixture");
+        fs::create_dir_all(candidate.parent().unwrap()).unwrap();
+        symlink(&mise, &candidate).unwrap();
+
+        let output = format!("{}\n", runtime.display());
+        assert_eq!(
+            resolved_mise_runtime(
+                output.as_bytes(),
+                &candidate,
+                &mise.canonicalize().unwrap(),
+                "codex"
+            )
+            .unwrap(),
+            runtime.canonicalize().unwrap()
+        );
+    }
+
+    #[test]
+    fn mise_resolution_rejects_malformed_missing_and_recursive_output() {
+        let root = tempfile::tempdir().unwrap();
+        let mise = root.path().join("bin/mise");
+        let runtime = root.path().join("installs/codex");
+        let candidate = root.path().join("mise/shims/codex");
+        write_executable_fixture(&mise, b"\x7fELFfixture");
+        write_executable_fixture(&runtime, b"\x7fELFfixture");
+        fs::create_dir_all(candidate.parent().unwrap()).unwrap();
+        symlink(&mise, &candidate).unwrap();
+        let mise = mise.canonicalize().unwrap();
+
+        let multiple = format!("{}\n{}\n", runtime.display(), runtime.display());
+        let missing = root.path().join("missing/codex");
+        let recursive = format!("{}\n", candidate.display());
+        for output in [
+            Vec::new(),
+            b"relative/codex\n".to_vec(),
+            multiple.into_bytes(),
+            format!("{}\r\n", runtime.display()).into_bytes(),
+            vec![0xff, b'\n'],
+            format!("{}\n", missing.display()).into_bytes(),
+            recursive.into_bytes(),
+        ] {
+            assert!(
+                matches!(
+                    resolved_mise_runtime(&output, &candidate, &mise, "codex"),
+                    Err(AiError::IdentityUnverified(_))
+                ),
+                "unexpectedly accepted {output:?}"
+            );
+        }
     }
 
     #[test]

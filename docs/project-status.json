@@ -626,6 +626,20 @@
           ]
         },
         {
+          "id": "ai-desktop-runtime-discovery",
+          "name": "Omarchy desktop subscription discovery",
+          "status": "implemented-needs-qualification",
+          "current": "The 0.3.0 desktop launch can mistake a mise shim for the provider executable and show Unverified despite an existing login. The source correction resolves recognized mise symlinks with bounded manager output, then retains every provider identity/account/isolation check. Seven discovery regressions and a live read-only probe on the unchanged desktop PATH passed.",
+          "boundary": "The correction is not in the published 0.3.0 payload or installer pin. A host-specific launcher workaround passed one live image request, review and Keep in the installed app; it can be replaced by reinstalling the old launcher. Full corrected-app release qualification remains open.",
+          "evidence": [
+            "docs/ai-desktop-connection-fix.md",
+            "docs/ai-experience.md"
+          ],
+          "modules": [
+            "rust/src/ai/discovery.rs"
+          ]
+        },
+        {
           "id": "ai-codex",
           "name": "Codex subscription route",
           "status": "experimental",
