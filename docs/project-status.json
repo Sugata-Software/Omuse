@@ -573,27 +573,29 @@
         {
           "id": "ai-framework",
           "name": "Ask Omuse job, review and history model",
-          "status": "locally-tested",
-          "current": "Provider routes, billing labels, Local-only mode, bounded jobs, review groups, stale-result protection, Keep, Undo and saved provenance are implemented. Ask Omuse focuses its prompt from toolbar, shortcut and command search; Ctrl+Enter submits. Busy reviews are protected and failed runtime connections require refresh. The assistant instructions include native shapes and text styling; invalid styles are rejected before preparation and review errors remain beside the prompt.",
-          "boundary": "A local invariant does not prove provider availability, visual quality or cancellation after remote acceptance.",
+          "status": "implemented-needs-qualification",
+          "current": "Ask Omuse has eight task choices, editable starter briefs, one task-aware submit action, explicit request context, compact Connections/history, Before/After review, caption copying and refinement carrying the previous plan. Photo/caption task contracts reject empty or out-of-scope results. Provider frames are preserved across acknowledgements; discovery is parallel, bounded and cancellable. History merges concurrent writes transactionally and respects serialized metadata budgets.",
+          "boundary": "Focused provider tests (40), history tests (16) and photo adjustment tests (3) pass on the 0.2.0 candidate. Combined production and live GUI qualification is in progress. Provider cancellation after remote acceptance and broader account/image quality remain separate.",
           "evidence": [
             "docs/omuse-create-and-ai-plan.md",
             "docs/omuse-create-qualification.md",
-            "docs/cua-ai-qualification.md"
+            "docs/cua-ai-qualification.md",
+            "docs/ai-experience.md"
           ],
           "modules": [
             "rust/src/ai.rs",
             "rust/src/ai/jobs.rs",
             "rust/src/ai/results.rs",
             "rust/src/ai_history.rs",
-            "rust/src/ai_ui.rs"
+            "rust/src/ai_ui.rs",
+            "rust/src/ai_experience.rs"
           ]
         },
         {
           "id": "ai-codex",
           "name": "Codex subscription route",
           "status": "experimental",
-          "current": "Earlier named candidates passed bounded image-generation/background and six-page carousel journeys. Installed Preview 1d5ccaa with Codex CLI 0.158.0 additionally passed a Cua-driven native design request, review, Keep and one Undo, and recorded an Assistant capability receipt.",
+          "current": "Earlier named candidates passed bounded image-generation/background and six-page carousel journeys. Installed Preview 1d5ccaa with Codex CLI 0.158.0 additionally passed a Cua-driven native design request, review, Keep and one Undo, and recorded an Assistant capability receipt. The 0.2.0 candidate optionally reads sanitized remaining allowance/reset windows from the official app server; unsupported status queries do not disable a healthy connection.",
           "boundary": "This does not qualify every account, runtime version, prompt, image operation or general provider support.",
           "evidence": [
             "docs/omuse-create-qualification.md",
@@ -640,14 +642,30 @@
           ]
         },
         {
+          "id": "ai-photo-enhancement",
+          "name": "Reversible AI photo enhancement",
+          "status": "implemented-needs-qualification",
+          "current": "A typed adjust_photo operation adds clipped editable Exposure, Curves and Hue/Saturation layers for exposure, brightness, contrast and saturation. Active-layer eligibility is checked before sending; original source pixels, save/reopen and one-step Undo passed three focused tests.",
+          "boundary": "Whole-layer adjustment only; Camera Raw-specific temperature/tint/highlights/shadows are not exposed. Combined production and live photo GUI checks are pending.",
+          "evidence": [
+            "docs/ai-experience.md"
+          ],
+          "modules": [
+            "rust/src/creative_commands.rs",
+            "rust/src/ai_experience.rs",
+            "rust/src/ai_ui.rs"
+          ]
+        },
+        {
           "id": "ai-caption",
           "name": "Caption and alt-text drafting",
           "status": "implemented-needs-qualification",
-          "current": "The assistant can stage caption and alt-text drafts for explicit review before keeping them in export metadata.",
+          "current": "A dedicated task requires one nonempty caption and alt-text result, rejects artwork changes, and offers Copy caption / Copy alt text alongside Keep.",
           "boundary": "Standalone caption drafting still needs a bounded live provider receipt and human content review.",
           "evidence": [
             "docs/omuse-create-and-ai-plan.md",
-            "docs/omuse-create-qualification.md"
+            "docs/omuse-create-qualification.md",
+            "docs/ai-experience.md"
           ],
           "modules": [
             "rust/src/ai_ui.rs",

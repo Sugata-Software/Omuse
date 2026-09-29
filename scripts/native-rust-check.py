@@ -88,6 +88,12 @@ if args.ai_resume_history:
             if relative.parts not in (('assets',), ('context',)):
                 raise SystemExit('Resume source contains an unexpected directory')
             continue
+        # The history lock coordinates live writers, not retained content.
+        # Never transfer its inode or count it as a provider artifact.
+        if relative.parts == ('.history.lock',):
+            if not path.is_file() or path.stat().st_size != 0:
+                raise SystemExit('Resume source contains an invalid history lock')
+            continue
         if not path.is_file() or not (
             relative.parts == ('history.json',)
             or (len(relative.parts) == 2 and relative.parts[0] in ('assets', 'context'))
@@ -97,7 +103,7 @@ if args.ai_resume_history:
         copied_bytes += path.stat().st_size
     if copied_files > MAX_RESUME_HISTORY_FILES or copied_bytes > MAX_RESUME_HISTORY_BYTES:
         raise SystemExit('Resume source exceeds Omuse bounded AI history limits')
-    shutil.copytree(source_history, target_history)
+    shutil.copytree(source_history, target_history, ignore=shutil.ignore_patterns('.history.lock'))
     env['OMUSE_NATIVE_AI_RESUME_GENERATE'] = '1'
 else:
     env.pop('OMUSE_NATIVE_AI_RESUME_GENERATE', None)

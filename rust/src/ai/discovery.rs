@@ -1,10 +1,10 @@
 use crate::ai::{
     claude, codex,
-    process::{capture_bounded, provider_version_is_valid},
+    process::{capture_bounded_cancellable, provider_version_is_valid},
     qualification::QualificationReceipts,
     types::{
-        AiError, BillingMode, Capability, CapabilityStatus, ConnectionState, EvidenceLevel,
-        ProviderId, ProviderStatus, ValidatedClient,
+        AiError, AllowanceWindow, BillingMode, Capability, CapabilityStatus, ConnectionState,
+        EvidenceLevel, ProviderId, ProviderStatus, ValidatedClient,
     },
 };
 use std::{
@@ -12,7 +12,12 @@ use std::{
     env, fs,
     io::Read,
     path::{Path, PathBuf},
-    time::Duration,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+    thread,
+    time::{Duration, Instant},
 };
 
 #[derive(Clone, Debug)]
@@ -25,6 +30,8 @@ pub struct DiscoveryConfig {
     /// user-authorized operation. An advertised feature flag alone never adds
     /// evidence here.
     pub qualification_receipts: QualificationReceipts,
+    /// Shared cancellation for a superseded or closed connection refresh.
+    pub cancellation: Arc<AtomicBool>,
 }
 
 impl Default for DiscoveryConfig {
@@ -35,6 +42,7 @@ impl Default for DiscoveryConfig {
             max_protocol_line_bytes: 2 * 1024 * 1024,
             work_dir: env::temp_dir().join(format!("omuse-ai-discovery-{}", uuid::Uuid::new_v4())),
             qualification_receipts: QualificationReceipts::default(),
+            cancellation: Arc::new(AtomicBool::new(false)),
         }
     }
 }
@@ -49,9 +57,15 @@ impl DiscoveryConfig {
         self.qualification_receipts = receipts;
         self
     }
+
+    pub fn with_cancellation(mut self, cancellation: Arc<AtomicBool>) -> Self {
+        self.cancellation = cancellation;
+        self
+    }
 }
 
 pub fn discover_providers(config: &DiscoveryConfig) -> Vec<ProviderStatus> {
+    let remove_probe_root = !config.work_dir.exists();
     if fs::create_dir_all(&config.work_dir).is_err() {
         return ProviderId::ALL
             .into_iter()
@@ -60,13 +74,53 @@ pub fn discover_providers(config: &DiscoveryConfig) -> Vec<ProviderStatus> {
             })
             .collect();
     }
-    ProviderId::ALL
-        .into_iter()
-        .map(|provider| discover_one(provider, config))
-        .collect()
+    let statuses = map_providers_parallel(|provider| {
+        let mut provider_config = config.clone();
+        provider_config.work_dir = config.work_dir.join(format!(
+            "{}-{}",
+            provider.command_name(),
+            uuid::Uuid::new_v4()
+        ));
+        if create_private_probe_dir(&provider_config.work_dir).is_err() {
+            return ProviderStatus::unavailable(provider, "Connection probe workspace unavailable");
+        }
+        let deadline = Instant::now() + provider_config.probe_timeout;
+        let status = discover_one(provider, &provider_config, deadline);
+        let _ = fs::remove_dir_all(&provider_config.work_dir);
+        status
+    });
+    if remove_probe_root {
+        let _ = fs::remove_dir(&config.work_dir);
+    }
+    statuses
 }
 
-fn discover_one(provider: ProviderId, config: &DiscoveryConfig) -> ProviderStatus {
+fn map_providers_parallel(
+    operation: impl Fn(ProviderId) -> ProviderStatus + Sync,
+) -> Vec<ProviderStatus> {
+    thread::scope(|scope| {
+        let operation = &operation;
+        let handles = ProviderId::ALL.map(|provider| scope.spawn(move || operation(provider)));
+        ProviderId::ALL
+            .into_iter()
+            .zip(handles)
+            .map(|(provider, handle)| {
+                handle.join().unwrap_or_else(|_| {
+                    ProviderStatus::unavailable(provider, "Connection probe worker failed")
+                })
+            })
+            .collect()
+    })
+}
+
+fn discover_one(
+    provider: ProviderId,
+    config: &DiscoveryConfig,
+    deadline: Instant,
+) -> ProviderStatus {
+    if config.cancellation.load(Ordering::Relaxed) {
+        return ProviderStatus::unavailable(provider, "Connection check cancelled");
+    }
     let candidate = config
         .candidate_paths
         .get(&provider)
@@ -75,19 +129,37 @@ fn discover_one(provider: ProviderId, config: &DiscoveryConfig) -> ProviderStatu
     let Some(candidate) = candidate else {
         return ProviderStatus::unavailable(provider, "Official runtime not found");
     };
-    let client = match validate_identity(provider, &candidate, config) {
+    let client = match validate_identity(provider, &candidate, config, deadline) {
         Ok(client) => client,
-        Err(_) => {
-            let mut status =
-                ProviderStatus::unavailable(provider, "Runtime identity could not be verified");
-            status.connection = ConnectionState::IdentityUnverified;
+        Err(error) => {
+            let mut status = ProviderStatus::unavailable(
+                provider,
+                if config.cancellation.load(Ordering::Relaxed) {
+                    "Connection check cancelled"
+                } else if matches!(&error, AiError::IdentityUnverified(_)) {
+                    "Runtime identity could not be verified"
+                } else {
+                    "Official runtime identity probe did not complete"
+                },
+            );
+            if config.cancellation.load(Ordering::Relaxed) {
+                return status;
+            }
+            status.connection = if matches!(&error, AiError::IdentityUnverified(_)) {
+                ConnectionState::IdentityUnverified
+            } else {
+                ConnectionState::Degraded
+            };
             return status;
         }
     };
-    match probe_account(&client, config) {
-        Ok(probe) if probe.signed_in => {
-            ready_status(client, config, probe.image_generation_advertised)
-        }
+    match probe_account(&client, config, deadline) {
+        Ok(probe) if probe.signed_in => ready_status(
+            client,
+            config,
+            probe.image_generation_advertised,
+            probe.allowance,
+        ),
         Ok(_) => ProviderStatus {
             provider,
             display_name: provider.display_name(),
@@ -105,9 +177,13 @@ fn discover_one(provider: ProviderId, config: &DiscoveryConfig) -> ProviderStatu
                     )
                 })
                 .collect(),
+            allowance: None,
             detail: "Official runtime found; subscription sign-in is unavailable".into(),
             client: Some(client),
         },
+        Err(_) if config.cancellation.load(Ordering::Relaxed) => {
+            ProviderStatus::unavailable(provider, "Connection check cancelled")
+        }
         Err(error) => ProviderStatus {
             provider,
             display_name: provider.display_name(),
@@ -125,6 +201,7 @@ fn discover_one(provider: ProviderId, config: &DiscoveryConfig) -> ProviderStatu
                     )
                 })
                 .collect(),
+            allowance: None,
             detail: probe_error_detail(&error).into(),
             client: Some(client),
         },
@@ -142,7 +219,8 @@ fn probe_error_detail(error: &AiError) -> String {
             if message.starts_with("Codex runtime isolation")
                 || message.starts_with("Codex omitted its effective feature list")
                 || message.starts_with("Claude Code account status")
-                || message.starts_with("Claude Code omitted its account state") =>
+                || message.starts_with("Claude Code omitted its account state")
+                || message.starts_with("Claude Code omitted its authentication route") =>
         {
             message.clone()
         }
@@ -160,6 +238,7 @@ fn validate_identity(
     provider: ProviderId,
     candidate: &Path,
     config: &DiscoveryConfig,
+    deadline: Instant,
 ) -> Result<ValidatedClient, AiError> {
     let executable = candidate.canonicalize()?;
     if !executable.is_file() || is_shell_wrapper(&executable)? {
@@ -171,12 +250,13 @@ fn validate_identity(
         ProviderId::CodexSubscription | ProviderId::ClaudeCode => &["--version"],
         ProviderId::GrokBuild => &["version"],
     };
-    let capture = capture_bounded(
+    let capture = capture_bounded_cancellable(
         &executable,
         args.iter().copied(),
         &config.work_dir,
-        config.probe_timeout,
+        remaining(config, deadline)?,
         4096,
+        &config.cancellation,
     )?;
     if !capture.status.success()
         || capture.truncated
@@ -191,12 +271,13 @@ fn validate_identity(
         ProviderId::ClaudeCode => &["--help"],
         ProviderId::GrokBuild => &["agent", "--help"],
     };
-    let help = capture_bounded(
+    let help = capture_bounded_cancellable(
         &executable,
         help_args.iter().copied(),
         &config.work_dir,
-        config.probe_timeout,
+        remaining(config, deadline)?,
         192 * 1024,
+        &config.cancellation,
     )?;
     if !help.status.success() || help.truncated || !provider_help_is_valid(provider, &help.stdout) {
         return Err(AiError::IdentityUnverified(
@@ -204,12 +285,13 @@ fn validate_identity(
         ));
     }
     if provider == ProviderId::ClaudeCode {
-        let auth_help = capture_bounded(
+        let auth_help = capture_bounded_cancellable(
             &executable,
             ["auth", "login", "--help"],
             &config.work_dir,
-            config.probe_timeout,
+            remaining(config, deadline)?,
             32 * 1024,
+            &config.cancellation,
         )?;
         if !auth_help.status.success()
             || auth_help.truncated
@@ -265,32 +347,38 @@ fn provider_help_is_valid(provider: ProviderId, output: &[u8]) -> bool {
 struct AccountProbe {
     signed_in: bool,
     image_generation_advertised: bool,
+    allowance: Option<Vec<AllowanceWindow>>,
 }
 
 fn probe_account(
     client: &ValidatedClient,
     config: &DiscoveryConfig,
+    deadline: Instant,
 ) -> Result<AccountProbe, AiError> {
     match client.provider {
         ProviderId::CodexSubscription => {
             let probe = codex::probe(
                 &client.executable,
                 &config.work_dir,
-                config.probe_timeout,
+                remaining(config, deadline)?,
                 config.max_protocol_line_bytes,
+                &config.cancellation,
             )?;
             Ok(AccountProbe {
                 signed_in: probe.signed_in_with_chatgpt,
                 image_generation_advertised: probe.image_generation_advertised,
+                allowance: probe.allowance,
             })
         }
         ProviderId::ClaudeCode => Ok(AccountProbe {
-            signed_in: claude::subscription_signed_in(
+            signed_in: claude::subscription_signed_in_cancellable(
                 &client.executable,
                 &config.work_dir,
-                config.probe_timeout,
+                remaining(config, deadline)?,
+                &config.cancellation,
             )?,
             image_generation_advertised: false,
+            allowance: None,
         }),
         ProviderId::GrokBuild => Err(AiError::Protocol(
             "Grok ACP configuration isolation is not yet qualified".into(),
@@ -302,6 +390,7 @@ fn ready_status(
     client: ValidatedClient,
     config: &DiscoveryConfig,
     advertised_image_generation: bool,
+    allowance: Option<Vec<AllowanceWindow>>,
 ) -> ProviderStatus {
     let provider = client.provider;
     let mut capabilities = Vec::new();
@@ -336,9 +425,32 @@ fn ready_status(
         billing: BillingMode::SubscriptionAllowance,
         version: Some(client.version.clone()),
         capabilities,
+        allowance,
         detail: "Official runtime and subscription login verified".into(),
         client: Some(client),
     }
+}
+
+fn remaining(config: &DiscoveryConfig, deadline: Instant) -> Result<Duration, AiError> {
+    if config.cancellation.load(Ordering::Relaxed) {
+        return Err(AiError::Protocol("cancelled".into()));
+    }
+    let remaining = deadline.saturating_duration_since(Instant::now());
+    if remaining.is_zero() {
+        Err(AiError::TimedOut)
+    } else {
+        Ok(remaining)
+    }
+}
+
+fn create_private_probe_dir(path: &Path) -> Result<(), AiError> {
+    fs::create_dir_all(path)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(path, fs::Permissions::from_mode(0o700))?;
+    }
+    Ok(())
 }
 
 fn find_on_path(name: &str) -> Option<PathBuf> {
@@ -365,7 +477,11 @@ fn is_shell_wrapper(path: &Path) -> Result<bool, AiError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{fs, os::unix::fs::PermissionsExt};
+    use std::{
+        fs,
+        os::unix::fs::PermissionsExt,
+        sync::atomic::{AtomicUsize, Ordering as AtomicOrdering},
+    };
 
     #[test]
     fn discovery_rejects_command_name_only_shell_wrappers() {
@@ -378,7 +494,15 @@ mod tests {
             ..DiscoveryConfig::default()
         };
         fs::create_dir_all(&config.work_dir).unwrap();
-        assert!(validate_identity(ProviderId::CodexSubscription, &wrapper, &config).is_err());
+        assert!(
+            validate_identity(
+                ProviderId::CodexSubscription,
+                &wrapper,
+                &config,
+                Instant::now() + config.probe_timeout,
+            )
+            .is_err()
+        );
     }
 
     #[test]
@@ -390,5 +514,46 @@ mod tests {
                 .qualification_receipts
                 .contains(&client, Capability::ImageGeneration)
         );
+    }
+
+    #[test]
+    fn provider_workers_overlap_and_preserve_provider_order() {
+        let active = AtomicUsize::new(0);
+        let maximum = AtomicUsize::new(0);
+        let statuses = map_providers_parallel(|provider| {
+            let now = active.fetch_add(1, AtomicOrdering::SeqCst) + 1;
+            maximum.fetch_max(now, AtomicOrdering::SeqCst);
+            std::thread::sleep(Duration::from_millis(50));
+            active.fetch_sub(1, AtomicOrdering::SeqCst);
+            ProviderStatus::unavailable(provider, "fixture")
+        });
+
+        assert!(maximum.load(AtomicOrdering::SeqCst) > 1);
+        assert_eq!(
+            statuses
+                .iter()
+                .map(|status| status.provider)
+                .collect::<Vec<_>>(),
+            ProviderId::ALL.to_vec()
+        );
+    }
+
+    #[test]
+    fn cancelled_discovery_does_not_start_runtime_probes() {
+        let root = tempfile::tempdir().unwrap();
+        let cancellation = Arc::new(AtomicBool::new(true));
+        let config = DiscoveryConfig {
+            work_dir: root.path().join("probe"),
+            cancellation,
+            ..DiscoveryConfig::default()
+        };
+
+        let statuses = discover_providers(&config);
+        assert_eq!(statuses.len(), ProviderId::ALL.len());
+        assert!(statuses.iter().all(|status| {
+            status.connection == ConnectionState::Unavailable
+                && status.detail == "Connection check cancelled"
+                && status.client.is_none()
+        }));
     }
 }

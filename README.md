@@ -96,8 +96,9 @@ and troubleshooting.
   frames, CSV variants and a searchable local asset library.
 - Social previews, ordered raster/PDF content packs, captions and image descriptions.
 - Layer and page animation, MP4/GIF export, audio, editable subtitles and clip tools.
-- Optional subscription-aware AI drafts with review, protected-area compositing,
-  provenance and Undo; provider availability is qualified separately.
+- [Ask Omuse](docs/ai-experience.md): task-based subscription AI for editable designs,
+  reversible photo adjustments, captions and image drafts, with Before/After
+  review and Undo; provider availability is qualified separately.
 - PNG, JPEG, WebP and TIFF export, including retained 16-bit workflows.
 - Layered PSD import, Camera RAW development and local subject selection within
   their documented limits.

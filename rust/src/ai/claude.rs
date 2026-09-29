@@ -14,15 +14,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-pub(crate) fn subscription_signed_in(
-    executable: &Path,
-    cwd: &Path,
-    timeout: Duration,
-) -> Result<bool, AiError> {
-    let cancelled = AtomicBool::new(false);
-    subscription_signed_in_cancellable(executable, cwd, timeout, &cancelled)
-}
-
 pub(crate) fn subscription_signed_in_cancellable(
     executable: &Path,
     cwd: &Path,
@@ -47,8 +38,9 @@ pub(crate) fn subscription_signed_in_cancellable(
 }
 
 fn classify_account_status(status: &Value, process_succeeded: bool) -> Result<bool, AiError> {
-    let logged_in = find_bool(&status, &["loggedIn", "authenticated", "isAuthenticated"])
+    let account = find_account_status(status)?
         .ok_or_else(|| AiError::Protocol("Claude Code omitted its account state".into()))?;
+    let logged_in = account.logged_in;
     // The official CLI returns exit code 1 together with a valid
     // `loggedIn:false` status when no account is connected. That is a normal
     // signed-out state, not a transport or protocol failure.
@@ -60,20 +52,15 @@ fn classify_account_status(status: &Value, process_succeeded: bool) -> Result<bo
             "Claude Code account status did not complete cleanly".into(),
         ));
     }
-    let auth_method = find_string(
-        &status,
-        &[
-            "authMethod",
-            "loginMethod",
-            "credentialSource",
-            "subscriptionType",
-        ],
-    )
-    .unwrap_or_default()
-    .to_ascii_lowercase();
-    Ok(auth_method.contains("oauth")
-        || auth_method.contains("subscription")
-        || auth_method.contains("claude.ai"))
+    let auth_method = account
+        .auth_method
+        .ok_or_else(|| AiError::Protocol("Claude Code omitted its authentication route".into()))?
+        .trim()
+        .to_ascii_lowercase();
+    Ok(matches!(
+        auth_method.as_str(),
+        "oauth" | "subscription" | "claude.ai" | "claudeai"
+    ))
 }
 
 pub(crate) fn run(
@@ -306,33 +293,93 @@ fn append_delta(
     Ok(())
 }
 
-fn find_bool(value: &Value, names: &[&str]) -> Option<bool> {
-    match value {
-        Value::Object(object) => {
-            for name in names {
-                if let Some(found) = object.get(*name).and_then(Value::as_bool) {
-                    return Some(found);
-                }
-            }
-            object.values().find_map(|value| find_bool(value, names))
-        }
-        Value::Array(array) => array.iter().find_map(|value| find_bool(value, names)),
-        _ => None,
-    }
+struct AccountStatus<'a> {
+    logged_in: bool,
+    auth_method: Option<&'a str>,
 }
 
-fn find_string<'a>(value: &'a Value, names: &[&str]) -> Option<&'a str> {
+/// Locate one coherent account-status object. Authentication and billing-route
+/// evidence must come from the same object; independently searching an
+/// arbitrary JSON envelope can combine unrelated fields into a false positive.
+fn find_account_status(value: &Value) -> Result<Option<AccountStatus<'_>>, AiError> {
+    let mut statuses = Vec::new();
+    collect_account_statuses(value, &mut statuses)?;
+    let Some(first) = statuses.first() else {
+        return Ok(None);
+    };
+    if statuses.iter().any(|status| {
+        status.logged_in != first.logged_in
+            || !same_auth_method(status.auth_method, first.auth_method)
+    }) {
+        return Err(AiError::Protocol(
+            "Claude Code returned conflicting account evidence".into(),
+        ));
+    }
+    Ok(Some(AccountStatus {
+        logged_in: first.logged_in,
+        auth_method: first.auth_method,
+    }))
+}
+
+fn collect_account_statuses<'a>(
+    value: &'a Value,
+    statuses: &mut Vec<AccountStatus<'a>>,
+) -> Result<(), AiError> {
     match value {
         Value::Object(object) => {
-            for name in names {
-                if let Some(found) = object.get(*name).and_then(Value::as_str) {
-                    return Some(found);
+            let login_values = ["loggedIn", "authenticated", "isAuthenticated"]
+                .iter()
+                .filter_map(|name| object.get(*name).and_then(Value::as_bool))
+                .collect::<Vec<_>>();
+            if let Some(logged_in) = login_values.first().copied() {
+                if login_values.iter().any(|value| *value != logged_in) {
+                    return Err(AiError::Protocol(
+                        "Claude Code returned conflicting account evidence".into(),
+                    ));
                 }
+                let auth_methods = [
+                    "authMethod",
+                    "loginMethod",
+                    "credentialSource",
+                    "subscriptionType",
+                ]
+                .iter()
+                .filter_map(|name| object.get(*name).and_then(Value::as_str))
+                .map(|value| value.trim())
+                .collect::<Vec<_>>();
+                let auth_method = auth_methods.first().copied();
+                if auth_methods
+                    .iter()
+                    .any(|value| !same_auth_method(Some(*value), auth_method))
+                {
+                    return Err(AiError::Protocol(
+                        "Claude Code returned conflicting authentication routes".into(),
+                    ));
+                }
+                statuses.push(AccountStatus {
+                    logged_in,
+                    auth_method,
+                });
             }
-            object.values().find_map(|value| find_string(value, names))
+            for value in object.values() {
+                collect_account_statuses(value, statuses)?;
+            }
         }
-        Value::Array(array) => array.iter().find_map(|value| find_string(value, names)),
-        _ => None,
+        Value::Array(array) => {
+            for value in array {
+                collect_account_statuses(value, statuses)?;
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+fn same_auth_method(left: Option<&str>, right: Option<&str>) -> bool {
+    match (left, right) {
+        (Some(left), Some(right)) => left.eq_ignore_ascii_case(right),
+        (None, None) => true,
+        _ => false,
     }
 }
 
@@ -379,5 +426,41 @@ mod tests {
     fn missing_account_state_is_a_protocol_failure() {
         let status = json!({ "authMethod": "oauth" });
         assert!(classify_account_status(&status, true).is_err());
+    }
+
+    #[test]
+    fn account_and_subscription_evidence_must_be_correlated_and_exact() {
+        let unrelated = json!({
+            "connection": { "authenticated": true },
+            "billing": { "credentialSource": "oauth" }
+        });
+        assert!(classify_account_status(&unrelated, true).is_err());
+
+        let deceptive = json!({ "loggedIn": true, "authMethod": "not-oauth" });
+        assert!(!classify_account_status(&deceptive, true).unwrap());
+
+        let nested = json!({
+            "status": { "loggedIn": true, "authMethod": "claude.ai" }
+        });
+        assert!(classify_account_status(&nested, true).unwrap());
+
+        for conflicting in [
+            json!({
+                "loggedIn": true,
+                "authenticated": false,
+                "authMethod": "oauth"
+            }),
+            json!({
+                "loggedIn": true,
+                "authMethod": "oauth",
+                "credentialSource": "api_key"
+            }),
+            json!({
+                "account": { "loggedIn": true, "authMethod": "oauth" },
+                "other": { "authenticated": false, "authMethod": "none" }
+            }),
+        ] {
+            assert!(classify_account_status(&conflicting, true).is_err());
+        }
     }
 }

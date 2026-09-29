@@ -225,29 +225,54 @@ pub struct HistoryStore {
     entries: Vec<StoredProposal>,
 }
 
+/// A failed directory sync after rename cannot undo the now-visible index.
+/// Keep both generations' files in that case so either index remains readable.
+enum IndexPublication {
+    Durable,
+    VisibleButUnsynced(anyhow::Error),
+}
+
+struct Retention {
+    index: HistoryIndex,
+    dropped: Vec<StoredProposal>,
+}
+
+/// Unique copies may be prepared without holding the index lock. Until the
+/// index references them, any error must remove only these new files.
+#[derive(Default)]
+struct PendingArtifacts(Vec<PathBuf>);
+
+impl PendingArtifacts {
+    fn retain(&mut self) {
+        self.0.clear();
+    }
+}
+
+impl Drop for PendingArtifacts {
+    fn drop(&mut self) {
+        for path in &self.0 {
+            let _ = fs::remove_file(path);
+        }
+    }
+}
+
 impl HistoryStore {
     pub fn open(root: impl AsRef<Path>) -> Result<Self> {
         let root = root.as_ref().to_owned();
         ensure!(!root.as_os_str().is_empty(), "missing AI history directory");
         ensure_private_directory(&root)?;
+        let _lock = lock_history(&root)?;
         ensure_private_directory(&root.join("assets"))?;
         ensure_private_directory(&root.join("context"))?;
-        let index = read_index(&root)?;
-        let mut entries = Vec::with_capacity(index.entries.len());
-        for mut entry in index.entries {
-            if entry.group_id.is_empty() {
-                entry.group_id = entry.id.clone();
-            }
-            if valid_entry(&entry, &root).is_ok() {
-                entries.push(entry);
-            }
-        }
-        entries.sort_by_key(|entry| std::cmp::Reverse(entry.completed_unix_ms));
-        let mut store = Self { root, entries };
+        let retained = retain_entries(read_valid_entries(&root)?)?;
+        let mut store = Self {
+            root,
+            entries: Vec::new(),
+        };
         // Keep every valid entry through pruning so files for old alternatives
         // are removed with their index records rather than becoming private
         // orphaned bytes after a restart.
-        store.prune_and_publish()?;
+        store.publish(retained, write_index)?;
         Ok(store)
     }
 
@@ -260,22 +285,24 @@ impl HistoryStore {
     }
 
     pub fn persist(&mut self, input: NewProposal) -> Result<StoredProposal> {
+        self.persist_with_writer(input, write_index)
+    }
+
+    fn persist_with_writer(
+        &mut self,
+        input: NewProposal,
+        writer: impl FnOnce(&Path, &HistoryIndex) -> Result<IndexPublication>,
+    ) -> Result<StoredProposal> {
         validate_input(&input)?;
         let id = input.id.to_uppercase();
-        ensure!(
-            !self.entries.iter().any(|entry| entry.id == id),
-            "AI result is already retained"
-        );
+        let copy_id = uuid::Uuid::new_v4();
+        let mut pending = PendingArtifacts::default();
         let mut stored_assets: Vec<StoredAsset> = Vec::with_capacity(input.assets.len());
         for (index, asset) in input.assets.iter().enumerate() {
-            let file = format!("assets/{id}-{index}.asset");
+            let file = format!("assets/{id}-{copy_id}-{index}.asset");
             let destination = self.root.join(&file);
-            if let Err(error) = copy_regular_file(&asset.path, &destination, asset.byte_len) {
-                for copied in &stored_assets {
-                    let _ = fs::remove_file(self.root.join(&copied.file));
-                }
-                return Err(error);
-            }
+            copy_regular_file(&asset.path, &destination, asset.byte_len)?;
+            pending.0.push(destination);
             stored_assets.push(StoredAsset {
                 file,
                 media_type: asset.media_type.clone(),
@@ -288,22 +315,15 @@ impl HistoryStore {
         let mut stored_context: Vec<StoredContextAsset> =
             Vec::with_capacity(input.context_assets.len());
         for (index, context) in input.context_assets.iter().enumerate() {
-            let file = format!("context/{id}-{index}.asset");
+            let file = format!("context/{id}-{copy_id}-{index}.asset");
             let destination = self.root.join(&file);
-            if let Err(error) = copy_regular_file_limited(
+            copy_regular_file_limited(
                 &context.path,
                 &destination,
                 context.byte_len,
                 MAX_CONTEXT_ASSET_BYTES,
-            ) {
-                for copied in &stored_assets {
-                    let _ = fs::remove_file(self.root.join(&copied.file));
-                }
-                for copied in &stored_context {
-                    let _ = fs::remove_file(self.root.join(&copied.file));
-                }
-                return Err(error);
-            }
+            )?;
+            pending.0.push(destination);
             stored_context.push(StoredContextAsset {
                 file,
                 media_type: context.media_type.clone(),
@@ -312,6 +332,22 @@ impl HistoryStore {
                 content_hash: context.content_hash.clone(),
             });
         }
+        // Copies and their directory entries must be durable before an index
+        // can reference them. Large file copying stays outside the lock.
+        if !stored_assets.is_empty() {
+            File::open(self.root.join("assets"))?.sync_all()?;
+        }
+        if !stored_context.is_empty() {
+            File::open(self.root.join("context"))?.sync_all()?;
+        }
+        let _lock = lock_history(&self.root)?;
+        let mut entries = read_valid_entries(&self.root)?;
+        ensure!(
+            !entries
+                .iter()
+                .any(|entry| entry.id.eq_ignore_ascii_case(&id)),
+            "AI result is already retained"
+        );
         let entry = StoredProposal {
             id,
             group_id: input.group_id,
@@ -329,17 +365,23 @@ impl HistoryStore {
             provenance: input.provenance,
             completed_unix_ms: now_unix_ms(),
         };
-        self.entries.insert(0, entry.clone());
-        if let Err(error) = self.prune_and_publish() {
-            self.entries.retain(|item| item.id != entry.id);
-            for asset in &entry.assets {
-                let _ = fs::remove_file(self.root.join(&asset.file));
-            }
-            for context in &entry.context_assets {
-                let _ = fs::remove_file(self.root.join(&context.file));
-            }
-            return Err(error);
-        }
+        entries.insert(0, entry.clone());
+        let retained = retain_entries(entries)?;
+        ensure!(
+            retained
+                .index
+                .entries
+                .iter()
+                .any(|item| item.id == entry.id),
+            "AI result cannot fit in the retained history budget"
+        );
+        self.publish(retained, |root, index| {
+            let publication = writer(root, index)?;
+            // Also preserve the new files if rename succeeded but the final
+            // directory sync failed: the visible index already needs them.
+            pending.retain();
+            Ok(publication)
+        })?;
         Ok(entry)
     }
 
@@ -349,66 +391,135 @@ impl HistoryStore {
     /// so a crash can leave harmless orphaned bytes but cannot resurrect a
     /// dismissed result.
     pub fn discard(&mut self, id: &str) -> Result<bool> {
-        let Some(index) = self.entries.iter().position(|entry| entry.id == id) else {
+        self.discard_with_writer(id, write_index)
+    }
+
+    fn discard_with_writer(
+        &mut self,
+        id: &str,
+        writer: impl FnOnce(&Path, &HistoryIndex) -> Result<IndexPublication>,
+    ) -> Result<bool> {
+        let _lock = lock_history(&self.root)?;
+        let mut entries = read_valid_entries(&self.root)?;
+        let Some(index) = entries
+            .iter()
+            .position(|entry| entry.id.eq_ignore_ascii_case(id))
+        else {
+            self.entries = entries;
             return Ok(false);
         };
-        let entry = self.entries.remove(index);
-        if let Err(error) = self.prune_and_publish() {
-            self.entries.insert(index, entry);
-            return Err(error);
-        }
-        for asset in entry.assets {
-            let _ = fs::remove_file(self.root.join(asset.file));
-        }
-        for context in entry.context_assets {
-            let _ = fs::remove_file(self.root.join(context.file));
-        }
+        let entry = entries.remove(index);
+        let mut retained = retain_entries(entries)?;
+        retained.dropped.push(entry);
+        self.publish(retained, writer)?;
         Ok(true)
     }
 
-    fn prune_and_publish(&mut self) -> Result<()> {
-        let mut prior = std::mem::take(&mut self.entries);
-        prior.sort_by_key(|entry| std::cmp::Reverse(entry.completed_unix_ms));
-        let mut kept_bytes = 0_u64;
-        let mut kept = Vec::with_capacity(prior.len().min(MAX_ENTRIES));
-        let mut dropped = Vec::new();
-        for entry in prior {
-            let bytes = entry
-                .assets
-                .iter()
-                .fold(0_u64, |total, asset| total.saturating_add(asset.byte_len))
-                .saturating_add(
-                    entry
-                        .context_assets
-                        .iter()
-                        .fold(0_u64, |total, asset| total.saturating_add(asset.byte_len)),
-                );
-            if kept.len() < MAX_ENTRIES && kept_bytes.saturating_add(bytes) <= MAX_TOTAL_ASSET_BYTES
-            {
-                kept_bytes = kept_bytes.saturating_add(bytes);
-                kept.push(entry);
-            } else {
-                dropped.push(entry);
-            }
+    fn publish(
+        &mut self,
+        retained: Retention,
+        writer: impl FnOnce(&Path, &HistoryIndex) -> Result<IndexPublication>,
+    ) -> Result<()> {
+        let publication = writer(&self.root, &retained.index)?;
+        self.entries = retained.index.entries;
+        if let IndexPublication::VisibleButUnsynced(error) = publication {
+            return Err(
+                error.context("AI history was saved but its durability could not be confirmed")
+            );
         }
-        self.entries = kept;
-        write_index(
-            &self.root,
-            &HistoryIndex {
-                version: 1,
-                entries: self.entries.clone(),
-            },
-        )?;
-        for entry in dropped {
-            for asset in entry.assets {
-                let _ = fs::remove_file(self.root.join(asset.file));
-            }
-            for context in entry.context_assets {
-                let _ = fs::remove_file(self.root.join(context.file));
-            }
+        for entry in retained.dropped {
+            remove_unreferenced_artifacts(&self.root, &entry, &self.entries);
         }
         Ok(())
     }
+}
+
+fn read_valid_entries(root: &Path) -> Result<Vec<StoredProposal>> {
+    let index = read_index(root)?;
+    let mut entries = Vec::with_capacity(index.entries.len());
+    for mut entry in index.entries {
+        if entry.group_id.is_empty() {
+            entry.group_id = entry.id.clone();
+        }
+        if valid_entry(&entry, root).is_ok() {
+            entries.push(entry);
+        }
+    }
+    entries.sort_by_key(|entry| std::cmp::Reverse(entry.completed_unix_ms));
+    Ok(entries)
+}
+
+fn retain_entries(mut entries: Vec<StoredProposal>) -> Result<Retention> {
+    entries.sort_by_key(|entry| std::cmp::Reverse(entry.completed_unix_ms));
+    let mut index = HistoryIndex::default();
+    let mut kept_bytes = 0_u64;
+    let mut dropped = Vec::new();
+    for entry in entries {
+        let bytes = entry
+            .assets
+            .iter()
+            .map(|asset| asset.byte_len)
+            .chain(entry.context_assets.iter().map(|asset| asset.byte_len))
+            .fold(0_u64, u64::saturating_add);
+        if index.entries.len() >= MAX_ENTRIES
+            || kept_bytes.saturating_add(bytes) > MAX_TOTAL_ASSET_BYTES
+        {
+            dropped.push(entry);
+            continue;
+        }
+        index.entries.push(entry);
+        // Count the exact on-disk representation, including JSON escaping and
+        // formatting. Raw plan lengths alone do not bound index size.
+        if serde_json::to_vec_pretty(&index)?.len() as u64 > MAX_INDEX_BYTES {
+            dropped.push(index.entries.pop().expect("just inserted history entry"));
+        } else {
+            kept_bytes = kept_bytes.saturating_add(bytes);
+        }
+    }
+    Ok(Retention { index, dropped })
+}
+
+fn remove_unreferenced_artifacts(root: &Path, entry: &StoredProposal, kept: &[StoredProposal]) {
+    for file in entry
+        .assets
+        .iter()
+        .map(|asset| &asset.file)
+        .chain(entry.context_assets.iter().map(|asset| &asset.file))
+    {
+        let referenced = kept.iter().any(|entry| {
+            entry.assets.iter().any(|asset| &asset.file == file)
+                || entry.context_assets.iter().any(|asset| &asset.file == file)
+        });
+        if !referenced {
+            let _ = fs::remove_file(root.join(file));
+        }
+    }
+}
+
+fn lock_history(root: &Path) -> Result<File> {
+    let path = root.join(".history.lock");
+    if let Ok(metadata) = fs::symlink_metadata(&path) {
+        ensure!(
+            metadata.file_type().is_file(),
+            "AI history lock is not a regular file"
+        );
+    }
+    let mut options = OpenOptions::new();
+    options.read(true).write(true).create(true).truncate(false);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let file = options.open(path)?;
+    ensure!(
+        file.metadata()?.is_file(),
+        "AI history lock is not a regular file"
+    );
+    // Keep this inode for the lifetime of the store. Replacing/removing it
+    // would let windows lock different files and race their index updates.
+    file.lock().context("Cannot lock AI result history")?;
+    Ok(file)
 }
 
 fn validate_input(input: &NewProposal) -> Result<()> {
@@ -602,7 +713,15 @@ fn read_index(root: &Path) -> Result<HistoryIndex> {
     Ok(index)
 }
 
-fn write_index(root: &Path, index: &HistoryIndex) -> Result<()> {
+fn write_index(root: &Path, index: &HistoryIndex) -> Result<IndexPublication> {
+    write_index_with_sync(root, index, |directory| directory.sync_all())
+}
+
+fn write_index_with_sync(
+    root: &Path,
+    index: &HistoryIndex,
+    sync_directory: impl FnOnce(&File) -> std::io::Result<()>,
+) -> Result<IndexPublication> {
     let bytes = serde_json::to_vec_pretty(index)?;
     ensure!(
         bytes.len() as u64 <= MAX_INDEX_BYTES,
@@ -617,12 +736,15 @@ fn write_index(root: &Path, index: &HistoryIndex) -> Result<()> {
         options.mode(0o600);
     }
     let mut file = options.open(&temporary)?;
-    let result = (|| -> Result<()> {
+    let result = (|| -> Result<IndexPublication> {
+        let directory = File::open(root)?;
         file.write_all(&bytes)?;
         file.sync_all()?;
         fs::rename(&temporary, root.join("history.json"))?;
-        File::open(root)?.sync_all()?;
-        Ok(())
+        Ok(match sync_directory(&directory) {
+            Ok(()) => IndexPublication::Durable,
+            Err(error) => IndexPublication::VisibleButUnsynced(error.into()),
+        })
     })();
     if result.is_err() {
         let _ = fs::remove_file(&temporary);
@@ -688,11 +810,7 @@ fn copy_regular_file_limited(
             options.mode(0o600);
         }
         let mut output = options.open(&temporary)?;
-        let copied = std::io::copy(&mut input, &mut output)?;
-        ensure!(
-            copied == expected_bytes,
-            "AI result asset changed while being retained"
-        );
+        copy_exact_bounded(&mut input, &mut output, expected_bytes)?;
         output.sync_all()?;
         fs::rename(&temporary, destination)?;
         Ok(())
@@ -701,6 +819,22 @@ fn copy_regular_file_limited(
         let _ = fs::remove_file(&temporary);
     }
     result
+}
+
+fn copy_exact_bounded(
+    input: &mut impl Read,
+    output: &mut impl Write,
+    expected_bytes: u64,
+) -> Result<()> {
+    let copied = std::io::copy(&mut (&mut *input).take(expected_bytes), output)?;
+    // Detect a growing source without writing even one byte beyond the
+    // declared budget, or draining an endlessly growing producer.
+    let mut excess = [0_u8; 1];
+    ensure!(
+        copied == expected_bytes && input.read(&mut excess)? == 0,
+        "AI result asset changed while being retained"
+    );
+    Ok(())
 }
 
 fn now_unix_ms() -> u64 {
@@ -715,6 +849,10 @@ fn now_unix_ms() -> u64 {
 mod tests {
     use super::*;
     use image::{ImageBuffer, Rgba};
+    use std::{
+        collections::BTreeSet,
+        sync::{Arc, Barrier},
+    };
 
     fn source() -> SourceIdentity {
         SourceIdentity {
@@ -754,6 +892,326 @@ mod tests {
             image_edit: false,
             provenance: serde_json::json!({"intent": "generate"}),
         }
+    }
+
+    fn fixture() -> (tempfile::TempDir, PathBuf, HistoryStore) {
+        let directory = tempfile::tempdir().unwrap();
+        let source = directory.path().join("result.png");
+        ImageBuffer::<Rgba<u8>, _>::from_pixel(2, 2, Rgba([10, 20, 30, 255]))
+            .save(&source)
+            .unwrap();
+        let history = HistoryStore::open(directory.path().join("history")).unwrap();
+        (directory, source, history)
+    }
+
+    fn artifact_files(root: &Path) -> BTreeSet<PathBuf> {
+        ["assets", "context"]
+            .into_iter()
+            .flat_map(|directory| {
+                fs::read_dir(root.join(directory))
+                    .unwrap()
+                    .map(|entry| entry.unwrap().path())
+            })
+            .collect()
+    }
+
+    fn fail_index_rename(root: &Path, index: &HistoryIndex) -> Result<IndexPublication> {
+        // Exercise a real failed atomic rename without depending on the
+        // account's effective permissions or filesystem capacity.
+        let path = root.join("history.json");
+        let backup = root.join("history.backup");
+        fs::rename(&path, &backup).unwrap();
+        fs::create_dir(&path).unwrap();
+        let result = write_index(root, index);
+        fs::remove_dir(&path).unwrap();
+        fs::rename(&backup, &path).unwrap();
+        assert!(result.is_err());
+        result
+    }
+
+    fn fail_directory_sync(root: &Path, index: &HistoryIndex) -> Result<IndexPublication> {
+        write_index_with_sync(root, index, |_| {
+            Err(std::io::Error::other("injected directory sync failure"))
+        })
+    }
+
+    #[test]
+    fn stale_windows_merge_new_results_and_do_not_resurrect_dismissed_results() {
+        let (_directory, source, mut first) = fixture();
+        let mut second = HistoryStore::open(first.root()).unwrap();
+        let a = first.persist(input(source.clone())).unwrap();
+        let b = second.persist(input(source.clone())).unwrap();
+        assert_eq!(second.entries(), &[b.clone(), a.clone()]);
+        // First has never seen b, but must still be able to dismiss it.
+        assert!(first.discard(&b.id).unwrap());
+        let c = second.persist(input(source)).unwrap();
+        let reopened = HistoryStore::open(first.root()).unwrap();
+        assert_eq!(reopened.entries(), &[c, a]);
+        assert!(!second.discard(&b.id).unwrap());
+        assert_eq!(second.entries(), reopened.entries());
+        assert!(!first.root().join(&b.assets[0].file).exists());
+    }
+
+    #[test]
+    fn duplicate_from_a_stale_window_preserves_the_first_result_and_its_artifact() {
+        let (_directory, source, mut first) = fixture();
+        let mut second = HistoryStore::open(first.root()).unwrap();
+        let proposal = input(source);
+        let retained = first.persist(proposal.clone()).unwrap();
+        let bytes = fs::read(first.root().join(&retained.assets[0].file)).unwrap();
+        let files = artifact_files(first.root());
+        let error = second.persist(proposal).unwrap_err();
+        assert!(error.to_string().contains("already retained"));
+        assert_eq!(artifact_files(first.root()), files);
+        assert_eq!(
+            fs::read(first.root().join(&retained.assets[0].file)).unwrap(),
+            bytes
+        );
+        assert_eq!(
+            HistoryStore::open(first.root()).unwrap().entries(),
+            &[retained]
+        );
+    }
+
+    #[test]
+    fn concurrent_windows_retain_every_completed_result() {
+        let (_directory, source, history) = fixture();
+        let barrier = Arc::new(Barrier::new(8));
+        let handles: Vec<_> = (0..8)
+            .map(|_| {
+                let mut window = HistoryStore::open(history.root()).unwrap();
+                let proposal = input(source.clone());
+                let barrier = Arc::clone(&barrier);
+                std::thread::spawn(move || {
+                    barrier.wait();
+                    window.persist(proposal).unwrap().id
+                })
+            })
+            .collect();
+        let expected: BTreeSet<_> = handles
+            .into_iter()
+            .map(|handle| handle.join().unwrap())
+            .collect();
+        let reopened = HistoryStore::open(history.root()).unwrap();
+        let actual: BTreeSet<_> = reopened
+            .entries()
+            .iter()
+            .map(|entry| entry.id.clone())
+            .collect();
+        assert_eq!(actual, expected);
+        assert_eq!(artifact_files(history.root()).len(), 8);
+        for entry in reopened.entries() {
+            valid_entry(entry, history.root()).unwrap();
+        }
+    }
+
+    #[test]
+    fn history_lock_is_exclusive_and_released_when_the_operation_ends() {
+        let (_directory, _source, history) = fixture();
+        let lock = lock_history(history.root()).unwrap();
+        let contender = File::open(history.root().join(".history.lock")).unwrap();
+        assert!(matches!(
+            contender.try_lock(),
+            Err(std::fs::TryLockError::WouldBlock)
+        ));
+        drop(lock);
+        contender.try_lock().unwrap();
+    }
+
+    #[test]
+    fn failed_publication_while_pruning_preserves_all_previous_results() {
+        let (_directory, source, mut history) = fixture();
+        for _ in 0..MAX_ENTRIES {
+            history.persist(input(source.clone())).unwrap();
+        }
+        let previous = history.entries().to_vec();
+        let index = fs::read(history.root().join("history.json")).unwrap();
+        let files = artifact_files(history.root());
+        assert!(
+            history
+                .persist_with_writer(input(source.clone()), fail_index_rename)
+                .is_err()
+        );
+        assert_eq!(history.entries(), previous);
+        assert_eq!(
+            fs::read(history.root().join("history.json")).unwrap(),
+            index
+        );
+        assert_eq!(artifact_files(history.root()), files);
+        assert_eq!(
+            HistoryStore::open(history.root()).unwrap().entries(),
+            previous
+        );
+        assert!(!fs::read_dir(history.root()).unwrap().any(|entry| {
+            entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .ends_with(".tmp")
+        }));
+        // A subsequent successful save still prunes exactly the oldest row.
+        let latest = history.persist(input(source)).unwrap();
+        assert_eq!(history.entries()[0], latest);
+        assert_eq!(&history.entries()[1..], &previous[..MAX_ENTRIES - 1]);
+        assert!(
+            !history
+                .root()
+                .join(&previous.last().unwrap().assets[0].file)
+                .exists()
+        );
+    }
+
+    #[test]
+    fn failed_discard_preserves_the_result_and_private_context() {
+        let (_directory, source, mut history) = fixture();
+        let mut proposal = input(source.clone());
+        proposal.context_assets.push(NewContextAsset {
+            path: source.clone(),
+            media_type: "image/png".into(),
+            byte_len: fs::metadata(source).unwrap().len(),
+            role: ContextRole::Reference,
+            content_hash: "fnv1a64:reference".into(),
+        });
+        let saved = history.persist(proposal).unwrap();
+        let files = artifact_files(history.root());
+        assert!(
+            history
+                .discard_with_writer(&saved.id, fail_index_rename)
+                .is_err()
+        );
+        assert_eq!(history.entries(), &[saved.clone()]);
+        assert_eq!(artifact_files(history.root()), files);
+        assert_eq!(
+            HistoryStore::open(history.root()).unwrap().entries(),
+            &[saved]
+        );
+    }
+
+    #[test]
+    fn sync_failure_after_rename_keeps_files_for_both_index_generations() {
+        let (_directory, source, mut history) = fixture();
+        for _ in 0..MAX_ENTRIES {
+            history.persist(input(source.clone())).unwrap();
+        }
+        let previous_files = artifact_files(history.root());
+        let proposal = input(source);
+        let new_id = proposal.id.to_uppercase();
+        let error = history
+            .persist_with_writer(proposal, fail_directory_sync)
+            .unwrap_err();
+        assert!(error.to_string().contains("durability"));
+        assert_eq!(history.entries()[0].id, new_id);
+        assert_eq!(
+            read_index(history.root()).unwrap().entries,
+            history.entries()
+        );
+        let files = artifact_files(history.root());
+        assert!(previous_files.is_subset(&files));
+        assert_eq!(files.len(), MAX_ENTRIES + 1);
+        assert_eq!(
+            HistoryStore::open(history.root()).unwrap().entries(),
+            history.entries()
+        );
+        for entry in history.entries() {
+            valid_entry(entry, history.root()).unwrap();
+        }
+    }
+
+    #[test]
+    fn discard_sync_failure_tracks_the_visible_index_without_deleting_old_files() {
+        let (_directory, source, mut history) = fixture();
+        let saved = history.persist(input(source)).unwrap();
+        let files = artifact_files(history.root());
+        assert!(
+            history
+                .discard_with_writer(&saved.id, fail_directory_sync)
+                .is_err()
+        );
+        assert!(history.entries().is_empty());
+        assert!(read_index(history.root()).unwrap().entries.is_empty());
+        assert_eq!(artifact_files(history.root()), files);
+    }
+
+    #[test]
+    fn large_plan_history_prunes_to_the_serialized_index_budget() {
+        let (_directory, source, mut history) = fixture();
+        let mut saved = Vec::new();
+        for _ in 0..3 {
+            let mut proposal = input(source.clone());
+            proposal.plan_json = Some(
+                serde_json::json!({
+                    "summary": "x".repeat(200 * 1024), "operations": []
+                })
+                .to_string(),
+            );
+            saved.push(history.persist(proposal).unwrap());
+        }
+        assert_eq!(history.entries(), &[saved[2].clone(), saved[1].clone()]);
+        assert!(
+            fs::metadata(history.root().join("history.json"))
+                .unwrap()
+                .len()
+                <= MAX_INDEX_BYTES
+        );
+        assert!(!history.root().join(&saved[0].assets[0].file).exists());
+        assert_eq!(artifact_files(history.root()).len(), 2);
+        assert_eq!(
+            HistoryStore::open(history.root()).unwrap().entries(),
+            history.entries()
+        );
+    }
+
+    #[test]
+    fn a_single_escaped_plan_over_budget_cannot_displace_retained_results() {
+        let (_directory, source, mut history) = fixture();
+        let saved = history.persist(input(source.clone())).unwrap();
+        let files = artifact_files(history.root());
+        let mut oversized = input(source);
+        let prefix = "{\"operations\":[]}";
+        let plan = format!("{prefix}{}", "\n".repeat(MAX_PLAN_BYTES - prefix.len()));
+        serde_json::from_str::<serde_json::Value>(&plan).unwrap();
+        oversized.plan_json = Some(plan);
+        validate_input(&oversized).unwrap();
+        let error = history.persist(oversized).unwrap_err();
+        assert!(error.to_string().contains("history budget"));
+        assert_eq!(history.entries(), &[saved.clone()]);
+        assert_eq!(artifact_files(history.root()), files);
+        assert_eq!(
+            HistoryStore::open(history.root()).unwrap().entries(),
+            &[saved]
+        );
+    }
+
+    #[test]
+    fn bounded_copy_rejects_growth_without_writing_past_the_declared_size() {
+        struct GrowingSource {
+            read: usize,
+        }
+        impl Read for GrowingSource {
+            fn read(&mut self, bytes: &mut [u8]) -> std::io::Result<usize> {
+                bytes.fill(42);
+                self.read += bytes.len();
+                Ok(bytes.len())
+            }
+        }
+        let mut source = GrowingSource { read: 0 };
+        let mut output = Vec::new();
+        assert!(copy_exact_bounded(&mut source, &mut output, 4096).is_err());
+        assert_eq!(source.read, 4097);
+        assert_eq!(output, vec![42; 4096]);
+    }
+
+    #[test]
+    fn bounded_copy_accepts_exact_lengths_and_rejects_shrinking_sources() {
+        for bytes in [b"".as_slice(), b"result bytes".as_slice()] {
+            let mut output = Vec::new();
+            copy_exact_bounded(&mut &bytes[..], &mut output, bytes.len() as u64).unwrap();
+            assert_eq!(output, bytes);
+        }
+        let mut output = Vec::new();
+        assert!(copy_exact_bounded(&mut b"short".as_slice(), &mut output, 20).is_err());
+        assert_eq!(output, b"short");
+        assert!(copy_exact_bounded(&mut b"grew".as_slice(), &mut Vec::new(), 0).is_err());
     }
 
     #[test]

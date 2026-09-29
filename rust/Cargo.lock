@@ -1001,25 +1001,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d7b894f5411737b7867f4827955924d7c254fc9f4d91a6aad6b097804b1018b"
 
 [[package]]
-name = "omuse"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "cosmic-text",
- "flate2",
- "gpui-kit",
- "gpui-omarchy",
- "image",
- "libloading",
- "png 0.18.1",
- "serde",
- "serde_json",
- "tempfile",
- "tiff",
- "uuid",
-]
-
-[[package]]
 name = "compression-codecs"
 version = "0.4.43"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4689,6 +4670,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ff76201f031d8863c38aa7f905eca4f53abbfa15f609db4277d44cd8938f33fe"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "omuse"
+version = "0.2.0"
+dependencies = [
+ "anyhow",
+ "cosmic-text",
+ "flate2",
+ "gpui-kit",
+ "gpui-omarchy",
+ "image",
+ "libloading",
+ "png 0.18.1",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tiff",
+ "uuid",
 ]
 
 [[package]]

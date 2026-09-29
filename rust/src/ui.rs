@@ -100,7 +100,7 @@ pub fn bind_keys(cx: &mut App) {
 fn install_shortcuts(settings: &Shortcuts, previous: &Shortcuts, cx: &mut App) {
     // Shadow only editor bindings; preserve GPUI text-input and dialog bindings.
     for (id, _, default) in shortcuts::DEFINITIONS {
-        let context = if *id == "command-search" {
+        let context = if matches!(*id, "command-search" | "quit") {
             "Omuse"
         } else {
             "Omuse && !Input"
@@ -119,7 +119,7 @@ fn install_shortcuts(settings: &Shortcuts, previous: &Shortcuts, cx: &mut App) {
         cx.bind_keys([KeyBinding::new(
             settings.chord(id),
             Command { name: (*id).into() },
-            Some(if *id == "command-search" {
+            Some(if matches!(*id, "command-search" | "quit") {
                 "Omuse"
             } else {
                 "Omuse && !Input"
@@ -7852,7 +7852,10 @@ impl Render for EditorView {
                 }
             }))
             .on_action(cx.listener(move |this, action: &Command, w, cx| {
-                if !modal && (this.focus.is_focused(w) || action.name == "command-search") {
+                if !modal
+                    && (this.focus.is_focused(w)
+                        || matches!(action.name.as_str(), "command-search" | "quit"))
+                {
                     this.command(&action.name, w, cx);
                 }
             }))

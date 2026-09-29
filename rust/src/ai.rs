@@ -20,7 +20,7 @@ pub use discovery::{DiscoveryConfig, discover_providers};
 pub use jobs::{JobHandle, spawn_job};
 pub use qualification::QualificationReceipts;
 pub use types::{
-    AiError, BillingMode, Capability, CapabilityStatus, ConnectionState, EvidenceLevel, JobEvent,
-    JobFailure, JobLimits, JobOperation, JobOutcome, JobRequest, JobResult, ProviderId,
-    ProviderStatus, ReferenceAsset, ResultAsset, ValidatedClient,
+    AiError, AllowanceWindow, BillingMode, Capability, CapabilityStatus, ConnectionState,
+    EvidenceLevel, JobEvent, JobFailure, JobLimits, JobOperation, JobOutcome, JobRequest,
+    JobResult, ProviderId, ProviderStatus, ReferenceAsset, ResultAsset, ValidatedClient,
 };

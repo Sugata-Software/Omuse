@@ -76,6 +76,17 @@ pub struct CapabilityStatus {
     pub detail: String,
 }
 
+/// A sanitized subscription-allowance window reported by an official runtime.
+/// Omuse retains only displayable capacity and reset timing, never account or
+/// organization identifiers.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AllowanceWindow {
+    pub remaining_percent: u8,
+    pub resets_at_unix_seconds: Option<i64>,
+    pub window_duration_minutes: Option<u64>,
+}
+
 impl CapabilityStatus {
     pub(crate) fn new(
         capability: Capability,
@@ -135,6 +146,10 @@ pub struct ProviderStatus {
     pub billing: BillingMode,
     pub version: Option<String>,
     pub capabilities: Vec<CapabilityStatus>,
+    /// Read-only subscription allowance reported by the provider. `None`
+    /// means the runtime does not support or did not complete this optional
+    /// query; it never changes connection readiness.
+    pub allowance: Option<Vec<AllowanceWindow>>,
     /// Sanitized status text. It never contains command output, credentials,
     /// account email addresses, or absolute user paths.
     pub detail: String,
@@ -179,6 +194,7 @@ impl ProviderStatus {
                     CapabilityStatus::new(capability, EvidenceLevel::Unknown, "Not checked")
                 })
                 .collect(),
+            allowance: None,
             detail: detail.into(),
             client: None,
         }

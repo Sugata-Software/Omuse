@@ -2,7 +2,8 @@ use crate::ai::{
     process::{JsonLineChild, sanitize_provider_error},
     results::{capture_codex_image, validate_reference},
     types::{
-        AiError, JobEvent, JobFailure, JobOperation, JobOutcome, JobRequest, JobResult, ProviderId,
+        AiError, AllowanceWindow, JobEvent, JobFailure, JobOperation, JobOutcome, JobRequest,
+        JobResult, ProviderId,
     },
 };
 use serde_json::{Value, json};
@@ -47,6 +48,7 @@ const FORBIDDEN_EXPOSURE_FEATURES: &[&str] = &[
 pub(crate) struct Probe {
     pub signed_in_with_chatgpt: bool,
     pub image_generation_advertised: bool,
+    pub allowance: Option<Vec<AllowanceWindow>>,
 }
 
 pub(crate) fn probe(
@@ -54,31 +56,109 @@ pub(crate) fn probe(
     cwd: &Path,
     timeout: Duration,
     max_line_bytes: usize,
+    cancel: &AtomicBool,
 ) -> Result<Probe, AiError> {
-    let cancel = AtomicBool::new(false);
     let deadline = Instant::now() + timeout;
     let mut process = start(executable, cwd, max_line_bytes)?;
-    initialize(&mut process, deadline, &cancel)?;
+    initialize(&mut process, deadline, cancel)?;
     process.send(&json!({
         "method": "account/read",
         "id": 2,
         "params": { "refreshToken": false }
     }))?;
-    let account = process.wait_for_id(2, deadline, &cancel)?;
+    let account = process.wait_for_id(2, deadline, cancel)?;
     process.send(&json!({
         "method": "modelProvider/capabilities/read",
         "id": 3,
         "params": {}
     }))?;
-    let capabilities = process.wait_for_id(3, deadline, &cancel)?;
-    verify_runtime_profile(&mut process, None, None, deadline, &cancel)?;
+    let capabilities = process.wait_for_id(3, deadline, cancel)?;
+    verify_runtime_profile(&mut process, None, None, deadline, cancel)?;
+    let signed_in_with_chatgpt =
+        account.pointer("/account/type").and_then(Value::as_str) == Some("chatgpt");
+    let allowance = signed_in_with_chatgpt
+        .then(|| read_allowance_optional(&mut process, deadline, cancel))
+        .flatten();
     Ok(Probe {
-        signed_in_with_chatgpt: account.pointer("/account/type").and_then(Value::as_str)
-            == Some("chatgpt"),
+        signed_in_with_chatgpt,
         image_generation_advertised: capabilities
             .get("imageGeneration")
             .and_then(Value::as_bool)
             .unwrap_or(false),
+        allowance,
+    })
+}
+
+/// Allowance is useful status, not connection evidence. Older runtimes may not
+/// implement this read-only method, so every failure remains `None` and never
+/// downgrades a provider that passed the required account/isolation probes.
+fn read_allowance_optional(
+    process: &mut JsonLineChild,
+    provider_deadline: Instant,
+    cancelled: &AtomicBool,
+) -> Option<Vec<AllowanceWindow>> {
+    let remaining = provider_deadline.saturating_duration_since(Instant::now());
+    if remaining.is_zero() {
+        return None;
+    }
+    if process
+        .send(&json!({
+            "method": "account/rateLimits/read",
+            "id": 103,
+            "params": {}
+        }))
+        .is_err()
+    {
+        return None;
+    }
+    let deadline = Instant::now() + remaining.min(Duration::from_millis(750));
+    process
+        .wait_for_id(103, deadline, cancelled)
+        .ok()
+        .and_then(|value| parse_allowance(&value))
+}
+
+fn parse_allowance(value: &Value) -> Option<Vec<AllowanceWindow>> {
+    let mut windows = Vec::new();
+    if let Some(rate_limits) = value.get("rateLimits").and_then(Value::as_object) {
+        for name in ["primary", "secondary"] {
+            if let Some(window) = rate_limits.get(name).and_then(parse_allowance_window) {
+                windows.push(window);
+            }
+        }
+    }
+    if windows.is_empty()
+        && let Some(by_id) = value.get("rateLimitsByLimitId").and_then(Value::as_object)
+    {
+        for item in by_id.values() {
+            if let Some(window) = parse_allowance_window(item) {
+                if !windows.contains(&window) {
+                    windows.push(window);
+                }
+            }
+        }
+    }
+    (!windows.is_empty()).then_some(windows)
+}
+
+fn parse_allowance_window(value: &Value) -> Option<AllowanceWindow> {
+    let used = value.get("usedPercent")?.as_f64()?;
+    if !used.is_finite() || !(0.0..=100.0).contains(&used) {
+        return None;
+    }
+    let remaining_percent = (100.0 - used).floor() as u8;
+    let resets_at_unix_seconds = value
+        .get("resetsAt")
+        .and_then(Value::as_i64)
+        .filter(|value| *value >= 0);
+    let window_duration_minutes = value
+        .get("windowDurationMins")
+        .and_then(Value::as_u64)
+        .filter(|value| *value > 0);
+    Some(AllowanceWindow {
+        remaining_percent,
+        resets_at_unix_seconds,
+        window_duration_minutes,
     })
 }
 
@@ -821,6 +901,8 @@ fn failure(error: AiError, retryable: bool) -> JobFailure {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
+    use std::{fs, os::unix::fs::PermissionsExt};
 
     fn isolated_features(shell_enabled: bool) -> Vec<Value> {
         let mut features = FORBIDDEN_EXPOSURE_FEATURES
@@ -872,5 +954,115 @@ mod tests {
                 "untrusted instruction-source evidence must fail closed: {response}"
             );
         }
+    }
+
+    #[test]
+    fn allowance_parser_retains_only_bounded_capacity_and_reset_timing() {
+        let windows = parse_allowance(&json!({
+            "rateLimits": {
+                "primary": {
+                    "usedPercent": 12.25,
+                    "resetsAt": 1_800_000_000_i64,
+                    "windowDurationMins": 300,
+                    "accountId": "must-not-be-retained"
+                },
+                "secondary": {
+                    "usedPercent": 67,
+                    "resetsAt": 1_800_100_000_i64,
+                    "windowDurationMins": 10_080
+                }
+            }
+        }))
+        .unwrap();
+
+        assert_eq!(
+            windows,
+            vec![
+                AllowanceWindow {
+                    remaining_percent: 87,
+                    resets_at_unix_seconds: Some(1_800_000_000),
+                    window_duration_minutes: Some(300),
+                },
+                AllowanceWindow {
+                    remaining_percent: 33,
+                    resets_at_unix_seconds: Some(1_800_100_000),
+                    window_duration_minutes: Some(10_080),
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn malformed_or_out_of_range_allowance_is_unavailable() {
+        for response in [
+            json!({}),
+            json!({ "rateLimits": { "primary": null } }),
+            json!({ "rateLimits": { "primary": { "usedPercent": -1 } } }),
+            json!({ "rateLimits": { "primary": { "usedPercent": 101 } } }),
+            json!({ "rateLimits": { "primary": { "usedPercent": "12" } } }),
+        ] {
+            assert_eq!(parse_allowance(&response), None);
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn optional_allowance_protocol_never_requires_a_supported_endpoint() {
+        let root = tempfile::tempdir().unwrap();
+        let supported = allowance_server(
+            root.path(),
+            "supported",
+            r#"{"id":103,"result":{"rateLimits":{"primary":{"usedPercent":25,"resetsAt":1800000000,"windowDurationMins":300}}}}"#,
+        );
+        let unsupported = allowance_server(
+            root.path(),
+            "unsupported",
+            r#"{"id":103,"error":{"message":"method not found"}}"#,
+        );
+        let cancelled = AtomicBool::new(false);
+
+        let mut process =
+            JsonLineChild::spawn(&supported, Vec::<OsString>::new(), root.path(), 4096).unwrap();
+        let allowance = read_allowance_optional(
+            &mut process,
+            Instant::now() + Duration::from_secs(1),
+            &cancelled,
+        )
+        .unwrap();
+        assert_eq!(allowance[0].remaining_percent, 75);
+        drop(process);
+
+        let request = fs::read_to_string(root.path().join("supported-request")).unwrap();
+        assert!(request.contains("account/rateLimits/read"));
+        assert!(!request.contains("reset"));
+        assert!(!request.contains("credit"));
+
+        let mut process =
+            JsonLineChild::spawn(&unsupported, Vec::<OsString>::new(), root.path(), 4096).unwrap();
+        assert_eq!(
+            read_allowance_optional(
+                &mut process,
+                Instant::now() + Duration::from_secs(1),
+                &cancelled,
+            ),
+            None
+        );
+    }
+
+    #[cfg(unix)]
+    fn allowance_server(root: &Path, name: &str, response: &str) -> PathBuf {
+        let path = root.join(name);
+        let request = root.join(format!("{name}-request"));
+        fs::write(
+            &path,
+            format!(
+                "#!/bin/sh\nIFS= read -r line\nprintf '%s' \"$line\" > '{}'\nprintf '%s\\n' '{}'\nwhile IFS= read -r ignored; do :; done\n",
+                request.display(),
+                response
+            ),
+        )
+        .unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
+        path
     }
 }

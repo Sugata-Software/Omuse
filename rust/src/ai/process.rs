@@ -1,6 +1,7 @@
 use crate::ai::types::{AiError, ProviderId};
 use serde_json::Value;
 use std::{
+    collections::VecDeque,
     ffi::OsStr,
     io::{Read, Write},
     path::Path,
@@ -12,6 +13,9 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
+
+const MAX_PENDING_PROTOCOL_FRAMES: usize = 64;
+const MAX_PENDING_PROTOCOL_BYTES: usize = 8 * 1024 * 1024;
 
 const ENV_ALLOWLIST: &[&str] = &[
     "HOME",
@@ -49,24 +53,10 @@ pub(crate) struct Capture {
     pub truncated: bool,
 }
 
-pub(crate) fn capture_bounded<I, S>(
-    executable: &Path,
-    args: I,
-    cwd: &Path,
-    timeout: Duration,
-    max_bytes: usize,
-) -> Result<Capture, AiError>
-where
-    I: IntoIterator<Item = S>,
-    S: AsRef<OsStr>,
-{
-    capture_bounded_with_cancel(executable, args, cwd, timeout, max_bytes, None)
-}
-
-/// Like [`capture_bounded`], but stops an account-status child promptly when
-/// its owning job is cancelled. A sign-in preflight happens before a provider
-/// request, yet it must not leave an invisible subprocess running after the
-/// user closes the inspector or starts a local-only session.
+/// Capture bounded provider output and stop the child promptly when its owning
+/// job is cancelled. A sign-in preflight happens before a provider request,
+/// yet it must not leave an invisible subprocess running after the user closes
+/// the inspector or starts a local-only session.
 pub(crate) fn capture_bounded_cancellable<I, S>(
     executable: &Path,
     args: I,
@@ -180,6 +170,8 @@ pub(crate) struct JsonLineChild {
     child: Child,
     stdin: ChildStdin,
     lines: Receiver<LineRead>,
+    pending: VecDeque<(Value, usize)>,
+    pending_bytes: usize,
     cleanup_dir: Option<std::path::PathBuf>,
 }
 
@@ -249,6 +241,8 @@ impl JsonLineChild {
             child,
             stdin,
             lines,
+            pending: VecDeque::new(),
+            pending_bytes: 0,
             cleanup_dir: None,
         })
     }
@@ -266,6 +260,18 @@ impl JsonLineChild {
     }
 
     pub(crate) fn recv_json(
+        &mut self,
+        deadline: Instant,
+        cancelled: &AtomicBool,
+    ) -> Result<Value, AiError> {
+        if let Some((message, bytes)) = self.pending.pop_front() {
+            self.pending_bytes = self.pending_bytes.saturating_sub(bytes);
+            return Ok(message);
+        }
+        self.recv_json_direct(deadline, cancelled)
+    }
+
+    fn recv_json_direct(
         &mut self,
         deadline: Instant,
         cancelled: &AtomicBool,
@@ -306,22 +312,39 @@ impl JsonLineChild {
         deadline: Instant,
         cancelled: &AtomicBool,
     ) -> Result<Value, AiError> {
+        if let Some(index) = self
+            .pending
+            .iter()
+            .position(|(message, _)| message.get("id").and_then(Value::as_i64) == Some(id))
+        {
+            let (message, bytes) = self
+                .pending
+                .remove(index)
+                .expect("the matching pending protocol frame still exists");
+            self.pending_bytes = self.pending_bytes.saturating_sub(bytes);
+            return response_result(message);
+        }
         loop {
-            let message = self.recv_json(deadline, cancelled)?;
+            // Read directly from the child here. Calling `recv_json` would pop
+            // and immediately requeue the same unmatched notification.
+            let message = self.recv_json_direct(deadline, cancelled)?;
             if message.get("id").and_then(Value::as_i64) != Some(id) {
+                let bytes = serde_json::to_vec(&message)?.len();
+                if self.pending.len() >= MAX_PENDING_PROTOCOL_FRAMES
+                    || self
+                        .pending_bytes
+                        .checked_add(bytes)
+                        .is_none_or(|total| total > MAX_PENDING_PROTOCOL_BYTES)
+                {
+                    return Err(AiError::Protocol(
+                        "Provider emitted too many protocol events before its response".into(),
+                    ));
+                }
+                self.pending_bytes += bytes;
+                self.pending.push_back((message, bytes));
                 continue;
             }
-            if let Some(error) = message.get("error") {
-                let text = error
-                    .get("message")
-                    .and_then(Value::as_str)
-                    .unwrap_or("Provider rejected the request");
-                return Err(AiError::Protocol(sanitize_provider_error(text)));
-            }
-            return message
-                .get("result")
-                .cloned()
-                .ok_or_else(|| AiError::Protocol("Provider response omitted its result".into()));
+            return response_result(message);
         }
     }
 
@@ -329,6 +352,20 @@ impl JsonLineChild {
         let _ = self.child.kill();
         let _ = self.child.wait();
     }
+}
+
+fn response_result(message: Value) -> Result<Value, AiError> {
+    if let Some(error) = message.get("error") {
+        let text = error
+            .get("message")
+            .and_then(Value::as_str)
+            .unwrap_or("Provider rejected the request");
+        return Err(AiError::Protocol(sanitize_provider_error(text)));
+    }
+    message
+        .get("result")
+        .cloned()
+        .ok_or_else(|| AiError::Protocol("Provider response omitted its result".into()))
 }
 
 impl Drop for JsonLineChild {

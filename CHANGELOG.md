@@ -6,6 +6,30 @@ for numbering, qualification and publication.
 
 ## Unreleased
 
+### AI creation and photo editing
+
+- Choose a task in Ask Omuse: design, photo enhancement, captions, generation,
+  replacement, removal, backgrounds or expansion. Starter briefs stay editable;
+  the primary action and Ctrl+Enter always submit the selected task.
+- Preview native exposure, brightness, contrast and saturation adjustments as
+  editable layers. Original photo pixels remain intact; Keep is one undo step.
+- See what will be shared, choose whether a design request includes the canvas,
+  compare Before/After, copy captions and alt text, or refine a saved proposal.
+- Keep the original task and newly selected references when refining a result.
+  Photo and caption tasks reject empty or out-of-scope responses before Keep.
+
+### Reliability
+
+- Preserve early provider responses and enforce forbidden-operation checks even
+  when messages arrive before the submission acknowledgement.
+- Check connections concurrently with bounded, cancellable probes. Show Codex
+  allowance snapshots when the official runtime provides them, without charging
+  a separate API or consuming reset credits.
+- Reject inconsistent Claude subscription evidence. Preserve AI history across
+  concurrent windows, failed writes and large retained plans.
+- Close Omuse from a focused text field using the configured Close shortcut;
+  unsaved-work protection still applies.
+
 ### Documentation
 
 - Track OmaPhoto's whole repository, including unreleased commits, pull requests,
@@ -14,7 +38,6 @@ for numbering, qualification and publication.
   notes tied to an exact tested public source revision.
 - Correct the project-format guide to identify the current version-9 writer.
 
-No application changes have been added after the 0.1.0 runtime in this documentation pass.
 Planned editor work belongs in the [project guide](docs/project-guide.md).
 
 ## [0.1.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.1.0) — 2026-09-29

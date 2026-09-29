@@ -337,6 +337,56 @@ mod tests {
         );
     }
 
+    #[test]
+    fn codex_preserves_result_events_emitted_before_turn_start_response() {
+        let root = tempfile::tempdir().unwrap();
+        fs::set_permissions(root.path(), fs::Permissions::from_mode(0o700)).unwrap();
+        let server = fake_codex_server(root.path(), FakeCodexScenario::EarlyAssistantDelta);
+        let client = ValidatedClient::fixture(ProviderId::CodexSubscription, server);
+        let request = JobRequest::new(
+            client,
+            JobOperation::Assistant,
+            "Plan a poster",
+            root.path(),
+        );
+
+        let mut handle = spawn_job(request).unwrap();
+        let outcome = handle
+            .wait(Duration::from_secs(2))
+            .unwrap()
+            .expect("fixture assistant job should complete");
+
+        assert!(matches!(
+            outcome,
+            JobOutcome::Completed(ref result) if result.text == "early late"
+        ));
+    }
+
+    #[test]
+    fn codex_checks_forbidden_events_emitted_before_turn_start_response() {
+        let root = tempfile::tempdir().unwrap();
+        fs::set_permissions(root.path(), fs::Permissions::from_mode(0o700)).unwrap();
+        let server = fake_codex_server(root.path(), FakeCodexScenario::EarlyForbiddenTool);
+        let client = ValidatedClient::fixture(ProviderId::CodexSubscription, server);
+        let request = JobRequest::new(
+            client,
+            JobOperation::Assistant,
+            "Plan a poster",
+            root.path(),
+        );
+
+        let mut handle = spawn_job(request).unwrap();
+        let outcome = handle
+            .wait(Duration::from_secs(2))
+            .unwrap()
+            .expect("fixture assistant job should terminate");
+
+        assert!(matches!(
+            outcome,
+            JobOutcome::OutcomeUnknown(ref failure) if failure.code == "protocol_error"
+        ));
+    }
+
     #[derive(Clone, Copy)]
     enum FakeCodexScenario {
         CancellableAssistant,
@@ -344,46 +394,70 @@ mod tests {
         FirstImageThenWait,
         UnexpectedAssistantImage,
         UnexpectedInstructions,
+        EarlyAssistantDelta,
+        EarlyForbiddenTool,
     }
 
     fn fake_codex_server(
         root: &std::path::Path,
         scenario: FakeCodexScenario,
     ) -> std::path::PathBuf {
-        let (name, image_generation_enabled, instruction_sources, after_turn) = match scenario {
-            FakeCodexScenario::CancellableAssistant => {
-                ("fake-codex-cancellable", "false", "[]", ":")
-            }
-            FakeCodexScenario::ForbiddenToolAssistant => (
-                "fake-codex-forbidden",
-                "false",
-                "[]",
-                r#"printf '%s\n' '{"method":"item/completed","params":{"item":{"id":"bad","type":"commandExecution"}}}'"#,
-            ),
-            FakeCodexScenario::FirstImageThenWait => (
-                "fake-codex-first-image",
-                "true",
-                "[]",
-                r#"
+        let (name, image_generation_enabled, instruction_sources, before_turn, after_turn) =
+            match scenario {
+                FakeCodexScenario::CancellableAssistant => {
+                    ("fake-codex-cancellable", "false", "[]", ":", ":")
+                }
+                FakeCodexScenario::ForbiddenToolAssistant => (
+                    "fake-codex-forbidden",
+                    "false",
+                    "[]",
+                    ":",
+                    r#"printf '%s\n' '{"method":"item/completed","params":{"item":{"id":"bad","type":"commandExecution"}}}'"#,
+                ),
+                FakeCodexScenario::FirstImageThenWait => (
+                    "fake-codex-first-image",
+                    "true",
+                    "[]",
+                    ":",
+                    r#"
       mkdir -p "$CODEX_HOME/generated_images"
       printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9cQAAAABJRU5ErkJggg==' | base64 -d > "$CODEX_HOME/generated_images/first.png"
       printf '%s\n' "{\"method\":\"item/completed\",\"params\":{\"item\":{\"id\":\"first-image\",\"type\":\"imageGeneration\",\"savedPath\":\"$CODEX_HOME/generated_images/first.png\"}}}"
       while :; do sleep 60; done
 "#,
-            ),
-            FakeCodexScenario::UnexpectedAssistantImage => (
-                "fake-codex-assistant-image",
-                "false",
-                "[]",
-                r#"printf '%s\n' '{"method":"item/completed","params":{"item":{"id":"unexpected-image","type":"imageGeneration"}}}'"#,
-            ),
-            FakeCodexScenario::UnexpectedInstructions => (
-                "fake-codex-unexpected-instructions",
-                "false",
-                r#"[{"path":"AGENTS.md"}]"#,
-                ":",
-            ),
-        };
+                ),
+                FakeCodexScenario::UnexpectedAssistantImage => (
+                    "fake-codex-assistant-image",
+                    "false",
+                    "[]",
+                    ":",
+                    r#"printf '%s\n' '{"method":"item/completed","params":{"item":{"id":"unexpected-image","type":"imageGeneration"}}}'"#,
+                ),
+                FakeCodexScenario::UnexpectedInstructions => (
+                    "fake-codex-unexpected-instructions",
+                    "false",
+                    r#"[{"path":"AGENTS.md"}]"#,
+                    ":",
+                    ":",
+                ),
+                FakeCodexScenario::EarlyAssistantDelta => (
+                    "fake-codex-early-assistant-delta",
+                    "false",
+                    "[]",
+                    r#"printf '%s\n' '{"method":"item/agentMessage/delta","params":{"delta":"early "}}'"#,
+                    r#"
+      printf '%s\n' '{"method":"item/agentMessage/delta","params":{"delta":"late"}}'
+      printf '%s\n' '{"method":"turn/completed","params":{"turn":{"id":"turn-fixture","status":"completed"}}}'
+"#,
+                ),
+                FakeCodexScenario::EarlyForbiddenTool => (
+                    "fake-codex-early-forbidden",
+                    "false",
+                    "[]",
+                    r#"printf '%s\n' '{"method":"item/completed","params":{"item":{"id":"bad","type":"commandExecution"}}}'"#,
+                    ":",
+                ),
+            };
         let path = root.join(name);
         let script = format!(
             r#"#!/bin/sh
@@ -399,6 +473,7 @@ while IFS= read -r line; do
     *'"id":4'*) printf '%s\n' '{{"id":4,"result":{{"thread":{{"id":"thread-fixture"}},"instructionSources":{instruction_sources}}}}}' ;;
     *'"id":5'*)
       printf '%s\n' submitted >> "$PWD/submitted-turns"
+      {before_turn}
       printf '%s\n' '{{"id":5,"result":{{"turn":{{"id":"turn-fixture"}}}}}}'
       {after_turn}
       ;;
