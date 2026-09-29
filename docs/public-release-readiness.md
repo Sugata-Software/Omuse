@@ -2,8 +2,8 @@
 
 **29 September 2026: Omuse source installation is available; downloadable binaries are not yet qualified.**
 
-The first numbered source release is **0.1.0**. Its
-[release notes](releases/v0.1.0.md) identify the tested runtime, installation,
+The current numbered source release is **0.2.0**. Its
+[release notes](releases/v0.2.0.md) identify the tested runtime, installation,
 changes and limitations; the [release policy](releases/README.md) keeps future
 versions and evidence consistent. It is marked as a GitHub pre-release while
 stable-release gates remain open. This does not add a separate Preview app.
@@ -26,20 +26,26 @@ GitHub App access and source publication are no longer blockers.
 
 ## Current application and installation
 
-The tested application source is `9c99e50`. Its [full GitHub Rust/installer
-workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36492555743) passed. Local qualification records
-808 tests, editing/Create exports, all 80 size variants of 20 templates,
-production Wayland/XWayland checks, and complete installed rollback. The
-[OmaPhoto comparison](omaphoto-comparison.md) explains the resulting editing
-improvements and remaining gaps. The public installer pins this runtime.
-The bounded live Codex assistant receipt remains tied to the earlier `1d5ccaa`
-candidate; this pass did not repeat provider requests.
+The tested application source is `3dc3e46`. Its [full GitHub Rust/installer
+workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36528288193) passed.
+The [Ask Omuse qualification](ai-experience-qualification.md) records 843
+application tests, editing/Create exports, all 80 template variants,
+production Wayland/XWayland checks and complete installed rollback. Ask Omuse
+now has task-based creation, editable photo adjustments, caption/alt-text
+results, review/refinement and stronger subscription/history handling.
 
-The laptop's main **Omuse** launcher now selects that exact tested executable
-and complete runtime assets. The prior main installation is retained as a
-rollback generation. See [main installation qualification](main-install-qualification.md).
-Historical records below retain the former **Omuse Preview** name for the
-isolated installation used during testing; it is not a separate public product.
+Three bounded live Codex requests used a synthetic still life. Photo and
+caption checks ran on near-final `df15fd4`; saved-result refinement, correct
+current-layer targeting, readable review, Keep/Undo and focused-prompt Close
+passed on exact final `3dc3e46`. These are scoped receipts, not qualification
+of every provider, image operation or photographic outcome.
+
+The laptop's normal **Omuse** command and desktop entry select the exact final
+executable and complete runtime assets. The previous complete `9c99e50`
+installation remains available for rollback. The [main installation record](main-install-qualification.md)
+and curl installer identify the same tested runtime. Historical records below
+retain the former **Omuse Preview** name for isolated installations used during
+testing; it is not a separate public product.
 
 ## What is established
 
@@ -107,7 +113,7 @@ to Omuse without declaring a prebuilt binary release qualified.
 
 | Gate | Current state | Completion evidence |
 | --- | --- | --- |
-| Clean CI build | Installed runtime `9c99e50`: the [full Rust/installer run](https://github.com/Sugata-Software/Omuse/actions/runs/36492555743) passed; guide/reference checks are current. Later runtime changes require their own run | Green Rust workflow for the exact candidate commit, retained artifacts and notice inventory |
+| Clean CI build | Installed runtime `3dc3e46`: the [full Rust/installer run](https://github.com/Sugata-Software/Omuse/actions/runs/36528288193) passed; guide/reference checks are current. Later runtime changes require their own run | Green Rust workflow for the exact candidate commit, retained artifacts and notice inventory |
 | Dependency legal texts | Two unresolved entries in the locked graph; upstream texts recovered for `seahash` and `simd_helpers` | Resolve `hexf-parse` and `mac` by verifiable upstream terms or tested dependency changes; see the [notice review](rust-license-findings.md) |
 | Reproducible release identity | The hardening pass records tested source hashes, the production executable, native runs, installation and rollback; a clean public build/archive remains pending | One clean release commit/tag, fresh build, source-to-binary-to-archive hash ledger and reproducible packaging instructions |
 | Clean target installation | Passed only on the development host | Install, launch, upgrade and rollback on a clean supported Arch/Omarchy system |

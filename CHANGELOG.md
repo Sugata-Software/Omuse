@@ -6,6 +6,12 @@ for numbering, qualification and publication.
 
 ## Unreleased
 
+Planned editor work belongs in the [project guide](docs/project-guide.md).
+
+## [0.2.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.2.0) — 2026-09-29
+
+**Task-based Ask Omuse · Arch Linux / Omarchy · x86_64 source pre-release**
+
 ### AI creation and photo editing
 
 - Choose a task in Ask Omuse: design, photo enhancement, captions, generation,
@@ -38,7 +44,16 @@ for numbering, qualification and publication.
   notes tied to an exact tested public source revision.
 - Correct the project-format guide to identify the current version-9 writer.
 
-Planned editor work belongs in the [project guide](docs/project-guide.md).
+The exact public runtime at `3dc3e46` passed 843 application tests, the complete
+editing/Create/export journeys, 24 native checks on Wayland and 24 on XWayland,
+and [GitHub Rust/installer validation](https://github.com/Sugata-Software/Omuse/actions/runs/36528288193).
+Live ChatGPT-via-Codex checks used a synthetic still life; the exact runtime
+passed history reopening, safe refinement, readable change review,
+Before/After, Keep/Undo and Ctrl+Q. Claude, Grok and the broader image-operation
+set are not live-qualified by this release. Direct API billing remains disabled.
+
+[Full release notes and limitations](docs/releases/v0.2.0.md) ·
+[AI qualification](docs/ai-experience-qualification.md)
 
 ## [0.1.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.1.0) — 2026-09-29
 

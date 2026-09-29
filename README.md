@@ -12,8 +12,8 @@
 installer builds a tested source revision and adds the normal **Omuse** app.
 Downloadable binaries are still undergoing [release qualification](docs/public-release-readiness.md).
 
-**Current release: [0.1.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.1.0)**
-— our first public source release. Read the [release notes](docs/releases/v0.1.0.md)
+**Current release: [0.2.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.2.0)**
+— our task-based Ask Omuse source release. Read the [release notes](docs/releases/v0.2.0.md)
 or browse the [changelog](CHANGELOG.md) for changes and known limitations.
 
 <p align="center">

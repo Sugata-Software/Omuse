@@ -75,8 +75,25 @@ erase alternatives. A window's list refreshes on history operations/reopen.
 
 ## Evidence boundaries
 
-The task interface, photo operations and provider/history regressions are part
-of the 0.2.0 candidate. Current qualification results are recorded separately
-in the project guide and release notes. A passing local test does not prove
-image quality, every provider/account, or support for every image operation.
-Direct API billing, calendars and scheduling remain outside this work.
+The 0.2.0 runtime at public source
+`3dc3e46310e40dcf109b1bc695bb4e9dda6d2d24` (tree
+`1843e8e6242b210550365ad0aedf1e326cb06a38`) passed **843 application tests**:
+365 library, 233 UI and 245 integration; four manual benchmarks were excluded.
+Full GitHub Rust/installer validation passed. Production Wayland, XWayland and
+the installed normal launcher each passed 24 native checks. Complete rollback
+and normal desktop launch passed. See the
+[qualification record](ai-experience-qualification.md) for exact evidence.
+
+Three live requests used **Codex CLI 0.158.0**. Intermediate `df15fd4` passed
+photo adjustment with Before/After and Keep/Undo, plus synthetic-scene caption
+and alt text with Copy caption and Keep/Undo. Exact final `3dc3e46` reopened
+that history, blocked applying an old result to the changed canvas, and refined
+the photo for the new current layer. Readable review labels, Before/After,
+Keep/Undo and Close from the focused prompt passed. The final source differs
+from the first two requests only in readable layer-review labels and a test.
+
+Earlier generation, background and design receipts remain tied to their
+original candidates. These synthetic requests do not qualify other image
+operations, photographic taste or accuracy on arbitrary content. Claude and
+Grok remain unqualified, and separately billed API access remains disabled.
+Calendars and scheduling remain outside this work.

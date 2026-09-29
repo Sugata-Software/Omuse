@@ -1,6 +1,31 @@
 # Main Omuse installation — 29 September 2026
 
-The current main application is the OmaPhoto comparison candidate
+The current main application is **Omuse 0.2.0**, public runtime
+`3dc3e46310e40dcf109b1bc695bb4e9dda6d2d24`. Its complete
+[GitHub validation](https://github.com/Sugata-Software/Omuse/actions/runs/36528288193)
+passed, with 843 application tests and the recorded editing/Create journeys.
+The [Ask Omuse qualification](ai-experience-qualification.md) records the
+production build, live refinement and all installation evidence.
+
+- Executable SHA-256: `2b4e19a54553ad1836f49da23373d1038420369c298d2384d0ca1bdc5bae16dc`.
+- Active generation: `install-hly2uob3`, clean public-source receipt.
+- Previous generation: `install-y4k24szz` (`9c99e50`).
+- All 19 payload hashes matched after rollback and the reverse switch.
+- Production Wayland, production XWayland and the installed main Wayland
+  launcher each passed 24 native checks; the installed run used reduced motion.
+- Desktop-file validation and normal desktop launch passed. Compositor and
+  process readback verified the mapped Wayland window and exact executable.
+
+The normal Omuse command and desktop entry select this tested build; the curl
+installer pins the same source. The previous complete generation remains
+available. User documents, settings and provider profiles were preserved.
+These development-host checks do not qualify clean-target or portable binaries.
+
+## OmaPhoto comparison promotion (historical `9c99e50` baseline)
+
+The following record describes the preceding same-day installation.
+
+The application for this promotion was the OmaPhoto comparison candidate
 `9c99e50684afd0854c8094a139b43205a263c33d`. Its full [GitHub validation](https://github.com/Sugata-Software/Omuse/actions/runs/36492555743)
 passed, alongside **808 local tests**, editing/Create export journeys and all
 80 template variants. The [comparison](omaphoto-comparison.md) records the new

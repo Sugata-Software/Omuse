@@ -5,12 +5,14 @@ Start with the [changelog](../../CHANGELOG.md) or
 
 | Version | Date | Scope | Notes |
 | --- | --- | --- | --- |
+| 0.2.0 | 29 September 2026 | Task-based Ask Omuse and editable AI photo review; Arch/Omarchy x86_64 source pre-release | [Release notes](v0.2.0.md) |
 | 0.1.0 | 29 September 2026 | First public source release; Arch/Omarchy x86_64 | [Release notes](v0.1.0.md) |
 
 ## Version numbers
 
-Omuse has its own sequence, beginning at **0.1.0**, which matches the current
-Rust package version. It does not inherit another editor's release numbers.
+Omuse has its own sequence, beginning at **0.1.0**. Each release matches its
+Rust package version; the current release is **0.2.0**. It does not inherit
+another editor's release numbers.
 
 - **0.1.x:** compatible fixes and hardening of the initial feature set.
 - **0.2.0 and later minor versions:** substantial new workflows or behavior.
@@ -33,7 +35,7 @@ of shipped features, and keep earlier measurements tied to their candidate.
 `latest.json` selects the release to publish: version/tag, title/date,
 pre-release flag, exact public source revision, notes file and successful Rust
 validation run. The tag points to that tested runtime, even when the notes are
-written in a later documentation commit. The initial source release attaches
+written in a later documentation commit. The current source releases attach
 no application binaries. GitHub's automatic archives are source only.
 
 ## Maintainer workflow

@@ -36,18 +36,18 @@ from source**; a downloadable binary release remains subject to the
 
 ## Tested source channel
 
-The initial numbered source release is [Omuse 0.1.0](releases/v0.1.0.md).
+The current numbered source release is [Omuse 0.2.0](releases/v0.2.0.md).
 Its Git tag identifies the tested runtime; the normal curl command follows the
 current tested channel and may advance to later qualified releases.
 
 The public installer selects commit
-[`9c99e50684afd0854c8094a139b43205a263c33d`](https://github.com/Sugata-Software/Omuse/commit/9c99e50684afd0854c8094a139b43205a263c33d).
+[`3dc3e46310e40dcf109b1bc695bb4e9dda6d2d24`](https://github.com/Sugata-Software/Omuse/commit/3dc3e46310e40dcf109b1bc695bb4e9dda6d2d24).
 It fetches that exact revision and checks the resulting checkout before building.
-The [full Rust/installer workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36492555743) passed for this application source.
-The [OmaPhoto comparison and qualification](omaphoto-comparison.md) records its
-808 regression tests, native desktop checks and installed rollback verification.
-The earlier [desktop and assistant evidence](cua-ai-qualification.md) retains
-its own candidate and provider scope.
+The [full Rust/installer workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36528288193) passed for this application source.
+The [Ask Omuse qualification](ai-experience-qualification.md) records 843
+application tests, production and installed native checks, complete rollback
+and bounded live subscription requests. Earlier editing, performance and
+provider receipts retain their named candidate and workload scope.
 
 The curl command downloads `install.sh` from `main`, so changes to the installer
 script take effect immediately. The application checkout is pinned separately:
