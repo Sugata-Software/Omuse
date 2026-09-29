@@ -11,7 +11,7 @@ use gpui_kit::{AsyncApp, WeakEntity};
 use image::{Rgba, RgbaImage};
 use omuse::{
     ai::{Capability, ConnectionState, ProviderId},
-    ai_history::{ContextRole, Operation, StoredProposal},
+    ai_history::{ContextRole, Operation, SourceIdentity, StoredProposal},
     create,
     create_history::documents_match,
     create_project::Project,
@@ -30,6 +30,68 @@ const SUBJECT_LEFT: u32 = 20;
 const SUBJECT_TOP: u32 = 28;
 const SUBJECT_WIDTH: u32 = 24;
 const SUBJECT_HEIGHT: u32 = 24;
+const EDIT_LEFT: u32 = 5;
+const EDIT_TOP: u32 = 58;
+const EDIT_WIDTH: u32 = 14;
+const EDIT_HEIGHT: u32 = 14;
+const EXPAND_LEFT: u32 = 11;
+const EXPAND_TOP: u32 = 7;
+const EXPAND_RIGHT: u32 = 17;
+const EXPAND_BOTTOM: u32 = 5;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum NativeImageIntent {
+    Generate,
+    Replace,
+    Remove,
+    Background,
+    Expand,
+}
+
+impl NativeImageIntent {
+    fn parse(value: &str) -> Result<Self> {
+        match value {
+            "generate" => Ok(Self::Generate),
+            "replace" => Ok(Self::Replace),
+            "remove" => Ok(Self::Remove),
+            "background" => Ok(Self::Background),
+            "expand" => Ok(Self::Expand),
+            _ => anyhow::bail!("Unsupported native image qualification intent"),
+        }
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            Self::Generate => "generate",
+            Self::Replace => "replace",
+            Self::Remove => "remove",
+            Self::Background => "background",
+            Self::Expand => "expand",
+        }
+    }
+
+    fn image_intent(self) -> ImageIntent {
+        match self {
+            Self::Generate => ImageIntent::Generate,
+            Self::Replace | Self::Remove => ImageIntent::Replace,
+            Self::Background => ImageIntent::Background,
+            Self::Expand => ImageIntent::Expand {
+                left: EXPAND_LEFT,
+                top: EXPAND_TOP,
+                right: EXPAND_RIGHT,
+                bottom: EXPAND_BOTTOM,
+            },
+        }
+    }
+
+    fn capability(self) -> Capability {
+        if self == Self::Generate {
+            Capability::ImageGeneration
+        } else {
+            Capability::ImageEditing
+        }
+    }
+}
 
 struct NativeSource {
     document: Document,
@@ -38,9 +100,18 @@ struct NativeSource {
 }
 
 struct NativeCandidate {
+    result_id: String,
     provider: ProviderId,
     runtime: String,
     dimensions: [u32; 2],
+    source: SourceIdentity,
+    source_hash: String,
+    source_mask_hash: Option<String>,
+    result_asset_hash: String,
+    task: String,
+    variation_index: u8,
+    variation_total: u8,
+    selection: Option<Selection>,
     document: Document,
     project: Project,
     editable_mask: Option<NativeMask>,
@@ -64,6 +135,440 @@ struct NativeMask {
 }
 
 impl EditorView {
+    fn start_native_single_image_qualification(
+        &mut self,
+        dir: PathBuf,
+        requested_intent: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        cx.spawn_in(window, async move |view, cx| {
+            let outcome = async {
+                let intent = NativeImageIntent::parse(&requested_intent)?;
+                let image_intent = intent.image_intent();
+                std::fs::create_dir_all(&dir)?;
+                let source = view.update_in(cx, |this, _, cx| {
+                    this.prepare_native_ai_source(&dir, cx)
+                })??;
+
+                cx.background_executor()
+                    .timer(Duration::from_millis(700))
+                    .await;
+                cx.update(|window, cx| {
+                    window.refresh();
+                    window.draw(cx).clear(cx);
+                })?;
+                ensure!(
+                    view.update(cx, |this, _| {
+                        let viewport = this.viewport.get();
+                        viewport.size.width > px(20.) && viewport.size.height > px(20.)
+                    })?,
+                    "Native AI qualification window has no usable canvas area"
+                );
+
+                if omuse::identity::env_var_os("OMUSE_NATIVE_WAIT").is_some() {
+                    std::fs::write(dir.join("window-ready"), b"ready")?;
+                    let handshake_deadline = Instant::now() + Duration::from_secs(10);
+                    while !dir.join("start").is_file() {
+                        ensure!(
+                            Instant::now() < handshake_deadline,
+                            "Native AI qualification did not receive its window-focus handshake"
+                        );
+                        cx.background_executor()
+                            .timer(Duration::from_millis(100))
+                            .await;
+                    }
+                    cx.background_executor()
+                        .timer(Duration::from_millis(400))
+                        .await;
+                }
+
+                let native_bounds = cx.update(|window, _| {
+                    format!(
+                        "window={:?}, viewport={:?}",
+                        window.bounds(),
+                        window.viewport_size()
+                    )
+                })?;
+                std::fs::write(dir.join("window-bounds.txt"), native_bounds)?;
+                view.update_in(cx, |this, _, cx| {
+                    capture_display(this, &source.document, &dir.join("before.png"), cx)
+                })??;
+
+                let readiness_deadline = Instant::now() + QUALIFICATION_TIMEOUT;
+                let provider_runtime = loop {
+                    let runtime = view.update(cx, |this, cx| -> Result<Option<String>> {
+                        if this.ai.providers.is_empty() && !this.ai.checking {
+                            this.discover_ai_connections(cx);
+                        }
+                        let Some(status) = this
+                            .ai
+                            .providers
+                            .iter()
+                            .find(|status| status.provider == ProviderId::CodexSubscription)
+                        else {
+                            return Ok(None);
+                        };
+                        if status.connection != ConnectionState::Ready || status.client.is_none() {
+                            return Ok(None);
+                        }
+                        ensure!(
+                            status.may_attempt(intent.capability()),
+                            "The installed Codex subscription runtime does not advertise the requested image capability"
+                        );
+                        Ok(Some(
+                            status
+                                .version
+                                .as_deref()
+                                .filter(|version| !version.trim().is_empty())
+                                .context("The verified connection omitted its runtime version")?
+                                .to_owned(),
+                        ))
+                    })??;
+                    if let Some(runtime) = runtime {
+                        break runtime;
+                    }
+                    ensure!(
+                        Instant::now() < readiness_deadline,
+                        "Timed out waiting for the installed Codex subscription connection"
+                    );
+                    cx.background_executor()
+                        .timer(Duration::from_millis(250))
+                        .await;
+                };
+
+                view.update_in(cx, |this, window, cx| -> Result<()> {
+                    this.ai.image_provider = ProviderId::CodexSubscription;
+                    this.ai.variation_count = 1;
+                    this.ai.variation_batch = None;
+                    this.ai.references.clear();
+                    this.ai.follow_up = None;
+                    let prompt = match intent {
+                        NativeImageIntent::Generate => {
+                            "Generate one small abstract geometric study with warm paper, coral, plum, and gold. Do not include text, people, logos, or recognizable products."
+                        }
+                        NativeImageIntent::Replace => {
+                            this.editor.select_rectangle(
+                                EDIT_LEFT as f32,
+                                EDIT_TOP as f32,
+                                EDIT_WIDTH as f32,
+                                EDIT_HEIGHT as f32,
+                            );
+                            "Replace only the selected warm-paper patch with a small plum-and-gold geometric detail. Preserve every pixel outside the selection."
+                        }
+                        NativeImageIntent::Remove => {
+                            this.editor.select_rectangle(
+                                EDIT_LEFT as f32,
+                                EDIT_TOP as f32,
+                                EDIT_WIDTH as f32,
+                                EDIT_HEIGHT as f32,
+                            );
+                            "Remove the selected visual blemish and continue the surrounding warm-paper field naturally. Preserve every pixel outside the selection."
+                        }
+                        NativeImageIntent::Background => {
+                            this.editor.select_rectangle(
+                                SUBJECT_LEFT as f32,
+                                SUBJECT_TOP as f32,
+                                SUBJECT_WIDTH as f32,
+                                SUBJECT_HEIGHT as f32,
+                            );
+                            "Replace only the editable background with a quiet abstract field of soft warm-paper geometry. Preserve the protected central coral square exactly."
+                        }
+                        NativeImageIntent::Expand => {
+                            "Continue the warm-paper geometric composition naturally into every requested expanded edge. Preserve the complete original canvas exactly."
+                        }
+                    };
+                    this.ai
+                        .prompt
+                        .update(cx, |state, cx| state.set_value(prompt, window, cx));
+                    if intent == NativeImageIntent::Remove {
+                        this.start_ai_image_job_with_instruction(
+                            image_intent.clone(),
+                            Some("Remove the selected object or unwanted element, then reconstruct the surrounding content naturally.".into()),
+                            CapabilitySubmission::ExplicitNativeQualification,
+                            cx,
+                        );
+                    } else {
+                        this.start_native_ai_image_qualification(image_intent.clone(), cx);
+                    }
+                    Ok(())
+                })??;
+
+                let candidate =
+                    wait_for_native_candidate(&view, cx, image_intent.clone(), intent.label())
+                        .await?;
+                ensure!(
+                    candidate.provider == ProviderId::CodexSubscription,
+                    "The image request did not use the selected Codex subscription provider"
+                );
+                ensure!(
+                    candidate.runtime == provider_runtime,
+                    "The completed result runtime differs from the verified connection runtime"
+                );
+                ensure!(
+                    candidate.task == intent.label(),
+                    "The completed result used a different Omuse image task"
+                );
+                ensure!(
+                    candidate.variation_index == 1 && candidate.variation_total == 1,
+                    "Native image qualification must issue exactly one variation"
+                );
+                ensure!(
+                    !candidate.source_hash.is_empty()
+                        && ((intent == NativeImageIntent::Generate
+                            && candidate.source_mask_hash.is_none())
+                            || (intent != NativeImageIntent::Generate
+                                && candidate.source_mask_hash.is_some())),
+                    "The completed result omitted its source or mask hash"
+                );
+                ensure!(
+                    candidate.source_hash
+                        == expected_native_source_hash(&source.document, &image_intent),
+                    "The recorded source canvas hash does not match the exact staged pixels"
+                );
+                assert_retained_mask_matches_request(
+                    &source.document,
+                    candidate.selection.as_ref(),
+                    &image_intent,
+                    candidate.editable_mask.as_ref(),
+                )?;
+                if let Some(mask) = &candidate.editable_mask {
+                    let retained_mask_hash = bytes_content_hash(&mask.values);
+                    ensure!(
+                        candidate.source_mask_hash.as_deref()
+                            == Some(retained_mask_hash.as_str()),
+                        "The recorded source mask hash does not match the exact retained mask"
+                    );
+                }
+                ensure!(
+                    view.update(cx, |this, _| this.ai_source_matches(&candidate.source))?,
+                    "The completed result source identity no longer matches the live canvas"
+                );
+                ensure!(
+                    view.update(cx, |this, _| documents_match(
+                        &this.editor.document,
+                        &source.document
+                    ))?,
+                    "The source canvas changed while the result was awaiting review"
+                );
+                assert_native_source_layers_survive(
+                    &source.document,
+                    &candidate.document,
+                    &image_intent,
+                )?;
+                assert_intent_produced_visible_change(
+                    &source.document,
+                    &candidate.document,
+                    &image_intent,
+                    candidate.editable_mask.as_ref(),
+                )?;
+                match intent {
+                    NativeImageIntent::Replace
+                    | NativeImageIntent::Remove
+                    | NativeImageIntent::Background => assert_protected_subject_is_exact(
+                        &source.document,
+                        &candidate.document,
+                        &source.protected_subject,
+                        candidate.editable_mask.as_ref().context(
+                            "The native edit request did not retain its actual edit mask",
+                        )?,
+                    )?,
+                    NativeImageIntent::Expand => assert_expanded_original_is_exact(
+                        &source.document,
+                        &candidate.document,
+                        EXPAND_LEFT,
+                        EXPAND_TOP,
+                        EXPAND_RIGHT,
+                        EXPAND_BOTTOM,
+                    )?,
+                    NativeImageIntent::Generate => {}
+                }
+
+                view.update_in(cx, |this, _, cx| {
+                    capture_display(
+                        this,
+                        &candidate.document,
+                        &dir.join("candidate.png"),
+                        cx,
+                    )
+                })??;
+                let package = dir.join(format!("native-ai-{}.omuse", intent.label()));
+                view.update_in(cx, |this, window, cx| -> Result<()> {
+                    this.apply_ai_plan(cx);
+                    ensure!(this.ai.result.is_none(), "Keep did not commit the image candidate");
+                    ensure!(
+                        documents_match(&this.editor.document, &candidate.document),
+                        "Keep did not preserve the reviewed image candidate"
+                    );
+                    let kept = this.editor.document.clone();
+                    capture_display(this, &kept, &dir.join("kept.png"), cx)?;
+                    this.save_to(package.clone(), window, cx);
+                    ensure!(this.create.saving, "Keep did not start the native image save");
+                    Ok(())
+                })??;
+
+                let save_deadline = Instant::now() + Duration::from_secs(30);
+                loop {
+                    let saved = view.update(cx, |this, _| -> Result<bool> {
+                        if this.create.saving {
+                            return Ok(false);
+                        }
+                        ensure!(
+                            this.path.as_ref() == Some(&package) && !this.has_unsaved_work(),
+                            "The native image save did not complete: {}",
+                            this.status
+                        );
+                        Ok(true)
+                    })??;
+                    if saved {
+                        break;
+                    }
+                    ensure!(
+                        Instant::now() < save_deadline,
+                        "The native image save timed out"
+                    );
+                    cx.background_executor()
+                        .timer(Duration::from_millis(100))
+                        .await;
+                }
+
+                let reopen_path = package.clone();
+                let (reopened_document, reopened_project) = cx
+                    .background_executor()
+                    .spawn(async move { EditorView::open_content(&reopen_path) })
+                    .await?;
+                view.update_in(cx, |this, window, cx| -> Result<()> {
+                    let mut reopened = reopened_project
+                        .context("The native opener did not recognize its saved collection")?;
+                    let mut expected_project = candidate.project.clone();
+                    assert_reopened_image_project(
+                        &mut reopened,
+                        &mut expected_project,
+                        &source.document,
+                        &source.brand_id,
+                        &image_intent,
+                    )?;
+                    ensure!(
+                        disk_semantic_document_matches(
+                            &candidate.document,
+                            &reopened_document
+                        )?,
+                        "The reopened canvas differs from the kept result"
+                    );
+
+                    this.command("undo", window, cx);
+                    ensure!(
+                        documents_match(&this.editor.document, &source.document),
+                        "Undo did not restore the native source after Keep"
+                    );
+                    let undone = this.editor.document.clone();
+                    capture_display(this, &undone, &dir.join("undo.png"), cx)?;
+                    this.command("redo", window, cx);
+                    ensure!(
+                        documents_match(&this.editor.document, &candidate.document),
+                        "Redo did not restore the kept image result"
+                    );
+                    let redone = this.editor.document.clone();
+                    capture_display(this, &redone, &dir.join("redo.png"), cx)?;
+
+                    this.install_opened_content(reopened_document.clone(), Some(reopened));
+                    this.path = Some(package.clone());
+                    capture_display(
+                        this,
+                        &reopened_document,
+                        &dir.join("reopened.png"),
+                        cx,
+                    )?;
+                    Ok(())
+                })??;
+
+                let capture_names = [
+                    "before.png",
+                    "candidate.png",
+                    "kept.png",
+                    "undo.png",
+                    "redo.png",
+                    "reopened.png",
+                ];
+                let render_captures = capture_names
+                    .iter()
+                    .map(|name| render_capture(&dir.join(name), name))
+                    .collect::<Result<Vec<_>>>()?;
+                ensure!(
+                    render_captures[0]["contentHash"] == render_captures[3]["contentHash"],
+                    "Undo render does not match the exact source render"
+                );
+                ensure!(
+                    [2, 4, 5].into_iter().all(|index| {
+                        render_captures[1]["contentHash"]
+                            == render_captures[index]["contentHash"]
+                    }),
+                    "Keep, Redo or reopen render differs from the reviewed candidate"
+                );
+                Ok::<_, anyhow::Error>(serde_json::json!({
+                    "schema": "omuse.native-ai-image-qualification.v1",
+                    "status": "passed",
+                    "intent": intent.label(),
+                    "provider": candidate.provider,
+                    "runtime": candidate.runtime,
+                    "resultID": candidate.result_id,
+                    "sourceIdentity": &candidate.source,
+                    "hashes": {
+                        "sourceCanvas": candidate.source_hash,
+                        "sourceMask": candidate.source_mask_hash,
+                        "resultAsset": candidate.result_asset_hash,
+                    },
+                    "dimensions": {
+                        "source": [source.document.width, source.document.height],
+                        "providerAsset": candidate.dimensions,
+                        "keptCanvas": [candidate.document.width, candidate.document.height],
+                        "reopenedCanvas": [reopened_document.width, reopened_document.height],
+                    },
+                    "variation": { "index": 1, "total": 1 },
+                    "automaticRetries": 0,
+                    "renderCaptures": render_captures,
+                    "reviewSourceUnchanged": true,
+                    "protectedPixelsByteExact": matches!(intent, NativeImageIntent::Replace | NativeImageIntent::Remove | NativeImageIntent::Background),
+                    "expandedOriginalTranslatedByteExact": intent == NativeImageIntent::Expand,
+                    "nativeOriginalSourcePreserved": true,
+                    "brandPreserved": true,
+                    "keepSaveReopenUndoRedo": "passed",
+                }))
+            }
+            .await;
+
+            match outcome {
+                Ok(receipt) => {
+                    let _ = write_json(&dir.join("native-results.json"), &receipt);
+                }
+                Err(error) => {
+                    let error = sanitize_error(&error);
+                    let failure = serde_json::json!({
+                        "schema": "omuse.native-ai-image-qualification.v1",
+                        "status": "failed",
+                        "intent": sanitize_text(&requested_intent),
+                        "error": error,
+                    });
+                    let _ = write_json(&dir.join("native-results.json"), &failure);
+                    let _ = write_json(&dir.join("native-errors.json"), &failure);
+                    let _ = std::fs::write(
+                        dir.join("native-error.txt"),
+                        failure["error"]
+                            .as_str()
+                            .unwrap_or("Native AI image qualification failed"),
+                    );
+                }
+            }
+            cx.background_executor()
+                .timer(Duration::from_millis(250))
+                .await;
+            if omuse::identity::env_var_os("OMUSE_NATIVE_WAIT").is_none() {
+                let _ = cx.update(|_, cx| cx.quit());
+            }
+        })
+        .detach();
+    }
+
     /// Run Generate, protected-background editing and one editable carousel plan
     /// against the installed, validated Codex subscription runtime. The
     /// evidence directory is supplied by `--ui-smoke`; ordinary startup never
@@ -74,6 +579,10 @@ impl EditorView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if let Ok(intent) = omuse::identity::env_var("OMUSE_NATIVE_AI_IMAGE_INTENT") {
+            self.start_native_single_image_qualification(dir, intent, window, cx);
+            return;
+        }
         cx.spawn_in(window, async move |view, cx| {
         let outcome = async {
             std::fs::create_dir_all(&dir)?;
@@ -771,10 +1280,38 @@ fn native_candidate(proposal: &AiProposal, intent: &ImageIntent) -> Result<Nativ
         asset.width > 0 && asset.height > 0,
         "The provider returned an image with invalid dimensions"
     );
+    let source_hash = proposal.provenance["sourceIdentityHash"]
+        .as_str()
+        .map(sanitize_text)
+        .filter(|value| !value.is_empty())
+        .context("The completed result omitted its source canvas hash")?;
+    let source_mask_hash = proposal.provenance["sourceMaskHash"]
+        .as_str()
+        .map(sanitize_text)
+        .filter(|value| !value.is_empty());
+    let task = proposal.provenance["omuseTask"]
+        .as_str()
+        .map(sanitize_text)
+        .filter(|value| !value.is_empty())
+        .context("The completed result omitted its Omuse task")?;
+    let runtime = proposal.provenance["providerRuntimeVersion"]
+        .as_str()
+        .filter(|value| !value.trim().is_empty())
+        .context("The completed result omitted its provider runtime version")?
+        .to_owned();
     Ok(NativeCandidate {
+        result_id: sanitize_text(&proposal.id),
         provider: proposal.provider,
-        runtime: sanitize_runtime(proposal.provenance["providerRuntimeVersion"].as_str()),
+        runtime,
         dimensions: [asset.width, asset.height],
+        source: proposal.source.clone(),
+        source_hash,
+        source_mask_hash,
+        result_asset_hash: file_content_hash(&asset.path)?,
+        task,
+        variation_index: proposal.variation_index,
+        variation_total: proposal.variation_total,
+        selection: proposal.selection.clone(),
         document: proposal
             .document
             .clone()
@@ -914,7 +1451,25 @@ fn native_source_document() -> Result<Document> {
     logo.offset_x = 51.;
     logo.offset_y = 5.;
     logo.locked = true;
-    document.layers = vec![background, subject, title, logo];
+    let mut removable = Layer::paint("Editable plum blemish", 7, 7);
+    omuse::objects::set_live_shape(
+        &mut removable,
+        omuse::objects::LiveShapeStyle {
+            kind: omuse::objects::LiveShapeKind::Ellipse,
+            red: 0.32,
+            green: 0.08,
+            blue: 0.28,
+            corner_radius: 0.,
+            line_width: None,
+            start: None,
+            end: None,
+        },
+        7,
+        7,
+    )?;
+    removable.offset_x = 8.;
+    removable.offset_y = 61.;
+    document.layers = vec![background, subject, title, logo, removable];
     Ok(document)
 }
 
@@ -959,7 +1514,7 @@ fn assert_protected_subject_is_exact(
             && protected_subject.len() == before.as_raw().len() / 4
             && (editable_mask.width, editable_mask.height) == before.dimensions()
             && editable_mask.values.len() == protected_subject.len(),
-        "Native background result has invalid protected-region dimensions"
+        "Native edit result has invalid protected-region dimensions"
     );
     for (index, (before, after)) in before.pixels().zip(after.pixels()).enumerate() {
         if protected_subject[index] == 255 {
@@ -976,6 +1531,197 @@ fn assert_protected_subject_is_exact(
         }
     }
     Ok(())
+}
+
+fn assert_expanded_original_is_exact(
+    source: &Document,
+    expanded: &Document,
+    left: u32,
+    top: u32,
+    right: u32,
+    bottom: u32,
+) -> Result<()> {
+    ensure!(
+        expanded.width == source.width + left + right
+            && expanded.height == source.height + top + bottom,
+        "Expanded result has incorrect asymmetric dimensions"
+    );
+    let source_pixels = raster::composite(source);
+    let expanded_pixels = raster::composite(expanded);
+    for (x, y, pixel) in source_pixels.enumerate_pixels() {
+        ensure!(
+            expanded_pixels.get_pixel(x + left, y + top) == pixel,
+            "Original source pixel changed after translation at {x},{y}"
+        );
+    }
+    Ok(())
+}
+
+fn assert_intent_produced_visible_change(
+    source: &Document,
+    candidate: &Document,
+    intent: &ImageIntent,
+    editable_mask: Option<&NativeMask>,
+) -> Result<()> {
+    let before = raster::composite(source);
+    let after = raster::composite(candidate);
+    match intent {
+        ImageIntent::Generate => ensure!(
+            before != after,
+            "Generated result did not visibly differ from the synthetic source"
+        ),
+        ImageIntent::Replace | ImageIntent::Background => {
+            let mask = editable_mask.context("The image edit omitted its retained mask")?;
+            ensure!(
+                before.dimensions() == after.dimensions()
+                    && mask.values.len() == before.as_raw().len() / 4,
+                "The image edit cannot be compared with its retained mask"
+            );
+            ensure!(
+                before
+                    .pixels()
+                    .zip(after.pixels())
+                    .zip(&mask.values)
+                    .any(|((before, after), mask)| *mask > 0 && before != after),
+                "The image edit made no visible change inside its editable region"
+            );
+        }
+        ImageIntent::Expand {
+            left,
+            top,
+            right: _,
+            bottom: _,
+        } => ensure!(
+            after.enumerate_pixels().any(|(x, y, pixel)| {
+                (x < *left || x >= *left + source.width || y < *top || y >= *top + source.height)
+                    && pixel[3] > 0
+            }),
+            "Expanded result did not generate visible pixels outside the original canvas"
+        ),
+    }
+    Ok(())
+}
+
+fn expected_native_source_hash(source: &Document, intent: &ImageIntent) -> String {
+    let source_pixels = raster::composite(source);
+    if let ImageIntent::Expand {
+        left,
+        top,
+        right,
+        bottom,
+    } = *intent
+    {
+        let mut expanded =
+            RgbaImage::new(source.width + left + right, source.height + top + bottom);
+        image::imageops::replace(
+            &mut expanded,
+            &source_pixels,
+            i64::from(left),
+            i64::from(top),
+        );
+        bytes_content_hash(expanded.as_raw())
+    } else {
+        bytes_content_hash(source_pixels.as_raw())
+    }
+}
+
+fn assert_retained_mask_matches_request(
+    source: &Document,
+    selection: Option<&Selection>,
+    intent: &ImageIntent,
+    retained: Option<&NativeMask>,
+) -> Result<()> {
+    let expected = ai_edits::prepare_input(source, selection, intent)?.mask;
+    match (expected, retained) {
+        (None, None) => Ok(()),
+        (Some(expected), Some(retained)) => {
+            ensure!(
+                (retained.width, retained.height) == expected.dimensions()
+                    && retained.values.as_slice() == expected.as_raw().as_slice(),
+                "The retained editable mask differs from the exact submitted request mask"
+            );
+            Ok(())
+        }
+        _ => {
+            anyhow::bail!("The retained editable mask presence differs from the submitted request")
+        }
+    }
+}
+
+fn assert_native_source_layers_survive(
+    source: &Document,
+    candidate: &Document,
+    intent: &ImageIntent,
+) -> Result<()> {
+    ensure!(
+        candidate.layers.len() > source.layers.len(),
+        "The image result did not retain the native source layers separately from its generated layer"
+    );
+    let mut expected = source.clone();
+    if let ImageIntent::Expand {
+        left,
+        top,
+        right,
+        bottom,
+    } = *intent
+    {
+        let mut editor = Editor::new(expected);
+        editor.set_history_limit(0);
+        ensure!(
+            editor.crop_canvas(
+                -(left as i32),
+                -(top as i32),
+                source.width + left + right,
+                source.height + top + bottom,
+            ),
+            "Could not construct the expected translated native source"
+        );
+        expected = editor.document;
+    }
+    let mut retained = candidate.clone();
+    retained.layers.truncate(source.layers.len());
+    ensure!(
+        disk_semantic_document_matches(&expected, &retained)?,
+        "The generated candidate changed or flattened the native source layers"
+    );
+    Ok(())
+}
+
+fn assert_reopened_image_project(
+    project: &mut Project,
+    expected: &mut Project,
+    source: &Document,
+    brand_id: &str,
+    intent: &ImageIntent,
+) -> Result<()> {
+    ensure!(
+        project.active_brand_id.as_deref() == Some(brand_id),
+        "The active brand was not retained after reopening the native package"
+    );
+    let brand = project
+        .active_brand()
+        .context("The saved native brand is missing")?;
+    ensure!(
+        brand.name == "Sugata" && brand.fonts.heading == "Outfit" && brand.fonts.body == "Outfit",
+        "The saved native brand tokens changed after reopening"
+    );
+    ensure!(
+        disk_semantic_project_matches(expected, project)?,
+        "The saved native project changed its editable pages, metadata, components, or protected resources"
+    );
+    let reopened = project.active_document()?.clone();
+    assert_native_source_layers_survive(source, &reopened, intent)
+}
+
+fn render_capture(path: &Path, name: &str) -> Result<serde_json::Value> {
+    let image = image::ImageReader::open(path)?
+        .with_guessed_format()?
+        .into_dimensions()?;
+    Ok(serde_json::json!({
+        "file": name,
+        "contentHash": file_content_hash(path)?,
+        "dimensions": [image.0, image.1],
+    }))
 }
 
 /// Compare a just-saved native project by its retained editing semantics.
@@ -1327,6 +2073,79 @@ fn sanitize_text(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn native_image_intent_parser_is_explicit_and_asymmetric_expand_is_fixed() {
+        for (name, expected) in [
+            ("generate", NativeImageIntent::Generate),
+            ("replace", NativeImageIntent::Replace),
+            ("remove", NativeImageIntent::Remove),
+            ("background", NativeImageIntent::Background),
+            ("expand", NativeImageIntent::Expand),
+        ] {
+            assert_eq!(NativeImageIntent::parse(name).unwrap(), expected);
+        }
+        assert!(NativeImageIntent::parse("all").is_err());
+        assert_eq!(
+            NativeImageIntent::Expand.image_intent(),
+            ImageIntent::Expand {
+                left: 11,
+                top: 7,
+                right: 17,
+                bottom: 5,
+            }
+        );
+    }
+
+    #[test]
+    fn expanded_original_guard_checks_every_translated_source_pixel() -> Result<()> {
+        let source = native_source_document()?;
+        let intent = NativeImageIntent::Expand.image_intent();
+        let mut editor = Editor::new(source.clone());
+        editor.set_history_limit(0);
+        assert!(editor.crop_canvas(
+            -(EXPAND_LEFT as i32),
+            -(EXPAND_TOP as i32),
+            source.width + EXPAND_LEFT + EXPAND_RIGHT,
+            source.height + EXPAND_TOP + EXPAND_BOTTOM,
+        ));
+        let mut expanded = editor.document;
+        expanded.layers.push(Layer::paint(
+            "Transparent generated surround",
+            expanded.width,
+            expanded.height,
+        ));
+        assert_expanded_original_is_exact(
+            &source,
+            &expanded,
+            EXPAND_LEFT,
+            EXPAND_TOP,
+            EXPAND_RIGHT,
+            EXPAND_BOTTOM,
+        )?;
+        assert_native_source_layers_survive(&source, &expanded, &intent)?;
+
+        expanded
+            .layers
+            .last_mut()
+            .unwrap()
+            .image
+            .as_mut()
+            .unwrap()
+            .put_pixel(EXPAND_LEFT, EXPAND_TOP, Rgba([1, 2, 3, 255]));
+        assert!(
+            assert_expanded_original_is_exact(
+                &source,
+                &expanded,
+                EXPAND_LEFT,
+                EXPAND_TOP,
+                EXPAND_RIGHT,
+                EXPAND_BOTTOM,
+            )
+            .is_err()
+        );
+        Ok(())
+    }
 
     #[test]
     fn disk_semantic_comparator_accepts_template_roundtrip_and_rejects_content_or_geometry_loss()

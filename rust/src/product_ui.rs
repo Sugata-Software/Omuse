@@ -58,7 +58,7 @@ impl ProductUiState {
         }
     }
 
-    fn summary(&self) -> String {
+    pub(super) fn summary(&self) -> String {
         let shadow = match self.shadow {
             ShadowPreset::Off => "shadow off",
             ShadowPreset::Soft => "soft shadow",
@@ -72,6 +72,35 @@ impl ProductUiState {
             Some(reflection) => format!("{shadow} · {reflection}"),
             None => shadow.into(),
         }
+    }
+
+    /// Restore only settings representable by the visible preset controls.
+    /// Unknown historical/custom values leave the current controls untouched
+    /// instead of silently displaying a different finishing treatment.
+    pub(super) fn restore_presentation(&mut self, presentation: &ProductPresentation) -> bool {
+        let soft_shadow = ProductShadow::default();
+        let contact_shadow = ProductShadow {
+            offset_x: 0,
+            offset_y: 6,
+            blur_px: 4,
+            opacity: 0.5,
+            color: [0, 0, 0],
+        };
+        let shadow = match presentation.shadow.as_ref() {
+            None => ShadowPreset::Off,
+            Some(value) if value == &soft_shadow => ShadowPreset::Soft,
+            Some(value) if value == &contact_shadow => ShadowPreset::Contact,
+            Some(_) => return false,
+        };
+        let reflection = match presentation.reflection.as_ref() {
+            None => ReflectionPreset::Off,
+            Some(value) if value == &ProductReflection::default() => ReflectionPreset::Subtle,
+            Some(_) => return false,
+        };
+        self.shadow = shadow;
+        self.reflection = reflection;
+        self.expanded = !presentation.is_empty();
+        true
     }
 }
 

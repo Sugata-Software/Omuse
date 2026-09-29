@@ -23,6 +23,7 @@ parser.add_argument('--capture-startup', action='store_true', help='Hold only th
 parser.add_argument('--reduced-motion', action='store_true', help='Disable splash animation for accessibility verification')
 parser.add_argument('--ai', action='store_true', help='Explicit live subscription check: one generation, one background edit and one editable carousel plan; consumes the chosen Codex allowance')
 parser.add_argument('--ai-resume-history', type=Path, metavar='EVIDENCE_DIRECTORY', help='Resume one retained Generate review from an earlier isolated --ai evidence directory, then run only the remaining background and assistant requests')
+parser.add_argument('--ai-image-intent', choices=('generate','replace','remove','background','expand'), help='Explicit live subscription check for exactly one image intent; keeps, saves, reopens, undoes and redoes the reviewed result')
 parser.add_argument('--small-window', action='store_true')
 parser.add_argument('--require-usable-startup', action='store_true')
 parser.add_argument('--panel', choices=('curves','mixer','geometry','text','layers','develop','selection','canvas','luminosity-range','color-range','filter-stack','blend-if','advanced-retouch','controlled-removal','editable-warp','refine-workspace','brush-studio','smart-source','colour-management','automation','multi-image','vector-path','vector-mask','create','templates','assistant','content-export','motion','commands','shortcuts'))
@@ -34,6 +35,8 @@ executable = args.executable.resolve(strict=True)
 executable_sha256 = hashlib.sha256(executable.read_bytes()).hexdigest()
 evidence = args.evidence.resolve()
 evidence.mkdir(parents=True, exist_ok=True)
+if args.ai_image_intent and (args.ai or args.ai_resume_history):
+    raise SystemExit('--ai-image-intent cannot be combined with --ai or --ai-resume-history')
 if args.ai_resume_history and not args.ai:
     raise SystemExit('--ai-resume-history requires --ai')
 env = os.environ.copy()
@@ -51,10 +54,14 @@ for key, folder in [
     env[key] = str(evidence / folder)
     Path(env[key]).mkdir(exist_ok=True)
 env['OMUSE_NATIVE_WAIT'] = '1'
-if args.ai:
+if args.ai or args.ai_image_intent:
     env['OMUSE_NATIVE_AI_TEST'] = '1'
 else:
     env.pop('OMUSE_NATIVE_AI_TEST', None)
+if args.ai_image_intent:
+    env['OMUSE_NATIVE_AI_IMAGE_INTENT'] = args.ai_image_intent
+else:
+    env.pop('OMUSE_NATIVE_AI_IMAGE_INTENT', None)
 if args.capture_startup:
     env['OMUSE_NATIVE_STARTUP_WAIT'] = '1'
 else:
@@ -115,7 +122,7 @@ with (evidence / 'native.log').open('w') as log:
         launch_env.pop('WAYLAND_DISPLAY', None)
     process = subprocess.Popen([str(executable), '--ui-smoke', str(evidence)], env=launch_env, stdout=log, stderr=log)
     try:
-        deadline = time.monotonic() + (1100 if args.ai else 90)
+        deadline = time.monotonic() + (1100 if args.ai or args.ai_image_intent else 90)
         ready_deadline=time.monotonic()+30
         def hypr(*command):
             return subprocess.check_output(['hyprctl', *command], env=env, text=True)
@@ -299,6 +306,40 @@ with (evidence / 'native.log').open('w') as log:
         result = json.loads(report.read_text())
         if result.get('status') != 'passed':
             raise RuntimeError(result)
+        if args.ai_image_intent:
+            if result.get('schema') != 'omuse.native-ai-image-qualification.v1' or result.get('intent') != args.ai_image_intent:
+                raise RuntimeError('Native image evidence does not match the requested intent')
+            if result.get('provider') != 'codexSubscription' or not result.get('runtime') or not result.get('resultID'):
+                raise RuntimeError('Native image evidence omitted its exact provider result identity')
+            if result.get('variation') != {'index': 1, 'total': 1} or result.get('automaticRetries') != 0:
+                raise RuntimeError('Native image qualification was not a single no-retry variation')
+            hashes = result.get('hashes', {})
+            if not hashes.get('sourceCanvas') or not hashes.get('resultAsset'):
+                raise RuntimeError('Native image evidence omitted required content hashes')
+            if (args.ai_image_intent == 'generate') != (hashes.get('sourceMask') is None):
+                raise RuntimeError('Native image evidence has an incorrect mask-hash contract')
+            dimensions = result.get('dimensions', {})
+            expected_canvas = [92, 92] if args.ai_image_intent == 'expand' else [64, 80]
+            if dimensions.get('source') != [64, 80] or dimensions.get('keptCanvas') != expected_canvas or dimensions.get('reopenedCanvas') != expected_canvas:
+                raise RuntimeError('Native image evidence has incorrect source, kept or reopened dimensions')
+            provider_dimensions = dimensions.get('providerAsset')
+            if not isinstance(provider_dimensions, list) or len(provider_dimensions) != 2 or any(not isinstance(value, int) or value <= 0 for value in provider_dimensions):
+                raise RuntimeError('Native image evidence has invalid provider asset dimensions')
+            if not isinstance(result.get('sourceIdentity'), dict) or not result['sourceIdentity'].get('documentId'):
+                raise RuntimeError('Native image evidence omitted its source identity')
+            expected_captures = ['before.png','candidate.png','kept.png','undo.png','redo.png','reopened.png']
+            captures = result.get('renderCaptures')
+            if not isinstance(captures, list) or [capture.get('file') for capture in captures] != expected_captures:
+                raise RuntimeError('Native image evidence omitted a required render capture')
+            for capture in captures:
+                capture_path = evidence / capture['file']
+                if not capture.get('contentHash') or not capture_path.is_file() or capture_path.stat().st_size == 0:
+                    raise RuntimeError('Native image render capture is missing or unhashed')
+            protected_intent = args.ai_image_intent in ('replace','remove','background')
+            if result.get('protectedPixelsByteExact') != protected_intent or result.get('expandedOriginalTranslatedByteExact') != (args.ai_image_intent == 'expand'):
+                raise RuntimeError('Native image pixel-integrity evidence does not match the requested intent')
+            if result.get('nativeOriginalSourcePreserved') is not True or result.get('brandPreserved') is not True or result.get('keepSaveReopenUndoRedo') != 'passed':
+                raise RuntimeError('Native image package or reversible-edit evidence is incomplete')
         if args.minimum_window:
             # XWayland and the compositor can use different scale factors.
             # Verify GPUI's actual content size, not just compositor geometry.

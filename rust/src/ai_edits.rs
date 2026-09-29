@@ -188,42 +188,114 @@ fn expanded_dimensions(
     Ok((width, height))
 }
 
-fn protect_locked_objects(source: &Document, mask: &mut GrayImage) {
-    fn locked(layers: &[Layer]) -> Vec<Layer> {
-        layers
-            .iter()
-            .filter_map(|layer| {
-                if !layer.visible {
-                    return None;
-                }
-                if layer.locked {
-                    return Some(layer.clone());
-                }
-                let children = locked(&layer.children);
-                if children.is_empty() {
-                    None
-                } else {
-                    let mut group = layer.clone();
-                    group.children = children;
-                    group.image = None;
-                    Some(group)
-                }
-            })
-            .collect()
+/// These live adjustments evaluate canvas coordinates or neighbouring canvas
+/// pixels. Layer-local filters/effects keep their source dimensions when the
+/// canvas grows; pointwise live adjustments likewise need no extra render.
+fn has_canvas_dependent_adjustments(layers: &[Layer]) -> bool {
+    layers.iter().any(|layer| {
+        layer.visible
+            && layer.opacity > 0.
+            && (matches!(
+                layer
+                    .metadata
+                    .pointer("/adjustment/kind")
+                    .and_then(Value::as_str),
+                Some("Gaussian Blur" | "Motion Blur" | "Add Noise" | "Grain")
+            ) || has_canvas_dependent_adjustments(&layer.children))
+    })
+}
+
+fn expanded_source_document(
+    source: Document,
+    left: u32,
+    top: u32,
+    width: u32,
+    height: u32,
+) -> Result<Document> {
+    let mut editor = Editor::new(source);
+    editor.set_history_limit(0);
+    ensure!(
+        editor.crop_canvas(-(left as i32), -(top as i32), width, height),
+        "Canvas expansion could not preserve the current layer geometry"
+    );
+    let mut result = editor.document;
+    fn shift_frame_metadata(layers: &mut [Layer], left: u32, top: u32) -> Result<()> {
+        for layer in layers {
+            if let Some(mut frame) = crate::create::frame_spec(layer)? {
+                frame.bounds.x += left as f32;
+                frame.bounds.y += top as f32;
+                layer.metadata["omuseCreate"]["frame"] = serde_json::to_value(frame)?;
+            }
+            shift_frame_metadata(&mut layer.children, left, top)?;
+        }
+        Ok(())
     }
-    let layers = locked(&source.layers);
-    if layers.is_empty() {
-        return;
+    shift_frame_metadata(&mut result.layers, left, top)?;
+    Ok(result)
+}
+
+fn check_expanded_adjustments(
+    source: &Document,
+    original: &RgbaImage,
+    left: u32,
+    top: u32,
+    width: u32,
+    height: u32,
+) -> Result<()> {
+    if !has_canvas_dependent_adjustments(&source.layers) {
+        return Ok(());
+    }
+    let expanded = expanded_source_document(source.clone(), left, top, width, height)?;
+    let pixels = raster::composite(&expanded);
+    ensure!(
+        pixels.dimensions() == (width, height),
+        "Canvas expansion could not evaluate the existing live adjustments"
+    );
+    ensure!(
+        original
+            .enumerate_pixels()
+            .all(|(x, y, pixel)| { pixels.get_pixel(x + left, y + top) == pixel }),
+        "Expanding this canvas would change the original pixels because a live spatial or noise adjustment is reevaluated. Keep the current canvas size, or explicitly flatten an unlocked duplicate before expanding."
+    );
+    Ok(())
+}
+
+fn protect_locked_objects(source: &Document, mask: &mut GrayImage) -> Result<()> {
+    ensure!(
+        mask.dimensions() == (source.width, source.height),
+        "The editable mask no longer matches the canvas"
+    );
+    fn show_locked(layers: &mut [Layer], locked_ancestor: bool) -> bool {
+        let mut any_visible = false;
+        for layer in layers {
+            let locked = locked_ancestor || layer.locked;
+            let protected_children = show_locked(&mut layer.children, locked);
+            layer.visible &= locked || protected_children;
+            any_visible |= layer.visible;
+        }
+        any_visible
     }
     let mut protected = source.clone();
     protected.background = [0; 4];
-    protected.layers = layers;
+    // Keep the complete tree, including hidden/unlocked live-mask sources.
+    // Removing those sources invalidates a locked clipped layer's dependency
+    // graph. Only locked contributions and their visible ancestors render;
+    // an unlocked clipping base still supplies alpha without being protected
+    // across its entire footprint.
+    if !show_locked(&mut protected.layers, false) {
+        return Ok(());
+    }
     let pixels = raster::composite(&protected);
+    ensure!(
+        pixels.dimensions() == (source.width, source.height),
+        "Locked artwork protection could not be evaluated"
+    );
     for (mask, pixel) in mask.pixels_mut().zip(pixels.pixels()) {
         if pixel[3] > 0 {
             mask[0] = 0;
         }
     }
+    Ok(())
 }
 
 pub fn prepare_input(
@@ -241,6 +313,7 @@ pub fn prepare_input(
     {
         let (width, height) = expanded_dimensions(source, left, top, right, bottom)?;
         let original = raster::composite(source);
+        check_expanded_adjustments(source, &original, left, top, width, height)?;
         let mut canvas = RgbaImage::new(width, height);
         image::imageops::replace(&mut canvas, &original, i64::from(left), i64::from(top));
         let mask = GrayImage::from_fn(width, height, |x, y| {
@@ -280,7 +353,7 @@ pub fn prepare_input(
         ImageIntent::Expand { .. } => unreachable!(),
     };
     if let Some(mask) = mask.as_mut() {
-        protect_locked_objects(source, mask);
+        protect_locked_objects(source, mask)?;
         ensure!(
             mask.pixels().any(|pixel| pixel[0] > 0),
             "The editable region is empty or protected by locked objects"
@@ -361,30 +434,13 @@ pub fn prepare_result(
             );
         }
         if let ImageIntent::Expand { left, top, .. } = *intent {
-            let mut editor = Editor::new(result);
-            editor.set_history_limit(0);
-            ensure!(
-                editor.crop_canvas(
-                    -(left as i32),
-                    -(top as i32),
-                    input.canvas.width(),
-                    input.canvas.height()
-                ),
-                "Canvas expansion could not preserve the current layer geometry"
-            );
-            result = editor.document;
-            fn shift_frame_metadata(layers: &mut [Layer], left: u32, top: u32) -> Result<()> {
-                for layer in layers {
-                    if let Some(mut frame) = crate::create::frame_spec(layer)? {
-                        frame.bounds.x += left as f32;
-                        frame.bounds.y += top as f32;
-                        layer.metadata["omuseCreate"]["frame"] = serde_json::to_value(frame)?;
-                    }
-                    shift_frame_metadata(&mut layer.children, left, top)?;
-                }
-                Ok(())
-            }
-            shift_frame_metadata(&mut result.layers, left, top)?;
+            result = expanded_source_document(
+                result,
+                left,
+                top,
+                input.canvas.width(),
+                input.canvas.height(),
+            )?;
             if !provenance.is_object() {
                 provenance = serde_json::json!({});
             }
@@ -587,7 +643,7 @@ pub fn apply_product_presentation(
     subject_bounds(&subject)?;
     let mut editable_effect_pixels =
         GrayImage::from_pixel(source.width, source.height, Luma([255]));
-    protect_locked_objects(source, &mut editable_effect_pixels);
+    protect_locked_objects(source, &mut editable_effect_pixels)?;
     let mut result = source.clone();
     if let Some(shadow) = &presentation.shadow {
         result.layers.push(product_shadow_layer(
@@ -695,6 +751,46 @@ mod tests {
         );
         doc
     }
+
+    fn adjustment_layer(settings: Value) -> Layer {
+        let mut layer = Layer::group(settings["kind"].as_str().unwrap());
+        layer.metadata = json!({"isGroup": false, "adjustment": settings});
+        layer
+    }
+
+    fn assert_expanded_original_matches(source: &Document, intent: ImageIntent) -> Document {
+        let ImageIntent::Expand {
+            left,
+            top,
+            right,
+            bottom,
+        } = intent
+        else {
+            panic!("expected expansion intent");
+        };
+        let before = raster::composite(source);
+        let width = source.width + left + right;
+        let height = source.height + top + bottom;
+        prepare_input(source, None, &intent).unwrap();
+        let result = prepare_result(
+            source,
+            None,
+            &intent,
+            &RgbaImage::from_pixel(width, height, Rgba([7, 8, 9, 255])),
+            Value::Null,
+        )
+        .unwrap();
+        let after = raster::composite(&result);
+        assert_eq!(after.dimensions(), (width, height));
+        for (x, y, pixel) in before.enumerate_pixels() {
+            assert_eq!(
+                after.get_pixel(x + left, y + top),
+                pixel,
+                "original pixel ({x}, {y})"
+            );
+        }
+        result
+    }
     #[test]
     fn replacement_and_background_preserve_exact_protected_pixels_and_originals() {
         let source = source();
@@ -730,6 +826,148 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn locked_clipped_pixels_are_protected_without_protecting_the_unlocked_base() {
+        let mut source = source();
+        let mut clipped = Layer::paint("Locked clipped detail", 2, 2);
+        clipped.image = Some(RgbaImage::from_pixel(2, 2, Rgba([220, 40, 30, 255])).into());
+        clipped.offset_x = 1.;
+        clipped.offset_y = 1.;
+        clipped.locked = true;
+        clipped.metadata["maskSourceID"] = json!(source.layers[0].id);
+        source.layers.push(clipped);
+        let mut independent = Layer::paint("Independent locked detail", 1, 1);
+        independent.image = Some(RgbaImage::from_pixel(1, 1, Rgba([30, 220, 40, 255])).into());
+        independent.offset_x = 6.;
+        independent.offset_y = 4.;
+        independent.locked = true;
+        source.layers.push(independent);
+        assert!(raster::validate(&source).is_empty());
+        let before = raster::composite(&source);
+        let generated = RgbaImage::from_pixel(8, 6, Rgba([180, 20, 210, 255]));
+        for intent in [ImageIntent::Replace, ImageIntent::Background] {
+            let selection = Selection {
+                width: 8,
+                height: 6,
+                mask: (0..48)
+                    .map(|index| {
+                        if intent == ImageIntent::Replace || index == 0 {
+                            255
+                        } else {
+                            0
+                        }
+                    })
+                    .collect(),
+            };
+            let prepared = prepare_input(&source, Some(&selection), &intent).unwrap();
+            let mask = prepared.mask.unwrap();
+            for (x, y) in [(1, 1), (2, 2), (6, 4)] {
+                assert_eq!(mask.get_pixel(x, y)[0], 0);
+            }
+            assert_eq!(mask.get_pixel(4, 3)[0], 255);
+            let result =
+                prepare_result(&source, Some(&selection), &intent, &generated, Value::Null)
+                    .unwrap();
+            let after = raster::composite(&result);
+            for (x, y) in [(1, 1), (2, 2), (6, 4)] {
+                assert_eq!(after.get_pixel(x, y), before.get_pixel(x, y));
+            }
+            assert_eq!(after.get_pixel(4, 3), generated.get_pixel(4, 3));
+            assert!(crate::create_history::documents_match(
+                &source,
+                &Document {
+                    layers: result.layers[..source.layers.len()].to_vec(),
+                    ..source.clone()
+                }
+            ));
+        }
+    }
+
+    #[test]
+    fn inherited_locks_keep_hidden_mask_dependencies_and_visible_group_coverage() {
+        let mut source = source();
+        let mut first_mask = Layer::paint("Hidden horizontal mask source", 8, 6);
+        first_mask.image = Some(
+            RgbaImage::from_fn(8, 6, |x, _| {
+                Rgba([255, 255, 255, if x < 4 { 255 } else { 0 }])
+            })
+            .into(),
+        );
+        first_mask.visible = false;
+        let mut second_mask = Layer::paint("Hidden chained mask source", 8, 6);
+        second_mask.image = Some(
+            RgbaImage::from_fn(8, 6, |_, y| {
+                Rgba([255, 255, 255, if y < 3 { 255 } else { 0 }])
+            })
+            .into(),
+        );
+        second_mask.visible = false;
+        second_mask.metadata["maskSourceID"] = json!(first_mask.id);
+        let mut detail = Layer::paint("Detail protected by its parent", 8, 6);
+        detail.image = Some(RgbaImage::from_pixel(8, 6, Rgba([30, 40, 230, 255])).into());
+        detail.metadata["maskSourceID"] = json!(second_mask.id);
+        let mut group = Layer::group("Locked masked group");
+        group.locked = true;
+        group.opacity = 0.5;
+        group.mask = Some(
+            RgbaImage::from_fn(8, 6, |_, y| {
+                let value = if y < 2 { 255 } else { 0 };
+                Rgba([value, value, value, 255])
+            })
+            .into(),
+        );
+        group.children.push(detail);
+        source.layers.extend([first_mask, second_mask, group]);
+        assert!(raster::validate(&source).is_empty());
+        let before = raster::composite(&source);
+        let mask = prepare_input(&source, None, &ImageIntent::Replace)
+            .unwrap()
+            .mask
+            .unwrap();
+        assert_eq!(mask.get_pixel(1, 1)[0], 0);
+        for (x, y) in [(5, 1), (1, 2), (1, 4)] {
+            assert_eq!(mask.get_pixel(x, y)[0], 255);
+        }
+        let generated = RgbaImage::from_pixel(8, 6, Rgba([180, 20, 210, 255]));
+        let result = prepare_result(
+            &source,
+            None,
+            &ImageIntent::Replace,
+            &generated,
+            Value::Null,
+        )
+        .unwrap();
+        let after = raster::composite(&result);
+        assert_eq!(after.get_pixel(1, 1), before.get_pixel(1, 1));
+        for (x, y) in [(5, 1), (1, 2), (1, 4)] {
+            assert_eq!(after.get_pixel(x, y), generated.get_pixel(x, y));
+        }
+        // A hidden locked ancestor must not protect its visible children.
+        source.layers.last_mut().unwrap().visible = false;
+        let mask = prepare_input(&source, None, &ImageIntent::Replace)
+            .unwrap()
+            .mask
+            .unwrap();
+        assert!(mask.pixels().all(|pixel| pixel[0] == 255));
+    }
+
+    #[test]
+    fn invalid_locked_protection_render_is_an_error_without_changing_the_mask() {
+        let mut source = source();
+        source.layers[0].locked = true;
+        source.layers[0].metadata["maskSourceID"] = json!(uuid::Uuid::new_v4().to_string());
+        let mut mask = GrayImage::from_pixel(source.width, source.height, Luma([255]));
+        let before = mask.clone();
+        let error = protect_locked_objects(&source, &mut mask).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("protection could not be evaluated")
+        );
+        assert_eq!(mask, before);
+    }
+
     #[test]
     fn expansion_preserves_original_rectangle_and_has_single_undo() {
         let source = source();
@@ -752,6 +990,192 @@ mod tests {
         editor.replace_document_transaction(result).unwrap();
         assert!(editor.undo());
         assert_eq!(raster::composite(&editor.document), before);
+    }
+
+    #[test]
+    fn expansion_rejects_gaussian_motion_noise_and_grain_that_change_original_pixels() {
+        let intent = ImageIntent::Expand {
+            left: 2,
+            top: 2,
+            right: 2,
+            bottom: 2,
+        };
+        for settings in [
+            json!({"kind": "Gaussian Blur", "blurRadius": 2.}),
+            json!({"kind": "Motion Blur", "motionAngle": 0., "motionDistance": 4.}),
+            json!({"kind": "Add Noise", "noiseAmount": 30., "noiseSeed": 17}),
+            json!({"kind": "Grain", "grainSettings": {"amount": 40., "seed": 17}}),
+        ] {
+            let mut source = source();
+            source.background = [255; 4];
+            let mut adjustment = adjustment_layer(settings.clone());
+            // Include a nested, clipped adjustment: its visible output is
+            // masked, but its kernel still evaluates the whole canvas.
+            adjustment.metadata["maskSourceID"] = json!(source.layers[0].id);
+            let mut group = Layer::group("Live adjustment group");
+            group.children.push(adjustment);
+            source.layers.push(group);
+            let unchanged = source.clone();
+            let before = raster::composite(&source);
+            assert_eq!(before.dimensions(), (8, 6));
+            let expanded = expanded_source_document(source.clone(), 2, 2, 12, 10).unwrap();
+            let reevaluated = raster::composite(&expanded);
+            assert_eq!(reevaluated.dimensions(), (12, 10));
+            assert!(
+                before
+                    .enumerate_pixels()
+                    .any(|(x, y, pixel)| { reevaluated.get_pixel(x + 2, y + 2) != pixel }),
+                "fixture must reproduce changed protected pixels for {settings}"
+            );
+            let error = prepare_input(&source, None, &intent)
+                .err()
+                .expect("reject before sending");
+            assert!(
+                error
+                    .to_string()
+                    .contains("would change the original pixels")
+            );
+            assert!(error.to_string().contains("flatten an unlocked duplicate"));
+            assert!(
+                prepare_result(
+                    &source,
+                    None,
+                    &intent,
+                    &RgbaImage::from_pixel(12, 10, Rgba([7, 8, 9, 255])),
+                    Value::Null
+                )
+                .is_err()
+            );
+            assert!(crate::create_history::documents_match(&source, &unchanged));
+        }
+    }
+
+    #[test]
+    fn expansion_keeps_pointwise_adjustments_editable_and_preserves_original_pixels() {
+        let mut source = source();
+        let mut group = Layer::group("Pointwise live adjustments");
+        group.children.extend([
+            adjustment_layer(json!({"kind": "Invert"})),
+            adjustment_layer(json!({"kind": "Exposure", "exposureSettings": {
+                "exposure": 0.5, "offset": 0.02, "gamma": 1.2
+            }})),
+            adjustment_layer(json!({"kind": "Hue/Saturation", "hue": 12., "saturation": 10.})),
+        ]);
+        let group_id = group.id.clone();
+        source.layers.push(group);
+        let result = assert_expanded_original_matches(
+            &source,
+            ImageIntent::Expand {
+                left: 2,
+                top: 2,
+                right: 2,
+                bottom: 2,
+            },
+        );
+        let kept = result.find_layer(&group_id).unwrap();
+        assert_eq!(kept.children.len(), 3);
+        for (actual, original) in kept
+            .children
+            .iter()
+            .zip(&source.find_layer(&group_id).unwrap().children)
+        {
+            assert_eq!(
+                actual.metadata["adjustment"],
+                original.metadata["adjustment"]
+            );
+        }
+    }
+
+    #[test]
+    fn expansion_allows_inactive_and_actually_unchanged_spatial_adjustments() {
+        let mut inactive = source();
+        inactive.background = [255; 4];
+        let mut hidden = Layer::group("Hidden blur");
+        hidden.visible = false;
+        hidden.children.push(adjustment_layer(
+            json!({"kind": "Gaussian Blur", "blurRadius": 2.}),
+        ));
+        let mut transparent = adjustment_layer(json!({"kind": "Add Noise", "noiseAmount": 30.}));
+        transparent.opacity = 0.;
+        inactive.layers.extend([
+            hidden,
+            transparent,
+            adjustment_layer(json!({"kind": "Gaussian Blur", "blurRadius": 0.})),
+            adjustment_layer(json!({"kind": "Add Noise", "noiseAmount": 0.})),
+            adjustment_layer(json!({"kind": "Grain", "grainSettings": {"amount": 0.}})),
+        ]);
+        assert_expanded_original_matches(
+            &inactive,
+            ImageIntent::Expand {
+                left: 2,
+                top: 2,
+                right: 2,
+                bottom: 2,
+            },
+        );
+
+        // Grain is tied to x/y coordinates, so adding only right/bottom
+        // margins leaves its original pixels unchanged and should be allowed.
+        let mut grain = source();
+        grain
+            .layers
+            .push(adjustment_layer(json!({"kind": "Grain", "grainSettings": {
+                "amount": 40., "seed": 17
+            }})));
+        assert_expanded_original_matches(
+            &grain,
+            ImageIntent::Expand {
+                left: 0,
+                top: 0,
+                right: 2,
+                bottom: 2,
+            },
+        );
+    }
+
+    #[test]
+    fn expansion_preserves_layer_local_live_filters_and_effects() {
+        use crate::{
+            advanced::LayerState,
+            advanced_ops::{AdvancedOperation, FilterNode},
+            filters::Filter,
+        };
+        use std::sync::{Arc, atomic::AtomicBool};
+        let mut filtered = source();
+        let mut state =
+            LayerState::from_image(filtered.layers[0].image.as_ref().unwrap(), "Photo").unwrap();
+        state.recipe.nodes.push(FilterNode {
+            id: uuid::Uuid::new_v4().to_string(),
+            name: "Local Gaussian blur".into(),
+            enabled: true,
+            opacity: 1.,
+            operation: AdvancedOperation::Filter(Filter::GaussianBlur { sigma: 2. }),
+            soft_mask: None,
+        });
+        let state = Arc::new(state.evaluate(&AtomicBool::new(false)).unwrap());
+        filtered.layers[0].image = Some(state.proxy().unwrap().into());
+        filtered.layers[0].advanced = Some(state.clone());
+        let intent = ImageIntent::Expand {
+            left: 2,
+            top: 2,
+            right: 2,
+            bottom: 2,
+        };
+        let result = assert_expanded_original_matches(&filtered, intent.clone());
+        assert!(Arc::ptr_eq(
+            result.layers[0].advanced.as_ref().unwrap(),
+            &state
+        ));
+
+        let mut effected = source();
+        effected.layers[0].metadata["effects"] = json!({
+            "shadow": {"distance": 1., "blur": 2., "opacity": 0.5}
+        });
+        let result = assert_expanded_original_matches(&effected, intent);
+        assert_eq!(
+            result.layers[0].metadata["effects"],
+            effected.layers[0].metadata["effects"]
+        );
     }
     #[test]
     fn masks_and_incompatible_framing_are_rejected_without_mutation() {
@@ -985,6 +1409,9 @@ mod tests {
             })
             .into(),
         );
+        // The dependency lies outside the locked group. Local finishing must
+        // keep it available without protecting the whole unlocked source.
+        locked_logo.metadata["maskSourceID"] = json!(source.layers[0].id);
         locked_group.children.push(locked_logo);
         source.layers.push(locked_group);
         let before = raster::composite(&source);

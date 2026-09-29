@@ -73,6 +73,7 @@ pub(super) struct AiState {
     show_before: bool,
     request_started: Option<std::time::Instant>,
     references: Vec<PathBuf>,
+    reference_workspaces: Vec<Arc<PrivateAiWorkspace>>,
     variation_count: u8,
     variation_batch: Option<AiVariationBatch>,
     expand_left: Entity<InputState>,
@@ -119,6 +120,8 @@ struct AiJob {
 }
 #[derive(Clone)]
 struct AiProposal {
+    /// Retain an unsaved review's files until its last consumer releases them.
+    workspace: Option<Arc<PrivateAiWorkspace>>,
     id: String,
     group_id: String,
     source: SourceIdentity,
@@ -148,6 +151,7 @@ struct AiProposal {
 }
 #[derive(Clone)]
 struct AiFollowUp {
+    workspace: Option<Arc<PrivateAiWorkspace>>,
     result_id: String,
     result_name: String,
     result_assets: Vec<PathBuf>,
@@ -161,6 +165,7 @@ struct AiFollowUp {
 /// background executor.
 #[derive(Clone)]
 struct PendingImageRequest {
+    _reference_workspaces: Vec<Arc<PrivateAiWorkspace>>,
     client: ai::ValidatedClient,
     provider: ProviderId,
     provider_version: Option<String>,
@@ -199,6 +204,7 @@ struct PreparedImageRequest {
 /// provider can receive them.
 #[derive(Clone)]
 struct PendingAssistantRequest {
+    _reference_workspaces: Vec<Arc<PrivateAiWorkspace>>,
     client: ai::ValidatedClient,
     provider: ProviderId,
     provider_version: Option<String>,
@@ -298,6 +304,7 @@ impl AiState {
             show_before: false,
             request_started: None,
             references: vec![],
+            reference_workspaces: vec![],
             variation_count: 1,
             variation_batch: None,
             expand_left: cx.new(|cx| InputState::new(window, cx).default_value("128")),
@@ -974,6 +981,7 @@ impl EditorView {
                     this.clear_ai_result(cx);
                     this.ai.follow_up = None;
                     this.ai.references.clear();
+                    this.ai.reference_workspaces.clear();
                     this.ai
                         .prompt
                         .update(cx, |prompt, cx| prompt.set_value("", window, cx));
@@ -1076,6 +1084,12 @@ impl EditorView {
                             cx.notify();
                         })),
                     );
+                if self.ai.task == AiTask::Background
+                    && self.ai_has_background_selection()
+                    && !ai_busy
+                {
+                    context_card = context_card.child(self.render_product_controls(window, cx));
+                }
             }
             body = body.child(context_card);
         }
@@ -1103,6 +1117,8 @@ impl EditorView {
                         .on_click(cx.listener(move |this, _, _, cx| {
                             if index < this.ai.references.len() {
                                 this.ai.references.remove(index);
+                                this.ai.reference_workspaces =
+                                    this.ai_reference_workspaces_for(&this.ai.references);
                             }
                             cx.notify();
                         })),
@@ -1142,7 +1158,7 @@ impl EditorView {
                 .gap_1()
                 .child(label("Recent completed results", cx));
             for entry in &self.ai.history {
-                let current = self.ai_source_matches(&entry.source);
+                let current = self.ai_stored_source_matches(entry);
                 let entry_id = entry.id.clone();
                 let variation = (entry.variation_total > 1).then(|| {
                     format!(
@@ -1607,6 +1623,7 @@ impl EditorView {
             );
             let work_dir = new_ai_job_work_dir()?;
             let pending = PendingImageRequest {
+                _reference_workspaces: self.ai_reference_workspaces_for(&reference_paths),
                 task: match &intent {
                     ImageIntent::Generate => AiTask::Generate,
                     ImageIntent::Replace if action_instruction.is_some() => AiTask::Remove,
@@ -1821,6 +1838,18 @@ impl EditorView {
         }
     }
 
+    fn continue_or_stop_ai_variations(
+        &mut self,
+        continue_variations: bool,
+        cx: &mut Context<Self>,
+    ) {
+        if continue_variations {
+            self.start_next_ai_variation(cx);
+        } else {
+            self.ai.variation_batch = None;
+        }
+    }
+
     fn ai_follow_up_context(&self) -> String {
         self.ai
             .follow_up
@@ -1930,6 +1959,7 @@ impl EditorView {
             );
             let work_dir = new_ai_job_work_dir()?;
             let pending = PendingAssistantRequest {
+                _reference_workspaces: self.ai_reference_workspaces_for(&reference_paths),
                 client,
                 provider,
                 provider_version,
@@ -2176,6 +2206,12 @@ impl EditorView {
                             this.ai.variation_batch = None;
                         }
                         let source_is_current = this.ai_proposal_source_matches(&prepared.proposal);
+                        let continue_variations = ai_variation_result_can_continue(
+                            &prepared.proposal,
+                            source_is_current,
+                            prepared.stored.is_some(),
+                            qualification_error.is_none(),
+                        );
                         if !source_is_current {
                             // A late worker may still contribute a safely reviewable
                             // alternative, but never a candidate transaction.
@@ -2215,9 +2251,12 @@ impl EditorView {
                         };
                         this.ai.show_before = false;
                         this.ai.result = Some(prepared.proposal);
-                        if qualification_error.is_none() {
-                            this.start_next_ai_variation(cx);
-                        }
+                        // A batch is useful only while every completed item
+                        // remains a comparable, locally retained candidate.
+                        // In particular, never relabel a later first-use
+                        // request as Verified after an unusable result failed
+                        // to qualify the route.
+                        this.continue_or_stop_ai_variations(continue_variations, cx);
                     }
                     Err(error) => {
                         this.ai.activity = format!("Could not prepare AI result: {error:#}");
@@ -2283,6 +2322,12 @@ impl EditorView {
         let Some(intent) = proposal.intent.clone() else {
             return Ok(false);
         };
+        if !matches!(intent, ImageIntent::Replace | ImageIntent::Background) {
+            // Generate and Expand do not consume the editor selection. A
+            // selection-only change must not turn their Keep action into a
+            // mask-correction job or make it depend on an unrelated mask.
+            return Ok(false);
+        }
         if self.editor.selection_revision() == proposal.source.selection_revision {
             return Ok(false);
         }
@@ -2656,6 +2701,21 @@ impl EditorView {
         &self.ai_source_identity() == source
     }
 
+    fn ai_stored_source_matches(&self, entry: &StoredProposal) -> bool {
+        let has_image_intent = entry
+            .provenance
+            .get("intent")
+            .cloned()
+            .and_then(|value| serde_json::from_value::<ImageIntent>(value).ok())
+            .is_some();
+        if !has_image_intent {
+            return self.ai_source_matches(&entry.source);
+        }
+        let mut current = self.ai_source_identity();
+        current.selection_revision = entry.source.selection_revision;
+        current == entry.source
+    }
+
     fn ai_proposal_source_matches(&self, proposal: &AiProposal) -> bool {
         if proposal.intent.is_none() {
             return self.ai_source_matches(&proposal.source);
@@ -2671,7 +2731,15 @@ impl EditorView {
     fn prepare_ai_follow_up(&mut self, another_direction: bool, cx: &mut Context<Self>) {
         let result = (|| -> anyhow::Result<()> {
             self.ensure_ai_review_idle()?;
-            let (result_id, result_name, result_assets, retained_references, plan_json, task) = {
+            let (
+                result_id,
+                result_name,
+                result_assets,
+                retained_references,
+                plan_json,
+                task,
+                product_presentation,
+            ) = {
                 let proposal = self
                     .ai
                     .result
@@ -2694,6 +2762,7 @@ impl EditorView {
                         .collect::<Vec<_>>(),
                     proposal.plan_json.clone(),
                     AiTask::from_result(proposal),
+                    proposal.product_presentation.clone(),
                 )
             };
             // A completed result retains re-encoded, metadata-free reference
@@ -2708,6 +2777,11 @@ impl EditorView {
             }
             let selected_reference_count = self.ai.references.len();
             self.ai.follow_up = Some(AiFollowUp {
+                workspace: self
+                    .ai
+                    .result
+                    .as_ref()
+                    .and_then(|proposal| proposal.workspace.clone()),
                 result_id,
                 result_name: result_name.clone(),
                 result_assets,
@@ -2715,15 +2789,26 @@ impl EditorView {
                 plan_json,
             });
             self.ai.task = task;
+            let finishing_note = if task == AiTask::Background {
+                if self.product.restore_presentation(&product_presentation) {
+                    format!(" Product finishing restored: {}.", self.product.summary())
+                } else {
+                    " Saved custom product finishing cannot be represented by the preset controls; the current finishing controls were left unchanged."
+                        .into()
+                }
+            } else {
+                String::new()
+            };
             self.ai.activity = format!(
-                "{} is selected for the next request with {} retained reference image{}. Edit the brief and choose an explicit request button; nothing has been sent.",
+                "{} is selected for the next request with {} retained reference image{}.{} Edit the brief and choose an explicit request button; nothing has been sent.",
                 result_name,
                 selected_reference_count,
                 if selected_reference_count == 1 {
                     ""
                 } else {
                     "s"
-                }
+                },
+                finishing_note,
             );
             Ok(())
         })();
@@ -2851,6 +2936,19 @@ impl EditorView {
         let Some(id) = self.ai.result.as_ref().map(|result| result.id.clone()) else {
             return;
         };
+        if self
+            .ai
+            .result
+            .as_ref()
+            .is_some_and(|proposal| proposal.workspace.is_some())
+        {
+            // This review never reached history. Dismiss it without requiring
+            // the unavailable store that caused its retention to fail.
+            self.clear_ai_result(cx);
+            self.ai.activity = "Removed this unretained review. Your artwork is unchanged.".into();
+            cx.notify();
+            return;
+        }
         self.ai.preparation_generation = self.ai.preparation_generation.wrapping_add(1);
         let generation = self.ai.preparation_generation;
         self.ai.preparing_image = true;
@@ -2896,7 +2994,7 @@ impl EditorView {
             let source_document = self.editor.document.clone();
             let source_project = self.content_snapshot()?;
             let selection = self.editor.selection.clone();
-            let source_is_current = self.ai_source_matches(&entry.source);
+            let source_is_current = self.ai_stored_source_matches(&entry);
             self.clear_ai_result(cx);
             let preparation_generation = self.ai.preparation_generation;
             let history_root = self.ai.history_root.clone();
@@ -3031,6 +3129,20 @@ fn ai_layer_fallback_available(proposal: &AiProposal, stale: bool) -> bool {
         // When preparation rejected framing or a mask, its document is absent
         // for the same reason: only a separately inserted layer is safe.
         && (stale || proposal.document.is_none())
+}
+
+fn ai_variation_result_can_continue(
+    proposal: &AiProposal,
+    source_is_current: bool,
+    retained_in_history: bool,
+    qualification_ok: bool,
+) -> bool {
+    proposal.intent.is_some()
+        && proposal.error.is_none()
+        && (proposal.document.is_some() || proposal.project.is_some())
+        && source_is_current
+        && retained_in_history
+        && qualification_ok
 }
 
 fn unique_reference_paths(paths: &[PathBuf]) -> Vec<PathBuf> {
@@ -3812,6 +3924,7 @@ fn prepare_completed_ai_job(
     };
     let provenance = ai_result_provenance(&job, &result);
     let mut proposal = AiProposal {
+        workspace: None,
         id: job.handle.id().to_string().to_uppercase(),
         group_id: job.group_id.clone(),
         source: job.source.clone(),
@@ -3987,6 +4100,12 @@ fn prepare_completed_ai_job(
         CapabilitySubmission::FirstUseQualification
         | CapabilitySubmission::ExplicitNativeQualification => None,
     };
+    if stored.is_none() {
+        // History failure must not destroy the only copy of a completed
+        // image or its references. The review, follow-up and staged request
+        // share this guard until those files are no longer in use.
+        proposal.workspace = Some(Arc::new(job.workspace));
+    }
     Ok(PreparedAiProposal {
         proposal,
         before_preview_pixels,
@@ -4024,6 +4143,7 @@ fn prepare_saved_ai_proposal(
         })
         .collect::<anyhow::Result<Vec<_>>>()?;
     let mut proposal = AiProposal {
+        workspace: None,
         id: entry.id.clone(),
         group_id: entry.group_id,
         source: entry.source,
@@ -4386,6 +4506,69 @@ mod tests {
         });
     }
 
+    #[gpui_kit::test]
+    fn background_refinement_restores_visible_finishing_without_touching_other_tasks(
+        cx: &mut TestAppContext,
+    ) {
+        cx.update(crate::init_test_theme);
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            let mut view = EditorView::new(None, window, cx);
+            view.dialog = Dialog::None;
+            view.editor = Editor::new(Document::new(40, 30));
+            view.inspector_tab = studio_ui::InspectorTab::Assistant;
+            view.inspector_visible = true;
+            view.ai.checking = true;
+            view.refresh(cx);
+            view
+        });
+        let presentation = ai_edits::ProductPresentation {
+            shadow: Some(ai_edits::ProductShadow {
+                offset_x: 0,
+                offset_y: 6,
+                blur_px: 4,
+                opacity: 0.5,
+                color: [0, 0, 0],
+            }),
+            reflection: Some(ai_edits::ProductReflection::default()),
+        };
+        view.update_in(cx, |view, _, cx| {
+            view.editor.select_rectangle(8., 6., 16., 14.);
+            assert!(view.editor.record_selection_change(None));
+            let mut result = assistant_proposal(view, view.editor.document.clone());
+            result.intent = Some(ImageIntent::Background);
+            result.provenance = serde_json::json!({"omuseTask":"background"});
+            result.product_presentation = presentation.clone();
+            view.ai.result = Some(result);
+            view.prepare_ai_follow_up(false, cx);
+
+            assert_eq!(view.ai.task, AiTask::Background);
+            assert_eq!(view.product.presentation(), presentation);
+            assert!(view.ai.activity.contains("contact shadow"));
+            assert!(view.ai.activity.contains("subtle reflection"));
+        });
+        cx.simulate_resize(size(px(1100.), px(900.)));
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        assert!(cx.debug_bounds("product-presentation-controls").is_some());
+        assert!(cx.debug_bounds("product-shadow-contact").is_some());
+        assert!(cx.debug_bounds("product-reflection-subtle").is_some());
+
+        view.update_in(cx, |view, _, cx| {
+            let mut unrelated = assistant_proposal(view, view.editor.document.clone());
+            unrelated.intent = Some(ImageIntent::Generate);
+            unrelated.provenance = serde_json::json!({"omuseTask":"generate"});
+            unrelated.product_presentation = Default::default();
+            view.ai.result = Some(unrelated);
+            view.prepare_ai_follow_up(false, cx);
+
+            assert_eq!(view.ai.task, AiTask::Generate);
+            assert_eq!(
+                view.product.presentation(),
+                presentation,
+                "an unrelated refinement must not rewrite hidden Background finishing"
+            );
+        });
+    }
+
     #[test]
     fn refinement_carries_the_prior_edit_plan_with_bounded_context() {
         let plan = r#"{"summary":"Brighter","operations":[{"type":"adjust_photo","layer_id":"photo","exposure_stops":0.5}]}"#;
@@ -4400,6 +4583,7 @@ mod tests {
 
     fn assistant_proposal(view: &EditorView, document: Document) -> AiProposal {
         AiProposal {
+            workspace: None,
             id: "test-result".into(),
             group_id: "test-group".into(),
             source: view.ai_source_identity(),
@@ -4740,6 +4924,64 @@ mod tests {
     }
 
     #[gpui_kit::test]
+    fn generate_and_expand_keep_ignore_unrelated_selection_changes(cx: &mut TestAppContext) {
+        cx.update(crate::init_test_theme);
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            let mut view = EditorView::new(None, window, cx);
+            view.dialog = Dialog::None;
+            view.editor = Editor::new(Document::new(40, 30));
+            view.refresh(cx);
+            view
+        });
+
+        view.update_in(cx, |view, _, cx| {
+            for (intent, operation, color, selection_x) in [
+                (
+                    ImageIntent::Generate,
+                    Operation::GenerateImage,
+                    [20, 30, 40, 255],
+                    2.,
+                ),
+                (
+                    ImageIntent::Expand {
+                        left: 4,
+                        top: 0,
+                        right: 0,
+                        bottom: 0,
+                    },
+                    Operation::EditImage,
+                    [40, 30, 20, 255],
+                    12.,
+                ),
+            ] {
+                let source = view.editor.document.clone();
+                let source_identity = view.ai_source_identity();
+                let original_background = source.background;
+                let mut proposed = source.clone();
+                proposed.background = color;
+                let mut proposal = assistant_proposal(view, proposed);
+                proposal.source = source_identity;
+                proposal.source_document = Some(source);
+                proposal.operation = operation;
+                proposal.intent = Some(intent);
+                view.ai.result = Some(proposal);
+
+                view.editor.select_rectangle(selection_x, 3., 6., 5.);
+                assert!(view.editor.record_selection_change(None));
+                let undo_depth = view.editor.undo_depth();
+                view.apply_ai_plan(cx);
+
+                assert!(!view.ai.preparing_image);
+                assert!(view.ai.result.is_none());
+                assert_eq!(view.editor.document.background, color);
+                assert_eq!(view.editor.undo_depth(), undo_depth + 1);
+                assert!(view.editor.undo());
+                assert_eq!(view.editor.document.background, original_background);
+            }
+        });
+    }
+
+    #[gpui_kit::test]
     fn connection_failure_disables_the_stale_route_and_reopens_connections(
         cx: &mut TestAppContext,
     ) {
@@ -4847,6 +5089,7 @@ mod tests {
             let mut proposed = view.editor.document.clone();
             proposed.background = [255, 0, 0, 255];
             view.ai.result = Some(AiProposal {
+                workspace: None,
                 id: "test-result".into(),
                 group_id: "test-group".into(),
                 source: view.ai_source_identity(),
@@ -4904,6 +5147,7 @@ mod tests {
             let mut proposed = view.editor.document.clone();
             proposed.background = [255, 0, 0, 255];
             view.ai.result = Some(AiProposal {
+                workspace: None,
                 id: "test-result".into(),
                 group_id: "test-group".into(),
                 source: view.ai_source_identity(),
@@ -4959,6 +5203,63 @@ mod tests {
             }),
             6
         );
+    }
+    #[gpui_kit::test]
+    fn invalid_first_candidate_stops_the_real_variation_batch_and_preserves_its_warning(
+        cx: &mut TestAppContext,
+    ) {
+        cx.update(crate::init_test_theme);
+        let temporary = tempfile::tempdir().unwrap();
+        let (view, cx) = cx.add_window_view(|window, cx| EditorView::new(None, window, cx));
+        view.update_in(cx, |view, _, cx| {
+            let source_project = view.content_snapshot().unwrap();
+            let source_document = view.editor.document.clone();
+            let source = view.ai_source_identity();
+            view.ai.variation_batch = Some(AiVariationBatch {
+                template: PendingImageRequest {
+                    _reference_workspaces: vec![],
+                    client: ai::ValidatedClient::fixture(
+                        ProviderId::CodexSubscription,
+                        PathBuf::from("/fixture/codex"),
+                    ),
+                    provider: ProviderId::CodexSubscription,
+                    provider_version: Some("fixture".into()),
+                    source,
+                    source_document,
+                    source_project,
+                    selection: None,
+                    operation: JobOperation::GenerateImage,
+                    intent: ImageIntent::Generate,
+                    task: AiTask::Generate,
+                    group_id: "variation-group".into(),
+                    brief: "Generate a variation".into(),
+                    action_instruction: None,
+                    follow_up_context: String::new(),
+                    reference_paths: vec![],
+                    variation_index: 1,
+                    variation_total: 2,
+                    submission: CapabilitySubmission::FirstUseQualification,
+                    product_presentation: Default::default(),
+                    work_dir: temporary.path().join("unused-template-workspace"),
+                },
+                remaining: 1,
+                total: 2,
+            });
+            let mut proposal = assistant_proposal(view, view.editor.document.clone());
+            proposal.intent = Some(ImageIntent::Generate);
+            proposal.document = None;
+            proposal.error = Some("Provider result has invalid framing".into());
+            view.ai.activity =
+                "Provider result has invalid framing. Your canvas is unchanged.".into();
+            let continue_variations = ai_variation_result_can_continue(&proposal, true, true, true);
+            view.continue_or_stop_ai_variations(continue_variations, cx);
+
+            assert!(view.ai.variation_batch.is_none());
+            assert!(view.ai.running.is_none());
+            assert!(!view.ai.preparing_image);
+            assert!(view.ai.activity.contains("invalid framing"));
+            assert!(!temporary.path().join("unused-template-workspace").exists());
+        });
     }
     #[test]
     fn expansion_accepts_four_independent_bounded_margins() {
@@ -5111,6 +5412,93 @@ mod tests {
     }
 
     #[gpui_kit::test]
+    fn same_session_image_history_accepts_a_new_mask_but_rejects_artwork_changes(
+        cx: &mut TestAppContext,
+    ) {
+        cx.update(crate::init_test_theme);
+        let temporary = tempfile::tempdir().unwrap();
+        let history_root = temporary.path().join("history");
+        let input = temporary.path().join("replacement.png");
+        image::RgbaImage::from_pixel(40, 30, image::Rgba([70, 80, 90, 255]))
+            .save(&input)
+            .unwrap();
+        let byte_len = std::fs::metadata(&input).unwrap().len();
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            let mut view = EditorView::new(None, window, cx);
+            view.dialog = Dialog::None;
+            view.editor = Editor::new(Document::new(40, 30));
+            view.refresh(cx);
+            view
+        });
+
+        let stored = view.update_in(cx, |view, _, cx| {
+            view.editor.select_rectangle(2., 2., 8., 8.);
+            assert!(view.editor.record_selection_change(None));
+            let source = view.ai_source_identity();
+            let stored = HistoryStore::open(&history_root)
+                .unwrap()
+                .persist(NewProposal {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    group_id: uuid::Uuid::new_v4().to_string(),
+                    variation_index: 1,
+                    variation_total: 2,
+                    source,
+                    operation: Operation::EditImage,
+                    provider: ProviderId::CodexSubscription,
+                    prompt: "Replace the selected area".into(),
+                    summary: "Replacement".into(),
+                    plan_json: None,
+                    assets: vec![ai::ResultAsset {
+                        path: input,
+                        media_type: "image/png".into(),
+                        width: 40,
+                        height: 30,
+                        byte_len,
+                        provider_item_id: None,
+                    }],
+                    context_assets: vec![],
+                    image_edit: true,
+                    provenance: serde_json::json!({
+                        "intent": serde_json::to_value(ImageIntent::Replace).unwrap(),
+                        "omuseTask":"replace"
+                    }),
+                })
+                .unwrap();
+            view.ai.history_root = history_root.clone();
+            view.ai.history = vec![stored.clone()];
+
+            view.editor.select_rectangle(12., 10., 9., 7.);
+            assert!(view.editor.record_selection_change(None));
+            view.select_ai_history(&stored.id, cx);
+            stored
+        });
+        cx.run_until_parked();
+        view.update_in(cx, |view, _, cx| {
+            let proposal = view.ai.result.as_ref().expect("editable saved review");
+            assert!(proposal.source_document.is_some());
+            assert!(proposal.document.is_some());
+            assert_eq!(
+                proposal.selection.as_ref().map(|selection| &selection.mask),
+                view.editor
+                    .selection
+                    .as_ref()
+                    .map(|selection| &selection.mask)
+            );
+
+            view.clear_ai_result(cx);
+            view.editor.add_layer("Later artwork");
+            view.select_ai_history(&stored.id, cx);
+        });
+        cx.run_until_parked();
+        view.update_in(cx, |view, _, _| {
+            let proposal = view.ai.result.as_ref().expect("stale saved review");
+            assert!(proposal.source_document.is_none());
+            assert!(proposal.document.is_none());
+            assert!(view.ai.activity.contains("no longer active"));
+        });
+    }
+
+    #[gpui_kit::test]
     fn invalid_saved_plan_reports_its_error_without_changing_the_canvas(cx: &mut TestAppContext) {
         cx.update(crate::init_test_theme);
         let temporary = tempfile::tempdir().unwrap();
@@ -5217,6 +5605,7 @@ mod tests {
         let result = PathBuf::from("/private/result.png");
         let reference = PathBuf::from("/private/reference.png");
         let follow_up = AiFollowUp {
+            workspace: None,
             plan_json: None,
             result_id: "named-result".into(),
             result_name: "Named result".into(),
@@ -5373,6 +5762,7 @@ mod tests {
             let mut stale_source = view.ai_source_identity();
             stale_source.session_id = "a-prior-window".into();
             view.ai.result = Some(AiProposal {
+                workspace: None,
                 id: "stale-generated-result".into(),
                 group_id: "test-group".into(),
                 source: stale_source,
@@ -5429,6 +5819,182 @@ mod tests {
         let guard = PrivateAiWorkspace::adopt(workspace.clone());
         drop(guard);
         assert!(!workspace.exists());
+    }
+
+    #[gpui_kit::test]
+    fn failed_history_keeps_completed_images_alive_through_refinement_preparation(
+        cx: &mut TestAppContext,
+    ) {
+        use std::os::unix::fs::PermissionsExt;
+        cx.update(crate::init_test_theme);
+        let root = tempfile::tempdir().unwrap();
+        let (view, cx) = cx.add_window_view(|window, cx| EditorView::new(None, window, cx));
+        view.update_in(cx, |view, _, cx| {
+            view.editor = Editor::new(Document::new(8, 6));
+            view.ensure_create().unwrap();
+            let source = view.editor.document.clone();
+            let project = view.content_snapshot().unwrap();
+            let workspace_path = root.path().join("completed-request");
+            std::fs::create_dir(&workspace_path).unwrap();
+            std::fs::set_permissions(&workspace_path, std::fs::Permissions::from_mode(0o700))
+                .unwrap();
+            let result_path = workspace_path.join("result.png");
+            let reference_path = workspace_path.join("reference.png");
+            image::RgbaImage::from_pixel(8, 6, image::Rgba([220, 50, 40, 255]))
+                .save(&result_path)
+                .unwrap();
+            image::RgbaImage::from_pixel(8, 6, image::Rgba([20, 90, 140, 255]))
+                .save(&reference_path)
+                .unwrap();
+            let context = NewContextAsset {
+                path: reference_path.clone(),
+                media_type: "image/png".into(),
+                byte_len: std::fs::metadata(&reference_path).unwrap().len(),
+                role: ContextRole::Reference,
+                content_hash: file_content_hash(&reference_path).unwrap(),
+            };
+            // Grok rejects structured output before launching a process. This
+            // obtains a finished offline handle without credentials or a
+            // provider call; only completion/persistence is under test here.
+            let client =
+                ai::ValidatedClient::fixture(ProviderId::GrokBuild, PathBuf::from("/bin/false"));
+            let mut handle = ai::spawn_job(
+                ai::JobRequest::new(
+                    client.clone(),
+                    JobOperation::Assistant,
+                    "Offline lifecycle fixture",
+                    &workspace_path,
+                )
+                .with_output_schema(serde_json::json!({"type":"object"})),
+            )
+            .unwrap();
+            assert!(matches!(
+                handle.wait(std::time::Duration::from_secs(2)).unwrap(),
+                Some(JobOutcome::Failed(_))
+            ));
+            let asset = ai::ResultAsset {
+                path: result_path.clone(),
+                media_type: "image/png".into(),
+                width: 8,
+                height: 6,
+                byte_len: std::fs::metadata(&result_path).unwrap().len(),
+                provider_item_id: Some("offline-result".into()),
+            };
+            let job = AiJob {
+                handle,
+                client: client.clone(),
+                submission: CapabilitySubmission::Verified,
+                source: view.ai_source_identity(),
+                source_document: source.clone(),
+                source_project: project.clone(),
+                operation: JobOperation::GenerateImage,
+                assistant_task: None,
+                task: AiTask::Generate,
+                intent: Some(ImageIntent::Generate),
+                group_id: "offline-group".into(),
+                variation_index: 1,
+                variation_total: 1,
+                provider_version: Some("fixture".into()),
+                reference_hashes: vec![context.content_hash.clone()],
+                source_hash: "fixture".into(),
+                source_mask_hash: None,
+                context_assets: vec![context],
+                selection: None,
+                product_presentation: Default::default(),
+                prompt: "A red study".into(),
+                workspace: PrivateAiWorkspace::adopt(workspace_path.clone()),
+            };
+            let history_root = root.path().join("history");
+            std::fs::create_dir(&history_root).unwrap();
+            std::fs::write(history_root.join("history.json"), b"invalid history index").unwrap();
+            let prepared = prepare_completed_ai_job(
+                job,
+                ai::JobResult {
+                    provider: ProviderId::GrokBuild,
+                    text: String::new(),
+                    structured_output: None,
+                    assets: vec![asset],
+                },
+                history_root.clone(),
+            )
+            .unwrap();
+            assert!(prepared.history_error.is_some());
+            assert!(prepared.stored.is_none());
+            assert!(prepared.proposal.error.is_none());
+            assert_eq!(
+                load_result_rgba(&prepared.proposal.assets[0])
+                    .unwrap()
+                    .dimensions(),
+                (8, 6)
+            );
+            assert!(reference_path.is_file());
+            assert_eq!(
+                std::fs::read(history_root.join("history.json")).unwrap(),
+                b"invalid history index"
+            );
+
+            view.ai.result = Some(prepared.proposal);
+            view.prepare_ai_follow_up(false, cx);
+            assert!(view.ai.follow_up.as_ref().unwrap().workspace.is_some());
+            let reference_paths =
+                effective_reference_paths(view.ai.follow_up.as_ref(), &view.ai.references);
+            assert_eq!(reference_paths.len(), 2);
+            let next_path = root.path().join("next-request");
+            std::fs::create_dir(&next_path).unwrap();
+            let pending = PendingImageRequest {
+                _reference_workspaces: view.ai_reference_workspaces_for(&reference_paths),
+                client,
+                provider: ProviderId::GrokBuild,
+                provider_version: Some("fixture".into()),
+                source: view.ai_source_identity(),
+                source_document: source,
+                source_project: project,
+                selection: None,
+                operation: JobOperation::GenerateImage,
+                intent: ImageIntent::Generate,
+                task: AiTask::Generate,
+                group_id: "next-offline-group".into(),
+                brief: "Refine it".into(),
+                action_instruction: None,
+                follow_up_context: view.ai_follow_up_context(),
+                reference_paths,
+                variation_index: 1,
+                variation_total: 1,
+                submission: CapabilitySubmission::Verified,
+                product_presentation: Default::default(),
+                work_dir: next_path.clone(),
+            };
+            view.ai.history_root = history_root;
+            view.discard_ai_result(cx);
+            assert!(view.ai.result.is_none());
+            assert!(!view.ai.preparing_image);
+            assert!(view.ai.activity.contains("Removed this unretained review"));
+            view.ai.follow_up = None;
+            assert_eq!(view.ai.reference_workspaces.len(), 1);
+            view.ai.references.clear();
+            view.ai.reference_workspaces.clear();
+            assert!(
+                workspace_path.is_dir(),
+                "pending input must own its source files until copied"
+            );
+            let staged = prepare_image_request(pending).unwrap();
+            assert_eq!(staged.references.len(), 2);
+            assert!(
+                staged
+                    .references
+                    .iter()
+                    .all(|reference| reference.path.is_file())
+            );
+            drop(staged);
+            assert!(
+                !workspace_path.exists(),
+                "last consumer should remove the unsaved private result"
+            );
+            assert!(
+                !next_path.exists(),
+                "abandoned preparation should remove its copied inputs"
+            );
+        });
     }
     #[test]
     fn selected_references_are_reencoded_as_private_png_payloads() {
@@ -5525,6 +6091,7 @@ mod tests {
             let mut prior_window = view.ai_source_identity();
             prior_window.session_id = "a-prior-application-window".into();
             view.ai.result = Some(AiProposal {
+                workspace: None,
                 id: "saved-result".into(),
                 group_id: "test-group".into(),
                 source: prior_window,
@@ -5753,6 +6320,10 @@ impl EditorView {
     }
 
     fn clear_ai_result(&mut self, cx: &mut Context<Self>) {
+        // Promoted reference paths can outlive their original review. Keep
+        // only workspaces still backing selected reference files; pending
+        // requests separately own guards until their copies are staged.
+        self.ai.reference_workspaces = self.ai_reference_workspaces_for(&self.ai.references);
         self.ai.preparation_generation = self.ai.preparation_generation.wrapping_add(1);
         // A result-preparation callback observes the changed generation and
         // cannot publish its stale candidate. New input preparation sets this
@@ -5766,5 +6337,35 @@ impl EditorView {
                 cx.drop_image(image, None);
             }
         }
+    }
+
+    fn ai_reference_workspaces_for(&self, paths: &[PathBuf]) -> Vec<Arc<PrivateAiWorkspace>> {
+        let mut workspaces = Vec::new();
+        for workspace in self
+            .ai
+            .reference_workspaces
+            .iter()
+            .chain(
+                self.ai
+                    .result
+                    .iter()
+                    .filter_map(|proposal| proposal.workspace.as_ref()),
+            )
+            .chain(
+                self.ai
+                    .follow_up
+                    .iter()
+                    .filter_map(|follow_up| follow_up.workspace.as_ref()),
+            )
+        {
+            if paths.iter().any(|path| path.starts_with(workspace.path()))
+                && !workspaces
+                    .iter()
+                    .any(|existing| Arc::ptr_eq(existing, workspace))
+            {
+                workspaces.push(Arc::clone(workspace));
+            }
+        }
+        workspaces
     }
 }
