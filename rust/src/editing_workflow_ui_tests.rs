@@ -33,9 +33,11 @@ fn screen(v: &EditorView, p: (f32, f32)) -> Point<Pixels> {
 #[gpui_kit::test]
 fn crop_controls_pointer_keyboard_apply_and_undo_preserve_source(cx: &mut TestAppContext) {
     cx.update(crate::init_test_theme);
+    cx.update(bind_keys);
     let (view, cx) = cx.add_window_view(|w, cx| {
         let mut v = EditorView::new(None, w, cx);
         v.dialog = Dialog::None;
+        v.shortcuts = Shortcuts::default();
         v.editor = Editor::new(photo());
         v.refresh(cx);
         v.focus.focus(w, cx);
@@ -104,9 +106,11 @@ fn crop_controls_pointer_keyboard_apply_and_undo_preserve_source(cx: &mut TestAp
 #[gpui_kit::test]
 fn crop_cancel_and_selection_seed_have_no_artwork_or_history_side_effect(cx: &mut TestAppContext) {
     cx.update(crate::init_test_theme);
+    cx.update(bind_keys);
     let (view, cx) = cx.add_window_view(|w, cx| {
         let mut v = EditorView::new(None, w, cx);
         v.dialog = Dialog::None;
+        v.shortcuts = Shortcuts::default();
         v.editor = Editor::new(photo());
         v.editor.select_rect(20, 10, 60, 40);
         v.refresh(cx);
@@ -166,9 +170,11 @@ fn crop_cancel_and_selection_seed_have_no_artwork_or_history_side_effect(cx: &mu
 #[gpui_kit::test]
 fn keyboard_zoom_and_actual_keep_the_same_canvas_point(cx: &mut TestAppContext) {
     cx.update(crate::init_test_theme);
+    cx.update(bind_keys);
     let (view, cx) = cx.add_window_view(|w, cx| {
         let mut v = EditorView::new(None, w, cx);
         v.dialog = Dialog::None;
+        v.shortcuts = Shortcuts::default();
         v.editor = Editor::new(photo());
         v.zoom = 0.5;
         v.pan = (37., -29.);
@@ -179,10 +185,15 @@ fn keyboard_zoom_and_actual_keep_the_same_canvas_point(cx: &mut TestAppContext) 
     cx.simulate_resize(size(px(800.), px(600.)));
     draw(cx);
     let anchor = view.read_with(cx, |v, _| v.coordinates(v.viewport.get().center()));
-    for key in ["ctrl-=", "ctrl--", "ctrl-1"] {
+    for (key, expected_zoom) in [("ctrl-=", 0.6666667), ("ctrl--", 0.5), ("ctrl-1", 1.)] {
         cx.simulate_keystrokes(key);
         draw(cx);
         view.read_with(cx, |v, _| {
+            assert!(
+                (v.zoom - expected_zoom).abs() < 0.00001,
+                "{key}: {}",
+                v.zoom
+            );
             let p = v.coordinates(v.viewport.get().center());
             assert!((p.0 - anchor.0).abs() < 0.001 && (p.1 - anchor.1).abs() < 0.001);
             assert!(!v.editor.is_dirty());
@@ -200,14 +211,17 @@ fn keyboard_zoom_and_actual_keep_the_same_canvas_point(cx: &mut TestAppContext) 
 #[gpui_kit::test]
 fn clipboard_keeps_groups_in_session_but_external_identical_png_is_pixels(cx: &mut TestAppContext) {
     cx.update(crate::init_test_theme);
+    cx.update(bind_keys);
     let (view, cx) = cx.add_window_view(|w, cx| {
         let mut v = EditorView::new(None, w, cx);
         v.dialog = Dialog::None;
+        v.shortcuts = Shortcuts::default();
         let mut doc = photo();
         let mut group = Layer::group("Product");
         group.children = doc.layers;
         doc.layers = vec![group];
         v.editor = Editor::new(doc);
+        v.select_layer_ids(vec![v.editor.document.layers[0].id.clone()]);
         v.refresh(cx);
         v.focus.focus(w, cx);
         v
@@ -257,9 +271,11 @@ fn clipboard_keeps_groups_in_session_but_external_identical_png_is_pixels(cx: &m
 #[gpui_kit::test]
 fn locked_cut_does_not_replace_clipboard_or_remove_artwork(cx: &mut TestAppContext) {
     cx.update(crate::init_test_theme);
+    cx.update(bind_keys);
     let (view, cx) = cx.add_window_view(|w, cx| {
         let mut v = EditorView::new(None, w, cx);
         v.dialog = Dialog::None;
+        v.shortcuts = Shortcuts::default();
         let mut doc = photo();
         doc.layers[0].locked = true;
         v.editor = Editor::new(doc);
@@ -267,28 +283,99 @@ fn locked_cut_does_not_replace_clipboard_or_remove_artwork(cx: &mut TestAppConte
         v.focus.focus(w, cx);
         v
     });
+    cx.simulate_resize(size(px(800.), px(600.)));
+    draw(cx);
     let prior = ClipboardItem::new_string("Keep my clipboard".into());
     cx.update(|_, cx| cx.write_to_clipboard(prior.clone()));
     cx.simulate_keystrokes("ctrl-x");
     cx.run_until_parked();
     cx.update(|_, cx| assert_eq!(cx.read_from_clipboard(), Some(prior)));
     view.read_with(cx, |v, _| {
+        assert!(
+            v.status.starts_with("Cut needs unlocked layers"),
+            "{}",
+            v.status
+        );
         assert!(!v.editor.is_dirty());
         assert_eq!(v.editor.document.layers.len(), 1);
     });
 }
 
 #[gpui_kit::test]
-fn delayed_paste_does_not_interrupt_gestures_or_erase_a_newer_rich_copy(cx: &mut TestAppContext) {
+fn refused_pixel_and_mask_cuts_preserve_source_and_both_clipboards(cx: &mut TestAppContext) {
     cx.update(crate::init_test_theme);
+    cx.update(bind_keys);
     let (view, cx) = cx.add_window_view(|w, cx| {
         let mut v = EditorView::new(None, w, cx);
         v.dialog = Dialog::None;
+        v.shortcuts = Shortcuts::default();
+        v.focus.focus(w, cx);
+        v
+    });
+    cx.simulate_resize(size(px(800.), px(600.)));
+    draw(cx);
+    for case in ["masked pixels", "locked pixels", "locked mask"] {
+        view.update(cx, |v, cx| {
+            v.editor = Editor::new(photo());
+            v.paint_mask = false;
+            v.select_layer_ids(vec![v.editor.active_layer.clone()]);
+            v.copy(false, cx);
+            v.editor.select_rect(10, 10, 20, 20);
+            v.editor.document.layers[0].mask =
+                Some(image::RgbaImage::from_pixel(120, 80, image::Rgba([0, 0, 0, 255])).into());
+            v.editor.document.layers[0].locked = case != "masked pixels";
+            v.paint_mask = case == "locked mask";
+            v.status = "Waiting for Cut".into();
+            v.refresh(cx);
+        });
+        draw(cx);
+        let prior = cx.update(|_, cx| cx.read_from_clipboard().unwrap());
+        let token = cx.update(|_, cx| clipboard_ui::clipboard_identity(cx));
+        let before = view.read_with(cx, |v, _| {
+            let layer = &v.editor.document.layers[0];
+            (
+                layer.image.clone(),
+                layer.mask.clone(),
+                v.editor.undo_depth(),
+            )
+        });
+        cx.simulate_keystrokes("ctrl-x");
+        cx.run_until_parked();
+        cx.update(|_, cx| {
+            assert_eq!(cx.read_from_clipboard(), Some(prior), "{case}");
+            assert_eq!(clipboard_ui::clipboard_identity(cx), token, "{case}");
+        });
+        view.read_with(cx, |v, _| {
+            let layer = &v.editor.document.layers[0];
+            assert_eq!(
+                (
+                    layer.image.clone(),
+                    layer.mask.clone(),
+                    v.editor.undo_depth()
+                ),
+                before,
+                "{case}"
+            );
+            assert_ne!(v.status, "Waiting for Cut", "{case}");
+            assert!(!v.editor.is_dirty(), "{case}");
+        });
+    }
+}
+
+#[gpui_kit::test]
+fn delayed_paste_does_not_interrupt_gestures_or_erase_a_newer_rich_copy(cx: &mut TestAppContext) {
+    cx.update(crate::init_test_theme);
+    cx.update(bind_keys);
+    let (view, cx) = cx.add_window_view(|w, cx| {
+        let mut v = EditorView::new(None, w, cx);
+        v.dialog = Dialog::None;
+        v.shortcuts = Shortcuts::default();
         let mut doc = photo();
         let mut g = Layer::group("Editable group");
         g.children = doc.layers;
         doc.layers = vec![g];
         v.editor = Editor::new(doc);
+        v.select_layer_ids(vec![v.editor.document.layers[0].id.clone()]);
         v.refresh(cx);
         v.focus.focus(w, cx);
         v

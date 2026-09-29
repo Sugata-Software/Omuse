@@ -20,6 +20,7 @@ Modified upstream files:
 - `gpui-pre/src/window.rs`
 - `gpui-pre-linux/src/linux/wayland/client.rs`
 - `gpui-pre-linux/src/linux/wayland/clipboard.rs`
+- `gpui-pre-linux/src/linux/wayland/clipboard_writer.rs` (new bounded writer)
 - `gpui-pre-linux/src/linux/x11/client.rs`
 - `gpui-pre-linux/src/linux/x11/clipboard.rs`
 
@@ -30,6 +31,10 @@ is retained. Private in-process clipboard entries continue to roundtrip while
 the application owns the clipboard; other applications receive the public PNG.
 Clipboard tests and desktop evidence belong in the editing-workflow
 qualification record; compilation alone does not establish interoperability.
+Wayland writes use a nonblocking descriptor and yield after 256 KiB or 64
+attempts per callback. Partial writes resume without repeating bytes; closed
+readers and zero writes end the transfer. An idle reader can retain its transfer
+buffer until it closes; this patch bounds callback work, not transfer lifetime.
 
 Two trailing-space-only lines in `gpui-pre/src/_accessibility.rs` documentation
 were trimmed for the repository whitespace check; this does not change code.

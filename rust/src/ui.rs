@@ -4106,6 +4106,14 @@ impl EditorView {
             self.copy_layer_forest(cut, cx);
             return;
         }
+        if cut
+            && !self.paint_mask
+            && let Err(error) = self.editor.validate_pixel_cut()
+        {
+            self.status = format!("Cut: {error:#}");
+            cx.notify();
+            return;
+        }
         let id = self.editor.active_layer.clone();
         let copied = if self.paint_mask {
             self.editor.copy_mask_selection(&id)
@@ -4128,13 +4136,8 @@ impl EditorView {
                 .write_to(&mut bytes, image::ImageFormat::Png)
             {
                 Ok(()) => {
-                    cx.set_global(clipboard_ui::LayerClipboardStore::default());
-                    cx.write_to_clipboard(ClipboardItem::new_image(&Image::from_bytes(
-                        ImageFormat::Png,
-                        bytes.into_inner(),
-                    )));
-                    self.clipboard_origin = Some((fingerprint, dimensions, origin));
-                    self.status = "Image copied to clipboard".into();
+                    // Build and encode the copy before editing. Refused/no-op cuts
+                    // must not replace either the public or rich clipboard.
                     if cut {
                         let result = if self.paint_mask {
                             self.editor
@@ -4144,10 +4147,30 @@ impl EditorView {
                         };
                         match result {
                             Ok(true) => self.changed(cx),
-                            Ok(false) => self.status = "Cut made no change".into(),
-                            Err(e) => self.status = format!("Mask cut: {e:#}"),
+                            Ok(false) => {
+                                self.status = "Cut made no change; clipboard preserved".into();
+                                cx.notify();
+                                return;
+                            }
+                            Err(e) => {
+                                self.status = format!("Mask cut: {e:#}");
+                                cx.notify();
+                                return;
+                            }
                         }
                     }
+                    cx.set_global(clipboard_ui::LayerClipboardStore::default());
+                    cx.write_to_clipboard(ClipboardItem::new_image(&Image::from_bytes(
+                        ImageFormat::Png,
+                        bytes.into_inner(),
+                    )));
+                    self.clipboard_origin = Some((fingerprint, dimensions, origin));
+                    self.status = if cut {
+                        "Selected pixels cut to clipboard · Ctrl+Z to undo"
+                    } else {
+                        "Image copied to clipboard"
+                    }
+                    .into();
                 }
                 Err(e) => self.status = format!("Copy failed: {e}"),
             }

@@ -17,6 +17,11 @@ for numbering, qualification and publication.
   payloads refuse before changing the clipboard or document.
 - Publish image clipboard formats correctly on both Wayland and XWayland so
   other applications receive PNG instead of empty text.
+- Send Wayland clipboard data in bounded nonblocking chunks so slow image
+  consumers cannot hold the UI in a blocking write.
+- Refuse pixel Cut when masks, opacity, live appearances or resampling would
+  omit source content from the copied image. Refused pixel/mask cuts preserve
+  the existing clipboard and artwork; complete editable layer Cut stays available.
 - Reject delayed paste completions after the document, selection, clipboard or
   editing interaction changes. Update the manual and searchable shortcuts.
 

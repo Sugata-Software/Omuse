@@ -5036,12 +5036,67 @@ impl Editor {
         self.commit(state.before);
         Ok(true)
     }
-    /// UI must successfully publish copy_selection() to its clipboard before calling cut.
+    /// A rendered pixel clipboard must contain the source content that Cut will
+    /// remove. Masks, live appearances and resampling can make that untrue.
+    /// Copy stays available; whole-layer Cut preserves those editable records.
+    pub fn validate_pixel_cut(&self) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            self.floating.is_none(),
+            "Commit or cancel the floating selection before cutting"
+        );
+        let layer = self.editable_layer().ok_or_else(|| anyhow::anyhow!(
+            "Pixel Cut needs an unlocked raster layer; copy the complete layer or rasterize a duplicate"
+        ))?;
+        anyhow::ensure!(!layer.is_group(), "Select a raster layer for pixel Cut");
+        anyhow::ensure!(
+            self.selection.as_ref().is_none_or(|s| s.bounds().is_some()),
+            "The pixel selection is empty"
+        );
+        let path = tree_path(&self.document.layers, &layer.id)
+            .ok_or_else(|| anyhow::anyhow!("The selected layer no longer exists"))?;
+        for id in path {
+            let current = self.document.find_layer(&id).unwrap();
+            anyhow::ensure!(
+                current.visible
+                    && current.opacity == 1.0
+                    && current.mask.is_none()
+                    && current.advanced.is_none()
+                    && matches!(current.blend_mode.as_str(), "Normal" | "Pass Through")
+                    && [
+                        "maskSourceID",
+                        "effects",
+                        "adjustment",
+                        crate::advanced::RASTER_BLEND_IF_KEY
+                    ]
+                    .iter()
+                    .all(|key| current
+                        .metadata
+                        .get(*key)
+                        .is_none_or(serde_json::Value::is_null)),
+                "Pixel Cut could discard hidden or styled source pixels; deselect and cut the complete layer/group, or rasterize a duplicate"
+            );
+            anyhow::ensure!(
+                current.rotation == 0.0
+                    && current.scale_x == 1.0
+                    && current.scale_y == 1.0
+                    && current.offset_x.is_finite()
+                    && current.offset_y.is_finite()
+                    && current.offset_x.fract() == 0.0
+                    && current.offset_y.fract() == 0.0
+                    && (id == layer.id || (current.offset_x == 0.0 && current.offset_y == 0.0)),
+                "Pixel Cut would resample transformed source pixels; cut the complete layer/group or rasterize a duplicate"
+            );
+        }
+        Ok(())
+    }
+
+    /// UI must encode copy_selection() successfully before cutting, then publish
+    /// that image only if this operation succeeds. A refusal changes no history.
     pub fn cut_selection(&mut self) -> bool {
-        self.finish_stroke();
-        if self.editable_layer().is_none() {
+        if self.validate_pixel_cut().is_err() {
             return false;
         }
+        self.finish_stroke();
         if self.selection.is_some() {
             return self.clear_selected_pixels();
         }

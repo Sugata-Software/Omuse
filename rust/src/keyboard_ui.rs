@@ -391,7 +391,7 @@ mod tests {
             view.zoom = 1.0;
         });
         cx.simulate_keystrokes("ctrl-+");
-        view.update(cx, |view, _| assert_eq!(view.zoom, 1.2));
+        view.update(cx, |view, _| assert_eq!(view.zoom, 1.5));
     }
 
     #[gpui_kit::test]

@@ -49,10 +49,17 @@ it does not flatten those adjustments automatically.
    if they are unlocked and have no external mask dependents.
 3. Open or create the destination document in the same running Omuse session
    and press **Ctrl+V**. The copied roots appear above the active root branch,
-   at their original canvas coordinates. Each paste has fresh layer identities
+   with their stored layer coordinates. Copy the parent group too when its
+   transform, mask, opacity or blending contributes to the result; an isolated
+   child does not carry its unselected ancestors. Each paste has fresh layer identities
    and is one **Ctrl+Z** step. Copying locked artwork preserves its locks.
 
-With an active pixel selection, **Ctrl+C** copies the selected pixels instead.
+With an active pixel selection, **Ctrl+C** copies the selected layer's rendered
+appearance instead, including its opacity and mask. **Ctrl+X** refuses pixel
+cuts that could discard source content hidden by a mask, visibility, opacity or
+other appearance settings, and preserves the existing clipboard. Clear the
+selection and copy/cut the complete editable layer instead, or explicitly
+rasterize a duplicate before cutting pixels. Locked layers cannot be cut.
 **Ctrl+Shift+C** always copies the visible composite. Other applications receive
 PNG; editable structure is retained only while this Omuse process owns the
 matching clipboard. Separate Omuse processes, clipboard managers and app

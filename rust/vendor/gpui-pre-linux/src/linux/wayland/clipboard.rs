@@ -1,11 +1,10 @@
-use std::{
-    fs::File,
-    io::{ErrorKind, Write},
-    os::fd::{AsRawFd, BorrowedFd, OwnedFd},
-};
+#[path = "clipboard_writer.rs"]
+mod clipboard_writer;
+
+use std::os::fd::{AsRawFd, BorrowedFd, OwnedFd};
 
 use calloop::{LoopHandle, PostAction};
-use filedescriptor::Pipe;
+use filedescriptor::{FileDescriptor, Pipe};
 use strum::IntoEnumIterator;
 use wayland_client::{Connection, protocol::wl_data_offer::WlDataOffer};
 use wayland_protocols::wp::primary_selection::zv1::client::zwp_primary_selection_offer_v1::ZwpPrimarySelectionOfferV1;
@@ -237,31 +236,44 @@ impl Clipboard {
     }
 
     pub fn send_bytes(&self, fd: OwnedFd, bytes: Vec<u8>) {
+        if bytes.is_empty() {
+            return;
+        }
+        let mut writer = match FileDescriptor::dup(&fd) {
+            Ok(writer) => writer,
+            Err(error) => {
+                log::error!("Failed to duplicate clipboard transfer descriptor: {error}");
+                return;
+            }
+        };
+        drop(fd);
+        if let Err(error) = writer.set_non_blocking(true) {
+            log::error!("Failed to make clipboard transfer nonblocking: {error}");
+            return;
+        }
         let mut written = 0;
-        self.loop_handle
-            .insert_source(
-                calloop::generic::Generic::new(
-                    File::from(fd),
-                    calloop::Interest::WRITE,
-                    calloop::Mode::Level,
-                ),
-                move |_, file, _| {
-                    let file = unsafe { file.get_mut() };
-                    loop {
-                        match file.write(&bytes[written..]) {
-                            Ok(n) if written + n == bytes.len() => {
-                                written += n;
-                                break Ok(PostAction::Remove);
-                            }
-                            Ok(n) => written += n,
-                            Err(err) if err.kind() == ErrorKind::WouldBlock => {
-                                break Ok(PostAction::Continue);
-                            }
-                            Err(_) => break Ok(PostAction::Remove),
-                        }
+        if let Err(error) = self.loop_handle.insert_source(
+            calloop::generic::Generic::new(
+                writer,
+                calloop::Interest::WRITE,
+                calloop::Mode::Level,
+            ),
+            move |_, writer, _| {
+                // Only Write is exposed to the helper; it cannot replace or
+                // close the registered descriptor while it is being polled.
+                let writer = unsafe { writer.get_mut() };
+                match clipboard_writer::write_ready(writer, &bytes, &mut written) {
+                    Ok(clipboard_writer::WriteProgress::Complete) => Ok(PostAction::Remove),
+                    Ok(clipboard_writer::WriteProgress::Pending) => Ok(PostAction::Continue),
+                    Err(error) => {
+                        log::debug!("Clipboard transfer ended: {error}");
+                        Ok(PostAction::Remove)
                     }
-                },
-            )
-            .unwrap();
+                }
+            },
+        ) {
+            // Dropping InsertError also drops its unregistered source/FD.
+            log::error!("Failed to register clipboard transfer: {}", error.error);
+        }
     }
 }
