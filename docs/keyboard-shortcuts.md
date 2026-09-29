@@ -49,10 +49,10 @@ Legacy default changes: Export moved from Ctrl+E to **Ctrl+Alt+Shift+S**, Create
 |---|---:|---|
 | Undo | Ctrl+Z | Undo the most recent edit. |
 | Redo | Ctrl+Shift+Z | Redo the most recently undone edit. |
-| Copy | Ctrl+C | Copy selected pixels or layers. |
+| Copy | Ctrl+C | Copy selected pixels, or editable layer trees when no pixel selection is active. Other apps receive PNG. |
 | Copy merged | Ctrl+Shift+C | Copy the visible composite inside the selection. |
 | Cut | Ctrl+X | Cut selected pixels or layers. |
-| Paste | Ctrl+V | Paste clipboard content. |
+| Paste | Ctrl+V | Paste editable layers from this Omuse session, or a new image layer from an external clipboard. |
 | Delete selection or layer | Backspace | Clear selected pixels, remove a mask, or delete selected layers. |
 | Delete selection or layer (forward Delete) | Delete | Use the forward Delete key to clear selected pixels or delete selected layers. |
 
@@ -142,7 +142,7 @@ Legacy default changes: Export moved from Ctrl+E to **Ctrl+Alt+Shift+S**, Create
 |---|---:|---|
 | Resize image | Ctrl+Alt+I | Resize the image and all of its content. |
 | Resize canvas | Ctrl+Alt+C | Change the canvas bounds without scaling content. |
-| Crop to rectangle selection | C | Crop the canvas to the current rectangular selection. |
+| Crop canvas | C | Preview a movable crop with photo and social ratios. Enter applies; Escape cancels. Outside pixels are retained. |
 | Trim canvas | Unbound | Trim canvas edges using chosen criteria. |
 | Invert pixels | Ctrl+I | Invert selected pixels or the active mask. |
 | Convert to grayscale | Ctrl+Shift+U | Apply a grayscale pixel adjustment; Undo restores the previous pixels. |
@@ -163,7 +163,7 @@ Legacy default changes: Export moved from Ctrl+E to **Ctrl+Alt+Shift+S**, Create
 
 | Command | Default | What it does |
 |---|---:|---|
-| Zoom in | Ctrl+= | Increase canvas magnification. |
+| Zoom in | Ctrl+= | Use the next zoom stop while keeping the viewport centre fixed on the artwork. |
 | Zoom in (+) | Ctrl++ | Increase canvas magnification with the Plus key. |
 | Zoom out | Ctrl+- | Decrease canvas magnification. |
 | Fit canvas | Ctrl+0 | Fit the full canvas in the viewport. |
@@ -257,7 +257,10 @@ These temporary gestures are fixed so they remain available while other shortcut
 |---|---:|
 | Temporarily pan the canvas | Hold Space and drag |
 | Pan the canvas from any tool | Middle-button drag |
-| Zoom the canvas | Scroll over the canvas |
+| Zoom around the pointer | Scroll over the canvas |
+| Adjust a crop frame | C, then drag corners to resize or inside to move |
+| Move a crop precisely | Arrow keys; Shift+Arrow moves 10 pixels |
+| Finish or cancel a crop | Enter applies; Escape cancels |
 | Pan the canvas with a wheel | Shift+Scroll over the canvas |
 | Choose a Clone or Heal source | Alt+Click the canvas |
 | Constrain a transform | Shift+Drag a transform handle |

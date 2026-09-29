@@ -64,10 +64,10 @@ define_commands! {
 
     command!("undo", "Undo", "ctrl-z", "Edit", "history revert", "Undo the most recent edit.");
     command!("redo", "Redo", "ctrl-shift-z", "Edit", "history repeat", "Redo the most recently undone edit.");
-    command!("copy", "Copy", "ctrl-c", "Edit", "clipboard", "Copy selected pixels or layers.");
+    command!("copy", "Copy", "ctrl-c", "Edit", "clipboard editable layers", "Copy selected pixels, or editable layer trees when no pixel selection is active. Other apps receive PNG.");
     command!("copy-merged", "Copy merged", "ctrl-shift-c", "Edit", "clipboard visible composite", "Copy the visible composite inside the selection.");
     command!("cut", "Cut", "ctrl-x", "Edit", "clipboard remove", "Cut selected pixels or layers.");
-    command!("paste", "Paste", "ctrl-v", "Edit", "clipboard insert", "Paste clipboard content.");
+    command!("paste", "Paste", "ctrl-v", "Edit", "clipboard insert editable layers", "Paste editable layers from this Omuse session, or a new image layer from an external clipboard.");
     command!("delete-content", "Delete selection or layer", "backspace", "Edit", "clear erase remove", "Clear selected pixels, remove a mask, or delete selected layers.");
     command!("delete-forward", "Delete selection or layer (forward Delete)", "delete", "Edit", "clear erase remove forward", "Use the forward Delete key to clear selected pixels or delete selected layers.");
 
@@ -137,7 +137,7 @@ define_commands! {
 
     command!("resize-image", "Resize image", "ctrl-alt-i", "Image", "dimensions resample scale resolution", "Resize the image and all of its content.");
     command!("resize", "Resize canvas", "ctrl-alt-c", "Image", "dimensions crop extend anchor", "Change the canvas bounds without scaling content.");
-    command!("crop", "Crop to rectangle selection", "c", "Image", "trim selection canvas", "Crop the canvas to the current rectangular selection.");
+    command!("crop", "Crop canvas", "c", "Image", "trim selection canvas ratio square portrait social", "Preview a movable crop with photo and social ratios. Enter applies; Escape cancels. Outside pixels are retained.");
     command!("trim", "Trim canvas", "", "Image", "remove transparent border", "Trim canvas edges using chosen criteria.");
     command!("invert", "Invert pixels", "ctrl-i", "Image", "negative adjustment", "Invert selected pixels or the active mask.");
     command!("gray", "Convert to grayscale", "ctrl-shift-u", "Image", "black white desaturate monochrome", "Apply a grayscale pixel adjustment; Undo restores the previous pixels.");
@@ -154,7 +154,7 @@ define_commands! {
     command!("filter-color-balance", "Colour balance", "ctrl-b", "Image", "pixel filter color colour shadows highlights", "Open Colour Balance settings; Apply changes pixels and Undo restores them.");
     command!("camera-raw", "Camera Raw", "ctrl-shift-a", "Image", "develop photo exposure curves color", "Open nondestructive Camera Raw controls for a pixel layer.");
 
-    command!("zoom-in", "Zoom in", "ctrl-=", "View", "magnify closer plus", "Increase canvas magnification.");
+    command!("zoom-in", "Zoom in", "ctrl-=", "View", "magnify closer plus", "Use the next zoom stop while keeping the viewport centre fixed on the artwork.");
     command!("zoom-in-plus", "Zoom in (+)", "ctrl-+", "View", "magnify closer plus", "Increase canvas magnification with the Plus key.");
     command!("zoom-out", "Zoom out", "ctrl--", "View", "magnify farther minus", "Decrease canvas magnification.");
     command!("fit", "Fit canvas", "ctrl-0", "View", "zoom window screen", "Fit the full canvas in the viewport.");
@@ -233,7 +233,16 @@ define_commands! {
 pub const GESTURES: &[(&str, &str)] = &[
     ("Temporarily pan the canvas", "Hold Space and drag"),
     ("Pan the canvas from any tool", "Middle-button drag"),
-    ("Zoom the canvas", "Scroll over the canvas"),
+    ("Zoom around the pointer", "Scroll over the canvas"),
+    (
+        "Adjust a crop frame",
+        "C, then drag corners to resize or inside to move",
+    ),
+    (
+        "Move a crop precisely",
+        "Arrow keys; Shift+Arrow moves 10 pixels",
+    ),
+    ("Finish or cancel a crop", "Enter applies; Escape cancels"),
     (
         "Pan the canvas with a wheel",
         "Shift+Scroll over the canvas",

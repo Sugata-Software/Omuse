@@ -5,6 +5,8 @@ mod advanced_ui;
 mod ai_ui;
 #[path = "asset_ui.rs"]
 mod asset_ui;
+#[path = "clipboard_ui.rs"]
+mod clipboard_ui;
 #[path = "command_search_ui.rs"]
 mod command_search_ui;
 #[path = "create_design_ui.rs"]
@@ -13,6 +15,11 @@ mod create_design_ui;
 mod create_previews;
 #[path = "create_ui.rs"]
 mod create_ui;
+#[path = "crop_ui.rs"]
+mod crop_ui;
+#[cfg(all(test, feature = "ui-test"))]
+#[path = "editing_workflow_ui_tests.rs"]
+mod editing_workflow_ui_tests;
 #[path = "keyboard_ui.rs"]
 mod keyboard_ui;
 #[path = "motion_ui.rs"]
@@ -300,6 +307,7 @@ pub struct EditorView {
     spot_healing_mode: omuse::spot_heal::SpotHealingMode,
     zoom: f32,
     pan: (f32, f32),
+    crop: Option<omuse::crop::CropFrame>,
     viewport: Rc<Cell<Bounds<Pixels>>>,
     drag_start: Option<(f32, f32)>,
     selection_box: Option<(f32, f32, f32, f32)>,
@@ -794,6 +802,7 @@ impl EditorView {
             spot_healing_mode: omuse::spot_heal::SpotHealingMode::ContentAware,
             zoom: 0.65,
             pan: (0., 0.),
+            crop: None,
             viewport: Rc::new(Cell::new(Bounds::default())),
             drag_start: None,
             selection_box: None,
@@ -1098,6 +1107,7 @@ impl EditorView {
     }
 
     fn changed(&mut self, cx: &mut Context<Self>) {
+        self.crop = None;
         if self.macro_recording && self.macro_revision != self.editor.revision() {
             self.macro_recording = false;
             self.status = "Recipe recording paused: this edit is not a whole-image recipe step. Recorded steps remain available in Automation.".into();
@@ -1206,17 +1216,25 @@ impl EditorView {
         }
         self.focus.focus(window, cx);
         if self.middle_pan_pointer.is_some() {
-            if self.tool == Tool::Hand || self.space_down {
+            if (self.tool == Tool::Hand && self.crop.is_none()) || self.space_down {
                 self.pan_pointer = Some(event.position);
                 self.middle_pan_pointer = Some(event.position);
             }
             return;
         }
-        if self.tool == Tool::Hand || self.space_down {
+        if (self.tool == Tool::Hand && self.crop.is_none()) || self.space_down {
+            if let Some(crop) = &mut self.crop {
+                crop.end();
+            }
             self.pan_pointer = Some(event.position);
             return;
         }
         let (x, y) = self.coordinates(event.position);
+        if let Some(crop) = &mut self.crop {
+            crop.begin((x, y), 8. / self.zoom);
+            cx.notify();
+            return;
+        }
         if self.show_guides {
             let tolerance = 6. / self.zoom;
             if let Some(guide) = self.editor.guides().into_iter().find(|guide| {
@@ -1552,6 +1570,9 @@ impl EditorView {
         }
         self.focus.focus(window, cx);
         self.middle_pan_pointer = Some(event.position);
+        if let Some(crop) = &mut self.crop {
+            crop.end();
+        }
         if self.pan_pointer.is_some() {
             self.pan_pointer = Some(event.position);
         }
@@ -1577,6 +1598,17 @@ impl EditorView {
             }
             if self.middle_pan_pointer.is_some() {
                 self.middle_pan_pointer = Some(event.position);
+            }
+            cx.notify();
+            return;
+        }
+        if self.crop.is_some() {
+            let p = self.coordinates(event.position);
+            let crop = self.crop.as_mut().unwrap();
+            if event.pressed_button == Some(MouseButton::Left) {
+                crop.update(p);
+            } else {
+                crop.end();
             }
             cx.notify();
             return;
@@ -1677,6 +1709,14 @@ impl EditorView {
             return;
         }
         if self.pan_pointer.take().is_some() {
+            return;
+        }
+        if self.crop.is_some() {
+            let p = self.coordinates(event.position);
+            let crop = self.crop.as_mut().unwrap();
+            crop.update(p);
+            crop.end();
+            cx.notify();
             return;
         }
         if let Some((id, _, position)) = self.guide_drag.take() {
@@ -1984,6 +2024,7 @@ impl EditorView {
         }
     }
     fn request(&mut self, what: Pending, window: &mut Window, cx: &mut Context<Self>) {
+        self.crop = None;
         if self.dialog != Dialog::None {
             return;
         }
@@ -2027,6 +2068,11 @@ impl EditorView {
         cx.notify();
     }
     fn open_dialog(&mut self, import: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if self.crop.is_some() {
+            self.status = "Apply or cancel the crop before opening or importing artwork".into();
+            cx.notify();
+            return;
+        }
         self.finish_interaction(cx);
         self.dialog_generation += 1;
         self.dialog = if import { Dialog::Import } else { Dialog::Open };
@@ -2113,6 +2159,11 @@ impl EditorView {
         }
     }
     fn save_dialog(&mut self, export: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if self.crop.is_some() {
+            self.status = "Apply or cancel the crop before saving or exporting".into();
+            cx.notify();
+            return;
+        }
         self.finish_interaction(cx);
         self.dialog_generation += 1;
         self.dialog = if export { Dialog::Export } else { Dialog::Save };
@@ -2165,6 +2216,11 @@ impl EditorView {
         cx.notify();
     }
     fn save(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.crop.is_some() {
+            self.status = "Apply or cancel the crop before saving".into();
+            cx.notify();
+            return;
+        }
         self.finish_interaction(cx);
         if let Some(path) = self.path.clone() {
             self.save_to(path, window, cx);
@@ -2917,6 +2973,41 @@ impl EditorView {
         if self.busy || self.dialog != Dialog::None {
             return;
         }
+        if self.crop.is_some() {
+            if name.starts_with("nudge-") {
+                let step = if name.ends_with("-large") { 10. } else { 1. };
+                let (dx, dy) = if name.starts_with("nudge-left") {
+                    (-step, 0.)
+                } else if name.starts_with("nudge-right") {
+                    (step, 0.)
+                } else if name.starts_with("nudge-up") {
+                    (0., -step)
+                } else {
+                    (0., step)
+                };
+                self.crop.as_mut().unwrap().nudge(dx, dy);
+                cx.notify();
+                return;
+            }
+            if name == "crop" {
+                return;
+            }
+            if !matches!(
+                name,
+                "zoom-in"
+                    | "zoom-in-plus"
+                    | "zoom-out"
+                    | "fit"
+                    | "actual"
+                    | "toggle-panels"
+                    | "command-search"
+                    | "quit"
+            ) {
+                self.status = "Apply or cancel the crop before another editing command".into();
+                cx.notify();
+                return;
+            }
+        }
         self.finish_interaction(cx);
         if self.editor.floating_selection_layer().is_some()
             && (name.starts_with("tool-")
@@ -3197,6 +3288,7 @@ impl EditorView {
                     .write_to(&mut bytes, image::ImageFormat::Png)
                 {
                     Ok(()) => {
+                        cx.set_global(clipboard_ui::LayerClipboardStore::default());
                         cx.write_to_clipboard(ClipboardItem::new_image(&Image::from_bytes(
                             ImageFormat::Png,
                             bytes.into_inner(),
@@ -3222,8 +3314,7 @@ impl EditorView {
             "paste" => self.paste(cx),
             "quit" => self.request(Pending::Quit, window, cx),
             "actual" => {
-                self.zoom = 1.;
-                self.pan = (0., 0.);
+                self.set_zoom(1., None);
             }
             "grid" => {
                 self.show_grid = !self.show_grid;
@@ -3950,25 +4041,12 @@ impl EditorView {
                 }
             }
             "crop" => {
-                if let Some((x, y, w, h)) = self.selection_box {
-                    let left = x.max(0.).min(self.editor.document.width as f32);
-                    let top = y.max(0.).min(self.editor.document.height as f32);
-                    let right = (x + w).max(left).min(self.editor.document.width as f32);
-                    let bottom = (y + h).max(top).min(self.editor.document.height as f32);
-                    self.editor.crop_canvas(
-                        left as i32,
-                        top as i32,
-                        (right - left) as u32,
-                        (bottom - top) as u32,
-                    );
-                    self.selection_box = None;
-                    self.changed(cx);
-                } else {
-                    self.status = "Select a rectangle to crop".into();
-                }
+                self.begin_crop(window, cx);
             }
-            "zoom-in" => self.zoom = (self.zoom * 1.2).min(16.),
-            "zoom-out" => self.zoom = (self.zoom / 1.2).max(0.02),
+            "zoom-in" => self.set_zoom(omuse::canvas_navigation::step_zoom(self.zoom, true), None),
+            "zoom-out" => {
+                self.set_zoom(omuse::canvas_navigation::step_zoom(self.zoom, false), None)
+            }
             "fit" => {
                 let b = self.viewport.get();
                 self.zoom = ((f32::from(b.size.width) - 48.) / self.editor.document.width as f32)
@@ -4020,10 +4098,14 @@ impl EditorView {
         });
     }
     fn copy(&mut self, cut: bool, cx: &mut Context<Self>) {
-        if self.dialog != Dialog::None {
+        if self.dialog != Dialog::None || self.crop.is_some() || self.busy {
             return;
         }
         self.finish_interaction(cx);
+        if !self.paint_mask && self.editor.selection.is_none() {
+            self.copy_layer_forest(cut, cx);
+            return;
+        }
         let id = self.editor.active_layer.clone();
         let copied = if self.paint_mask {
             self.editor.copy_mask_selection(&id)
@@ -4046,6 +4128,7 @@ impl EditorView {
                 .write_to(&mut bytes, image::ImageFormat::Png)
             {
                 Ok(()) => {
+                    cx.set_global(clipboard_ui::LayerClipboardStore::default());
                     cx.write_to_clipboard(ClipboardItem::new_image(&Image::from_bytes(
                         ImageFormat::Png,
                         bytes.into_inner(),
@@ -4081,20 +4164,37 @@ impl EditorView {
         cx.notify();
     }
     fn paste(&mut self, cx: &mut Context<Self>) {
-        if self.dialog != Dialog::None {
+        if self.dialog != Dialog::None || self.crop.is_some() || self.busy {
             return;
         }
         self.finish_interaction(cx);
         let task = cx.read_from_clipboard_async();
         let generation = self.dialog_generation;
+        let revision = self.editor.revision();
+        let epoch = self.create.epoch;
+        let document_id = self.editor.document.metadata.get("documentID").cloned();
+        let clipboard_identity = clipboard_ui::clipboard_identity(cx);
+        let selection_revision = self.editor.selection_revision();
+        let active_layer = self.editor.active_layer.clone();
+        let selected_layers = self.selected_layer_ids();
         cx.spawn(async move |view, cx| {
             let result = task.await;
             let _ = view.update(cx, |this, cx| {
-                if this.dialog != Dialog::None || this.dialog_generation != generation {
+                if this.dialog != Dialog::None || this.dialog_generation != generation || this.crop.is_some() || this.busy
+                    || this.editor.revision() != revision || this.create.epoch != epoch
+                    || this.editor.document.metadata.get("documentID") != document_id.as_ref()
+                    || this.editor.selection_revision() != selection_revision
+                    || this.editor.active_layer != active_layer
+                    || this.selected_layer_ids() != selected_layers
+                    || this.drag_start.is_some() || this.transform_drag.is_some()
+                    || this.guide_drag.is_some() || this.tablet_painting || this.inline_text.is_some()
+                    || this.pan_pointer.is_some() || this.middle_pan_pointer.is_some()
+                    || clipboard_ui::clipboard_identity(cx) != clipboard_identity {
                     return;
                 }
                 match result {
                     Ok(Some(item)) => {
+                        if this.paste_layer_forest(&item,cx) { return; }
                         let entry = item.entries.into_iter().find_map(|entry| {
                             if let ClipboardEntry::Image(image) = entry {
                                 Some(image)
@@ -5689,6 +5789,7 @@ impl EditorView {
         let w = self.editor.document.width as f32;
         let h = self.editor.document.height as f32;
         let selection = self.selection_box;
+        let crop_rect = self.crop.as_ref().map(|crop| crop.rect);
         let active_tool = self.tool;
         let shape_corner_radius = self.shape_corner_radius;
         let shape_line_width = self.shape_line_width;
@@ -5713,13 +5814,14 @@ impl EditorView {
         };
         let interaction_dragging = self.drag_start.is_some();
         let selection_ant_phase = self.selection_ant_phase as u32;
-        let transform = if self.tool == Tool::Move && self.preferences.transform_box {
-            self.transform_draft
-                .or_else(|| selection_bounds(&self.editor, &self.layer_selection.ids))
-                .and_then(|placement| TransformGeometry::new(placement, 24. / zoom))
-        } else {
-            None
-        };
+        let transform =
+            if self.crop.is_none() && self.tool == Tool::Move && self.preferences.transform_box {
+                self.transform_draft
+                    .or_else(|| selection_bounds(&self.editor, &self.layer_selection.ids))
+                    .and_then(|placement| TransformGeometry::new(placement, 24. / zoom))
+            } else {
+                None
+            };
         let accent = cx.omarchy().accent;
         let show_grid = self.show_grid;
         let distort = self.distort_draft;
@@ -5776,13 +5878,18 @@ impl EditorView {
             .on_mouse_up(MouseButton::Middle, cx.listener(Self::middle_up))
             .on_mouse_up_out(MouseButton::Middle, cx.listener(Self::middle_up))
             .on_scroll_wheel(cx.listener(|this, event: &ScrollWheelEvent, _, cx| {
+                if this.dialog != Dialog::None || this.busy {
+                    return;
+                }
                 let d = event.delta.pixel_delta(px(24.));
                 if event.modifiers.shift {
                     this.pan.0 += f32::from(d.y);
                     this.pan.1 += f32::from(d.x);
                 } else {
-                    this.zoom =
-                        (this.zoom * (1. + f32::from(d.y) * 0.005).clamp(0.5, 2.)).clamp(0.02, 16.);
+                    this.set_zoom(
+                        this.zoom * (1. + f32::from(d.y) * 0.005).clamp(0.5, 2.),
+                        Some(event.position),
+                    );
                 }
                 cx.notify();
             }))
@@ -5923,6 +6030,9 @@ impl EditorView {
                             }
                             .intersect(&clipped);
                             window.paint_quad(fill(line, rgb(0x00cfff)));
+                        }
+                        if let Some(crop) = crop_rect {
+                            crop_ui::paint_crop(crop, rect, clipped, zoom, window);
                         }
                         if let Some(mut geometry) = transform {
                             if let Some(corners) = distort {
@@ -7921,6 +8031,10 @@ impl Render for EditorView {
                         this.space_down = true;
                     }
                     "escape" => {
+                        if this.crop.is_some() {
+                            this.cancel_crop(window, cx);
+                            return;
+                        }
                         if this.cancel_photo_io() {
                             this.dialog_generation += 1;
                             cx.notify();
@@ -7948,6 +8062,10 @@ impl Render for EditorView {
                         }
                     }
                     "enter" => {
+                        if this.crop.is_some() {
+                            this.apply_crop(window, cx);
+                            return;
+                        }
                         if this.editor.floating_selection_layer().is_some() {
                             match this.editor.commit_floating_selection() {
                                 Ok(true) => {
@@ -11493,7 +11611,10 @@ impl EditorView {
                         this.begin_inline_text(None,(80.,110.),Some(objects::ObjectSize { width: 320., height: 160. }),window,cx);
                         this.inline_text.as_ref().unwrap().input.update(cx,|s,cx|s.set_value("Edit directly on canvas\nOmuse on Linux",window,cx));
                     } else if let Ok(panel) = omuse::identity::env_var("OMUSE_NATIVE_PANEL") {
-                        if matches!(panel.as_str(), "commands" | "shortcuts") {
+                        if panel == "crop" {
+                            this.command("crop",window,cx);
+                            if let Some(crop)=&mut this.crop { crop.set_preset(3); }
+                        } else if matches!(panel.as_str(), "commands" | "shortcuts") {
                             this.command(if panel == "commands" { "command-search" } else { "shortcuts" }, window, cx);
                             if panel == "commands" { this.native_command_query("mask", window, cx); }
                         } else if matches!(panel.as_str(), "create" | "templates" | "assistant" | "content-export" | "motion") {

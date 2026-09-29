@@ -13,7 +13,9 @@ pub mod raster;
 pub mod raw_import;
 pub mod segmentation;
 
+pub mod canvas_navigation;
 pub mod color_management;
+pub mod crop;
 pub mod effects;
 pub mod filters;
 pub mod objects;

@@ -8,6 +8,8 @@ Use **Ctrl+O** to open a photo, then **Ctrl+Shift+S** to save an editable projec
 Use **Ctrl+J** to duplicate the selected photo before direct pixel retouch.
 Check the layer is unlocked, including its parent group. **Ctrl+0** fits the
 canvas; **Ctrl+1** shows actual pixels; hold **Space** and drag to pan.
+**Ctrl++ / Ctrl+-** use fixed zoom steps around the centre of your view. Scroll
+over a detail to zoom around the pointer. **Ctrl+0** recentres the whole canvas.
 
 For RAW or 16-bit work, keep the retained source. Rasterizing a copy permits
 ordinary pixel painting but gives up that copy's original precision/editing
@@ -15,9 +17,17 @@ model. [Advanced workflows](../rust-advanced-workflows.md) explains these limits
 
 ## Crop and resize
 
-**Crop:** press **M**, drag a rectangle around the composition you want, then
-press **C** (**Crop to rectangle selection**). Inspect and use **Ctrl+Z** if the
-crop is wrong. The C command performs a crop; it is not a separate crop tool.
+**Crop:** press **C** to preview a crop. An existing pixel selection supplies
+the starting bounds; otherwise the frame starts at the full canvas. Choose
+**Free**, **Original**, **1:1**, **4:5**, **3:2** or **16:9** in the top bar.
+**Swap** changes portrait/landscape orientation, including **9:16** for stories.
+Drag a corner to resize or inside the frame to move it. Arrow keys move one
+pixel; **Shift+Arrow** moves ten. Space-drag and middle-drag still pan the view.
+
+Choose **Apply** or press **Enter** when the composition looks right. **Cancel**
+or **Escape** leaves the artwork and selection unchanged. Outside pixels are
+retained in their original layers; **Ctrl+Z** restores the previous canvas.
+Cropping changes the canvas bounds, not the resolution of the underlying photo.
 
 **Resize the image:** use **Ctrl+Alt+I** (**Resize image**) to change the image
 and content dimensions. Use this for a smaller deliverable. Inspect fine text
@@ -29,6 +39,32 @@ use **Ask Omuse → Expand canvas**, set the extra pixels for each edge, describ
 what should continue, and review before keeping it. Expand can refuse a document
 whose live blur/noise adjustment would change the original pixels after growth;
 it does not flatten those adjustments automatically.
+
+## Copy editable artwork between documents
+
+1. Press **Ctrl+D** to clear a pixel selection. Select a layer, several layers,
+   or a group in **Layers**.
+2. Press **Ctrl+C**. Groups, live type/shapes, masks, filters, transforms and
+   retained precision stay editable. **Ctrl+X** also removes the selected roots
+   if they are unlocked and have no external mask dependents.
+3. Open or create the destination document in the same running Omuse session
+   and press **Ctrl+V**. The copied roots appear above the active root branch,
+   at their original canvas coordinates. Each paste has fresh layer identities
+   and is one **Ctrl+Z** step. Copying locked artwork preserves its locks.
+
+With an active pixel selection, **Ctrl+C** copies the selected pixels instead.
+**Ctrl+Shift+C** always copies the visible composite. Other applications receive
+PNG; editable structure is retained only while this Omuse process owns the
+matching clipboard. Separate Omuse processes, clipboard managers and app
+restarts do not transport editable trees. A changed external image cannot
+silently reuse an older group or mask.
+
+Select live mask sources together with their dependent layers. If a dependency
+is missing, Omuse explains the problem instead of attaching to an unrelated
+destination layer. Whole-layer copying is capped at **256 MiB** of retained
+content and a **16 MP source canvas** for its full-resolution PNG. A refusal
+leaves the clipboard and artwork unchanged. For larger work, save/open an
+editable project or use Duplicate within the current document.
 
 ## Improve tone and colour
 

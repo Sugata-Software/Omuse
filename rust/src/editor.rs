@@ -10,10 +10,13 @@ use image::{GrayImage, Rgba, RgbaImage};
 use std::collections::VecDeque;
 #[path = "editor_advanced.rs"]
 mod advanced;
+#[path = "editor_clipboard.rs"]
+mod editor_clipboard;
 #[path = "editor_dynamics.rs"]
 mod editor_dynamics;
 #[path = "editor_history.rs"]
 mod editor_history;
+pub use editor_clipboard::LayerClipboard;
 #[path = "raster_patch.rs"]
 mod raster_patch;
 

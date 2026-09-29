@@ -103,7 +103,7 @@ mod tests {
             assert_eq!(view.editor.undo_depth(), 0);
         });
         cx.simulate_keystrokes("ctrl-a");
-        cx.simulate_input("crop");
+        cx.simulate_input("feather selection");
         draw(cx);
         cx.simulate_keystrokes("enter");
         cx.update(|_, cx| {
@@ -494,7 +494,7 @@ impl EditorView {
             "undo" if !self.can_undo_or_collection() => Some("Nothing to undo"),
             "redo" if !self.can_redo_or_collection() => Some("Nothing to redo"),
             "commit-selection" | "cancel-selection" if !floating => Some("No floating selection"),
-            "crop" if self.selection_box.is_none() => Some("Draw a rectangular selection first"),
+            "crop" if floating => Some("Commit or cancel the floating selection first"),
             "deselect"
             | "feather-selection"
             | "grow-selection"

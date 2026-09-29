@@ -417,6 +417,21 @@
             "rust/tests/create_checkout.rs",
             "scripts/desktop-history-stress.py"
           ]
+        },
+        {
+          "id": "photo-interactive-crop",
+          "name": "Interactive crop and photo/social ratios",
+          "status": "implemented-needs-qualification",
+          "current": "Crop opens a movable frame seeded from the selection or full canvas. Free, Original, 1:1, 4:5, 3:2 and 16:9 presets, orientation swap, corner resizing, arrow nudging and Apply/Cancel are implemented. Original pixels remain in their layers; Apply is one undo step.",
+          "boundary": "0.3.0 qualification is in progress. Integer output can round a ratio by one pixel; crop rotation and perspective correction are separate tools.",
+          "evidence": [
+            "docs/user-guide/photo-editing.md"
+          ],
+          "modules": [
+            "rust/src/crop.rs",
+            "rust/src/crop_ui.rs",
+            "rust/src/editing_workflow_ui_tests.rs"
+          ]
         }
       ]
     },
@@ -519,6 +534,21 @@
           "modules": [
             "rust/src/vector_path.rs",
             "rust/src/vector_ui.rs"
+          ]
+        },
+        {
+          "id": "layers-editable-clipboard",
+          "name": "Editable layer clipboard and Linux image exchange",
+          "status": "implemented-needs-qualification",
+          "current": "Copy without a pixel selection retains complete selected trees, masks, transforms, locks and advanced sources within the running Omuse session. Paste remaps internal identities and commits once. External apps receive a PNG through corrected Wayland/X11 writers. Delayed pastes reject changed documents, selections, copied content and in-progress gestures.",
+          "boundary": "0.3.0 qualification is in progress. Payload is capped at 256 MiB and the full-resolution PNG at a 16 MP source canvas. Missing mask dependencies reject. Separate processes, clipboard managers and app restarts do not carry editable trees.",
+          "evidence": [
+            "docs/user-guide/photo-editing.md"
+          ],
+          "modules": [
+            "rust/src/editor_clipboard.rs",
+            "rust/src/clipboard_ui.rs",
+            "rust/tests/layer_clipboard.rs"
           ]
         }
       ]
@@ -1202,6 +1232,21 @@
             "scripts/package-rust.sh",
             "scripts/install-rust.sh"
           ]
+        },
+        {
+          "id": "linux-anchored-zoom",
+          "name": "Anchored keyboard and pointer zoom",
+          "status": "implemented-needs-qualification",
+          "current": "Keyboard zoom uses fixed stops from 2% to 1600% while preserving the artwork point at the viewport centre. Actual pixels keeps that anchor; wheel zoom stays on the pointer. Fit recentres the canvas.",
+          "boundary": "0.3.0 qualification is in progress. No changes to artwork/history; physical mixed-DPI and multi-monitor acceptance remain open.",
+          "evidence": [
+            "docs/keyboard-shortcuts.md"
+          ],
+          "modules": [
+            "rust/src/canvas_navigation.rs",
+            "rust/src/ui.rs",
+            "rust/src/editing_workflow_ui_tests.rs"
+          ]
         }
       ]
     },
@@ -1375,7 +1420,7 @@
           "id": "release-competitor-comparison",
           "name": "OmaPhoto whole-repository comparison",
           "status": "locally-tested",
-          "current": "The daily watch covers commits, active branches, tags/releases, PRs, issues, source/tests, build workflows, dependencies, docs and packaging. In addition to v1.2.3, five merged but unreleased commits through ffba175 were reviewed. A checked-in snapshot records exact refs and release-note hashes. New priorities include anchored keyboard zoom, whole-layer Copy/Paste and crop ratios; AppImage/Flatpak remain upstream proposals.",
+          "current": "The daily watch covers commits, active branches, tags/releases, PRs, issues, source/tests, build workflows, dependencies, docs and packaging. In addition to v1.2.3, five merged but unreleased commits through ffba175 were reviewed. A checked-in snapshot records exact refs and release-note hashes. The 0.3.0 candidate implements anchored keyboard zoom, session layer Copy/Paste and crop ratios, with qualification in progress; AppImage/Flatpak remain upstream proposals.",
           "boundary": "The additional source/tests were inspected, not executed. Existing 808-test/native evidence belongs to runtime 9c99e50; neither app has been benchmarked against the other. The scheduled watch does not publish or install software. Open PRs and user reports do not prove released behavior.",
           "evidence": [
             "docs/omaphoto-comparison.md",

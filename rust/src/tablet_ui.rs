@@ -23,7 +23,11 @@ impl EditorView {
             cx.stop_propagation();
             return;
         }
-        if self.dialog != Dialog::None || self.busy || self.inline_text.is_some() {
+        if self.dialog != Dialog::None
+            || self.busy
+            || self.inline_text.is_some()
+            || self.crop.is_some()
+        {
             return;
         }
         if !matches!(self.tool, Tool::Brush | Tool::Pencil | Tool::Eraser) {

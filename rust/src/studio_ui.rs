@@ -550,6 +550,9 @@ impl EditorView {
     }
 
     pub(super) fn studio_context(&self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        if self.crop.is_some() {
+            return self.crop_context(cx);
+        }
         let t = cx.omarchy().clone();
         let mut bar = div()
             .id("studio-context")
@@ -1174,7 +1177,7 @@ impl EditorView {
                         section("EDIT SELECTED PIXELS", cx).child(self.studio_action_grid(
                             &[
                                 ("content-fill", "Content-aware fill"),
-                                ("crop", "Crop to selection"),
+                                ("crop", "Crop canvas…"),
                                 ("transform-selection", "Transform selection"),
                             ],
                             cx,

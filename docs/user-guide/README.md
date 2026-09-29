@@ -1,6 +1,6 @@
 # Omuse user manual
 
-**Make, retouch and finish images on Linux.** This manual describes Omuse 0.2.1.
+**Make, retouch and finish images on Linux.** This manual describes the Omuse 0.3.0 editing candidate.
 Start with a photo, keep an editable project, and export a copy when it is ready.
 
 [Install Omuse](../install.md) · [Remove objects](remove-objects.md) ·
@@ -41,6 +41,7 @@ workspace for pages, templates, brand assets and content exports.
 | What you want to do | Start here |
 | --- | --- |
 | Remove a blemish, wire, distracting item or person | [Object removal: local and AI](remove-objects.md) |
+| Copy editable groups or layers into another document | [Layer clipboard](photo-editing.md#copy-editable-artwork-between-documents) |
 | Crop, resize, improve tone or sharpen | [Photo editing](photo-editing.md) |
 | Cut out a product or replace its background | [Backgrounds and cutouts](photo-editing.md#cut-out-a-subject-or-change-the-background) |
 | Make a branded post, carousel or small campaign | [Create social content](create-content.md) |

@@ -6,6 +6,21 @@ for numbering, qualification and publication.
 
 ## Unreleased
 
+- Preview a movable crop with Free, Original, square, portrait and landscape
+  ratios. Swap orientation, resize corners, nudge with arrows, and Apply or
+  Cancel. Original layer pixels remain available and Apply is one undo step.
+- Keep the inspected artwork point fixed when changing keyboard zoom stops,
+  viewing actual pixels, or zooming with the wheel around the pointer.
+- Copy and paste complete editable layer trees within the running Omuse session,
+  retaining groups, type, masks, transforms, locks and advanced sources. Internal
+  mask links receive fresh identities; missing dependencies and oversized
+  payloads refuse before changing the clipboard or document.
+- Publish image clipboard formats correctly on both Wayland and XWayland so
+  other applications receive PNG instead of empty text.
+- Reject delayed paste completions after the document, selection, clipboard or
+  editing interaction changes. Update the manual and searchable shortcuts.
+
+Qualification is in progress for 0.3.0; the installed release remains 0.2.1.
 Planned editor work belongs in the [project guide](docs/project-guide.md).
 
 ## [0.2.1](https://github.com/Sugata-Software/Omuse/releases/tag/v0.2.1) — 2026-09-29
