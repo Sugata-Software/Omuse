@@ -57,10 +57,10 @@ fn classify_account_status(status: &Value, process_succeeded: bool) -> Result<bo
         .ok_or_else(|| AiError::Protocol("Claude Code omitted its authentication route".into()))?
         .trim()
         .to_ascii_lowercase();
-    Ok(matches!(
-        auth_method.as_str(),
-        "oauth" | "subscription" | "claude.ai" | "claudeai"
-    ))
+    let first_party = account
+        .api_provider
+        .is_none_or(|provider| provider.trim().eq_ignore_ascii_case("firstParty"));
+    Ok(first_party && is_subscription_auth_method(&auth_method))
 }
 
 pub(crate) fn run(
@@ -296,6 +296,7 @@ fn append_delta(
 struct AccountStatus<'a> {
     logged_in: bool,
     auth_method: Option<&'a str>,
+    api_provider: Option<&'a str>,
 }
 
 /// Locate one coherent account-status object. Authentication and billing-route
@@ -310,6 +311,7 @@ fn find_account_status(value: &Value) -> Result<Option<AccountStatus<'_>>, AiErr
     if statuses.iter().any(|status| {
         status.logged_in != first.logged_in
             || !same_auth_method(status.auth_method, first.auth_method)
+            || !same_api_provider(status.api_provider, first.api_provider)
     }) {
         return Err(AiError::Protocol(
             "Claude Code returned conflicting account evidence".into(),
@@ -318,6 +320,7 @@ fn find_account_status(value: &Value) -> Result<Option<AccountStatus<'_>>, AiErr
     Ok(Some(AccountStatus {
         logged_in: first.logged_in,
         auth_method: first.auth_method,
+        api_provider: first.api_provider,
     }))
 }
 
@@ -337,16 +340,11 @@ fn collect_account_statuses<'a>(
                         "Claude Code returned conflicting account evidence".into(),
                     ));
                 }
-                let auth_methods = [
-                    "authMethod",
-                    "loginMethod",
-                    "credentialSource",
-                    "subscriptionType",
-                ]
-                .iter()
-                .filter_map(|name| object.get(*name).and_then(Value::as_str))
-                .map(|value| value.trim())
-                .collect::<Vec<_>>();
+                let auth_methods = ["authMethod", "loginMethod", "credentialSource"]
+                    .iter()
+                    .filter_map(|name| object.get(*name).and_then(Value::as_str))
+                    .map(|value| value.trim())
+                    .collect::<Vec<_>>();
                 let auth_method = auth_methods.first().copied();
                 if auth_methods
                     .iter()
@@ -359,6 +357,7 @@ fn collect_account_statuses<'a>(
                 statuses.push(AccountStatus {
                     logged_in,
                     auth_method,
+                    api_provider: object.get("apiProvider").and_then(Value::as_str),
                 });
             }
             for value in object.values() {
@@ -377,7 +376,25 @@ fn collect_account_statuses<'a>(
 
 fn same_auth_method(left: Option<&str>, right: Option<&str>) -> bool {
     match (left, right) {
-        (Some(left), Some(right)) => left.eq_ignore_ascii_case(right),
+        (Some(left), Some(right)) => {
+            (is_subscription_auth_method(left) && is_subscription_auth_method(right))
+                || left.eq_ignore_ascii_case(right)
+        }
+        (None, None) => true,
+        _ => false,
+    }
+}
+
+fn is_subscription_auth_method(value: &str) -> bool {
+    matches!(
+        value.trim().to_ascii_lowercase().as_str(),
+        "oauth" | "subscription" | "claude.ai" | "claudeai"
+    )
+}
+
+fn same_api_provider(left: Option<&str>, right: Option<&str>) -> bool {
+    match (left, right) {
+        (Some(left), Some(right)) => left.trim().eq_ignore_ascii_case(right.trim()),
         (None, None) => true,
         _ => false,
     }
@@ -414,6 +431,58 @@ mod tests {
     fn successful_subscription_login_is_accepted() {
         let status = json!({ "loggedIn": true, "authMethod": "oauth" });
         assert!(classify_account_status(&status, true).unwrap());
+    }
+
+    #[test]
+    fn first_party_pro_and_max_statuses_keep_plan_separate_from_auth_route() {
+        for subscription_type in ["pro", "max"] {
+            let status = json!({
+                "loggedIn": true,
+                "authMethod": "claude.ai",
+                "apiProvider": "firstParty",
+                "subscriptionType": subscription_type
+            });
+            assert!(classify_account_status(&status, true).unwrap());
+        }
+    }
+
+    #[test]
+    fn plan_tier_alone_does_not_establish_a_subscription_auth_route() {
+        let status = json!({
+            "loggedIn": true,
+            "apiProvider": "firstParty",
+            "subscriptionType": "max"
+        });
+        assert!(classify_account_status(&status, true).is_err());
+    }
+
+    #[test]
+    fn explicit_api_key_or_non_first_party_evidence_is_rejected() {
+        for status in [
+            json!({
+                "loggedIn": true,
+                "authMethod": "api_key",
+                "apiProvider": "firstParty",
+                "subscriptionType": "pro"
+            }),
+            json!({
+                "loggedIn": true,
+                "authMethod": "claude.ai",
+                "apiProvider": "bedrock",
+                "subscriptionType": "pro"
+            }),
+        ] {
+            assert!(!classify_account_status(&status, true).unwrap());
+        }
+
+        let conflicting = json!({
+            "loggedIn": true,
+            "authMethod": "claude.ai",
+            "credentialSource": "api_key",
+            "apiProvider": "firstParty",
+            "subscriptionType": "max"
+        });
+        assert!(classify_account_status(&conflicting, true).is_err());
     }
 
     #[test]

@@ -500,7 +500,7 @@ impl EditorView {
             .disabled(busy || note.is_some())
             .on_click(cx.listener(|this, _, _, cx| this.submit_ai_prompt(cx)))
         };
-        if busy && let Some(started) = self.ai.request_started {
+        if active && let Some(started) = self.ai.request_started {
             composer = composer.child(label(
                 format!(
                     "{}s elapsed · your canvas is unchanged",

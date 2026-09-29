@@ -119,26 +119,32 @@ fn read_allowance_optional(
 }
 
 fn parse_allowance(value: &Value) -> Option<Vec<AllowanceWindow>> {
-    let mut windows = Vec::new();
-    if let Some(rate_limits) = value.get("rateLimits").and_then(Value::as_object) {
-        for name in ["primary", "secondary"] {
-            if let Some(window) = rate_limits.get(name).and_then(parse_allowance_window) {
-                windows.push(window);
-            }
-        }
-    }
-    if windows.is_empty()
-        && let Some(by_id) = value.get("rateLimitsByLimitId").and_then(Value::as_object)
+    if let Some(by_id) = value
+        .get("rateLimitsByLimitId")
+        .and_then(Value::as_object)
+        .filter(|by_id| !by_id.is_empty())
     {
-        for item in by_id.values() {
-            if let Some(window) = parse_allowance_window(item) {
-                if !windows.contains(&window) {
-                    windows.push(window);
-                }
-            }
-        }
+        // The keyed response may contain allowance buckets for products other
+        // than Codex. Only the explicitly labelled Codex bucket is safe to
+        // present as this connection's allowance.
+        return by_id
+            .get("codex")
+            .map(parse_allowance_windows)
+            .filter(|windows| !windows.is_empty());
     }
+
+    let windows = value
+        .get("rateLimits")
+        .map(parse_allowance_windows)
+        .unwrap_or_default();
     (!windows.is_empty()).then_some(windows)
+}
+
+fn parse_allowance_windows(value: &Value) -> Vec<AllowanceWindow> {
+    ["primary", "secondary"]
+        .into_iter()
+        .filter_map(|name| value.get(name).and_then(parse_allowance_window))
+        .collect()
 }
 
 fn parse_allowance_window(value: &Value) -> Option<AllowanceWindow> {
@@ -959,6 +965,7 @@ mod tests {
     #[test]
     fn allowance_parser_retains_only_bounded_capacity_and_reset_timing() {
         let windows = parse_allowance(&json!({
+            "rateLimitsByLimitId": {},
             "rateLimits": {
                 "primary": {
                     "usedPercent": 12.25,
@@ -989,6 +996,78 @@ mod tests {
                     window_duration_minutes: Some(10_080),
                 },
             ]
+        );
+    }
+
+    #[test]
+    fn allowance_parser_reads_nested_codex_bucket() {
+        let windows = parse_allowance(&json!({
+            "rateLimitsByLimitId": {
+                "codex": {
+                    "primary": {
+                        "usedPercent": 20,
+                        "resetsAt": 1_800_000_000_i64,
+                        "windowDurationMins": 300
+                    },
+                    "secondary": {
+                        "usedPercent": 75,
+                        "resetsAt": 1_800_100_000_i64,
+                        "windowDurationMins": 10_080
+                    }
+                }
+            }
+        }))
+        .unwrap();
+
+        assert_eq!(
+            windows,
+            vec![
+                AllowanceWindow {
+                    remaining_percent: 80,
+                    resets_at_unix_seconds: Some(1_800_000_000),
+                    window_duration_minutes: Some(300),
+                },
+                AllowanceWindow {
+                    remaining_percent: 25,
+                    resets_at_unix_seconds: Some(1_800_100_000),
+                    window_duration_minutes: Some(10_080),
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn keyed_codex_allowance_takes_precedence_over_legacy_snapshot() {
+        let windows = parse_allowance(&json!({
+            "rateLimitsByLimitId": {
+                "codex": {
+                    "primary": { "usedPercent": 30 }
+                }
+            },
+            "rateLimits": {
+                "primary": { "usedPercent": 90 }
+            }
+        }))
+        .unwrap();
+
+        assert_eq!(windows.len(), 1);
+        assert_eq!(windows[0].remaining_percent, 70);
+    }
+
+    #[test]
+    fn unrelated_keyed_allowance_is_not_presented_as_codex_capacity() {
+        assert_eq!(
+            parse_allowance(&json!({
+                "rateLimitsByLimitId": {
+                    "other-product": {
+                        "primary": { "usedPercent": 5 }
+                    }
+                },
+                "rateLimits": {
+                    "primary": { "usedPercent": 90 }
+                }
+            })),
+            None
         );
     }
 
