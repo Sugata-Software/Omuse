@@ -1,4 +1,5 @@
 //! A disposable colour/tonal selection draft. Only Apply mutates the editor.
+use super::inspector_ui::panel_button as button;
 use super::*;
 use omuse::range_mask::{RangeKind, RangeSettings};
 use std::sync::atomic::{AtomicBool, Ordering};

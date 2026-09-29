@@ -112,6 +112,30 @@ fn studio_minimum_window_keeps_every_workspace_component_usable(cx: &mut TestApp
     ] {
         assert_in_window(selector, cx);
     }
+    let inspector = cx.debug_bounds("inspector").unwrap();
+    let heading = cx.debug_bounds("inspector-heading-Layers").unwrap();
+    assert!(
+        heading.size.height <= px(64.),
+        "the heading must leave room for editing controls at minimum size: {heading:?}"
+    );
+    assert_eq!(
+        inspector.size.width,
+        px(320.),
+        "compact inspector must use the minimum-window width"
+    );
+    let tab_widths = [
+        "inspector-tab-layers",
+        "inspector-tab-develop",
+        "inspector-tab-selection",
+        "inspector-tab-canvas",
+    ]
+    .map(|selector| cx.debug_bounds(selector).unwrap().size.width);
+    for width in tab_widths.iter().skip(1) {
+        assert!(
+            (f32::from(*width) - f32::from(tab_widths[0])).abs() <= 1.,
+            "inspector tabs must share the available width: {tab_widths:?}"
+        );
+    }
     let canvas = cx.debug_bounds("artwork").unwrap();
     assert!(
         canvas.size.width > px(350.),
@@ -207,6 +231,90 @@ fn studio_inspector_tabs_keep_representative_actions_reachable(cx: &mut TestAppC
     cx.update(|_, cx| assert_eq!(view.read(cx).dialog, Dialog::Resize));
     cx.simulate_keystrokes("escape");
     cx.update(|_, cx| assert_eq!(view.read(cx).dialog, Dialog::None));
+}
+
+#[gpui_kit::test]
+fn studio_inspector_actions_follow_document_applicability_and_toggle_state(
+    cx: &mut TestAppContext,
+) {
+    cx.update(crate::init_test_theme);
+    let recovery = tempfile::tempdir().unwrap();
+    let recovery_dir = recovery.path().to_owned();
+    let (view, cx) = cx.add_window_view(|window, cx| {
+        let mut view = EditorView::new(None, window, cx);
+        view.recovery = Recovery::at(recovery_dir);
+        view.dialog = Dialog::None;
+        view.editor = Editor::new(studio_document());
+        view.refresh(cx);
+        view
+    });
+
+    cx.update(|_, cx| {
+        let view = view.read(cx);
+        assert!(!view.studio_action_disabled("camera-raw"));
+        assert!(view.studio_action_disabled("edit-adjustment"));
+        assert!(view.studio_action_disabled("commit-selection"));
+        assert!(view.studio_action_disabled("mask-enable"));
+        assert!(view.studio_action_disabled("clipping"));
+        assert_eq!(view.studio_action_selected("clipping"), Some(false));
+        assert_eq!(view.studio_action_selected("mask-enable"), None);
+    });
+
+    view.update(cx, |view, _| {
+        let id = view.editor.active_layer.clone();
+        assert!(view.editor.add_mask(&id, true));
+        let layer = view.editor.document.find_layer_mut(&id).unwrap();
+        layer.metadata["maskEnabled"] = serde_json::json!(false);
+        layer.metadata["maskLinked"] = serde_json::json!(false);
+    });
+    cx.update(|_, cx| {
+        let view = view.read(cx);
+        assert!(!view.studio_action_disabled("mask-enable"));
+        assert!(!view.studio_action_disabled("mask-link"));
+        assert_eq!(view.studio_action_selected("mask-enable"), Some(false));
+        assert_eq!(view.studio_action_selected("mask-link"), Some(false));
+    });
+
+    view.update(cx, |view, _| {
+        let id = view.editor.active_layer.clone();
+        let layer = view.editor.document.find_layer_mut(&id).unwrap();
+        layer.metadata["maskEnabled"] = serde_json::json!(true);
+        layer.metadata["maskLinked"] = serde_json::json!(true);
+        layer.metadata["maskSourceID"] = serde_json::json!("source-layer");
+    });
+    cx.update(|_, cx| {
+        let view = view.read(cx);
+        assert_eq!(view.studio_action_selected("mask-enable"), Some(true));
+        assert_eq!(view.studio_action_selected("mask-link"), Some(true));
+        assert_eq!(view.studio_action_selected("clipping"), Some(true));
+        assert!(!view.studio_action_disabled("clipping"));
+    });
+
+    view.update(cx, |view, _| {
+        let id = view.editor.active_layer.clone();
+        view.editor
+            .document
+            .find_layer_mut(&id)
+            .unwrap()
+            .metadata
+            .as_object_mut()
+            .unwrap()
+            .remove("maskSourceID");
+        view.editor.select_rectangle(0., 0., 8., 8.);
+        assert!(view.editor.begin_floating_selection().unwrap().is_some());
+    });
+    cx.update(|_, cx| {
+        let view = view.read(cx);
+        assert!(!view.studio_action_disabled("commit-selection"));
+        assert!(!view.studio_action_disabled("cancel-selection"));
+    });
+
+    view.update(cx, |view, _| view.busy = true);
+    cx.update(|_, cx| {
+        let view = view.read(cx);
+        assert!(view.studio_action_disabled("camera-raw"));
+        assert!(view.studio_action_disabled("resize"));
+    });
 }
 
 #[gpui_kit::test]

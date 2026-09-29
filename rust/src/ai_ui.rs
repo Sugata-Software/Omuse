@@ -1,4 +1,8 @@
 //! In-app subscription control and reversible result review.
+use super::inspector_ui::panel_input as input;
+use super::inspector_ui::{
+    panel_button as button, panel_header, panel_note, panel_section, panel_width,
+};
 use super::*;
 use anyhow::Context as _;
 use gpui_kit::{Div, FontWeight};
@@ -335,10 +339,44 @@ impl AiState {
     }
 }
 fn label(text: impl Into<SharedString>, cx: &App) -> Div {
+    panel_note(text, cx)
+}
+
+fn connection_capability_row(status: &ProviderStatus, capability: Capability, cx: &App) -> Div {
+    let t = cx.omarchy();
+    let name = match capability {
+        Capability::AssistantStreaming => "Assistant",
+        Capability::ImageGeneration => "Image generation",
+        Capability::ImageEditing => "Image editing",
+    };
+    let (state, color) = match status.capability(capability).map(|c| c.evidence) {
+        Some(EvidenceLevel::Verified) => ("Tested", t.success),
+        Some(EvidenceLevel::Unknown) => ("Not tested", t.warning),
+        _ => ("Unavailable", t.secondary),
+    };
     div()
-        .text_size(px(11.))
-        .text_color(cx.omarchy().secondary)
-        .child(text.into())
+        .flex()
+        .items_center()
+        .justify_between()
+        .gap_2()
+        .min_w_0()
+        .flex_shrink_0()
+        .child(label(name, cx))
+        .child(gpui_omarchy::with_tooltip(
+            div()
+                .id(SharedString::from(format!(
+                    "ai-capability-{:?}-{capability:?}",
+                    status.provider
+                )))
+                .flex()
+                .items_center()
+                .gap_1()
+                .text_size(px(10.))
+                .text_color(color)
+                .child(div().size(px(4.)).rounded_full().bg(color))
+                .child(state),
+            capability_connection_label(status, capability),
+        ))
 }
 
 fn capability_connection_label(status: &ProviderStatus, capability: Capability) -> String {
@@ -560,9 +598,11 @@ impl EditorView {
                 let mut card = div()
                     .flex()
                     .flex_col()
-                    .gap_2()
+                    .flex_shrink_0()
+                    .min_w_0()
+                    .gap_3()
                     .p_3()
-                    .rounded(px(6.))
+                    .rounded(px(8.))
                     .border_1()
                     .border_color(t.divider())
                     .bg(t.background)
@@ -573,6 +613,9 @@ impl EditorView {
                             .justify_between()
                             .child(
                                 div()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .text_size(px(13.))
                                     .font_weight(FontWeight::SEMIBOLD)
                                     .child(status.display_name),
                             )
@@ -589,34 +632,37 @@ impl EditorView {
                     )
                     .child(label(status.detail.clone(), cx))
                     .child(label(billing_mode_label(Some(status)), cx))
-                    .child(label(
-                        capability_connection_label(status, Capability::AssistantStreaming),
+                    .child(connection_capability_row(
+                        status,
+                        Capability::AssistantStreaming,
                         cx,
                     ));
                 if status.capability(Capability::ImageGeneration).is_some() {
-                    card = card.child(label(
-                        capability_connection_label(status, Capability::ImageGeneration),
+                    card = card.child(connection_capability_row(
+                        status,
+                        Capability::ImageGeneration,
                         cx,
                     ));
                 }
                 if status.capability(Capability::ImageEditing).is_some() {
-                    card = card.child(label(
-                        capability_connection_label(status, Capability::ImageEditing),
+                    card = card.child(connection_capability_row(
+                        status,
+                        Capability::ImageEditing,
                         cx,
                     ));
                 }
-                let mut controls = div().flex().gap_1();
+                let mut controls = div().flex().flex_wrap().gap_2();
                 controls = controls.child(
                     button(
                         SharedString::from(format!("ai-assistant-{provider:?}")),
-                        if status.can(Capability::AssistantStreaming) {
-                            "Assistant"
-                        } else {
-                            "Assistant · not tested"
-                        },
+                        "Assistant",
                         ButtonVariant::Secondary,
                         cx,
                     )
+                    .flex_1()
+                    .min_w_0()
+                    .text_size(px(11.))
+                    .accessibility_label("Preferred assistant for Auto tasks")
                     .disabled(ai_busy || self.ai.routing_error.is_some() || !assistant_selectable)
                     .selected(assistant_selected)
                     .on_click(cx.listener(move |this, _, _, cx| {
@@ -635,14 +681,14 @@ impl EditorView {
                     controls = controls.child(
                         button(
                             SharedString::from(format!("ai-image-{provider:?}")),
-                            if status.can(Capability::ImageGeneration) {
-                                "Images"
-                            } else {
-                                "Images · not tested"
-                            },
+                            "Images",
                             ButtonVariant::Secondary,
                             cx,
                         )
+                        .flex_1()
+                        .min_w_0()
+                        .text_size(px(11.))
+                        .accessibility_label("Preferred image provider for Auto tasks")
                         .disabled(ai_busy || self.ai.routing_error.is_some() || !image_selectable)
                         .selected(image_selected)
                         .on_click(cx.listener(move |this, _, _, cx| {
@@ -727,6 +773,11 @@ impl EditorView {
                 );
             }
         }
+        if self.ai.connections_visible {
+            body =
+                body.child(panel_section("STATUS", cx).child(label(self.ai.activity.clone(), cx)));
+            return self.ai_panel_shell(body, window, cx);
+        }
         let comparison_entries = self.ai.result.as_ref().map(|proposal| {
             self.ai
                 .history
@@ -752,11 +803,14 @@ impl EditorView {
             let mut card = div()
                 .flex()
                 .flex_col()
-                .gap_2()
+                .flex_shrink_0()
+                .min_w_0()
+                .gap_3()
                 .p_3()
                 .border_1()
                 .border_color(t.accent.opacity(0.5))
-                .rounded(px(6.))
+                .rounded(px(8.))
+                .bg(t.background)
                 .child(
                     div()
                         .debug_selector(|| "ai-review-title".into())
@@ -1007,6 +1061,12 @@ impl EditorView {
                             ButtonVariant::Secondary,
                             cx,
                         )
+                        .debug_selector(|| "ai-refine-result".into())
+                        .flex_1()
+                        .min_w_0()
+                        .h(px(40.))
+                        .px_2()
+                        .text_size(px(11.))
                         .disabled(ai_busy)
                         .on_click(cx.listener(|this, _, window, cx| {
                             this.prepare_ai_follow_up(false, cx);
@@ -1020,6 +1080,12 @@ impl EditorView {
                             ButtonVariant::Secondary,
                             cx,
                         )
+                        .debug_selector(|| "ai-another-direction".into())
+                        .flex_1()
+                        .min_w_0()
+                        .h(px(40.))
+                        .px_2()
+                        .text_size(px(11.))
                         .disabled(ai_busy)
                         .on_click(cx.listener(|this, _, window, cx| {
                             this.prepare_ai_follow_up(true, cx);
@@ -1078,16 +1144,8 @@ impl EditorView {
             } else {
                 "Shared on submit: this canvas, the edit mask and chosen references. Your original remains unchanged during generation."
             };
-            let mut context_card = div()
-                .flex()
-                .flex_col()
-                .gap_2()
-                .p_2()
-                .rounded(px(6.))
-                .border_1()
-                .border_color(t.divider())
-                .child(label("REQUEST CONTEXT", cx))
-                .child(label(context, cx));
+            let mut context_card =
+                panel_section("SHARED WITH YOUR REQUEST", cx).child(label(context, cx));
             if self.ai.task == AiTask::Design
                 && self.ai_task_provider() == Some(ProviderId::CodexSubscription)
             {
@@ -1175,7 +1233,7 @@ impl EditorView {
                     .flex()
                     .items_center()
                     .gap_2()
-                    .child(label(name, cx))
+                    .child(div().flex_1().min_w_0().text_ellipsis().child(name))
                     .child(
                         button(
                             SharedString::from(format!("ai-remove-reference-{index}")),
@@ -1223,11 +1281,7 @@ impl EditorView {
             );
         }
         if self.ai.history_visible && !self.ai.history.is_empty() {
-            let mut history = div()
-                .flex()
-                .flex_col()
-                .gap_1()
-                .child(label("Recent completed results", cx));
+            let mut history = panel_section("SAVED RESULTS", cx);
             for entry in &self.ai.history {
                 let current = self.ai_stored_source_matches(entry);
                 let entry_id = entry.id.clone();
@@ -1273,51 +1327,92 @@ impl EditorView {
             body = body.child(history);
         }
 
+        self.ai_panel_shell(body, window, cx)
+    }
+
+    fn ai_panel_shell(
+        &self,
+        body: impl IntoElement,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let t = cx.omarchy().clone();
+        let connections = self.ai.connections_visible;
+        let header = panel_header(
+            if connections {
+                "Connections"
+            } else {
+                "Ask Omuse"
+            },
+            if connections {
+                "Subscriptions & access"
+            } else {
+                "Create · refine · finish"
+            },
+            if connections {
+                "settings-2"
+            } else {
+                "sparkles"
+            },
+            cx,
+        )
+        .child(
+            button(
+                "ai-connections",
+                if connections { "Back" } else { "Connections" },
+                ButtonVariant::Secondary,
+                cx,
+            )
+            .debug_selector(|| "ai-connections".into())
+            .text_size(px(11.))
+            .px_2()
+            .on_click(cx.listener(|this, _, _, cx| {
+                this.ai.connections_visible = !this.ai.connections_visible;
+                cx.notify();
+            })),
+        );
         div()
             .id("ai-inspector")
             .debug_selector(|| "ai-inspector".into())
-            .w(px(360.))
+            .w(panel_width(window))
             .h_full()
             .min_h_0()
             .flex_shrink_0()
+            .overflow_hidden()
             .flex()
             .flex_col()
             .bg(t.surface)
             .border_l_1()
             .border_color(t.divider())
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .justify_between()
-                    .px_3()
-                    .py_2()
-                    .child(
-                        div()
-                            .text_size(px(16.))
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .child("Ask Omuse"),
-                    )
-                    .child(
-                        button(
-                            "ai-connections",
-                            if self.ai.connections_visible {
-                                "Back to creating"
-                            } else {
-                                "Connections"
-                            },
-                            ButtonVariant::Secondary,
-                            cx,
-                        )
-                        .text_size(px(10.))
-                        .on_click(cx.listener(|this, _, _, cx| {
-                            this.ai.connections_visible = !this.ai.connections_visible;
-                            cx.notify();
-                        })),
-                    ),
-            )
+            .child(header)
             .child(body)
-            .child(self.ai_composer(window, cx))
+            .when(
+                connections
+                    && (self.ai.running.is_some()
+                        || self.ai.preparing_work_dir.is_some()
+                        || self.ai.workflow.is_some()),
+                |panel| {
+                    panel.child(
+                        div()
+                            .flex_shrink_0()
+                            .p_3()
+                            .bg(t.background)
+                            .border_t_1()
+                            .border_color(t.divider())
+                            .child(
+                                button("ai-cancel", "Stop request", ButtonVariant::Secondary, cx)
+                                    .debug_selector(|| "ai-cancel".into())
+                                    .w_full()
+                                    .on_click(
+                                        cx.listener(|this, _, _, cx| this.stop_ai_request(cx)),
+                                    ),
+                            ),
+                    )
+                },
+            )
+            .when(!connections, |panel| {
+                panel.child(self.ai_composer(window, cx))
+            })
             .into_any_element()
     }
 
@@ -4686,7 +4781,7 @@ mod tests {
         let photo = cx.debug_bounds("ai-task-Photo").unwrap();
         cx.simulate_click(photo.center(), Modifiers::default());
         cx.update(|window, cx| window.draw(cx).clear(cx));
-        let starter = cx.debug_bounds("ai-starter-0").unwrap();
+        let starter = reveal_ai_control(cx, "ai-starter-0");
         cx.simulate_click(starter.center(), Modifiers::default());
         cx.update(|window, cx| window.draw(cx).clear(cx));
         cx.update(|window, cx| {
@@ -5742,6 +5837,19 @@ mod tests {
         assert!(title.origin.y >= inspector.origin.y);
         assert!(title.bottom_right().y < prompt.origin.y);
         assert!(cx.debug_bounds("ai-starter-0").is_none());
+
+        let refine = reveal_ai_control(cx, "ai-refine-result");
+        let alternative = cx.debug_bounds("ai-another-direction").unwrap();
+        assert_eq!(refine.size.width, alternative.size.width);
+        assert_eq!(refine.origin.y, alternative.origin.y);
+        assert!(refine.origin.x >= inspector.origin.x);
+        assert!(alternative.bottom_right().x <= inspector.bottom_right().x);
+        cx.simulate_click(refine.center(), Modifiers::default());
+        cx.update(|_, cx| {
+            let view = view.read(cx);
+            assert!(view.ai.follow_up.is_some());
+            assert!(!view.ai_busy());
+        });
 
         view.update_in(cx, |view, _, cx| view.clear_ai_result(cx));
         cx.update(|window, cx| window.draw(cx).clear(cx));

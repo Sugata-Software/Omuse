@@ -1,4 +1,5 @@
 //! Draft-based advanced editing workspaces with cancellable background results.
+use super::inspector_ui::panel_button as button;
 use super::*;
 use anyhow::{Context as _, Result, ensure};
 use omuse::{

@@ -40,6 +40,37 @@ fn draw(cx: &mut VisualTestContext) {
     cx.update(|window, cx| window.draw(cx).clear(cx));
 }
 fn click(cx: &mut VisualTestContext, id: &'static str) {
+    // The grouped inspector scrolls independently of the canvas at 800 × 600.
+    // Exercise the actual wheel path before activating a lower section.
+    if matches!(id, "luminosity-range" | "color-range") {
+        let viewport = cx.debug_bounds("inspector-content").unwrap();
+        let mut reachable = false;
+        for _ in 0..20 {
+            let bounds = cx.debug_bounds(id).unwrap();
+            if bounds.origin.y >= viewport.origin.y
+                && bounds.bottom_right().y <= viewport.bottom_right().y
+            {
+                reachable = true;
+                break;
+            }
+            let delta = if bounds.origin.y < viewport.origin.y {
+                80.
+            } else {
+                -80.
+            };
+            cx.simulate_event(gpui_kit::ScrollWheelEvent {
+                position: viewport.center(),
+                delta: gpui_kit::ScrollDelta::Pixels(point(px(0.), px(delta))),
+                modifiers: Modifiers::default(),
+                touch_phase: gpui_kit::TouchPhase::Moved,
+            });
+            draw(cx);
+        }
+        assert!(
+            reachable,
+            "Inspector control {id} is not reachable by scrolling"
+        );
+    }
     let bounds = cx
         .debug_bounds(id)
         .unwrap_or_else(|| panic!("Missing control {id}"));

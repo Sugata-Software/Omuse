@@ -1153,6 +1153,23 @@
           ]
         },
         {
+          "id": "inspector-layout-refinement",
+          "name": "Right-hand panel layout and control refinement",
+          "status": "locally-tested",
+          "current": "A shared Omarchy-themed panel system gives editing, Create and AI consistent adaptive widths, grouped sections, clear primary and secondary actions, aligned input fields and controls that remain full-size while scrolling. Create uses equal 3×2 navigation and AI uses a two-column task grid with a compact composer in short windows. Connections has its own full-height view, preserves the brief and result, and keeps cancellation visible. Editing actions show contextual availability; mask and clipping controls display their state.",
+          "boundary": "The source candidate passes 267 UI tests, including minimum-window scrolling, contextual controls, retained AI drafts and visible cancellation. Native panel inspections cover editing, Create, Motion, Export and AI, with dark and light theme checks. This remains separate from published 0.3.0; broader display-scale, accessibility and release acceptance remains open.",
+          "evidence": [
+            "docs/inspector-panels.md"
+          ],
+          "modules": [
+            "rust/src/inspector_ui.rs",
+            "rust/src/studio_ui.rs",
+            "rust/src/create_ui.rs",
+            "rust/src/ai_ui.rs",
+            "rust/src/ai_experience.rs"
+          ]
+        },
+        {
           "id": "linux-keyboard-command-search",
           "name": "Keyboard shortcuts and command search",
           "status": "locally-tested",

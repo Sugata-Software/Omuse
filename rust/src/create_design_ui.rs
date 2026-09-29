@@ -1,5 +1,7 @@
 //! Native design controls for the Create inspector.
 use super::create_ui::{note, section};
+use super::inspector_ui::panel_button as button;
+use super::inspector_ui::panel_input as input;
 use super::*;
 use anyhow::Context as _;
 use gpui_kit::FontWeight;
@@ -260,6 +262,7 @@ impl EditorView {
             );
         body = body
             .child(note("TEXT STYLE TOKEN", cx))
+            .child(note("Role", cx))
             .child(input(
                 "create-brand-style-role",
                 &self.create.design.brand_style_role,
@@ -269,36 +272,60 @@ impl EditorView {
             .child(
                 div()
                     .flex()
-                    .gap_1()
-                    .child(div().flex_1().child(input(
-                        "create-brand-style-font",
-                        &self.create.design.brand_style_font,
-                        window,
-                        cx,
-                    )))
-                    .child(div().flex_1().child(input(
-                        "create-brand-style-size",
-                        &self.create.design.brand_style_size,
-                        window,
-                        cx,
-                    ))),
+                    .gap_2()
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .child(note("Font family", cx))
+                            .child(input(
+                                "create-brand-style-font",
+                                &self.create.design.brand_style_font,
+                                window,
+                                cx,
+                            )),
+                    )
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .child(note("Size (px)", cx))
+                            .child(input(
+                                "create-brand-style-size",
+                                &self.create.design.brand_style_size,
+                                window,
+                                cx,
+                            )),
+                    ),
             )
             .child(
                 div()
                     .flex()
-                    .gap_1()
-                    .child(div().flex_1().child(input(
-                        "create-brand-style-tracking",
-                        &self.create.design.brand_style_tracking,
-                        window,
-                        cx,
-                    )))
-                    .child(div().flex_1().child(input(
-                        "create-brand-style-leading",
-                        &self.create.design.brand_style_leading,
-                        window,
-                        cx,
-                    ))),
+                    .gap_2()
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .child(note("Tracking", cx))
+                            .child(input(
+                                "create-brand-style-tracking",
+                                &self.create.design.brand_style_tracking,
+                                window,
+                                cx,
+                            )),
+                    )
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .child(note("Line height", cx))
+                            .child(input(
+                                "create-brand-style-leading",
+                                &self.create.design.brand_style_leading,
+                                window,
+                                cx,
+                            )),
+                    ),
             )
             .child(
                 button(
@@ -321,19 +348,31 @@ impl EditorView {
             .child(
                 div()
                     .flex()
-                    .gap_1()
-                    .child(div().flex_1().child(input(
-                        "create-brand-spacing-role",
-                        &self.create.design.brand_spacing_role,
-                        window,
-                        cx,
-                    )))
-                    .child(div().flex_1().child(input(
-                        "create-brand-spacing-value",
-                        &self.create.design.brand_spacing_value,
-                        window,
-                        cx,
-                    ))),
+                    .gap_2()
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .child(note("Role", cx))
+                            .child(input(
+                                "create-brand-spacing-role",
+                                &self.create.design.brand_spacing_role,
+                                window,
+                                cx,
+                            )),
+                    )
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .child(note("Spacing (px)", cx))
+                            .child(input(
+                                "create-brand-spacing-value",
+                                &self.create.design.brand_spacing_value,
+                                window,
+                                cx,
+                            )),
+                    ),
             )
             .child(
                 button(
@@ -349,6 +388,7 @@ impl EditorView {
                 })),
             )
             .child(note("PROTECTED LOGO", cx))
+            .child(note("Packaged image resource ID", cx))
             .child(input(
                 "create-brand-logo-resource",
                 &self.create.design.brand_logo_resource_id,
@@ -666,8 +706,30 @@ impl EditorView {
                 div()
                     .flex()
                     .gap_2()
-                    .child(input("create-resize-width", &self.create.fields[2], window, cx))
-                    .child(input("create-resize-height", &self.create.fields[3], window, cx)),
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .child(note("Width (px)", cx))
+                            .child(input(
+                                "create-resize-width",
+                                &self.create.fields[2],
+                                window,
+                                cx,
+                            )),
+                    )
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .child(note("Height (px)", cx))
+                            .child(input(
+                                "create-resize-height",
+                                &self.create.fields[3],
+                                window,
+                                cx,
+                            )),
+                    ),
             )
             .child(
                 button(

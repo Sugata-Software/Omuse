@@ -1,5 +1,6 @@
 //! Native typography controls for UTF-8 rich text runs.
 use super::create_ui::{note, section};
+use super::inspector_ui::panel_button as button;
 use super::*;
 use anyhow::Context as _;
 use omuse::objects::{RichTextPatch, RichTextRun};

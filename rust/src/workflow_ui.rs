@@ -1,4 +1,6 @@
 //! Cancellable smart-source, colour, recipe, and multi-image workflows.
+use super::inspector_ui::panel_button as button;
+use super::inspector_ui::panel_input as input;
 use super::*;
 use anyhow::Context as _;
 use omuse::{
@@ -749,6 +751,8 @@ fn actions(
                 },
                 cx,
             )
+            .flex_1()
+            .min_w(px(132.))
             .debug_selector(move || id.into())
             .on_click(cx.listener(move |this, _, _, cx| this.choose_workflow_action(action, cx))),
         );
@@ -761,15 +765,22 @@ fn fields(
     cx: &mut Context<EditorView>,
     labels: &[&'static str],
 ) -> AnyElement {
-    let mut out = div().flex().gap_2();
+    let mut out = div().flex().flex_wrap().gap_2();
     for (i, label) in labels.iter().enumerate() {
         let id = SharedString::from(format!("workflow-{i}"));
         let selector = id.clone();
         out = out.child(
-            div().flex_1().min_w_0().child(*label).child(
-                input(id, &this.detail_inputs[i], window, cx)
-                    .debug_selector(move || selector.to_string()),
-            ),
+            div()
+                .flex()
+                .flex_col()
+                .gap_1()
+                .flex_1()
+                .min_w(px(176.))
+                .child(*label)
+                .child(
+                    input(id, &this.detail_inputs[i], window, cx)
+                        .debug_selector(move || selector.to_string()),
+                ),
         );
     }
     out.into_any_element()
@@ -785,7 +796,7 @@ fn indexed_fields(
         let id = SharedString::from(format!("workflow-step-{index}"));
         let selector = id.clone();
         out = out.child(
-            div().w(px(120.)).child(label).child(
+            div().flex_1().min_w(px(132.)).child(label).child(
                 input(id, &this.detail_inputs[index], window, cx)
                     .debug_selector(move || selector.to_string()),
             ),

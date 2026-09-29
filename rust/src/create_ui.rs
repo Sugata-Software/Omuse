@@ -1,5 +1,9 @@
 //! Native Create workspace. The canvas remains the editor; pages retain their
 //! own editor history, while project operations have a separate reversible stack.
+use super::inspector_ui::panel_input as input;
+use super::inspector_ui::{
+    panel_button as button, panel_header, panel_note, panel_section, panel_width,
+};
 use super::*;
 use gpui_kit::{Div, FontWeight};
 use omuse::create_project::Project;
@@ -216,27 +220,10 @@ impl CreateState {
 }
 
 pub(super) fn section(title: &str, cx: &App) -> Div {
-    let t = cx.omarchy();
-    div()
-        .flex()
-        .flex_col()
-        .gap_2()
-        .p_3()
-        .border_b_1()
-        .border_color(t.divider())
-        .child(
-            div()
-                .text_size(px(10.))
-                .font_weight(FontWeight::SEMIBOLD)
-                .text_color(t.secondary)
-                .child(title.to_owned()),
-        )
+    panel_section(title.to_owned(), cx)
 }
 pub(super) fn note(value: impl Into<SharedString>, cx: &App) -> Div {
-    div()
-        .text_size(px(11.))
-        .text_color(cx.omarchy().secondary)
-        .child(value.into())
+    panel_note(value, cx)
 }
 
 impl EditorView {
@@ -867,35 +854,40 @@ impl EditorView {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let t = cx.omarchy().clone();
-        let mut tabs = div().flex().gap_1().p_2();
-        for (tab, id, label) in [
-            (CreateTab::Pages, "create-pages", "Pages"),
-            (CreateTab::Templates, "create-templates", "Design"),
-            (CreateTab::Brand, "create-brand", "Brand"),
-            (CreateTab::Assets, "create-assets", "Assets"),
-            (CreateTab::Motion, "create-motion", "Motion"),
-            (CreateTab::Export, "create-export", "Export"),
+        let mut tabs = div().flex().flex_col().flex_shrink_0().gap_2().p_3();
+        for row_tabs in [
+            [
+                (CreateTab::Pages, "create-pages", "Pages"),
+                (CreateTab::Templates, "create-templates", "Design"),
+                (CreateTab::Brand, "create-brand", "Brand"),
+            ],
+            [
+                (CreateTab::Assets, "create-assets", "Assets"),
+                (CreateTab::Motion, "create-motion", "Motion"),
+                (CreateTab::Export, "create-export", "Export"),
+            ],
         ] {
-            tabs = tabs.child(
-                button(id, label, ButtonVariant::Secondary, cx)
-                    .selected(self.create.tab == tab)
-                    .flex_1()
-                    .min_w_0()
-                    .px_1()
-                    .h(px(28.))
-                    .text_size(px(10.))
-                    .debug_selector(move || id.into())
-                    .on_click(cx.listener(move |this, _, _, cx| {
-                        this.create.tab = tab;
-                        if tab == CreateTab::Templates {
-                            this.load_template_previews(cx);
-                        }
-                        if tab == CreateTab::Assets {
-                            this.load_asset_library();
-                        }
-                        this.refresh(cx);
-                    })),
-            );
+            let mut row = div().flex().gap_2();
+            for (tab, id, label) in row_tabs {
+                row = row.child(
+                    button(id, label, ButtonVariant::Secondary, cx)
+                        .selected(self.create.tab == tab)
+                        .flex_1()
+                        .min_w_0()
+                        .debug_selector(move || id.into())
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            this.create.tab = tab;
+                            if tab == CreateTab::Templates {
+                                this.load_template_previews(cx);
+                            }
+                            if tab == CreateTab::Assets {
+                                this.load_asset_library();
+                            }
+                            this.refresh(cx);
+                        })),
+                );
+            }
+            tabs = tabs.child(row);
         }
         let mut body = div()
             .id("create-inspector-content")
@@ -903,7 +895,10 @@ impl EditorView {
             .min_h_0()
             .overflow_y_scroll()
             .flex()
-            .flex_col();
+            .flex_col()
+            .gap_3()
+            .px_3()
+            .pb_3();
         match self.create.tab {
             CreateTab::Pages => {
                 let mut pages = section("YOUR COLLECTION", cx);
@@ -1012,6 +1007,7 @@ impl EditorView {
                     pages=pages.child(note("Build a carousel, campaign or collection. Your current canvas becomes its first page.",cx));
                 }
                 pages = pages
+                    .child(note("Collection name", cx))
                     .child(input(
                         "create-collection-title",
                         &self.create.fields[0],
@@ -1025,6 +1021,7 @@ impl EditorView {
                             ButtonVariant::Secondary,
                             cx,
                         )
+                        .w_full()
                         .on_click(cx.listener(|this, _, _, cx| {
                             let result = this.rename_collection(cx);
                             this.create_error(result, cx);
@@ -1034,27 +1031,40 @@ impl EditorView {
                     .child(pages)
                     .child(
                         section("ADD A PAGE", cx)
+                            .child(note("Page name", cx))
                             .child(input("create-field-1", &self.create.fields[1], window, cx))
                             .child(
                                 div()
                                     .flex()
                                     .gap_2()
-                                    .child(input(
-                                        "create-field-2",
-                                        &self.create.fields[2],
-                                        window,
-                                        cx,
-                                    ))
-                                    .child(input(
-                                        "create-field-3",
-                                        &self.create.fields[3],
-                                        window,
-                                        cx,
-                                    )),
+                                    .child(
+                                        div()
+                                            .flex_1()
+                                            .min_w_0()
+                                            .child(note("Width (px)", cx))
+                                            .child(input(
+                                                "create-field-2",
+                                                &self.create.fields[2],
+                                                window,
+                                                cx,
+                                            )),
+                                    )
+                                    .child(
+                                        div()
+                                            .flex_1()
+                                            .min_w_0()
+                                            .child(note("Height (px)", cx))
+                                            .child(input(
+                                                "create-field-3",
+                                                &self.create.fields[3],
+                                                window,
+                                                cx,
+                                            )),
+                                    ),
                             )
-                            .child(note("Width × height in pixels", cx))
                             .child(
                                 button("create-add-page", "Add page", ButtonVariant::Primary, cx)
+                                    .w_full()
                                     .debug_selector(|| "create-add-page".into())
                                     .on_click(cx.listener(|this, _, _, cx| {
                                         let result = this.add_create_page(false, cx);
@@ -1068,6 +1078,7 @@ impl EditorView {
                                     ButtonVariant::Secondary,
                                     cx,
                                 )
+                                .w_full()
                                 .on_click(cx.listener(
                                     |this, _, _, cx| {
                                         let result = this.add_create_page(true, cx);
@@ -1082,6 +1093,7 @@ impl EditorView {
                                     ButtonVariant::Secondary,
                                     cx,
                                 )
+                                .w_full()
                                 .disabled(
                                     self.create
                                         .session
@@ -1119,7 +1131,7 @@ impl EditorView {
         div()
             .id("create-inspector")
             .debug_selector(|| "create-inspector".into())
-            .w(px(336.))
+            .w(panel_width(window))
             .h_full()
             .min_h_0()
             .flex_shrink_0()
@@ -1129,26 +1141,14 @@ impl EditorView {
             .border_l_1()
             .border_color(t.divider())
             .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .justify_between()
-                    .px_3()
-                    .py_2()
-                    .child(
-                        div()
-                            .text_size(px(16.))
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .child("Create"),
-                    )
-                    .child(
-                        button("create-close", "Editor", ButtonVariant::Secondary, cx)
-                            .text_size(px(11.))
-                            .on_click(cx.listener(|this, _, _, cx| {
-                                this.inspector_tab = studio_ui::InspectorTab::Layers;
-                                this.refresh(cx);
-                            })),
+                panel_header("Create", "Pages, design and export", "sparkles", cx).child(
+                    button("create-close", "Editor", ButtonVariant::Secondary, cx).on_click(
+                        cx.listener(|this, _, _, cx| {
+                            this.inspector_tab = studio_ui::InspectorTab::Layers;
+                            this.refresh(cx);
+                        }),
                     ),
+                ),
             )
             .child(tabs)
             .child(body)
@@ -1156,11 +1156,11 @@ impl EditorView {
     }
     fn create_export_section(&self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let mut body=section("READY TO SHARE",cx).child(note("Export ordered pages, captions and alt text, plus a multi-page PDF. Files are published together when the export finishes.",cx))
-            .child(button("create-export-pack","Export content pack…",ButtonVariant::Primary,cx).disabled(self.create.job.is_some()).on_click(cx.listener(|this,_,window,cx|this.choose_content_export(window,cx))))
-            .child(button("create-safe-areas","Show content guide",ButtonVariant::Secondary,cx).selected(self.create.safe_areas).on_click(cx.listener(|this,_,_,cx|{this.create.safe_areas=!this.create.safe_areas;cx.notify();})))
-            .child(button("create-phone-preview","Phone preview",ButtonVariant::Secondary,cx).selected(self.create.phone_preview).on_click(cx.listener(|this,_,_,cx|{this.create.phone_preview=!this.create.phone_preview;cx.notify();})))
+            .child(button("create-export-pack","Export content pack…",ButtonVariant::Primary,cx).w_full().disabled(self.create.job.is_some()).on_click(cx.listener(|this,_,window,cx|this.choose_content_export(window,cx))))
+            .child(button("create-safe-areas","Show content guide",ButtonVariant::Secondary,cx).w_full().selected(self.create.safe_areas).on_click(cx.listener(|this,_,_,cx|{this.create.safe_areas=!this.create.safe_areas;cx.notify();})))
+            .child(button("create-phone-preview","Phone preview",ButtonVariant::Secondary,cx).w_full().selected(self.create.phone_preview).on_click(cx.listener(|this,_,_,cx|{this.create.phone_preview=!this.create.phone_preview;cx.notify();})))
             .child(note("Caption",cx)).child(input("create-field-10",&self.create.fields[10],window,cx)).child(note("Alt text",cx)).child(input("create-field-11",&self.create.fields[11],window,cx))
-            .child(button("create-save-caption","Apply caption & alt text",ButtonVariant::Secondary,cx).on_click(cx.listener(|this,_,_,cx|{let plan=omuse::creative_commands::CreativePlan{summary:"Content details".into(),operations:vec![omuse::creative_commands::CreativeOperation::SetContent{caption:this.create.value(10,cx),alt_text:this.create.value(11,cx)}]};let result=plan.prepare(&this.editor.document).and_then(|doc|this.editor.replace_document_transaction(doc));if result.is_ok(){this.changed(cx);}this.create_error(result,cx);})))
+            .child(button("create-save-caption","Apply caption & alt text",ButtonVariant::Secondary,cx).w_full().on_click(cx.listener(|this,_,_,cx|{let plan=omuse::creative_commands::CreativePlan{summary:"Content details".into(),operations:vec![omuse::creative_commands::CreativeOperation::SetContent{caption:this.create.value(10,cx),alt_text:this.create.value(11,cx)}]};let result=plan.prepare(&this.editor.document).and_then(|doc|this.editor.replace_document_transaction(doc));if result.is_ok(){this.changed(cx);}this.create_error(result,cx);})))
             ;
         let mut checks=section("CONTENT CHECK",cx)
             .child(note("Choose a guide for text and logos. App controls vary by device and caption; these are conservative composition guides.",cx));
@@ -1175,6 +1175,7 @@ impl EditorView {
                     ButtonVariant::Secondary,
                     cx,
                 )
+                .w_full()
                 .selected(self.create.safe_preset == preset)
                 .on_click(cx.listener(move |this, _, _, cx| {
                     this.create.safe_preset = preset;
@@ -1195,6 +1196,7 @@ impl EditorView {
                 ButtonVariant::Secondary,
                 cx,
             )
+            .w_full()
             .disabled(self.create.preflight_busy)
             .on_click(cx.listener(|this, _, _, cx| {
                 let result = this.start_content_preflight(cx);
@@ -1246,6 +1248,7 @@ impl EditorView {
                     ButtonVariant::Secondary,
                     cx,
                 )
+                .w_full()
                 .on_click(cx.listener(|this, _, _, cx| {
                     if let Some(job) = &this.create.job {
                         job.cancel.store(true, Ordering::Relaxed);
@@ -2117,6 +2120,21 @@ mod tests {
             .debug_bounds("create-inspector")
             .expect("Create inspector");
         assert!(inspector.bottom_right().x <= px(800.) && inspector.bottom_right().y <= px(600.));
+        let first_row = ["create-pages", "create-templates", "create-brand"]
+            .map(|id| cx.debug_bounds(id).expect("first Create navigation row"));
+        let second_row = ["create-assets", "create-motion", "create-export"]
+            .map(|id| cx.debug_bounds(id).expect("second Create navigation row"));
+        assert!(
+            first_row
+                .iter()
+                .all(|bounds| bounds.bottom_right().x <= inspector.bottom_right().x)
+        );
+        assert!(
+            second_row
+                .iter()
+                .all(|bounds| bounds.bottom_right().x <= inspector.bottom_right().x)
+        );
+        assert!(first_row[0].bottom_right().y < second_row[0].origin.y);
         assert!(cx.debug_bounds("create-add-page").is_some());
         cx.update(|_, cx| assert_eq!(view.read(cx).inspector_tab, studio_ui::InspectorTab::Create));
     }

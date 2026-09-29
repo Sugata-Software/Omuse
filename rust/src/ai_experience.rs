@@ -315,44 +315,76 @@ impl EditorView {
 
     pub(super) fn ai_task_controls(&self, window: &mut Window, cx: &mut Context<Self>) -> Div {
         let busy = self.ai_busy();
-        let mut tasks = div().flex().flex_wrap().gap_1();
-        for task in AiTask::ALL {
-            tasks = tasks.child(
-                button(
-                    SharedString::from(format!("ai-task-{task:?}")),
-                    task.label(),
-                    ButtonVariant::Secondary,
-                    cx,
-                )
-                .selected(self.ai.task == task)
-                .disabled(busy)
-                .debug_selector(move || format!("ai-task-{task:?}"))
-                .on_click(cx.listener(move |this, _, window, cx| {
-                    this.ai.task = task;
-                    this.ai.follow_up = None;
-                    this.ai.activity =
-                        "Describe the change you want. Nothing is sent until you submit.".into();
-                    this.focus_ai_prompt(window, cx);
-                    cx.notify();
-                })),
-            );
+        let mut tasks = div().flex().flex_col().gap_2();
+        for pair in AiTask::ALL.chunks(2) {
+            let mut row = div().flex().gap_2().min_w_0();
+            for &task in pair {
+                let icon = match task {
+                    AiTask::Design => "layers",
+                    AiTask::Photo => "sliders-horizontal",
+                    AiTask::Caption => "type",
+                    AiTask::Generate => "sparkles",
+                    AiTask::Replace => "wand-sparkles",
+                    AiTask::Remove => "eraser",
+                    AiTask::Background => "image",
+                    AiTask::Expand => "maximize",
+                };
+                row = row.child(
+                    button(
+                        SharedString::from(format!("ai-task-{task:?}")),
+                        "",
+                        ButtonVariant::Secondary,
+                        cx,
+                    )
+                    .accessibility_label(task.label())
+                    .flex_1()
+                    .min_w_0()
+                    .h(px(44.))
+                    .px_2()
+                    .gap_2()
+                    .justify_start()
+                    .child(
+                        crate::studio_icons::glyph(icon)
+                            .size(px(14.))
+                            .flex_shrink_0(),
+                    )
+                    .child(
+                        div()
+                            .min_w_0()
+                            .flex_1()
+                            .text_size(px(11.))
+                            .line_height(px(14.))
+                            .child(task.label()),
+                    )
+                    .selected(self.ai.task == task)
+                    .disabled(busy)
+                    .debug_selector(move || format!("ai-task-{task:?}"))
+                    .on_click(cx.listener(move |this, _, window, cx| {
+                        this.ai.task = task;
+                        this.ai.follow_up = None;
+                        this.ai.activity =
+                            "Describe the change you want. Nothing is sent until you submit."
+                                .into();
+                        this.focus_ai_prompt(window, cx);
+                        cx.notify();
+                    })),
+                );
+            }
+            tasks = tasks.child(row);
         }
         let mut section = div()
             .flex()
             .flex_col()
+            .flex_shrink_0()
+            .min_w_0()
             .gap_3()
             .child(
-                div()
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .child("What would you like to create?"),
-            )
-            .child(tasks)
-            .child(label(self.ai.task.help(), cx));
-        let mut starters = div()
-            .flex()
-            .flex_col()
-            .gap_1()
-            .child(label("STARTING POINTS · customise before sending", cx));
+                panel_section("CHOOSE A TASK", cx)
+                    .child(tasks)
+                    .child(label(self.ai.task.help(), cx)),
+            );
+        let mut starters = panel_section("STARTING POINTS", cx)
+            .child(label("Choose a brief, then make it yours.", cx));
         for (index, &(name, brief)) in self.ai.task.starters().iter().enumerate() {
             starters = starters.child(
                 button(
@@ -363,6 +395,8 @@ impl EditorView {
                 )
                 .w_full()
                 .justify_start()
+                .child(div().flex_1())
+                .child(crate::studio_icons::glyph("chevron-right").size(px(13.)))
                 .disabled(busy)
                 .debug_selector(move || format!("ai-starter-{index}"))
                 .on_click(cx.listener(move |this, _, window, cx| {
@@ -408,6 +442,8 @@ impl EditorView {
                         ButtonVariant::Secondary,
                         cx,
                     )
+                    .flex_1()
+                    .min_w_0()
                     .selected(self.ai.variation_count == count)
                     .disabled(busy)
                     .on_click(cx.listener(move |this, _, _, cx| {
@@ -443,23 +479,28 @@ impl EditorView {
         let route = self.ai_route_for_task(self.ai.task);
         let note = self.ai_task_note();
         let first = route.as_ref().is_ok_and(|route| route.first_use);
+        let compact = f32::from(window.viewport_size().height) < 700.;
         let mut composer = div()
             .id("ai-composer")
             .key_context("AiPrompt")
             .on_action(cx.listener(|this, _: &SubmitAiPrompt, _, cx| this.submit_ai_prompt(cx)))
             .flex()
             .flex_col()
-            .gap_1()
+            .gap_2()
             .p_3()
+            .bg(t.background)
             .border_t_1()
             .border_color(t.divider())
             .flex_shrink_0()
+            .when(compact, |composer| composer.gap_1().p_2())
             .child(self.ai_route_button(cx))
             .child(
                 gpui_omarchy::textarea("ai-prompt", &self.ai.prompt, window, cx)
                     .debug_selector(|| "ai-prompt".into())
-                    .min_h(px(56.))
-                    .max_h(px(88.)),
+                    .min_h(px(if compact { 48. } else { 64. }))
+                    .max_h(px(if compact { 64. } else { 88. }))
+                    .rounded(px(6.))
+                    .bg(t.inset),
             );
         if let Some(progress) = self.ai_workflow_progress() {
             composer = composer.child(label(progress, cx));
@@ -495,38 +536,52 @@ impl EditorView {
                 cx,
             ));
         }
-        composer = composer
-            .child(
-                div().flex().flex_wrap().gap_1().child(primary).child(
-                    button(
-                        "ai-add-reference",
-                        "References…",
-                        ButtonVariant::Secondary,
-                        cx,
-                    )
-                    .disabled(busy)
-                    .on_click(
-                        cx.listener(|this, _, window, cx| this.choose_ai_references(window, cx)),
-                    ),
-                ),
-            )
-            .child(label("Ctrl+Enter sends · Enter adds a new line", cx))
-            .child(
-                div()
-                    .id("ai-activity")
-                    .debug_selector(|| "ai-activity".into())
-                    .min_h(px(18.))
-                    .max_h(px(48.))
-                    .overflow_y_scroll()
-                    .child(label(self.ai.activity.clone(), cx)),
-            );
+        composer =
+            composer
+                .child(
+                    div()
+                        .flex()
+                        .gap_2()
+                        .min_w_0()
+                        .child(
+                            primary
+                                .flex_1()
+                                .min_w_0()
+                                .h(px(if compact { 32. } else { 36. })),
+                        )
+                        .child(
+                            button(
+                                "ai-add-reference",
+                                "References",
+                                ButtonVariant::Secondary,
+                                cx,
+                            )
+                            .h(px(if compact { 32. } else { 36. }))
+                            .px_2()
+                            .text_size(px(11.))
+                            .disabled(busy)
+                            .on_click(cx.listener(
+                                |this, _, window, cx| this.choose_ai_references(window, cx),
+                            )),
+                        ),
+                )
+                .child(label("Ctrl+Enter to send · Enter for a new line", cx).text_size(px(10.)))
+                .child(
+                    div()
+                        .id("ai-activity")
+                        .debug_selector(|| "ai-activity".into())
+                        .min_h(px(18.))
+                        .max_h(px(32.))
+                        .overflow_y_scroll()
+                        .child(label(self.ai.activity.clone(), cx)),
+                );
         let mut details = div()
             .id("ai-composer-details")
             .debug_selector(|| "ai-composer-details".into())
             .flex()
             .flex_col()
             .gap_1()
-            .max_h(px(56.))
+            .max_h(px(if compact { 32. } else { 48. }))
             .overflow_y_scroll();
         if let Some(note) = note {
             details = details.child(label(note, cx));
@@ -534,15 +589,12 @@ impl EditorView {
         if first {
             details = details.child(label("First use with this connection: your request will test support and may use subscription allowance.", cx));
         } else {
-            details = details.child(label(
-                "Uses your subscription. Every change is reviewed before Keep.",
-                cx,
-            ));
+            details = details.child(label("Uses your subscription · Review before Keep.", cx));
         }
         composer.child(details).into_any_element()
     }
 
-    fn stop_ai_request(&mut self, cx: &mut Context<Self>) {
+    pub(super) fn stop_ai_request(&mut self, cx: &mut Context<Self>) {
         self.stop_ai_workflow();
         if let Some(job) = &self.ai.running {
             job.handle.cancel();

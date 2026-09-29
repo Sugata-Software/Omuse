@@ -20,6 +20,8 @@ mod crop_ui;
 #[cfg(all(test, feature = "ui-test"))]
 #[path = "editing_workflow_ui_tests.rs"]
 mod editing_workflow_ui_tests;
+#[path = "inspector_ui.rs"]
+mod inspector_ui;
 #[path = "keyboard_ui.rs"]
 mod keyboard_ui;
 #[path = "motion_ui.rs"]
@@ -4959,7 +4961,7 @@ impl EditorView {
         label: impl Into<SharedString>,
         cx: &mut Context<Self>,
     ) -> gpui_omarchy::Button {
-        button(id, label, ButtonVariant::Secondary, cx)
+        inspector_ui::panel_button(id, label, ButtonVariant::Secondary, cx)
             .debug_selector(move || id.into())
             .on_click(cx.listener(move |this, _, window, cx| this.command(id, window, cx)))
     }

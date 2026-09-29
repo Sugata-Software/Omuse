@@ -86,43 +86,39 @@ impl EditorView {
         } else {
             "Pinned"
         };
-        div()
-            .flex()
-            .flex_col()
-            .gap_1()
-            .child(label(task.label(), cx))
-            .child(
-                button(
-                    "ai-choose-provider",
-                    SharedString::from(format!("{mode} · {name} ▾")),
-                    ButtonVariant::Secondary,
-                    cx,
-                )
-                .w_full()
-                .disabled(self.ai_busy())
-                .selected(self.ai.route_picker_task == Some(self.ai.task))
-                .debug_selector(|| "ai-choose-provider".into())
-                .on_click(cx.listener(|this, _, _, cx| {
-                    if this.ai_busy() {
-                        return;
-                    }
-                    this.ai.connections_visible = false;
-                    this.ai.route_picker_task = if this.ai.route_picker_task == Some(this.ai.task) {
-                        None
-                    } else {
-                        Some(this.ai.task)
-                    };
-                    cx.notify();
-                })),
+        div().flex().flex_col().gap_1().child(
+            button(
+                "ai-choose-provider",
+                SharedString::from(format!("{mode} · {name} ▾")),
+                ButtonVariant::Secondary,
+                cx,
             )
+            .w_full()
+            .accessibility_label(format!("Provider for {}: {mode}, {name}", task.label()))
+            .justify_start()
+            .disabled(self.ai_busy())
+            .selected(self.ai.route_picker_task == Some(self.ai.task))
+            .debug_selector(|| "ai-choose-provider".into())
+            .on_click(cx.listener(|this, _, _, cx| {
+                if this.ai_busy() {
+                    return;
+                }
+                this.ai.connections_visible = false;
+                this.ai.route_picker_task = if this.ai.route_picker_task == Some(this.ai.task) {
+                    None
+                } else {
+                    Some(this.ai.task)
+                };
+                cx.notify();
+            })),
+        )
     }
 
     pub(super) fn ai_route_picker(&self, cx: &mut Context<Self>) -> Div {
         let task = self.ai.route_picker_task.unwrap_or(self.ai.task);
         let choice = self.ai.routing.choice(task.kind());
-        let mut panel = div().flex().flex_col().gap_2().p_3().rounded(px(6.))
-            .border_1().border_color(cx.omarchy().accent.opacity(0.5))
-            .child(div().font_weight(FontWeight::SEMIBOLD).child(format!("Provider for {}", task.label())))
+        let mut panel = panel_section(format!("PROVIDER FOR {}", task.label().to_uppercase()), cx)
+            .border_color(cx.omarchy().accent.opacity(0.5))
             .child(label("Saved for this task. Auto uses your preferred capable subscription. A pinned provider is never replaced automatically.", cx));
         for option in [ProviderChoice::Auto]
             .into_iter()

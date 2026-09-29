@@ -5,6 +5,37 @@ fn draw(cx: &mut VisualTestContext) {
     cx.update(|window, cx| window.draw(cx).clear(cx));
 }
 fn click(cx: &mut VisualTestContext, id: &'static str) {
+    if id.starts_with("workflow-") {
+        let viewport = cx
+            .debug_bounds("dialog-body")
+            .expect("workflow scroll area");
+        let mut reachable = false;
+        for _ in 0..30 {
+            let bounds = cx.debug_bounds(id).unwrap();
+            if bounds.origin.y >= viewport.origin.y
+                && bounds.bottom_right().y <= viewport.bottom_right().y
+            {
+                reachable = true;
+                break;
+            }
+            let delta = if bounds.origin.y < viewport.origin.y {
+                80.
+            } else {
+                -80.
+            };
+            cx.simulate_event(gpui_kit::ScrollWheelEvent {
+                position: viewport.center(),
+                delta: gpui_kit::ScrollDelta::Pixels(point(px(0.), px(delta))),
+                modifiers: Modifiers::default(),
+                touch_phase: gpui_kit::TouchPhase::Moved,
+            });
+            draw(cx);
+        }
+        assert!(
+            reachable,
+            "Workflow control {id} is not reachable by scrolling"
+        );
+    }
     let bounds = cx
         .debug_bounds(id)
         .unwrap_or_else(|| panic!("missing {id}"));

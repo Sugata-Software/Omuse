@@ -99,6 +99,34 @@ fn setup_view(cx: &mut TestAppContext) -> (Entity<EditorView>, &mut VisualTestCo
     (view, cx)
 }
 
+#[gpui_kit::test]
+fn connections_keep_cancellation_visible_while_preparing_a_request(cx: &mut TestAppContext) {
+    let (view, cx) = setup_view(cx);
+    let temporary = tempfile::tempdir().unwrap();
+    let pending = temporary.path().join("pending");
+    std::fs::create_dir(&pending).unwrap();
+    let generation = view.update(cx, |view, _| {
+        view.ai.connections_visible = true;
+        view.ai.preparing_image = true;
+        view.ai.preparing_work_dir = Some(pending.clone());
+        view.ai.dispatch_generation
+    });
+    cx.simulate_resize(size(px(800.), px(600.)));
+    draw(cx);
+    let stop = cx.debug_bounds("ai-cancel").unwrap();
+    let body = cx.debug_bounds("ai-body-viewport").unwrap();
+    assert!(stop.origin.y >= body.bottom_right().y);
+    assert!(stop.bottom_right().y < px(600.));
+    click(cx, "ai-cancel");
+    cx.update(|_, cx| {
+        let view = view.read(cx);
+        assert!(!view.ai.preparing_image);
+        assert!(view.ai.preparing_work_dir.is_none());
+        assert_ne!(view.ai.dispatch_generation, generation);
+    });
+    assert!(!pending.exists());
+}
+
 fn draw(cx: &mut VisualTestContext) {
     cx.update(|window, cx| window.draw(cx).clear(cx));
 }
@@ -380,6 +408,64 @@ fn route_and_follow_on_choosers_are_reachable_at_the_minimum_window(cx: &mut Tes
         assert_eq!(view.ai.route_picker_task, Some(AiTask::Design));
     });
     reveal(cx, "ai-route-ClaudeCode");
+}
+
+#[gpui_kit::test]
+fn connections_get_full_height_and_return_to_the_unchanged_draft(cx: &mut TestAppContext) {
+    let (view, cx) = setup_view(cx);
+    view.update_in(cx, |view, window, cx| {
+        view.ai
+            .prompt
+            .update(cx, |state, cx| state.set_value("Keep my brief", window, cx));
+        view.ai.result = Some(proposal(view));
+    });
+    cx.simulate_resize(size(px(800.), px(600.)));
+    draw(cx);
+    let original_height = cx.debug_bounds("ai-body-viewport").unwrap().size.height;
+    click(cx, "ai-connections");
+    assert!(
+        cx.debug_bounds("ai-prompt").is_none(),
+        "connection setup has no send composer"
+    );
+    assert!(
+        cx.debug_bounds("ai-review-title").is_none(),
+        "draft review stays in its own workspace"
+    );
+    let body = cx.debug_bounds("ai-body-viewport").unwrap();
+    assert!(body.size.height > original_height + px(100.));
+    reveal(cx, "ai-auto-include-CodexSubscription");
+    click(cx, "ai-connections");
+    assert!(cx.debug_bounds("ai-prompt").is_some());
+    assert!(cx.debug_bounds("ai-review-title").is_some());
+    cx.update(|_, cx| {
+        let view = view.read(cx);
+        assert_eq!(view.ai.prompt.read(cx).value(), "Keep my brief");
+        assert_eq!(view.ai.result.as_ref().unwrap().id, "review-kept");
+        assert!(view.ai.running.is_none());
+    });
+}
+
+#[gpui_kit::test]
+fn task_tiles_have_equal_columns_and_remain_reachable_at_minimum_size(cx: &mut TestAppContext) {
+    let (view, cx) = setup_view(cx);
+    cx.simulate_resize(size(px(800.), px(600.)));
+    draw(cx);
+    assert!(
+        cx.debug_bounds("ai-body-viewport").unwrap().size.height >= px(150.),
+        "the compact composer must leave useful room for task selection"
+    );
+    let left = cx.debug_bounds("ai-task-Design").unwrap();
+    let right = cx.debug_bounds("ai-task-Photo").unwrap();
+    assert_eq!(left.size.width, right.size.width);
+    assert_eq!(left.size.height, px(44.));
+    assert_eq!(left.origin.y, right.origin.y);
+    assert!(left.bottom_right().x < right.origin.x);
+    reveal_and_click(cx, "ai-task-Expand");
+    cx.update(|_, cx| {
+        assert_eq!(view.read(cx).ai.task, AiTask::Expand);
+        assert!(view.read(cx).ai.running.is_none());
+    });
+    assert!(cx.debug_bounds("ai-plan").is_some());
 }
 
 #[gpui_kit::test]

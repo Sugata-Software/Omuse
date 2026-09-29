@@ -257,11 +257,7 @@ impl EditorView {
     }
 
     pub(super) fn ai_workflow_controls(&self, cx: &mut Context<Self>) -> Div {
-        let mut controls = div()
-            .flex()
-            .flex_col()
-            .gap_1()
-            .child(label("FOLLOW-ON STEPS · optional", cx));
+        let mut controls = panel_section("FOLLOW-ON STEPS · OPTIONAL", cx);
         if !self.ai.task.uses_assistant() {
             controls = controls.child(
                 button(
@@ -325,16 +321,47 @@ impl EditorView {
                 controls = controls.child(
                     button(
                         SharedString::from(format!("ai-step-provider-{index}")),
-                        SharedString::from(format!(
-                            "{}. {} · {}",
-                            index + 1,
-                            task.label(),
-                            provider
-                        )),
+                        "",
                         ButtonVariant::Secondary,
                         cx,
                     )
+                    .accessibility_label(format!(
+                        "Step {}: {} with {}",
+                        index + 1,
+                        task.label(),
+                        provider
+                    ))
                     .w_full()
+                    .h_auto()
+                    .min_h(px(44.))
+                    .py_2()
+                    .justify_start()
+                    .child(
+                        div()
+                            .size(px(22.))
+                            .flex_shrink_0()
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .rounded(px(5.))
+                            .bg(cx.omarchy().accent.opacity(0.12))
+                            .text_color(cx.omarchy().accent)
+                            .child((index + 1).to_string()),
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .flex_1()
+                            .min_w_0()
+                            .child(div().text_size(px(12.)).child(task.label()))
+                            .child(label(provider, cx)),
+                    )
+                    .child(
+                        crate::studio_icons::glyph("chevron-right")
+                            .size(px(13.))
+                            .flex_shrink_0(),
+                    )
                     .disabled(self.ai_busy())
                     .debug_selector(move || format!("ai-step-provider-{index}"))
                     .on_click(cx.listener(move |this, _, _, cx| {

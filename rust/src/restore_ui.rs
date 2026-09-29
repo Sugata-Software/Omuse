@@ -1,5 +1,7 @@
 //! Local restoration controls with background, revision-bound previews.
 use super::create_ui::{note, section};
+use super::inspector_ui::panel_button as button;
+use super::inspector_ui::panel_input as input;
 use super::*;
 use omuse::restoration::Settings;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -90,6 +92,7 @@ impl EditorView {
                     ButtonVariant::Secondary,
                     cx,
                 )
+                .w_full()
                 .selected(state.enlarge_page)
                 .disabled(busy || state.scale == 1)
                 .on_click(cx.listener(|this, _, _, cx| {
@@ -104,6 +107,7 @@ impl EditorView {
                     ButtonVariant::Primary,
                     cx,
                 )
+                .w_full()
                 .disabled(busy)
                 .on_click(cx.listener(|this, _, _, cx| {
                     let result = this.start_restoration(cx);
@@ -117,6 +121,7 @@ impl EditorView {
                     ButtonVariant::Secondary,
                     cx,
                 )
+                .w_full()
                 .disabled(busy)
                 .on_click(cx.listener(|this, _, window, cx| {
                     this.open_pro(advanced_ui::Kind::Remove, window, cx)
@@ -155,6 +160,7 @@ impl EditorView {
                         ButtonVariant::Primary,
                         cx,
                     )
+                    .w_full()
                     .disabled(stale || busy)
                     .on_click(cx.listener(|this, _, _, cx| {
                         let result = this.keep_restoration(cx);
@@ -174,6 +180,7 @@ impl EditorView {
                     ButtonVariant::Secondary,
                     cx,
                 )
+                .w_full()
                 .on_click(cx.listener(|this, _, _, cx| {
                     this.create.restore.release(cx);
                     this.status =

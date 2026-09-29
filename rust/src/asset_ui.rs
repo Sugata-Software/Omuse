@@ -1,5 +1,7 @@
 //! Native local-asset browser for Create.
 use super::create_ui::{note, section};
+use super::inspector_ui::panel_button as button;
+use super::inspector_ui::panel_input as input;
 use super::*;
 use anyhow::Context as _;
 use image::ImageDecoder;
@@ -126,6 +128,7 @@ impl EditorView {
                 "A local library shared by your Omuse projects. Imports and previews run in the background.",
                 cx,
             ))
+            .child(note("Search library", cx))
             .child(input(
                 "create-asset-search",
                 &self.create.fields[9],
@@ -139,6 +142,7 @@ impl EditorView {
                     ButtonVariant::Primary,
                     cx,
                 )
+                .w_full()
                 .disabled(self.asset_ui.import_job.is_some())
                 .on_click(cx.listener(|this, _, window, cx| this.choose_assets(window, cx))),
             );
@@ -150,6 +154,7 @@ impl EditorView {
                     ButtonVariant::Secondary,
                     cx,
                 )
+                .w_full()
                 .on_click(cx.listener(|this, _, _, cx| {
                     if let Some(job) = &this.asset_ui.import_job {
                         job.cancel.store(true, Ordering::Relaxed);
@@ -332,6 +337,7 @@ impl EditorView {
                             ButtonVariant::Secondary,
                             cx,
                         )
+                        .flex_1()
                         .on_click(cx.listener(move |this, _, _, cx| {
                             let result = this.toggle_asset_favourite(&favourite_id, cx);
                             this.create_error(result, cx);
@@ -345,6 +351,7 @@ impl EditorView {
                     ButtonVariant::Primary,
                     cx,
                 )
+                .w_full()
                 .on_click(cx.listener(move |this, _, _, cx| {
                     let result = this.insert_library_asset(&insert_id, cx);
                     this.create_error(result, cx);
@@ -357,6 +364,7 @@ impl EditorView {
                     ButtonVariant::Secondary,
                     cx,
                 )
+                .w_full()
                 .disabled(frame_state != Some(true))
                 .on_click(cx.listener(move |this, _, _, cx| {
                     let result = this.replace_selected_frame(&replace_id, cx);
@@ -378,6 +386,7 @@ impl EditorView {
                     ButtonVariant::Secondary,
                     cx,
                 )
+                .w_full()
                 .disabled(u64::from(asset.width) * u64::from(asset.height) > 16_777_216)
                 .on_click(cx.listener(move |this, _, window, cx| {
                     let result = this.insert_library_asset_for_cutout(&cutout_id, window, cx);

@@ -1,7 +1,9 @@
 //! Create-workspace controls for native page motion and bounded media inputs.
 use super::create_ui::{ContentEvent, ContentJob};
+use super::inspector_ui::panel_input as input;
+use super::inspector_ui::{panel_button as button, panel_note, panel_section};
 use super::*;
-use gpui_kit::{Div, FontWeight};
+use gpui_kit::Div;
 use omuse::motion::{
     Easing, LayerAnimation, LayerAnimationKind, LayerTrack, MotionAudioMedia, MotionClipMedia,
     MotionExportOptions, MotionFormat, MotionMedia, MotionTimeline, PageTimeline, PageTransition,
@@ -151,28 +153,11 @@ enum MotionInput {
 }
 
 fn motion_section(title: &str, cx: &App) -> Div {
-    let theme = cx.omarchy();
-    div()
-        .flex()
-        .flex_col()
-        .gap_2()
-        .p_3()
-        .border_b_1()
-        .border_color(theme.divider())
-        .child(
-            div()
-                .text_size(px(10.))
-                .font_weight(FontWeight::SEMIBOLD)
-                .text_color(theme.secondary)
-                .child(title.to_owned()),
-        )
+    panel_section(title.to_owned(), cx)
 }
 
 fn motion_note(value: impl Into<SharedString>, cx: &App) -> Div {
-    div()
-        .text_size(px(11.))
-        .text_color(cx.omarchy().secondary)
-        .child(value.into())
+    panel_note(value, cx)
 }
 
 impl EditorView {
@@ -208,6 +193,7 @@ impl EditorView {
                         },
                         cx,
                     )
+                    .w_full()
                     .on_click(cx.listener(move |this, _, window, cx| {
                         this.select_motion_cue(index, window, cx);
                     })),
@@ -267,10 +253,12 @@ impl EditorView {
                                 let result = this.apply_motion_preset(MotionPreset::Fade, cx);
                                 this.create_error(result, cx);
                             }),
-                        ),
+                        ).flex_1().min_w(px(116.)),
                     )
                     .child(
                         button("motion-fade-out", "Fade out", ButtonVariant::Secondary, cx)
+                            .flex_1()
+                            .min_w(px(116.))
                             .on_click(cx.listener(|this, _, _, cx| {
                                 let result = this.apply_motion_preset(MotionPreset::FadeOut, cx);
                                 this.create_error(result, cx);
@@ -282,7 +270,7 @@ impl EditorView {
                                 let result = this.apply_motion_preset(MotionPreset::Rise, cx);
                                 this.create_error(result, cx);
                             }),
-                        ),
+                        ).flex_1().min_w(px(116.)),
                     )
                     .child(
                         button("motion-pan", "Slow pan", ButtonVariant::Secondary, cx).on_click(
@@ -290,7 +278,7 @@ impl EditorView {
                                 let result = this.apply_motion_preset(MotionPreset::Pan, cx);
                                 this.create_error(result, cx);
                             }),
-                        ),
+                        ).flex_1().min_w(px(116.)),
                     ),
             )
             .child(
@@ -305,6 +293,8 @@ impl EditorView {
                             ButtonVariant::Secondary,
                             cx,
                         )
+                            .flex_1()
+                            .min_w(px(116.))
                             .disabled(busy)
                             .on_click(cx.listener(|this, _, _, cx| {
                                 let result = this.preview_motion_at(0.0, cx);
@@ -318,6 +308,8 @@ impl EditorView {
                             ButtonVariant::Secondary,
                             cx,
                         )
+                        .flex_1()
+                        .min_w(px(116.))
                         .disabled(busy)
                         .on_click(cx.listener(|this, _, _, cx| {
                             let result = this.preview_motion_at(0.5, cx);
@@ -331,6 +323,8 @@ impl EditorView {
                             ButtonVariant::Secondary,
                             cx,
                         )
+                            .flex_1()
+                            .min_w(px(116.))
                             .disabled(busy)
                             .on_click(cx.listener(|this, _, _, cx| {
                                 let result = this.preview_motion_at(1.0, cx);
@@ -345,6 +339,7 @@ impl EditorView {
                     ButtonVariant::Primary,
                     cx,
                 )
+                    .w_full()
                     .disabled(busy)
                     .on_click(cx.listener(|this, _, _, cx| {
                         let result = this.play_motion_preview(cx);
@@ -358,6 +353,7 @@ impl EditorView {
                     ButtonVariant::Secondary,
                     cx,
                 )
+                .w_full()
                 .on_click(cx.listener(|this, _, _, cx| {
                     if let Some(job) = &this.create.job {
                         job.cancel.store(true, Ordering::Relaxed);
@@ -405,6 +401,8 @@ impl EditorView {
                     .gap_1()
                     .child(
                         button("motion-slide-left", "Slide ←", ButtonVariant::Secondary, cx)
+                            .flex_1()
+                            .min_w(px(116.))
                             .on_click(cx.listener(|this, _, _, cx| {
                                 let result = this.apply_motion_preset(
                                     MotionPreset::Slide(SlideDirection::Left),
@@ -420,6 +418,8 @@ impl EditorView {
                             ButtonVariant::Secondary,
                             cx,
                         )
+                        .flex_1()
+                        .min_w(px(116.))
                         .on_click(cx.listener(|this, _, _, cx| {
                             let result = this.apply_motion_preset(
                                 MotionPreset::Slide(SlideDirection::Right),
@@ -430,6 +430,8 @@ impl EditorView {
                     )
                     .child(
                         button("motion-slide-up", "Slide ↑", ButtonVariant::Secondary, cx)
+                            .flex_1()
+                            .min_w(px(116.))
                             .on_click(cx.listener(|this, _, _, cx| {
                                 let result = this.apply_motion_preset(
                                     MotionPreset::Slide(SlideDirection::Up),
@@ -440,6 +442,8 @@ impl EditorView {
                     )
                     .child(
                         button("motion-slide-down", "Slide ↓", ButtonVariant::Secondary, cx)
+                            .flex_1()
+                            .min_w(px(116.))
                             .on_click(cx.listener(|this, _, _, cx| {
                                 let result = this.apply_motion_preset(
                                     MotionPreset::Slide(SlideDirection::Down),
@@ -453,6 +457,7 @@ impl EditorView {
             .child(
                 div()
                     .flex()
+                    .flex_wrap()
                     .gap_1()
                     .child(div().flex_1().min_w_0().child(input(
                         "motion-audio-path",
@@ -471,11 +476,13 @@ impl EditorView {
             .child(
                 div()
                     .flex()
+                    .flex_wrap()
                     .gap_1()
                     .child(
                         div()
                             .flex_1()
                             .min_w_0()
+                            .min_w(px(132.))
                             .child(motion_note("Offset ms", cx))
                             .child(input(
                                 "motion-audio-offset",
@@ -488,6 +495,7 @@ impl EditorView {
                         div()
                             .flex_1()
                             .min_w_0()
+                            .min_w(px(132.))
                             .child(motion_note("Source ms", cx))
                             .child(input(
                                 "motion-audio-source-start",
@@ -500,6 +508,7 @@ impl EditorView {
                         div()
                             .flex_1()
                             .min_w_0()
+                            .min_w(px(132.))
                             .child(motion_note("Length ms (0 = rest)", cx))
                             .child(input(
                                 "motion-audio-length",
@@ -512,6 +521,7 @@ impl EditorView {
                         div()
                             .flex_1()
                             .min_w_0()
+                            .min_w(px(132.))
                             .child(motion_note("Volume (0–4)", cx))
                             .child(input(
                                 "motion-audio-volume",
@@ -561,6 +571,7 @@ impl EditorView {
                             },
                             cx,
                         )
+                        .flex_1()
                         .on_click(cx.listener(|this, _, _, cx| {
                             this.create.motion.subtitle_presentation = SubtitlePresentation::Soft;
                             this.refresh(cx);
@@ -579,6 +590,7 @@ impl EditorView {
                             },
                             cx,
                         )
+                        .flex_1()
                         .on_click(cx.listener(|this, _, _, cx| {
                             this.create.motion.subtitle_presentation = SubtitlePresentation::BurnIn;
                             this.refresh(cx);
@@ -629,6 +641,7 @@ impl EditorView {
                             },
                             cx,
                         )
+                        .flex_1()
                         .on_click(cx.listener(|this, _, _, cx| {
                             this.create.motion.subtitle_position = SubtitlePosition::Top;
                             this.refresh(cx);
@@ -645,6 +658,7 @@ impl EditorView {
                             },
                             cx,
                         )
+                        .flex_1()
                         .on_click(cx.listener(|this, _, _, cx| {
                             this.create.motion.subtitle_position = SubtitlePosition::Centre;
                             this.refresh(cx);
@@ -661,6 +675,7 @@ impl EditorView {
                             },
                             cx,
                         )
+                        .flex_1()
                         .on_click(cx.listener(|this, _, _, cx| {
                             this.create.motion.subtitle_position = SubtitlePosition::Bottom;
                             this.refresh(cx);
@@ -700,8 +715,9 @@ impl EditorView {
             .child(
                 div()
                     .flex()
+                    .flex_wrap()
                     .gap_1()
-                    .child(div().flex_1().min_w_0().child(input(
+                    .child(div().flex_1().min_w(px(132.)).child(input(
                         "motion-cue-text",
                         &self.create.motion.cue_text,
                         window,
@@ -718,6 +734,8 @@ impl EditorView {
                             ButtonVariant::Secondary,
                             cx,
                         )
+                        .flex_1()
+                        .min_w(px(116.))
                         .on_click(cx.listener(|this, _, _, cx| {
                             let result = this.upsert_motion_cue(cx);
                             this.create_error(result, cx);
@@ -725,6 +743,8 @@ impl EditorView {
                     )
                     .child(
                         button("motion-cue-remove", "Remove", ButtonVariant::Secondary, cx)
+                            .flex_1()
+                            .min_w(px(116.))
                             .disabled(self.create.motion.selected_cue.is_none())
                             .on_click(cx.listener(|this, _, _, cx| {
                                 let result = this.remove_motion_cue(cx);
@@ -736,8 +756,9 @@ impl EditorView {
             .child(
                 div()
                     .flex()
+                    .flex_wrap()
                     .gap_1()
-                    .child(div().flex_1().min_w_0().child(input(
+                    .child(div().flex_1().min_w(px(132.)).child(input(
                         "motion-clip-path",
                         &self.create.motion.clip_path,
                         window,
@@ -754,11 +775,12 @@ impl EditorView {
             .child(
                 div()
                     .flex()
+                    .flex_wrap()
                     .gap_1()
                     .child(
                         div()
                             .flex_1()
-                            .min_w_0()
+                            .min_w(px(132.))
                             .child(motion_note("Trim start ms", cx))
                             .child(input(
                                 "motion-clip-start",
@@ -770,7 +792,7 @@ impl EditorView {
                     .child(
                         div()
                             .flex_1()
-                            .min_w_0()
+                            .min_w(px(132.))
                             .child(motion_note("Trim end ms", cx))
                             .child(input(
                                 "motion-clip-end",
@@ -781,6 +803,8 @@ impl EditorView {
                     )
                     .child(
                         button("motion-clip-probe", "Probe", ButtonVariant::Secondary, cx)
+                            .flex_1()
+                            .min_w(px(116.))
                             .disabled(busy)
                             .on_click(cx.listener(|this, _, window, cx| {
                                 let result = this.probe_motion_clip(window, cx);

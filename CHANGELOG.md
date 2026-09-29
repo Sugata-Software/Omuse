@@ -6,6 +6,14 @@ for numbering, qualification and publication.
 
 ## Unreleased
 
+- Refine the right-hand editing, Create and AI panels with consistent widths,
+  grouped sections, clearer primary actions and aligned controls. Create uses
+  two rows of equal tabs, while AI tasks use a two-column grid. Connections gets
+  its own full-height view and preserves the current brief and result when
+  returning. Colours and focus styling continue to follow the Omarchy theme.
+  Unavailable editing actions show disabled states, mask and clipping controls
+  display their state, and short windows use a compact AI prompt area.
+  See the [panel guide](docs/inspector-panels.md).
 - Choose **Auto** or pin a subscription provider separately for each Ask Omuse
   task. Set preferred Assistant and Images roles, exclude connections from Auto,
   and see first-use routing before submitting. Pins and failed requests never

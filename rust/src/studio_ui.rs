@@ -1,5 +1,6 @@
 //! The editor shell: theme-derived surfaces, a compact tool dock and focused inspectors.
 //! Artwork and editing commands remain owned by the editor, independently of presentation.
+use super::inspector_ui::{panel_button, panel_header, panel_note, panel_section, panel_width};
 use super::*;
 use crate::studio_icons::glyph;
 use gpui_kit::{Div, FontWeight};
@@ -101,23 +102,6 @@ fn rule(cx: &App) -> Div {
         .bg(cx.omarchy().divider())
 }
 
-fn section(label: &'static str, cx: &App) -> Div {
-    div()
-        .flex()
-        .flex_col()
-        .gap_2()
-        .p_3()
-        .border_t_1()
-        .border_color(cx.omarchy().divider())
-        .child(
-            div()
-                .text_size(px(10.))
-                .font_weight(FontWeight::SEMIBOLD)
-                .text_color(cx.omarchy().secondary)
-                .child(label),
-        )
-}
-
 fn note(text: impl Into<SharedString>, cx: &App) -> Div {
     div()
         .text_size(px(11.))
@@ -194,6 +178,123 @@ pub(super) fn layer_identity(layer: &Layer, thumbnail: Option<Arc<RenderImage>>,
 }
 
 impl EditorView {
+    fn studio_controls_blocked(&self) -> bool {
+        self.busy || self.inline_text.is_some()
+    }
+
+    pub(super) fn studio_action_disabled(&self, id: &str) -> bool {
+        if self.studio_controls_blocked() {
+            return true;
+        }
+        let layer = self.editor.document.find_layer(&self.editor.active_layer);
+        let has_mask = layer.is_some_and(|layer| layer.mask.is_some());
+        let has_pixels = layer.is_some_and(|layer| layer.image.is_some());
+        let has_selection = self
+            .editor
+            .selection
+            .as_ref()
+            .and_then(Selection::bounds)
+            .is_some();
+        match id {
+            "camera-raw" => layer
+                .and_then(|layer| layer.image.as_ref())
+                .is_none_or(|image| {
+                    u64::from(image.width()) * u64::from(image.height()) > 16_777_216
+                }),
+            "select-subject" | "remove-background" => !has_pixels,
+            "edit-adjustment" => layer.is_none_or(|layer| {
+                layer
+                    .metadata
+                    .get("adjustment")
+                    .is_none_or(serde_json::Value::is_null)
+            }),
+            "add-mask" => layer.is_none_or(|layer| layer.mask.is_some()),
+            "mask-paint" | "invert-mask" | "apply-mask" | "mask-enable" | "mask-link"
+            | "mask-transform" | "remove-mask" => !has_mask,
+            "content-fill" => self.paint_mask || !has_selection || !has_pixels,
+            "transform-selection" => self.paint_mask || !has_selection || !has_pixels,
+            "commit-selection" | "cancel-selection" => {
+                self.editor.floating_selection_layer().is_none()
+            }
+            "clipping" => {
+                let Some(layer) = layer else {
+                    return true;
+                };
+                if layer
+                    .metadata
+                    .get("maskSourceID")
+                    .and_then(serde_json::Value::as_str)
+                    .is_some()
+                {
+                    return false;
+                }
+                layer_position(
+                    &self.editor.document.layers,
+                    &self.editor.active_layer,
+                    None,
+                )
+                .and_then(|(parent, index, _)| {
+                    let siblings = parent
+                        .as_ref()
+                        .and_then(|parent| self.editor.document.find_layer(parent))
+                        .map(|parent| &parent.children)
+                        .unwrap_or(&self.editor.document.layers);
+                    index
+                        .checked_sub(1)
+                        .and_then(|index| siblings.get(index))
+                        .filter(|source| source.image.is_some())
+                })
+                .is_none()
+            }
+            _ => false,
+        }
+    }
+
+    pub(super) fn studio_action_selected(&self, id: &str) -> Option<bool> {
+        let layer = self.editor.document.find_layer(&self.editor.active_layer)?;
+        match id {
+            "clipping" => Some(
+                layer
+                    .metadata
+                    .get("maskSourceID")
+                    .and_then(serde_json::Value::as_str)
+                    .is_some(),
+            ),
+            "mask-enable" if layer.mask.is_some() => Some(
+                layer
+                    .metadata
+                    .get("maskEnabled")
+                    .and_then(serde_json::Value::as_bool)
+                    .unwrap_or(true),
+            ),
+            "mask-link" if layer.mask.is_some() => Some(
+                layer
+                    .metadata
+                    .get("maskLinked")
+                    .and_then(serde_json::Value::as_bool)
+                    .unwrap_or(true),
+            ),
+            _ => None,
+        }
+    }
+
+    fn studio_action_label(&self, id: &'static str, fallback: &'static str) -> SharedString {
+        match (id, self.studio_action_selected(id)) {
+            ("clipping", Some(on)) => {
+                format!("Clipping · {}", if on { "ON" } else { "OFF" }).into()
+            }
+            ("mask-enable", Some(on)) => {
+                format!("Mask enabled · {}", if on { "ON" } else { "OFF" }).into()
+            }
+            ("mask-link", Some(on)) => {
+                format!("Mask linked · {}", if on { "ON" } else { "OFF" }).into()
+            }
+            ("mask-enable", None) => "Mask enabled · —".into(),
+            ("mask-link", None) => "Mask linked · —".into(),
+            _ => fallback.into(),
+        }
+    }
+
     fn studio_icon_action(
         &self,
         id: &'static str,
@@ -223,20 +324,34 @@ impl EditorView {
         actions: &[(&'static str, &'static str)],
         cx: &mut Context<Self>,
     ) -> Div {
-        let mut grid = div().flex().flex_col().gap_1();
+        let mut grid = div().flex().flex_col().gap_2().flex_shrink_0();
         for pair in actions.chunks(2) {
-            let mut row = div().flex().gap_1();
+            let mut row = div().flex().gap_2().flex_shrink_0();
             for &(id, label) in pair {
+                let display_label = self.studio_action_label(id, label);
+                let variant = if matches!(
+                    id,
+                    "camera-raw" | "select-subject" | "commit-selection" | "resize"
+                ) {
+                    ButtonVariant::Primary
+                } else {
+                    ButtonVariant::Secondary
+                };
                 row = row.child(
-                    self.control(id, label, cx)
+                    panel_button(id, display_label.clone(), variant, cx)
+                        .debug_selector(move || id.into())
+                        .accessibility_label(display_label)
+                        .selected(self.studio_action_selected(id).unwrap_or(false))
+                        .disabled(self.studio_action_disabled(id))
+                        .on_click(
+                            cx.listener(move |this, _, window, cx| this.command(id, window, cx)),
+                        )
                         .flex_1()
                         .min_w_0()
-                        .h(px(30.))
+                        .h(px(32.))
                         .px_2()
                         .py_0()
-                        .rounded(px(3.))
                         .text_size(px(11.))
-                        .bg(cx.omarchy().normal_fill())
                         .justify_start(),
                 );
             }
@@ -253,14 +368,16 @@ impl EditorView {
         cx: &mut Context<Self>,
     ) -> gpui_omarchy::Button {
         let t = cx.omarchy().clone();
-        self.control(id, "", cx)
+        panel_button(id, "", ButtonVariant::Secondary, cx)
+            .debug_selector(move || id.into())
+            .on_click(cx.listener(move |this, _, window, cx| this.command(id, window, cx)))
             .accessibility_label(label)
             .selected(on)
+            .disabled(self.studio_action_disabled(id))
             .w_full()
-            .h(px(30.))
+            .h(px(32.))
             .px_2()
             .py_0()
-            .rounded(px(3.))
             .justify_between()
             .text_size(px(11.))
             .child(label)
@@ -770,10 +887,14 @@ impl EditorView {
         }
         let mut tabs = div()
             .flex()
-            .h(px(40.))
+            .items_center()
+            .gap_1()
+            .h(px(48.))
+            .p_2()
             .flex_shrink_0()
             .border_b_1()
-            .border_color(t.divider());
+            .border_color(t.divider())
+            .bg(t.inset);
         for (tab, id, label) in [
             (InspectorTab::Layers, "inspector-tab-layers", "Layers"),
             (InspectorTab::Develop, "inspector-tab-develop", "Develop"),
@@ -782,20 +903,14 @@ impl EditorView {
         ] {
             let active = self.inspector_tab == tab;
             tabs = tabs.child(
-                button(id, label, ButtonVariant::Secondary, cx)
+                panel_button(id, label, ButtonVariant::Secondary, cx)
                     .debug_selector(move || id.into())
                     .selected(active)
                     .flex_1()
                     .min_w_0()
-                    .h_full()
-                    .p_0()
-                    .border_0()
-                    .border_b_2()
-                    .border_color(if active {
-                        t.accent
-                    } else {
-                        t.foreground.opacity(0.)
-                    })
+                    .h(px(32.))
+                    .px_1()
+                    .border_color(if active { t.accent } else { t.divider() })
                     .text_size(px(11.))
                     .font_weight(if active {
                         FontWeight::SEMIBOLD
@@ -813,11 +928,14 @@ impl EditorView {
         }
         let mut body = div()
             .id("inspector-content")
+            .debug_selector(|| "inspector-content".into())
             .flex_1()
             .min_h_0()
             .overflow_y_scroll()
             .flex()
-            .flex_col();
+            .flex_col()
+            .gap_2()
+            .p_3();
         match self.inspector_tab {
             InspectorTab::Create | InspectorTab::Assistant => unreachable!(),
             InspectorTab::Layers => {
@@ -860,14 +978,18 @@ impl EditorView {
                     .id("layers")
                     .debug_selector(|| "layers".into())
                     .h(px(
-                        (f32::from(window.viewport_size().height) * 0.28).clamp(120., 280.)
+                        (f32::from(window.viewport_size().height) * 0.25).clamp(112., 240.)
                     ))
-                    .min_h(px(100.))
+                    .min_h(px(112.))
                     .flex_shrink_0()
                     .overflow_y_scroll()
                     .flex()
                     .flex_col()
-                    .p_1();
+                    .p_1()
+                    .rounded(px(6.))
+                    .border_1()
+                    .border_color(t.divider())
+                    .bg(t.inset);
                 for (layer, depth) in list {
                     layers = layers.child(self.layer_row(layer, depth, window, cx));
                 }
@@ -876,96 +998,114 @@ impl EditorView {
                 let blend = selected.map(|l| l.blend_mode.as_str()).unwrap_or("Normal");
                 body = body
                     .child(
-                        div()
-                            .flex()
-                            .items_center()
-                            .justify_between()
-                            .px_3()
-                            .py_1()
-                            .child(note(format!("{count} layers"), cx))
+                        panel_header("Layers", "Arrange your artwork", "layers", cx).child(
+                            panel_button("add", "New layer", ButtonVariant::Primary, cx)
+                                .debug_selector(|| "add".into())
+                                .disabled(self.studio_controls_blocked())
+                                .on_click(cx.listener(|this, _, window, cx| {
+                                    this.command("add", window, cx)
+                                })),
+                        ),
+                    )
+                    .child(
+                        panel_section("Layer stack", cx)
                             .child(
                                 div()
                                     .flex()
-                                    .gap_1()
-                                    .child(self.studio_icon_action("add", "New layer", "plus", cx))
-                                    .child(self.studio_icon_action(
-                                        "group",
-                                        "Group selected layers",
-                                        "folder-open",
-                                        cx,
-                                    )),
+                                    .items_center()
+                                    .justify_between()
+                                    .child(panel_note(format!("{count} total"), cx))
+                                    .child(
+                                        self.studio_icon_action(
+                                            "group",
+                                            "Group selected layers",
+                                            "folder-open",
+                                            cx,
+                                        )
+                                        .disabled(self.studio_controls_blocked()),
+                                    ),
+                            )
+                            .child(layers)
+                            .child(
+                                div()
+                                    .flex()
+                                    .items_center()
+                                    .justify_between()
+                                    .gap_2()
+                                    .child(
+                                        self.studio_icon_action(
+                                            "duplicate",
+                                            "Duplicate layers",
+                                            "copy",
+                                            cx,
+                                        )
+                                        .disabled(self.studio_controls_blocked()),
+                                    )
+                                    .child(
+                                        self.studio_icon_action(
+                                            "add-mask",
+                                            "Add layer mask",
+                                            "scan",
+                                            cx,
+                                        )
+                                        .disabled(self.studio_action_disabled("add-mask")),
+                                    )
+                                    .child(
+                                        self.studio_icon_action(
+                                            "lock",
+                                            "Toggle layer lock",
+                                            "lock-keyhole",
+                                            cx,
+                                        )
+                                        .disabled(self.studio_controls_blocked()),
+                                    )
+                                    .child(
+                                        self.studio_icon_action(
+                                            "effects",
+                                            "Live layer effects",
+                                            "sparkles",
+                                            cx,
+                                        )
+                                        .disabled(self.studio_controls_blocked()),
+                                    )
+                                    .child(div().flex_1())
+                                    .child(
+                                        self.studio_icon_action(
+                                            "delete",
+                                            "Delete selected layers",
+                                            "trash-2",
+                                            cx,
+                                        )
+                                        .disabled(self.studio_controls_blocked()),
+                                    ),
                             ),
                     )
-                    .child(layers)
                     .child(
-                        div()
-                            .flex()
-                            .items_center()
-                            .justify_between()
-                            .px_2()
-                            .py_1()
-                            .border_t_1()
-                            .border_color(t.divider())
-                            .child(
-                                div()
-                                    .flex()
-                                    .gap_1()
-                                    .child(self.studio_icon_action(
-                                        "duplicate",
-                                        "Duplicate layers",
-                                        "copy",
-                                        cx,
-                                    ))
-                                    .child(self.studio_icon_action(
-                                        "add-mask",
-                                        "Add layer mask",
-                                        "scan",
-                                        cx,
-                                    ))
-                                    .child(self.studio_icon_action(
-                                        "lock",
-                                        "Toggle layer lock",
-                                        "lock-keyhole",
-                                        cx,
-                                    ))
-                                    .child(self.studio_icon_action(
-                                        "effects",
-                                        "Live layer effects",
-                                        "sparkles",
-                                        cx,
-                                    )),
-                            )
-                            .child(self.studio_icon_action(
-                                "delete",
-                                "Delete selected layers",
-                                "trash-2",
-                                cx,
-                            )),
-                    )
-                    .child(
-                        section("COMPOSITING", cx)
+                        panel_section("Compositing", cx)
                             .child(
                                 self.control("blend", format!("{blend}   ›"), cx)
+                                    .disabled(self.studio_controls_blocked())
                                     .w_full()
                                     .justify_between()
                                     .bg(t.normal_fill())
-                                    .rounded(px(3.)),
+                                    .rounded(px(6.)),
                             )
                             .child(
                                 div()
                                     .flex()
                                     .items_center()
                                     .gap_1()
-                                    .child(note("Opacity", cx))
+                                    .child(panel_note("Opacity", cx))
                                     .child(div().flex_1())
                                     .child(
-                                        button(
+                                        panel_button(
                                             "layer-opacity-less",
                                             "−",
                                             ButtonVariant::Secondary,
                                             cx,
                                         )
                                         .accessibility_label("Decrease layer opacity")
+                                        .disabled(self.studio_controls_blocked())
                                         .size(px(26.))
                                         .p_0()
                                         .on_click(
@@ -987,13 +1127,14 @@ impl EditorView {
                                             .child(format!("{:.0}%", opacity * 100.)),
                                     )
                                     .child(
-                                        button(
+                                        panel_button(
                                             "layer-opacity-more",
                                             "+",
                                             ButtonVariant::Secondary,
                                             cx,
                                         )
                                         .accessibility_label("Increase layer opacity")
+                                        .disabled(self.studio_controls_blocked())
                                         .size(px(26.))
                                         .p_0()
                                         .on_click(
@@ -1008,7 +1149,7 @@ impl EditorView {
                                     ),
                             ),
                     )
-                    .child(section("LAYER", cx).child(self.studio_action_grid(
+                    .child(panel_section("Layer", cx).child(self.studio_action_grid(
                         &[
                             ("rename", "Rename"),
                             ("edit-object", "Edit object"),
@@ -1024,7 +1165,7 @@ impl EditorView {
                         cx,
                     )))
                     .child(
-                        section("MASK", cx)
+                        panel_section("Mask", cx)
                             .child(self.studio_toggle(
                                 "mask-paint",
                                 "Paint on mask",
@@ -1045,7 +1186,7 @@ impl EditorView {
                             )),
                     )
                     .child(
-                        section("TRANSFORM", cx)
+                        panel_section("Transform", cx)
                             .child(self.studio_action_grid(
                                 &[
                                     ("transform", "Transform"),
@@ -1061,8 +1202,48 @@ impl EditorView {
             }
             InspectorTab::Develop => {
                 body = body
+                    .child(panel_header(
+                        "Develop",
+                        "Light, colour and detail",
+                        "sliders-horizontal",
+                        cx,
+                    ))
                     .child(
-                        section("EDITABLE WORKFLOWS", cx).child(self.studio_action_grid(
+                        panel_section("Develop", cx)
+                            .child(self.studio_action_grid(
+                                &[("camera-raw", "Camera Raw"), ("filter", "Pixel filters")],
+                                cx,
+                            ))
+                            .child(panel_note(
+                                "Open a focused workspace or apply a pixel filter.",
+                                cx,
+                            )),
+                    )
+                    .child(
+                        panel_section("Editable adjustments", cx)
+                            .child(self.studio_action_grid(
+                                &[
+                                    ("live-adjustment", "Add adjustment"),
+                                    ("edit-adjustment", "Edit adjustment"),
+                                ],
+                                cx,
+                            ))
+                            .child(panel_note(
+                                "Adjustment layers stay editable in your project.",
+                                cx,
+                            )),
+                    )
+                    .child(
+                        panel_section("Layer effects", cx).child(self.studio_action_grid(
+                            &[
+                                ("effects", "Live effects"),
+                                ("clear-effects", "Clear effects"),
+                            ],
+                            cx,
+                        )),
+                    )
+                    .child(
+                        panel_section("Editable workflows", cx).child(self.studio_action_grid(
                             &[
                                 ("filter-stack", "Filter stack"),
                                 ("blend-if", "Blend If"),
@@ -1077,7 +1258,7 @@ impl EditorView {
                         )),
                     )
                     .child(
-                        section("PATHS & AUTOMATION", cx).child(self.studio_action_grid(
+                        panel_section("Paths & automation", cx).child(self.studio_action_grid(
                             &[
                                 ("vector-path", "Vector paths"),
                                 ("vector-mask", "Vector mask"),
@@ -1088,33 +1269,7 @@ impl EditorView {
                         )),
                     )
                     .child(
-                        section("DEVELOP", cx)
-                            .child(note("Shape light, colour and detail.", cx))
-                            .child(self.studio_action_grid(
-                                &[("camera-raw", "Camera Raw"), ("filter", "Pixel filters")],
-                                cx,
-                            )),
-                    )
-                    .child(
-                        section("EDITABLE ADJUSTMENTS", cx)
-                            .child(self.studio_action_grid(
-                                &[
-                                    ("live-adjustment", "Add adjustment"),
-                                    ("edit-adjustment", "Edit adjustment"),
-                                ],
-                                cx,
-                            ))
-                            .child(note("Adjustment layers stay editable in your project.", cx)),
-                    )
-                    .child(section("LAYER EFFECTS", cx).child(self.studio_action_grid(
-                        &[
-                            ("effects", "Live effects"),
-                            ("clear-effects", "Clear effects"),
-                        ],
-                        cx,
-                    )))
-                    .child(
-                        section("QUICK PIXEL ADJUSTMENTS", cx)
+                        panel_section("Quick pixel adjustments", cx)
                             .child(self.studio_action_grid(
                                 &[
                                     ("brighter", "Lighten"),
@@ -1128,13 +1283,41 @@ impl EditorView {
                                 ],
                                 cx,
                             ))
-                            .child(note("These change the selected layer's pixels.", cx)),
+                            .child(panel_note("These change the selected layer's pixels.", cx)),
                     );
             }
             InspectorTab::Selection => {
                 body = body
+                    .child(panel_header(
+                        "Select",
+                        "Isolate and refine content",
+                        "scan",
+                        cx,
+                    ))
+                    .child(panel_section("Subject & background", cx).child(
+                        self.studio_action_grid(
+                            &[
+                                ("select-subject", "Select subject"),
+                                ("remove-background", "Remove background"),
+                            ],
+                            cx,
+                        ),
+                    ))
                     .child(
-                        section("REFINE & REPAIR", cx).child(self.studio_action_grid(
+                        panel_section("Selection", cx).child(self.studio_action_grid(
+                            &[
+                                ("select-all", "Select all"),
+                                ("deselect", "Deselect"),
+                                ("invert-selection", "Invert selection"),
+                                ("feather-selection", "Feather"),
+                                ("grow-selection", "Expand"),
+                                ("shrink-selection", "Contract"),
+                            ],
+                            cx,
+                        )),
+                    )
+                    .child(
+                        panel_section("Refine & repair", cx).child(self.studio_action_grid(
                             &[
                                 ("refine-workspace", "Refinement workspace"),
                                 ("controlled-removal", "Controlled removal"),
@@ -1143,7 +1326,7 @@ impl EditorView {
                         )),
                     )
                     .child(
-                        section("COLOUR & TONE", cx)
+                        panel_section("Colour & tone", cx)
                             .child(self.studio_action_grid(
                                 &[
                                     ("luminosity-range", "Luminosity range"),
@@ -1151,40 +1334,20 @@ impl EditorView {
                                 ],
                                 cx,
                             ))
-                            .child(note("Build soft selections and layer masks.", cx)),
+                            .child(panel_note("Build soft selections and layer masks.", cx)),
                     )
-                    .child(
-                        section("SUBJECT & BACKGROUND", cx).child(self.studio_action_grid(
-                            &[
-                                ("select-subject", "Select subject"),
-                                ("remove-background", "Remove background"),
-                            ],
-                            cx,
-                        )),
-                    )
-                    .child(section("SELECTION", cx).child(self.studio_action_grid(
-                        &[
-                            ("select-all", "Select all"),
-                            ("deselect", "Deselect"),
-                            ("invert-selection", "Invert selection"),
-                            ("feather-selection", "Feather"),
-                            ("grow-selection", "Expand"),
-                            ("shrink-selection", "Contract"),
-                        ],
-                        cx,
-                    )))
-                    .child(
-                        section("EDIT SELECTED PIXELS", cx).child(self.studio_action_grid(
+                    .child(panel_section("Edit selected pixels", cx).child(
+                        self.studio_action_grid(
                             &[
                                 ("content-fill", "Content-aware fill"),
                                 ("crop", "Crop canvas…"),
                                 ("transform-selection", "Transform selection"),
                             ],
                             cx,
-                        )),
-                    )
+                        ),
+                    ))
                     .child(
-                        section("FLOATING SELECTION", cx)
+                        panel_section("Floating selection", cx)
                             .child(self.studio_action_grid(
                                 &[
                                     ("commit-selection", "Commit"),
@@ -1192,18 +1355,24 @@ impl EditorView {
                                 ],
                                 cx,
                             ))
-                            .child(note("Enter commits · Escape cancels", cx)),
+                            .child(panel_note("Enter commits · Escape cancels", cx)),
                     );
             }
             InspectorTab::Canvas => {
                 body = body
+                    .child(panel_header(
+                        "Canvas",
+                        "Document, view and alignment",
+                        "image",
+                        cx,
+                    ))
                     .child(
-                        section("DOCUMENT", cx)
+                        panel_section("Document", cx)
                             .child(div().text_size(px(20.)).text_color(t.bright).child(format!(
                                 "{} × {}",
                                 self.editor.document.width, self.editor.document.height
                             )))
-                            .child(note("Pixels · RGB / 8-bit · sRGB", cx))
+                            .child(panel_note("Pixels · RGB / 8-bit · sRGB", cx))
                             .child(self.studio_action_grid(
                                 &[
                                     ("resize", "Canvas size"),
@@ -1215,7 +1384,7 @@ impl EditorView {
                             )),
                     )
                     .child(
-                        section("VIEW & ALIGNMENT", cx)
+                        panel_section("View & alignment", cx)
                             .child(self.studio_toggle("grid", "Pixel grid", self.show_grid, cx))
                             .child(self.studio_toggle("guides", "Guides", self.show_guides, cx))
                             .child(self.studio_toggle(
@@ -1242,25 +1411,33 @@ impl EditorView {
                                 self.preferences.transform_box,
                                 cx,
                             ))
-                            .child(self.control("add-guide", "Manage guides", cx).w_full()),
+                            .child(
+                                self.control("add-guide", "Manage guides", cx)
+                                    .disabled(self.studio_controls_blocked())
+                                    .w_full(),
+                            ),
                     )
                     .child(
-                        section("COLOURS", cx)
-                            .child(note("Background", cx))
+                        panel_section("Colours", cx)
+                            .child(panel_note("Background", cx))
                             .child(color_picker(
                                 "background-color",
                                 &self.background,
                                 window,
                                 cx,
                             ))
-                            .child(self.control("default-colors", "Reset to black & white", cx)),
+                            .child(
+                                self.control("default-colors", "Reset to black & white", cx)
+                                    .disabled(self.studio_controls_blocked())
+                                    .w_full(),
+                            ),
                     );
             }
         }
         div()
             .id("inspector")
             .debug_selector(|| "inspector".into())
-            .w(px(292.))
+            .w(panel_width(window))
             .flex_shrink_0()
             .h_full()
             .min_h_0()

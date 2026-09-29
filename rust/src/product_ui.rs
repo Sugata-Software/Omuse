@@ -3,6 +3,7 @@
 //! These settings are intentionally small, local, and opt-in. They never
 //! alter a provider request; AI request code snapshots `product_presentation`
 //! and only uses it when composing a returned background candidate.
+use super::inspector_ui::panel_button as button;
 use super::*;
 use omuse::ai_edits::{
     ProductPresentation, ProductReflection, ProductShadow, remove_product_presentation_layers,

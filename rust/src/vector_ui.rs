@@ -1,4 +1,5 @@
 //! Disposable graphical Bézier-path editor. The document changes only on Apply.
+use super::inspector_ui::panel_button as button;
 use super::*;
 use gpui_kit::PathBuilder;
 use omuse::{
