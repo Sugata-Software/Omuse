@@ -76,12 +76,12 @@ awaiting its first explicit request; no separate login or test button is needed.
 To try image generation, choose **Generate image**, write the brief, select
 **Generate image**, review the proposal, then select **Keep result**.
 
-The source correction under qualification also lets you choose **Claude Code**
-as **Assistant** in Connections for **Design & layout**. Keep **ChatGPT via
-Codex** selected for **Images**. For **Enhance photo** and **Caption & alt text**,
-choose Codex as Assistant too, because those tasks currently include the canvas
-image. This Claude path is not part of the published 0.3.0 build and does not
-yet have a completed in-app qualification receipt.
+The locally qualified corrective build also lets you choose **Claude Code** as
+**Assistant** in Connections for **Design & layout**. Keep **ChatGPT via Codex**
+selected for **Images**. For **Enhance photo** and **Caption & alt text**, choose
+Codex as Assistant too, because those tasks currently include the canvas image.
+One bounded Claude Design journey passed Review, Keep, Undo and Redo, but this
+path is not part of the published 0.3.0 build or installer pin.
 
 **Unverified** means Omuse could not prove the discovered runtime's identity.
 **Sign in needed** means its identity passed but its provider account is not
@@ -91,7 +91,9 @@ mise-managed Codex or Claude shims can appear as **Unverified** even when the
 provider is signed in. A detection fix is in development and is not released.
 The corrected development discovery now recognizes an existing Claude Code
 subscription login without copying a password or API key. Omuse does not fall
-back to a separately billed Claude API.
+back to a separately billed Claude API. See the
+[bounded Claude qualification](../ai-claude-qualification.md) for the exact
+local candidate and remaining limits.
 
 Read the request-context card before submitting: image edits share a canvas
 image and edit mask. **Local-only** stops new remote requests for the collection.

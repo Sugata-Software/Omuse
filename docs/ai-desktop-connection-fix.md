@@ -1,7 +1,8 @@
 # Omarchy desktop AI connection fix
 
-30 September 2026. Source correction under development; not included in the
-published 0.3.0 executable or source installer pin.
+30 September 2026. The source correction passed a bounded local installed
+qualification. It is not included in the published 0.3.0 executable or source
+installer pin.
 
 ## Cause and correction
 
@@ -38,6 +39,10 @@ deadline cover the additional call.
   ordinary desktop launches. Reinstalling the unchanged 0.3.0 launcher can
   replace that workaround; the source correction is required in a future
   application update. The installed application payload was not changed.
+- The later local corrective generation `install-hytfk9hx` resolves the
+  mise-managed runtimes from the normal launcher without that PATH workaround.
+  It passed the bounded [Claude qualification](ai-claude-qualification.md).
+  This local generation still reports 0.3.0 but is not the published release.
 
 The user's artwork, prompt, account details and raw desktop captures are not
 published. No credentials were copied and no separate API was enabled.
@@ -60,12 +65,17 @@ MCP tool calls remain rejected. Omuse ignores the intermediate tool input,
 requires the final validated structured result and no longer promotes prose
 that merely parses as JSON. Six focused regressions were added, bringing the
 Claude module to 14 tests. All 14 passed as part of a 387-test library run with
-zero failures. A repaired in-app request is not recorded as complete in this
-note yet.
+zero failures. The rebuilt qualification client then completed one synthetic
+structured Claude request.
 
-This evidence does not qualify Claude in the published 0.3.0 application.
-After the corrected adapter is tested, Claude is intended for the Connections
-**Assistant** route and **Design & layout**. Codex remains the qualified
-**Images** route and the assistant required for canvas-based photo assessment
-and caption drafting. No password or API key was copied, and no separately
-billed API fallback was enabled.
+The exact installed local candidate also completed one synthetic **Design &
+layout** journey through the Connections **Assistant** route: five editable
+operations, Review, Keep, toolbar Undo and toolbar Redo passed. Codex remained
+the **Images** route and the assistant required for canvas-based photo
+assessment and caption drafting. No password or API key was copied, and no
+separately billed API fallback was enabled.
+
+This is bounded local evidence, not qualification of the published 0.3.0
+application. The public installer remains pinned to `ea187a9`; see the
+[qualification record](ai-claude-qualification.md) for exact identities,
+untested behaviors and the unresolved review-thumbnail aspect check.

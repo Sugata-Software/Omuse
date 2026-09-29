@@ -1,6 +1,35 @@
 # Main Omuse installation — 30 September 2026
 
-The current normal application is **Omuse 0.3.0**, public runtime
+## Local unreleased AI connection candidate
+
+The development host's normal launcher currently selects public candidate
+`31170322e0241380a10c337c3cf18ab11fb41ef0`, tree
+`98351ef8e7c0a43d5c95d098e985ac20e0c7dedd`. This is a local corrective build;
+it still reports Omuse 0.3.0 but is not the published 0.3.0 release.
+
+- Production executable SHA-256:
+  `598ebb81d475406fedbb3e8ba3a362c5c7ccce16ec4ac8cd96267c2d59061de8`.
+- Release build completed with two locked build jobs.
+- Active generation: `install-hytfk9hx`, clean source receipt, 19 payload files.
+- Previous complete generation: `install-o_h4lt_d`, public runtime `ea187a9`,
+  retained with all 19 payload files.
+- All 387 library tests passed, including 14 Claude and seven discovery cases.
+- Production native Wayland passed all 24 checks at 800×600 with reduced motion.
+- The normal launcher no longer needs the temporary provider PATH workaround.
+- Exact installed XWayland Cua input passed one Claude Design journey with
+  Review, Keep, toolbar Undo and Redo. See the
+  [bounded Claude qualification](ai-claude-qualification.md).
+
+The public release and curl installer remain pinned to `ea187a9`. Draft pull
+request [#1](https://github.com/Sugata-Software/Omuse/pull/1) is not merged;
+in Rust CI run `36612969908`, the installer/reference job and all-target Rust
+check passed while the release validation suite remained in progress. Full CI
+therefore remains pending. This local installation is not a release promotion,
+clean-host receipt or portable-binary qualification.
+
+## Public 0.3.0 release baseline
+
+The unchanged published application is **Omuse 0.3.0**, public runtime
 `ea187a900c06ecc68c8ea70635f2abb09cf933b2`. Its complete
 [GitHub validation](https://github.com/Sugata-Software/Omuse/actions/runs/36594138936)
 passed. The [editing qualification](editing-workflows-qualification.md) records
@@ -8,7 +37,7 @@ passed. The [editing qualification](editing-workflows-qualification.md) records
 variants, native/Cua checks and exact source-pixel clipboard exchange.
 
 - Production executable SHA-256: `c61f4ff4544d73343ad3c68184b152131abd8517741055c27ef611a714d5fa03`.
-- Active generation: `install-o_h4lt_d`, clean public-source receipt.
+- Public baseline generation: `install-o_h4lt_d`, clean public-source receipt.
 - Previous complete generation: `install-ac5gtmjb`, Omuse 0.2.1 (`189f3e7`).
 - All 19 payload hashes matched through rollback to 0.2.1 and the reverse switch.
 - Production Wayland, production XWayland and the installed normal Wayland
@@ -19,12 +48,13 @@ variants, native/Cua checks and exact source-pixel clipboard exchange.
   launched and drove the exact production binary in isolated XWayland fixtures.
   Native Wayland PNG publication passed a separate exact-window input check.
 
-The normal command and desktop entry resolve this build, and the curl installer
-pins the same source. Reopen existing Omuse windows to use it; installation does
-not terminate a window with user work. Documents, settings and provider profiles
-were preserved. Development-host qualification does not establish clean-target
-or portable binaries. The [compact receipt](editing-workflows-receipts.json)
-records production identity and both complete payload generations.
+The curl installer continues to pin this source. The public generation remains
+available as the complete rollback target while the normal development-host
+launcher selects the local corrective candidate above. Installation did not
+terminate windows containing user work; documents, settings and provider
+profiles were preserved. Development-host qualification does not establish
+clean-target or portable binaries. The [compact receipt](editing-workflows-receipts.json)
+records the public production identity and its two historical payload generations.
 
 ## AI image-editing installation (historical 0.2.1 baseline)
 

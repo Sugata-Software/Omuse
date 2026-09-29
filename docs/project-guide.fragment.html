@@ -200,7 +200,7 @@
   "snapshotDate": "2026-09-30",
   "project": "Omuse",
   "releaseScope": "Native Rust/GPUI application for Arch/Omarchy Linux x86_64",
-  "releaseState": "Omuse 0.3.0 source pre-release; downloadable binary qualification remains open",
+  "releaseState": "Published Omuse 0.3.0 remains unchanged; a local unreleased Claude assistant candidate has bounded evidence, while full CI and release qualification remain open",
   "visualizationMirror": "omuse-project-guide.html",
   "statusDefinitions": [
     {
@@ -230,6 +230,12 @@
     }
   ],
   "releaseSnapshot": [
+    {
+      "label": "Local unreleased AI candidate",
+      "value": "Bounded Claude assistant proof",
+      "detail": "Public candidate 3117032 passed 387 library tests, 24 native Wayland checks and one installed Claude Design journey with five editable operations, Review, Keep, Undo and Redo. Published 0.3.0 and its installer pin remain unchanged; full CI and release qualification remain open.",
+      "status": "experimental"
+    },
     {
       "label": "Numbered source release",
       "value": "Omuse 0.3.0",
@@ -798,7 +804,7 @@
       "id": "ai",
       "name": "AI",
       "icon": "sparkles",
-      "summary": "Task-based creation with review, editable photo results, captions and refinement; bounded live Codex journeys are recorded separately from unqualified provider operations.",
+      "summary": "Task-based creation with review, editable photo results, captions and refinement; bounded live Codex journeys and one local Claude Design proof are recorded separately from unqualified provider operations.",
       "items": [
         {
           "id": "ai-framework",
@@ -825,12 +831,13 @@
         {
           "id": "ai-desktop-runtime-discovery",
           "name": "Omarchy desktop subscription discovery",
-          "status": "implemented-needs-qualification",
-          "current": "The 0.3.0 desktop launch can mistake a mise shim for the provider executable and show Unverified despite an existing login. The source correction resolves recognized mise symlinks with bounded manager output, then retains every provider identity/account/isolation check. Seven discovery regressions passed. Live read-only probes on the unchanged desktop PATH reported Codex 0.158.0 and, after its existing subscription login became available, Claude Code 2.1.283 as Ready / SubscriptionAllowance.",
-          "boundary": "The correction is not in the published 0.3.0 payload or installer pin. A host-specific launcher workaround passed one live Codex image request, review and Keep in the installed app; it can be replaced by reinstalling the old launcher. Discovery submitted no model request. Full corrected-app release qualification remains open.",
+          "status": "locally-tested",
+          "current": "The published 0.3.0 desktop launch can mistake a mise shim for the provider executable and show Unverified despite an existing login. Local public candidate 3117032 safely resolves recognized mise symlinks while retaining provider identity, account and isolation checks. Seven discovery regressions passed, Codex and Claude Code 2.1.283 reported Ready / SubscriptionAllowance, and the normal launcher no longer needs the temporary PATH workaround.",
+          "boundary": "This is bounded evidence for a local unreleased candidate. The correction is absent from the published 0.3.0 payload and installer pin; arbitrary wrappers remain rejected, and full corrected-app release qualification remains open.",
           "evidence": [
             "docs/ai-desktop-connection-fix.md",
-            "docs/ai-experience.md"
+            "docs/ai-experience.md",
+            "docs/ai-claude-qualification.md"
           ],
           "modules": [
             "rust/src/ai/discovery.rs"
@@ -876,12 +883,13 @@
           "id": "ai-design-assistant",
           "name": "Native design assistant",
           "status": "implemented-needs-qualification",
-          "current": "Design with me and Improve layout can propose bounded native plans that select pages, place packaged resources and instantiate components with overrides. A bounded workshop request on 1d5ccaa created a 1080x1080 cream design with native orange text and teal rounded shape; Cua verified review, Keep and one-step Undo.",
-          "boundary": "Live design evidence covers the earlier named Codex carousel and the 1d5ccaa single-page resize/text/shape journey. New photo/caption receipts do not extend those design claims. Arbitrary provider plans, design quality and other providers remain unqualified.",
+          "current": "Design with me and Improve layout can propose bounded native plans that select pages, place packaged resources and instantiate components with overrides. In local public candidate 3117032, one installed Claude welcome-card request returned five editable operations; Cua verified Review, Keep, toolbar Undo and Redo.",
+          "boundary": "Live design evidence covers the earlier named Codex journeys and one synthetic Claude Design request. The Claude demonstration was not saved or reopened; cancellation, refinement, follow-up, broader plans and design quality remain unqualified.",
           "evidence": [
             "docs/omuse-create-and-ai-plan.md",
             "docs/omuse-create-qualification.md",
-            "docs/cua-ai-qualification.md"
+            "docs/cua-ai-qualification.md",
+            "docs/ai-claude-qualification.md"
           ],
           "modules": [
             "rust/src/ai_native.rs",
@@ -940,10 +948,11 @@
         {
           "id": "ai-claude-grok",
           "name": "Claude subscription route",
-          "status": "implemented-needs-qualification",
-          "current": "Claude Code 2.1.283 with an existing subscription login now passes corrected discovery as Ready / SubscriptionAllowance. The first Omuse synthetic assistant request reached Submitted, then exposed a parser conflict with Claude Code's internal StructuredOutput delivery. A bounded direct CLI capture under the same flags returned validated structured output while exposing only StructuredOutput, no MCP servers and no permission denials. The source parser correction adds six focused regressions; all 14 Claude cases passed within a 387-test library run with zero failures.",
-          "boundary": "The earlier signed-out qualification receipt remains historical. A corrected in-app request and release qualification are not yet recorded as complete, and neither correction is in public 0.3.0. Claude is limited to the Assistant route for Design & layout; Codex remains required for Images and canvas-based Photo/Caption. No credential was copied and direct API fallback remains disabled.",
+          "status": "experimental",
+          "current": "Claude Code 2.1.283 with an existing subscription login reports Ready / SubscriptionAllowance in local public candidate 3117032. All 14 Claude cases passed within a 387-test library run, the rebuilt qualifier completed one structured request, and one installed Claude Design journey returned five editable operations with Review, Keep, Undo and Redo.",
+          "boundary": "This is bounded local evidence, not qualification of published 0.3.0. The demonstration was not saved or reopened; cancel, refine and follow-up remain untested. Claude supports Assistant Design & layout only; Codex remains required for Images and canvas-based Photo/Caption. Grok remains unavailable. No credential was copied and direct API fallback remains disabled.",
           "evidence": [
+            "docs/ai-claude-qualification.md",
             "docs/ai-desktop-connection-fix.md",
             "docs/ai-experience.md",
             "docs/omuse-create-qualification.md"
@@ -1109,12 +1118,13 @@
           "id": "linux-native-ui",
           "name": "Native GPUI/Omarchy interface",
           "status": "locally-tested",
-          "current": "The Studio shell, tool dock, Layers, Develop, Selection, Canvas, Create and Assistant inspectors, themes, dialogs and native canvas are implemented in Rust/GPUI. Runtime ea187a9 passed 24 checks each on production Wayland, production XWayland and installed Wayland. Crop/theme captures were inspected at 800×600 logical pixels, including reduced-motion launch.",
-          "boundary": "This is the active native app, distinct from the historical Swift/Qt Linux port and its older parity reports.",
+          "current": "The Studio shell, tool dock, Layers, Develop, Selection, Canvas, Create and Assistant inspectors, themes, dialogs and native canvas are implemented in Rust/GPUI. Published runtime ea187a9 passed 24 checks each on production Wayland, production XWayland and installed Wayland. Local public candidate 3117032 separately passed all 24 production native Wayland checks at 800×600 with reduced motion.",
+          "boundary": "The local candidate check does not promote or release it. This is the active native app, distinct from the historical Swift/Qt Linux port and its older parity reports.",
           "evidence": [
             "docs/rust-studio-design.md",
             "docs/rust-rewrite-status.md",
-            "docs/editing-workflows-qualification.md"
+            "docs/editing-workflows-qualification.md",
+            "docs/ai-claude-qualification.md"
           ],
           "modules": [
             "rust/src/main.rs",
@@ -1163,14 +1173,15 @@
           "id": "linux-wayland-xwayland",
           "name": "Wayland and XWayland journeys",
           "status": "locally-tested",
-          "current": "Final 3dc3e46 production passed 24 native Wayland and 24 XWayland checks, exercising the 800×600 logical viewport. Dark/system and light Ask Omuse captures were inspected. The normal installed launcher passed the same 24 Wayland checks with reduced motion; its capture was inspected.",
-          "boundary": "These journeys dispatch GPUI events in process and do not prove compositor-delivered physical input.",
+          "current": "Historical 3dc3e46 production passed 24 native Wayland and 24 XWayland checks. Local public candidate 3117032 passed all 24 native Wayland checks at 800×600 with reduced motion; exact installed XWayland Cua separately completed one Claude Design journey through Review, Keep, Undo and Redo.",
+          "boundary": "Native checks dispatch GPUI events in process; the separate Cua journey supplies bounded compositor input evidence. Broader XWayland, hardware and accessibility coverage remains open.",
           "evidence": [
             "docs/keyboard-qualification.md",
             "docs/photo-integrity-hardening.md",
             "docs/photo-editing-hardening.md",
             "docs/omuse-create-qualification.md",
-            "docs/ai-experience-qualification.md"
+            "docs/ai-experience-qualification.md",
+            "docs/ai-claude-qualification.md"
           ],
           "modules": [
             "scripts/native-rust-check.py",
@@ -1181,8 +1192,8 @@
           "id": "linux-install",
           "name": "One-command install and rollback",
           "status": "locally-tested",
-          "current": "The source installer pins runtime ea187a9. Normal installed Omuse 0.3.0 resolves its exact production payload in install-o_h4lt_d. All 19 files matched through rollback to the complete 0.2.1 generation and back; installed native checks, version output and desktop-file validation passed. User work/settings/provider profiles remain preserved.",
-          "boundary": "First install compiles source locally. No qualified prebuilt download or clean-machine acceptance is claimed. SIGKILL/power-loss installation recovery has not been qualified.",
+          "current": "The public source installer remains pinned to ea187a9. On the development host, the normal launcher selects local unreleased generation install-hytfk9hx for public candidate 3117032; its 19 payload files are complete. Previous public generation install-o_h4lt_d remains intact with all 19 files for rollback. User work, settings and provider profiles were preserved.",
+          "boundary": "The local generation still reports 0.3.0 but is not the published release or installer pin. First install compiles source locally; no qualified prebuilt download, clean-machine acceptance or power-loss recovery is claimed.",
           "evidence": [
             "docs/main-install-qualification.md",
             "docs/keyboard-qualification.md",
@@ -1193,7 +1204,8 @@
             "docs/cua-ai-qualification.md",
             "docs/ai-experience-qualification.md",
             "docs/ai-image-editing-qualification.md",
-            "docs/editing-workflows-qualification.md"
+            "docs/editing-workflows-qualification.md",
+            "docs/ai-claude-qualification.md"
           ],
           "modules": [
             "install.sh",
@@ -1207,14 +1219,15 @@
           "id": "linux-physical-input",
           "name": "Physical keyboard, pointer and Cua",
           "status": "implemented-needs-qualification",
-          "current": "Cua Driver 0.29.1 foreground XWayland checks exercised task selection, prompt entry, Ctrl+Enter, visible Stop/status, Before/After, Keep/Undo, Copy caption, saved-history reopening/refinement and Ctrl+Q from the prompt. Two synthetic live requests ran on df15fd4 and a third on exact-final 3dc3e46.",
-          "boundary": "843 automated tests and 24 checks each on production Wayland, XWayland and the installed launcher passed. Cua is bounded synthetic input on this host; AT-SPI exposes window metadata only. The native Omarchy plugin compatibility mismatch, alternate layouts and broader physical acceptance remain open.",
+          "current": "Earlier Cua journeys exercised task selection, prompt entry, Ctrl+Enter, visible status, Before/After, Keep/Undo, caption copy, history reopening and refinement. Exact installed local public candidate 3117032 additionally selected Claude Assistant and Codex Images, submitted one welcome-card Design request, and visually passed five editable operations, Review, Keep, toolbar Undo and Redo.",
+          "boundary": "Cua is bounded synthetic input on this host. The Claude demonstration was unsaved and not reopened; cancel, refinement, follow-up, alternate layouts, broader hardware and accessibility acceptance remain open.",
           "evidence": [
             "docs/omuse-create-qualification.md",
             "docs/photo-release-qualification.md",
             "docs/public-release-readiness.md",
             "docs/cua-ai-qualification.md",
-            "docs/ai-experience-qualification.md"
+            "docs/ai-experience-qualification.md",
+            "docs/ai-claude-qualification.md"
           ],
           "modules": [
             "scripts/native-rust-check.py"
@@ -1348,8 +1361,8 @@
           "id": "release-current-suite",
           "name": "Current release regression suite",
           "status": "locally-tested",
-          "current": "Omuse 0.3.0 passed 901 application tests (378 library, 248 UI, 275 integration) in complete exact-source GitHub validation 36594138936. Editing/Create exports, all 80 template variants, motion/media and interrupted collection recovery passed. Normal production self-test, native/Cua checks and installed rollback passed.",
-          "boundary": "Four manual timing benchmarks excluded. Local 901-case binaries used 6491a61, before two final Cut guidance strings. Previous live AI, performance and camera-corpus receipts retain their named identities. Clean-target and broad hardware/accessibility acceptance remain open.",
+          "current": "Published Omuse 0.3.0 passed 901 application tests (378 library, 248 UI, 275 integration) in complete exact-source GitHub validation 36594138936. Local unreleased public candidate 3117032 separately passed all 387 library tests, including 14 Claude and seven discovery cases, plus 24 production native Wayland checks and one bounded installed Claude Design journey.",
+          "boundary": "The 387-test local run is not a replacement for the published 901-case suite or full corrected-candidate CI. Four manual timing benchmarks, clean-target installation and broad hardware/accessibility acceptance remain open.",
           "evidence": [
             "docs/photo-integrity-hardening.md",
             "docs/desktop-history-qualification.md",
@@ -1361,7 +1374,8 @@
             "docs/ai-experience-qualification.md",
             "docs/releases/v0.2.0.md",
             "docs/ai-image-editing-qualification.md",
-            "docs/editing-workflows-qualification.md"
+            "docs/editing-workflows-qualification.md",
+            "docs/ai-claude-qualification.md"
           ],
           "modules": [
             "scripts/test-rust.sh",
@@ -1389,8 +1403,8 @@
           "id": "release-ci-github",
           "name": "Public source and remote CI",
           "status": "locally-tested",
-          "current": "Public runtime ea187a9 exactly matches the qualified source tree and passed full GitHub validation 36594138936. Omuse 0.3.0 notes, receipts and installer pin identify that runtime. The GitHub manual explains crop, zoom, editable copying, safe Cut, local/AI removal, photo editing and content creation.",
-          "boundary": "Installer-channel changes have separate local transaction tests. CI does not establish clean-machine installation or public-binary qualification.",
+          "current": "Public runtime ea187a9 remains the qualified Omuse 0.3.0 source and installer pin after full GitHub validation 36594138936. Draft pull request #1 carries local public candidate 3117032. In Rust CI run 36612969908, the installer/reference job and all-target Rust check passed; the release validation suite was still running at the last check.",
+          "boundary": "Full candidate CI therefore remains pending. The pull request is still draft and the local correction is not published. CI does not establish clean-machine installation or public-binary qualification.",
           "evidence": [
             "docs/main-install-qualification.md",
             "docs/keyboard-qualification.md",
@@ -1400,7 +1414,8 @@
             "docs/cua-ai-qualification.md",
             "docs/ai-experience-qualification.md",
             "docs/ai-image-editing-qualification.md",
-            "docs/editing-workflows-qualification.md"
+            "docs/editing-workflows-qualification.md",
+            "docs/ai-claude-qualification.md"
           ],
           "modules": []
         },
@@ -1408,8 +1423,8 @@
           "id": "release-artifact",
           "name": "Clean install and release identity",
           "status": "blocked-deferred",
-          "current": "Omuse 0.3.0 source install is pinned to tested ea187a9. The installed production executable, native checks and complete 19-file rollback to 0.2.1 passed. Release notes and the compact evidence manifest identify that runtime; downloadable binaries and clean-target installation remain open.",
-          "boundary": "A downloadable binary still requires resolved notices and a reproduced artifact path on a clean supported system.",
+          "current": "Published Omuse 0.3.0 source install remains pinned to tested ea187a9. Local unreleased generation install-hytfk9hx contains 19 files for public candidate 3117032 and retains complete public generation install-o_h4lt_d for rollback. Its exact executable passed bounded native and Claude checks.",
+          "boundary": "The local corrective generation is not a release promotion. A downloadable binary still requires resolved notices, full candidate validation and a reproduced artifact path on a clean supported system.",
           "evidence": [
             "docs/main-install-qualification.md",
             "docs/photo-integrity-hardening.md",
@@ -1419,7 +1434,8 @@
             "docs/rust-bundle.md",
             "docs/ai-experience-qualification.md",
             "docs/ai-image-editing-qualification.md",
-            "docs/editing-workflows-qualification.md"
+            "docs/editing-workflows-qualification.md",
+            "docs/ai-claude-qualification.md"
           ],
           "modules": [
             "scripts/package-rust.sh",

@@ -43,12 +43,12 @@ separate login or test button in Omuse. To make an image, choose **Generate
 image**, write the brief, select **Generate image**, review the proposal, then
 select **Keep result** to add it to the canvas.
 
-In the source correction now being qualified, **Claude Code** can be selected
-as **Assistant** for **Design & layout** requests. Keep **ChatGPT via Codex** as
-the **Images** route. Switch the Assistant route to Codex for **Enhance photo**
-or **Caption & alt text**, because those tasks currently send a canvas image
-and Claude's assistant route does not accept it. This Claude correction is not
-included in the published 0.3.0 build.
+In the locally qualified corrective build, **Claude Code** can be selected as
+**Assistant** for **Design & layout** requests. Keep **ChatGPT via Codex** as the
+**Images** route. Switch the Assistant route to Codex for **Enhance photo** or
+**Caption & alt text**, because those tasks currently send a canvas image and
+Claude's assistant route does not accept it. This Claude correction is not
+included in the published 0.3.0 build or installer pin.
 
 **Unverified** means Omuse found a runtime entry point but could not prove its
 identity. **Sign in needed** means the runtime passed its identity checks but
@@ -134,8 +134,16 @@ parser conflict with Claude Code's internal structured-output delivery. A
 bounded direct CLI capture under the same flags then returned validated
 structured output with only the internal `StructuredOutput` tool, no MCP
 servers and no permission denials. The parser correction and six regressions
-exist in source; all 14 Claude cases passed within a 387-test library run. A
-repaired in-app request and release qualification have not yet been recorded.
-The earlier signed-out receipt remains historical. Grok remains unavailable
-and unqualified. Omuse copied no password or API key, and separately billed API
-fallback remains disabled. Calendars and scheduling remain outside this work.
+exist in source; all 14 Claude cases passed within a 387-test library run. The
+rebuilt qualification client completed one synthetic structured request, and
+the exact installed local candidate completed one welcome-card Design journey
+with five editable operations, Review, Keep, toolbar Undo and Redo.
+
+This is [bounded local Claude evidence](ai-claude-qualification.md), not a
+release qualification. The demonstration was not saved or reopened; cancel,
+refine and follow-up remain untested. Its review thumbnail may have distorted
+the candidate's proportions even though the kept canvas was correct; the cause
+is unproven and remains a visual check. The earlier signed-out receipt remains
+historical. Grok remains unavailable and unqualified. Omuse copied no password
+or API key, and separately billed API fallback remains disabled. Calendars and
+scheduling remain outside this work.
