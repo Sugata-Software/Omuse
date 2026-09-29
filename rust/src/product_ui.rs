@@ -126,6 +126,7 @@ impl EditorView {
         let busy = self.product_actions_busy();
         let mut panel = div()
             .id("product-presentation-controls")
+            .debug_selector(|| "product-presentation-controls".into())
             .flex()
             .flex_col()
             .gap_1()
@@ -173,6 +174,7 @@ impl EditorView {
             let selected = self.product.shadow == preset;
             shadows = shadows.child(
                 button(id, name, ButtonVariant::Secondary, cx)
+                    .debug_selector(move || id.into())
                     .flex_1()
                     .min_w_0()
                     .selected(selected)
@@ -201,6 +203,7 @@ impl EditorView {
             let selected = self.product.reflection == preset;
             reflections = reflections.child(
                 button(id, name, ButtonVariant::Secondary, cx)
+                    .debug_selector(move || id.into())
                     .flex_1()
                     .min_w_0()
                     .selected(selected)
