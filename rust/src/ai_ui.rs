@@ -705,7 +705,15 @@ impl EditorView {
             let plan_changes = proposal
                 .plan_json
                 .as_deref()
-                .map(creative_plan_review)
+                .map(|plan_json| {
+                    creative_plan_review(
+                        plan_json,
+                        Some(PlanReviewDocuments {
+                            source: proposal.source_document.as_ref(),
+                            proposal: proposal.document.as_ref(),
+                        }),
+                    )
+                })
                 .unwrap_or_default();
             if !plan_changes.is_empty() {
                 let mut changes = div()
@@ -3109,14 +3117,23 @@ fn assistant_deterministic_checks(project: &omuse::create_project::Project) -> S
 /// Convert the typed plan into the concrete values a person needs to approve.
 /// The full plan remains persisted, while this bounded rendering keeps a long
 /// caption or text layer from making the native review card unusable.
-fn creative_plan_review(plan_json: &str) -> Vec<String> {
+#[derive(Clone, Copy)]
+struct PlanReviewDocuments<'a> {
+    source: Option<&'a Document>,
+    proposal: Option<&'a Document>,
+}
+
+fn creative_plan_review(
+    plan_json: &str,
+    documents: Option<PlanReviewDocuments<'_>>,
+) -> Vec<String> {
     let Ok(plan) = CreativePlan::parse(plan_json) else {
         return vec!["The saved plan could not be read for review.".into()];
     };
     plan.operations
         .iter()
         .enumerate()
-        .flat_map(|(index, operation)| creative_operation_review(index + 1, operation))
+        .flat_map(|(index, operation)| creative_operation_review(index + 1, operation, documents))
         .collect()
 }
 
@@ -3126,7 +3143,7 @@ fn follow_up_plan_context(plan_json: &str) -> String {
     let detail = if plan_json.len() <= 6000 {
         plan_json.to_owned()
     } else {
-        creative_plan_review(plan_json)
+        creative_plan_review(plan_json, None)
             .join("\n")
             .chars()
             .take(1500)
@@ -3166,7 +3183,70 @@ fn review_text(value: &str) -> String {
     }
 }
 
-fn creative_operation_review(index: usize, operation: &CreativeOperation) -> Vec<String> {
+fn review_layer_reference(layer_id: &str, documents: Option<PlanReviewDocuments<'_>>) -> String {
+    let Some(documents) = documents else {
+        // Provider follow-up context must retain exact IDs. The person-facing
+        // review always supplies document snapshots and uses names instead.
+        return review_text(layer_id);
+    };
+    let document = documents
+        .source
+        .filter(|document| document.find_layer(layer_id).is_some())
+        .or_else(|| {
+            documents
+                .proposal
+                .filter(|document| document.find_layer(layer_id).is_some())
+        });
+    let Some(document) = document else {
+        return "Referenced layer (not found in saved artwork)".into();
+    };
+    let layer = document
+        .find_layer(layer_id)
+        .expect("the selected review document contains this layer");
+
+    fn collect_layers<'a>(layers: &'a [Layer], output: &mut Vec<&'a Layer>) {
+        for layer in layers {
+            output.push(layer);
+            collect_layers(&layer.children, output);
+        }
+    }
+
+    let mut layers = Vec::new();
+    collect_layers(&document.layers, &mut layers);
+    let position = layers
+        .iter()
+        .position(|candidate| candidate.id == layer_id)
+        .unwrap_or_default()
+        + 1;
+    let name = layer.name.trim();
+    if name.is_empty() {
+        return format!("Unnamed layer {position}");
+    }
+    let same_name = layers
+        .iter()
+        .filter(|candidate| candidate.name.trim() == name)
+        .collect::<Vec<_>>();
+    if same_name.len() > 1 {
+        let ordinal = same_name
+            .iter()
+            .position(|candidate| candidate.id == layer_id)
+            .unwrap_or_default()
+            + 1;
+        format!(
+            "{} ({ordinal} of {} with this name)",
+            review_text(name),
+            same_name.len()
+        )
+    } else {
+        review_text(name)
+    }
+}
+
+fn creative_operation_review(
+    index: usize,
+    operation: &CreativeOperation,
+    documents: Option<PlanReviewDocuments<'_>>,
+) -> Vec<String> {
     let prefix = format!("{index}. ");
     match operation {
         CreativeOperation::SelectPage { page_id } => vec![format!(
@@ -3256,12 +3336,12 @@ fn creative_operation_review(index: usize, operation: &CreativeOperation) -> Vec
         )],
         CreativeOperation::SetText { layer_id, content } => vec![format!(
             "{prefix}Set text on layer \"{}\" to: {}",
-            review_text(layer_id),
+            review_layer_reference(layer_id, documents),
             review_text(content)
         )],
         CreativeOperation::StyleText { layer_id, style } => vec![format!(
             "{prefix}Restyle text layer \"{}\": \"{}\" · {} pt {}.",
-            review_text(layer_id),
+            review_layer_reference(layer_id, documents),
             review_text(&style.content),
             style.font_size,
             review_text(&style.font_name)
@@ -3292,7 +3372,7 @@ fn creative_operation_review(index: usize, operation: &CreativeOperation) -> Vec
             }
             vec![format!(
                 "{prefix}Adjust photo layer \"{}\": {}. Original pixels are preserved; adjustments stay editable.",
-                review_text(layer_id),
+                review_layer_reference(layer_id, documents),
                 settings.join(", ")
             )]
         }
@@ -3305,7 +3385,7 @@ fn creative_operation_review(index: usize, operation: &CreativeOperation) -> Vec
             rotation,
         } => vec![format!(
             "{prefix}Place layer \"{}\" at {x:.1}, {y:.1} · {width:.1} × {height:.1} · rotation {rotation:.1}°.",
-            review_text(layer_id)
+            review_layer_reference(layer_id, documents)
         )],
         CreativeOperation::AddText { name, x, y, style } => vec![format!(
             "{prefix}Add editable text \"{}\" at {x:.1}, {y:.1}: {}",
@@ -5166,7 +5246,7 @@ mod tests {
             ],
         };
 
-        let review = creative_plan_review(&serde_json::to_string(&plan).unwrap());
+        let review = creative_plan_review(&serde_json::to_string(&plan).unwrap(), None);
 
         assert!(review.iter().any(|line| line.contains("A clear caption")));
         assert!(
@@ -5178,6 +5258,76 @@ mod tests {
             review
                 .iter()
                 .any(|line| line.contains("rgba(12, 34, 56, 255)"))
+        );
+    }
+    #[test]
+    fn plan_review_resolves_only_typed_layer_references_to_readable_names() {
+        let first_id = "11111111-1111-1111-1111-111111111111";
+        let target_id = "22222222-2222-2222-2222-222222222222";
+        let unnamed_id = "33333333-3333-3333-3333-333333333333";
+        let missing_id = "44444444-4444-4444-4444-444444444444";
+        let mut document = Document::new(40, 30);
+        document.layers[0].id = first_id.into();
+        document.layers[0].name = "Photo".into();
+        let mut target = Layer::paint("Photo", 40, 30);
+        target.id = target_id.into();
+        document.layers.push(target);
+        let mut unnamed = Layer::paint("", 40, 30);
+        unnamed.id = unnamed_id.into();
+        document.layers.push(unnamed);
+
+        let plan = CreativePlan {
+            summary: "Readable review".into(),
+            operations: vec![
+                CreativeOperation::AdjustPhoto {
+                    layer_id: target_id.into(),
+                    exposure_stops: Some(0.5),
+                    brightness_percent: None,
+                    contrast_percent: None,
+                    saturation_percent: None,
+                },
+                CreativeOperation::SetText {
+                    layer_id: unnamed_id.into(),
+                    content: "Updated copy".into(),
+                },
+                CreativeOperation::PlaceLayer {
+                    layer_id: missing_id.into(),
+                    x: 1.0,
+                    y: 2.0,
+                    width: 3.0,
+                    height: 4.0,
+                    rotation: 0.0,
+                },
+                CreativeOperation::SetContent {
+                    caption: format!("Reference code {target_id}"),
+                    alt_text: "A portrait at sunset".into(),
+                },
+            ],
+        };
+        let plan_json = serde_json::to_string(&plan).unwrap();
+        let review = creative_plan_review(
+            &plan_json,
+            Some(PlanReviewDocuments {
+                source: Some(&document),
+                proposal: None,
+            }),
+        );
+
+        assert!(
+            plan_json.contains(target_id),
+            "stored plan retains exact IDs"
+        );
+        assert!(
+            review[0].contains("Photo (2 of 2 with this name)") && !review[0].contains(target_id)
+        );
+        assert!(review[1].contains("Unnamed layer 3"));
+        assert!(
+            review[2].contains("Referenced layer (not found in saved artwork)")
+                && !review[2].contains(missing_id)
+        );
+        assert!(
+            review[3].contains(target_id),
+            "caption text is never rewritten as a layer reference"
         );
     }
     #[gpui_kit::test]
