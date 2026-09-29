@@ -20,8 +20,12 @@ pin.
 
 ## Automated and protocol evidence
 
-- All 387 library tests passed with zero failures, including all 14 Claude
-  cases and seven provider-discovery cases.
+- All 387 local library tests passed with zero failures, including all 14 Claude
+  cases and seven provider-discovery cases. Complete exact-source
+  [GitHub validation](https://github.com/Sugata-Software/Omuse/actions/runs/36612969908)
+  then passed all 910 application tests: 387 library, 248 UI and 275 integration.
+  Four manual timing benchmarks were excluded. Editing/Create/motion journeys,
+  template variants, recovery, installer and dependency checks also passed.
 - The rebuilt qualification client submitted one synthetic assistant request
   through Claude Code 2.1.283 using the existing subscription login and received
   a valid structured response.
@@ -61,7 +65,6 @@ are intentionally absent from this public record.
 - Clean-host installation, broader prompts and artwork, portability, full
   corrected-app qualification and a numbered release remain open.
 - [Draft pull request #1](https://github.com/Sugata-Software/Omuse/pull/1)
-  contains the correction. In Rust CI run `36612969908`, the installer/reference
-  job and all-target Rust check passed; the release validation suite was still
-  running at the last recorded check, so full CI remains pending. The
-  project-guide check was green.
+  contains the correction. Exact runtime `3117032` passed full Rust CI run
+  `36612969908` and its project-guide check. The PR remains draft; no new
+  numbered release or installer-pin change is claimed.

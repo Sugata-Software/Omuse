@@ -22,9 +22,10 @@ it still reports Omuse 0.3.0 but is not the published 0.3.0 release.
 
 The public release and curl installer remain pinned to `ea187a9`. Draft pull
 request [#1](https://github.com/Sugata-Software/Omuse/pull/1) is not merged;
-in Rust CI run `36612969908`, the installer/reference job and all-target Rust
-check passed while the release validation suite remained in progress. Full CI
-therefore remains pending. This local installation is not a release promotion,
+the exact candidate passed complete
+[GitHub validation](https://github.com/Sugata-Software/Omuse/actions/runs/36612969908)
+with 910 passing application tests and the editing, motion, recovery, installer
+and dependency checks. This local installation is not a release promotion,
 clean-host receipt or portable-binary qualification.
 
 ## Public 0.3.0 release baseline

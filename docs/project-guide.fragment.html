@@ -200,7 +200,7 @@
   "snapshotDate": "2026-09-30",
   "project": "Omuse",
   "releaseScope": "Native Rust/GPUI application for Arch/Omarchy Linux x86_64",
-  "releaseState": "Published Omuse 0.3.0 remains unchanged; a local unreleased Claude assistant candidate has bounded evidence, while full CI and release qualification remain open",
+  "releaseState": "Published Omuse 0.3.0 remains unchanged; the local unreleased Claude assistant candidate passed full exact-source CI and bounded native/live checks, while broader release qualification remains open",
   "visualizationMirror": "omuse-project-guide.html",
   "statusDefinitions": [
     {
@@ -233,13 +233,13 @@
     {
       "label": "Local unreleased AI candidate",
       "value": "Bounded Claude assistant proof",
-      "detail": "Public candidate 3117032 passed 387 library tests, 24 native Wayland checks and one installed Claude Design journey with five editable operations, Review, Keep, Undo and Redo. Published 0.3.0 and its installer pin remain unchanged; full CI and release qualification remain open.",
+      "detail": "Public candidate 3117032 passed all 910 application tests and complete GitHub validation 36612969908, 24 native Wayland checks and one installed Claude Design journey with Review, Keep, Undo and Redo. Published 0.3.0 and its installer pin remain unchanged; broader release qualification remains open.",
       "status": "experimental"
     },
     {
       "label": "Numbered source release",
       "value": "Omuse 0.3.0",
-      "detail": "Interactive crop ratios, anchored zoom and editable layer/group Copy/Paste. Linux PNG exchange, nonblocking clipboard writes and safe pixel Cut protect artwork and the clipboard. Tested runtime ea187a9 is installed and pinned by the source installer; broader release gates remain open.",
+      "detail": "Interactive crop ratios, anchored zoom and editable layer/group Copy/Paste. Linux PNG exchange, nonblocking clipboard writes and safe pixel Cut protect artwork and the clipboard. Tested runtime ea187a9 remains the published release and source-installer pin; broader release gates remain open.",
       "status": "locally-tested"
     },
     {
@@ -1361,8 +1361,8 @@
           "id": "release-current-suite",
           "name": "Current release regression suite",
           "status": "locally-tested",
-          "current": "Published Omuse 0.3.0 passed 901 application tests (378 library, 248 UI, 275 integration) in complete exact-source GitHub validation 36594138936. Local unreleased public candidate 3117032 separately passed all 387 library tests, including 14 Claude and seven discovery cases, plus 24 production native Wayland checks and one bounded installed Claude Design journey.",
-          "boundary": "The 387-test local run is not a replacement for the published 901-case suite or full corrected-candidate CI. Four manual timing benchmarks, clean-target installation and broad hardware/accessibility acceptance remain open.",
+          "current": "Published Omuse 0.3.0 passed 901 application tests. Local unreleased public candidate 3117032 passed all 910 application tests (387 library, 248 UI, 275 integration) and complete exact-source GitHub validation 36612969908, including editing/Create/motion journeys, template variants, interrupted-save recovery, installer and dependency checks. It also passed 24 native Wayland checks and one bounded installed Claude Design journey.",
+          "boundary": "Four manual timing benchmarks were excluded. Clean-target installation, broad hardware/accessibility acceptance and the remaining Claude cancellation/refinement/history journeys are not established by this suite.",
           "evidence": [
             "docs/photo-integrity-hardening.md",
             "docs/desktop-history-qualification.md",
@@ -1403,8 +1403,8 @@
           "id": "release-ci-github",
           "name": "Public source and remote CI",
           "status": "locally-tested",
-          "current": "Public runtime ea187a9 remains the qualified Omuse 0.3.0 source and installer pin after full GitHub validation 36594138936. Draft pull request #1 carries local public candidate 3117032. In Rust CI run 36612969908, the installer/reference job and all-target Rust check passed; the release validation suite was still running at the last check.",
-          "boundary": "Full candidate CI therefore remains pending. The pull request is still draft and the local correction is not published. CI does not establish clean-machine installation or public-binary qualification.",
+          "current": "Public runtime ea187a9 remains the qualified Omuse 0.3.0 source and installer pin. Draft pull request #1 carries the local Claude correction. Candidate 3117032 passed the complete GitHub Rust validation run 36612969908 and project-guide check.",
+          "boundary": "The pull request remains draft and the local correction is not a numbered release. CI does not establish clean-machine installation, full Claude workflow qualification or public-binary qualification.",
           "evidence": [
             "docs/main-install-qualification.md",
             "docs/keyboard-qualification.md",
