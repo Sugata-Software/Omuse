@@ -5073,7 +5073,7 @@ impl Editor {
                         .metadata
                         .get(*key)
                         .is_none_or(serde_json::Value::is_null)),
-                "Pixel Cut could discard hidden or styled source pixels; deselect and cut the complete layer/group, or rasterize a duplicate"
+                "Pixel Cut could discard hidden or styled source pixels; use Copy, or deselect and cut the complete layer/group"
             );
             anyhow::ensure!(
                 current.rotation == 0.0
@@ -5084,7 +5084,7 @@ impl Editor {
                     && current.offset_x.fract() == 0.0
                     && current.offset_y.fract() == 0.0
                     && (id == layer.id || (current.offset_x == 0.0 && current.offset_y == 0.0)),
-                "Pixel Cut would resample transformed source pixels; cut the complete layer/group or rasterize a duplicate"
+                "Pixel Cut would resample transformed source pixels; use Copy, or deselect and cut the complete layer/group"
             );
         }
         Ok(())

@@ -58,8 +58,9 @@ With an active pixel selection, **Ctrl+C** copies the selected layer's rendered
 appearance instead, including its opacity and mask. **Ctrl+X** refuses pixel
 cuts that could discard source content hidden by a mask, visibility, opacity or
 other appearance settings, and preserves the existing clipboard. Clear the
-selection and copy/cut the complete editable layer instead, or explicitly
-rasterize a duplicate before cutting pixels. Locked layers cannot be cut.
+selection and copy/cut the complete editable layer instead. To work on a
+rendered pixel copy, use **Copy → Paste** and keep the original layer as a backup.
+Locked layers cannot be cut.
 **Ctrl+Shift+C** always copies the visible composite. Other applications receive
 PNG; editable structure is retained only while this Omuse process owns the
 matching clipboard. Separate Omuse processes, clipboard managers and app
