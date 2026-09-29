@@ -12,8 +12,8 @@
 installer builds a tested source revision and adds the normal **Omuse** app.
 Downloadable binaries are still undergoing [release qualification](docs/public-release-readiness.md).
 
-**Current release: [0.2.1](https://github.com/Sugata-Software/Omuse/releases/tag/v0.2.1)**
-— safer AI image editing and a practical user manual. Read the [release notes](docs/releases/v0.2.1.md)
+**Current release: [0.3.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.3.0)**
+— interactive crop, anchored zoom and editable layer copying. Read the [release notes](docs/releases/v0.3.0.md)
 or browse the [changelog](CHANGELOG.md) for changes and known limitations.
 
 **[Read the user manual](docs/user-guide/README.md)** ·
@@ -94,6 +94,7 @@ and troubleshooting.
 ## Highlights
 
 - Layers, groups, masks, clipping, blend modes, live adjustments and effects.
+- Interactive crop ratios, anchored zoom and editable layer/group Copy/Paste.
 - Brush, Pencil, Eraser, Fill, Gradient, Clone, Heal and selection tools.
 - Editable text and shapes, Bézier paths, vector masks and transform workflows.
 - Layered `.comp` documents and packaged multi-page `.omuse` projects.

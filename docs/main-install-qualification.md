@@ -1,6 +1,34 @@
-# Main Omuse installation — 29 September 2026
+# Main Omuse installation — 30 September 2026
 
-The current normal application is **Omuse 0.2.1**, public runtime `189f3e77e33f1b9fae7a7a5d19cf8a2a3bd930dd`.
+The current normal application is **Omuse 0.3.0**, public runtime
+`ea187a900c06ecc68c8ea70635f2abb09cf933b2`. Its complete
+[GitHub validation](https://github.com/Sugata-Software/Omuse/actions/runs/36594138936)
+passed. The [editing qualification](editing-workflows-qualification.md) records
+901 passing application cases, editing/Create/motion journeys, 80 template
+variants, native/Cua checks and exact source-pixel clipboard exchange.
+
+- Production executable SHA-256: `c61f4ff4544d73343ad3c68184b152131abd8517741055c27ef611a714d5fa03`.
+- Active generation: `install-o_h4lt_d`, clean public-source receipt.
+- Previous complete generation: `install-ac5gtmjb`, Omuse 0.2.1 (`189f3e7`).
+- All 19 payload hashes matched through rollback to 0.2.1 and the reverse switch.
+- Production Wayland, production XWayland and the installed normal Wayland
+  launcher each passed 24 native checks at an 800×600 logical minimum viewport.
+  The installed run used reduced motion. Crop/theme captures were inspected.
+- The wrapper resolves the qualified payload; `omuse --version` prints 0.3.0.
+  The normal desktop entry passed desktop-file validation. Cua separately
+  launched and drove the exact production binary in isolated XWayland fixtures.
+  Native Wayland PNG publication passed a separate exact-window input check.
+
+The normal command and desktop entry resolve this build, and the curl installer
+pins the same source. Reopen existing Omuse windows to use it; installation does
+not terminate a window with user work. Documents, settings and provider profiles
+were preserved. Development-host qualification does not establish clean-target
+or portable binaries. The [compact receipt](editing-workflows-receipts.json)
+records production identity and both complete payload generations.
+
+## AI image-editing installation (historical 0.2.1 baseline)
+
+The application for this promotion was **Omuse 0.2.1**, public runtime `189f3e77e33f1b9fae7a7a5d19cf8a2a3bd930dd`.
 Its complete [GitHub validation](https://github.com/Sugata-Software/Omuse/actions/runs/36558893513)
 passed. The [image-editing qualification](ai-image-editing-qualification.md)
 records the 858-case test scope, production/native checks, separate live-image
@@ -17,11 +45,9 @@ runtime and final Cua checks.
   The normal desktop entry passed desktop-file validation. Cua separately
   launched and drove the exact production binary in isolated XWayland fixtures.
 
-The normal command and desktop entry resolve this build, and the curl installer
-pins the same source. Reopen existing Omuse windows to use it; installation does
-not terminate a window with user work. Documents, settings and provider profiles
-were preserved. Development-host qualification does not establish clean-target
-or portable binaries.
+At that promotion the normal command, desktop entry and curl installer selected
+the same source. Documents, settings and provider profiles were preserved.
+Development-host qualification did not establish clean-target or portable binaries.
 
 ## Ask Omuse installation (historical 0.2.0 baseline)
 

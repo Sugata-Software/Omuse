@@ -36,19 +36,19 @@ from source**; a downloadable binary release remains subject to the
 
 ## Tested source channel
 
-The current numbered source release is [Omuse 0.2.1](releases/v0.2.1.md).
+The current numbered source release is [Omuse 0.3.0](releases/v0.3.0.md).
 Its Git tag identifies the tested runtime; the normal curl command follows the
 current tested channel and may advance to later qualified releases.
 
 The public installer selects commit
-[`189f3e77e33f1b9fae7a7a5d19cf8a2a3bd930dd`](https://github.com/Sugata-Software/Omuse/commit/189f3e77e33f1b9fae7a7a5d19cf8a2a3bd930dd).
+[`ea187a900c06ecc68c8ea70635f2abb09cf933b2`](https://github.com/Sugata-Software/Omuse/commit/ea187a900c06ecc68c8ea70635f2abb09cf933b2).
 It fetches that exact revision and checks the resulting checkout before building.
-The [full Rust/installer workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36558893513) passed for this application source.
-The [image-editing qualification](ai-image-editing-qualification.md) records
-858 application cases across the local validation phases and the final full CI
-pass, production/installed native checks, complete rollback and five bounded
-live subscription image operations. Live receipts retain their preceding runtime
-identity; the final focus-only correction has separate UI/native/Cua checks.
+The [full Rust/installer workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36594138936) passed for this application source.
+The [editing qualification](editing-workflows-qualification.md) records
+901 application cases, editing/Create/motion journeys, all 80 template variants,
+production/installed native checks, foreground crop and clipboard checks, and
+complete 19-file rollback to 0.2.1 and back. No live AI request was sent for this
+release; earlier subscription receipts retain their runtime identities.
 Earlier performance and provider receipts retain their named workload scope.
 Start using the app with the [user manual](user-guide/README.md).
 

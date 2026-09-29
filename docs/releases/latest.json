@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "version": "0.2.1",
-  "tag": "v0.2.1",
-  "title": "Omuse 0.2.1 — Safer AI image editing",
-  "date": "2026-09-29",
+  "version": "0.3.0",
+  "tag": "v0.3.0",
+  "title": "Omuse 0.3.0 — Crop, zoom and editable clipboard",
+  "date": "2026-09-30",
   "prerelease": true,
-  "sourceRevision": "189f3e77e33f1b9fae7a7a5d19cf8a2a3bd930dd",
-  "notes": "docs/releases/v0.2.1.md",
-  "validationRun": 36558893513
+  "sourceRevision": "ea187a900c06ecc68c8ea70635f2abb09cf933b2",
+  "notes": "docs/releases/v0.3.0.md",
+  "validationRun": 36594138936
 }

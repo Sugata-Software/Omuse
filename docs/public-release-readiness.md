@@ -1,9 +1,9 @@
 # Public release readiness
 
-**29 September 2026: Omuse source installation is available; downloadable binaries are not yet qualified.**
+**30 September 2026: Omuse source installation is available; downloadable binaries are not yet qualified.**
 
-The current numbered source release is **0.2.1**. Its
-[release notes](releases/v0.2.1.md) identify the tested runtime, installation,
+The current numbered source release is **0.3.0**. Its
+[release notes](releases/v0.3.0.md) identify the tested runtime, installation,
 changes and limitations; the [release policy](releases/README.md) keeps future
 versions and evidence consistent. It is marked as a GitHub pre-release while
 stable-release gates remain open. This does not add a separate Preview app.
@@ -26,25 +26,31 @@ GitHub App access and source publication are no longer blockers.
 
 ## Current application and installation
 
-The tested application source is `189f3e7`. Its [full GitHub Rust/installer
-workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36558893513) passed.
-The [image-editing qualification](ai-image-editing-qualification.md) records the
-858-case final suite, local phase boundaries, editing/Create exports, all 80
-template variants, final native checks and complete installed rollback.
+The tested application source is `ea187a9`. Its [full GitHub Rust/installer
+workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36594138936) passed.
+The [editing qualification](editing-workflows-qualification.md) records the
+901-case final suite, local phase boundaries, editing/Create/motion journeys,
+all 80 template variants, final native checks and complete installed rollback.
+The exact production executable passed 24 native checks on Wayland, 24 on
+XWayland and 24 through the installed launcher. Cua exercised crop/Undo,
+editable group Copy/Paste, external PNG paste and safe refusal of pixel Cut.
+Both Linux backends published PNG with exact source pixels. No live provider
+request was sent for this release.
 
-Five bounded live Codex requests passed Generate, Replace, Remove, Background
-and Expand on preceding `9100ef4`, including protected pixels, Keep,
-save/reopen and Undo/Redo. Final `189f3e7` changes only local-finishing focus and
-UI test coverage/selectors; its full CI, 241 local UI tests, native checks and
-Cua Apply/Remove Undo passed. Cua also checked local Spot Healing and selected
-Content-aware Fill. These synthetic checks do not qualify arbitrary photographic
-quality, every provider or multi-variation cancellation.
+The preceding [0.2.1 image-editing qualification](ai-image-editing-qualification.md)
+records five bounded live Codex requests: Generate, Replace, Remove, Background
+and Expand on `9100ef4`, including protected pixels, Keep, save/reopen and
+Undo/Redo. Its final `189f3e7` focus correction passed full CI and separate
+UI/native/Cua checks. Cua also checked local Spot Healing and selected
+Content-aware Fill. These historical synthetic checks do not qualify arbitrary
+photographic quality, every provider or multi-variation cancellation.
 
 The normal Omuse command and desktop entry resolve the final executable and
-complete assets. The previous 0.2.0 generation remains available for rollback.
+complete assets. The previous 0.2.1 generation remains available for rollback.
 The [main installation record](main-install-qualification.md) and curl installer
 identify the same runtime. The [user manual](user-guide/README.md) now explains
-common tasks, local/AI object removal, photo editing, content creation and export.
+common tasks, local/AI object removal, interactive cropping, editable copying,
+photo editing, content creation and export.
 Historical records retain the former Preview name solely to identify those
 past test installations.
 
@@ -114,7 +120,7 @@ to Omuse without declaring a prebuilt binary release qualified.
 
 | Gate | Current state | Completion evidence |
 | --- | --- | --- |
-| Clean CI build | Installed runtime `3dc3e46`: the [full Rust/installer run](https://github.com/Sugata-Software/Omuse/actions/runs/36528288193) passed; guide/reference checks are current. Later runtime changes require their own run | Green Rust workflow for the exact candidate commit, retained artifacts and notice inventory |
+| Clean CI build | Installed runtime `ea187a9`: the [full Rust/installer run](https://github.com/Sugata-Software/Omuse/actions/runs/36594138936) passed; guide/reference checks are current. Later runtime changes require their own run | Green Rust workflow for the exact candidate commit, retained artifacts and notice inventory |
 | Dependency legal texts | Two unresolved entries in the locked graph; upstream texts recovered for `seahash` and `simd_helpers` | Resolve `hexf-parse` and `mac` by verifiable upstream terms or tested dependency changes; see the [notice review](rust-license-findings.md) |
 | Reproducible release identity | The hardening pass records tested source hashes, the production executable, native runs, installation and rollback; a clean public build/archive remains pending | One clean release commit/tag, fresh build, source-to-binary-to-archive hash ledger and reproducible packaging instructions |
 | Clean target installation | Passed only on the development host | Install, launch, upgrade and rollback on a clean supported Arch/Omarchy system |
@@ -152,8 +158,10 @@ No account credentials, provider sessions or user artwork belong in this repo.
 
 ## Evidence curation
 
-Publish a small final-evidence manifest tied to the release commit. Keep only
-the exact candidate's final receipts and synthetic fixtures. The local working
+The [0.3.0 evidence manifest](editing-workflows-receipts.json) ties the tested
+source to the production executable, complete payloads, final CI and native
+checks. Keep only the exact candidate's final receipts and synthetic fixtures.
+The local working
 evidence directory contains superseded failures and personal filesystem paths;
 it must not be uploaded wholesale. The detailed qualification record identifies
 the corrected native and template receipts.

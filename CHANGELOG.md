@@ -6,6 +6,13 @@ for numbering, qualification and publication.
 
 ## Unreleased
 
+Planned editor work and remaining release gates are tracked in the
+[project guide](docs/project-guide.md).
+
+## [0.3.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.3.0) — 2026-09-30
+
+**Crop, zoom and editable clipboard · Arch Linux / Omarchy · x86_64 source pre-release**
+
 - Preview a movable crop with Free, Original, square, portrait and landscape
   ratios. Swap orientation, resize corners, nudge with arrows, and Apply or
   Cancel. Original layer pixels remain available and Apply is one undo step.
@@ -25,8 +32,13 @@ for numbering, qualification and publication.
 - Reject delayed paste completions after the document, selection, clipboard or
   editing interaction changes. Update the manual and searchable shortcuts.
 
-Qualification is in progress for 0.3.0; the installed release remains 0.2.1.
-Planned editor work belongs in the [project guide](docs/project-guide.md).
+The exact public runtime passed 901 application cases and the complete GitHub
+workflow, including editing/Create/motion journeys and all 80 template variants.
+Production Wayland, production XWayland and the installed Wayland launcher each
+passed 24 native checks. Foreground editing, exact PNG clipboard exchange and
+complete 19-file rollback to 0.2.1 and back passed. See the
+[qualification record](docs/editing-workflows-qualification.md) and
+[release notes](docs/releases/v0.3.0.md) for identities and limits.
 
 ## [0.2.1](https://github.com/Sugata-Software/Omuse/releases/tag/v0.2.1) — 2026-09-29
 

@@ -1,0 +1,268 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-09-30",
+  "version": "0.3.0",
+  "scope": "Development-host Arch/Omarchy Linux x86_64; synthetic fixtures",
+  "production": {
+    "version": "Omuse 0.3.0",
+    "sha256": "c61f4ff4544d73343ad3c68184b152131abd8517741055c27ef611a714d5fa03",
+    "source": "ea187a900c06ecc68c8ea70635f2abb09cf933b2",
+    "tree": "3513e06720fbc78ded3212380246c991a2e154e2",
+    "build": "normal production; no ui-test feature"
+  },
+  "continuousIntegration": {
+    "id": 36594138936,
+    "head_sha": "ea187a900c06ecc68c8ea70635f2abb09cf933b2",
+    "status": "completed",
+    "conclusion": "success",
+    "html_url": "https://github.com/Sugata-Software/Omuse/actions/runs/36594138936",
+    "updated_at": "2026-09-29T16:13:37Z",
+    "testBatches": 31,
+    "passed": 901,
+    "failed": 0,
+    "ignored": 4
+  },
+  "localTests": {
+    "passed": 901,
+    "failed": 0,
+    "ignored": 4,
+    "library": 378,
+    "ui": 248,
+    "integration": 275,
+    "source": "6491a61d193769f1650f1b227004b60d8077b0b2",
+    "boundary": "The final runtime changes only two Cut guidance strings and manual text. Exact final source passed complete CI. Local script stopped after tests; normal final production self-test passed separately."
+  },
+  "productionEditingSelfTest": "passed",
+  "ciJourneys": {
+    "editing": "passed",
+    "createExport": "passed",
+    "editableTemplateVariants": 80,
+    "motionMedia": "passed",
+    "interruptedCollectionRecovery": "passed"
+  },
+  "native": [
+    {
+      "run": "native-wayland",
+      "status": "passed",
+      "backend": "Wayland",
+      "logicalViewport": [
+        800.0,
+        600.0
+      ],
+      "checks": [
+        "coalesced in-progress stroke preview",
+        "pointer painting",
+        "undo",
+        "redo",
+        "unsaved guard",
+        "save",
+        "reopen pixel equality",
+        "light theme retains artwork",
+        "system theme following",
+        "inline text insert/edit",
+        "live adjustment insert/reopen",
+        "live effects",
+        "live-document save/reopen",
+        "luminosity selection and undo",
+        "colour range mask save/reopen",
+        "16-bit source import retains exact samples",
+        "editable filter preview and Apply",
+        "editable source save/reopen and undo",
+        "16-bit export pixel equality",
+        "background photo open",
+        "photo adjustment crop resize and undo redo",
+        "background photo export pixel equality",
+        "command palette keyboard open search execute",
+        "palette command keyboard undo and focus restoration"
+      ],
+      "panel": "crop",
+      "theme": "system",
+      "captureInspected": true,
+      "hashScope": "production executable",
+      "executableSha256": "c61f4ff4544d73343ad3c68184b152131abd8517741055c27ef611a714d5fa03",
+      "harnessSha256": "3c8f169e7f5fa05ee2945e8420ee4d555d8ed9de3f643e11ee6bd1dcebc5e044",
+      "reducedMotion": false
+    },
+    {
+      "run": "native-xwayland",
+      "status": "passed",
+      "backend": "XWayland",
+      "logicalViewport": [
+        800.0,
+        600.0
+      ],
+      "checks": [
+        "coalesced in-progress stroke preview",
+        "pointer painting",
+        "undo",
+        "redo",
+        "unsaved guard",
+        "save",
+        "reopen pixel equality",
+        "light theme retains artwork",
+        "system theme following",
+        "inline text insert/edit",
+        "live adjustment insert/reopen",
+        "live effects",
+        "live-document save/reopen",
+        "luminosity selection and undo",
+        "colour range mask save/reopen",
+        "16-bit source import retains exact samples",
+        "editable filter preview and Apply",
+        "editable source save/reopen and undo",
+        "16-bit export pixel equality",
+        "background photo open",
+        "photo adjustment crop resize and undo redo",
+        "background photo export pixel equality",
+        "command palette keyboard open search execute",
+        "palette command keyboard undo and focus restoration"
+      ],
+      "panel": "crop",
+      "theme": "light",
+      "captureInspected": true,
+      "hashScope": "production executable",
+      "executableSha256": "c61f4ff4544d73343ad3c68184b152131abd8517741055c27ef611a714d5fa03",
+      "harnessSha256": "3c8f169e7f5fa05ee2945e8420ee4d555d8ed9de3f643e11ee6bd1dcebc5e044",
+      "reducedMotion": false
+    },
+    {
+      "run": "installed-wayland",
+      "status": "passed",
+      "backend": "Wayland",
+      "logicalViewport": [
+        800.0,
+        600.0
+      ],
+      "checks": [
+        "coalesced in-progress stroke preview",
+        "pointer painting",
+        "undo",
+        "redo",
+        "unsaved guard",
+        "save",
+        "reopen pixel equality",
+        "light theme retains artwork",
+        "system theme following",
+        "inline text insert/edit",
+        "live adjustment insert/reopen",
+        "live effects",
+        "live-document save/reopen",
+        "luminosity selection and undo",
+        "colour range mask save/reopen",
+        "16-bit source import retains exact samples",
+        "editable filter preview and Apply",
+        "editable source save/reopen and undo",
+        "16-bit export pixel equality",
+        "background photo open",
+        "photo adjustment crop resize and undo redo",
+        "background photo export pixel equality",
+        "command palette keyboard open search execute",
+        "palette command keyboard undo and focus restoration"
+      ],
+      "panel": "crop",
+      "theme": "system",
+      "captureInspected": true,
+      "hashScope": "launcher script; payload independently verified",
+      "executableSha256": "1f4792f0bdb0945c05532db4924e3b2a016aaf62b9d6423e2f17596cc7cadfab",
+      "harnessSha256": "3c8f169e7f5fa05ee2945e8420ee4d555d8ed9de3f643e11ee6bd1dcebc5e044",
+      "reducedMotion": true
+    }
+  ],
+  "foregroundCua": {
+    "runtime": "ea187a900c06ecc68c8ea70635f2abb09cf933b2",
+    "executableSha256": "c61f4ff4544d73343ad3c68184b152131abd8517741055c27ef611a714d5fa03",
+    "driver": "Cua 0.29.1 foreground XWayland, screenshot verification; AT-SPI window metadata only",
+    "crop": "C, 1:1, Enter produced 64x64; one Ctrl+Z restored 64x80",
+    "editableClipboard": "Ctrl+G -> Ctrl+C -> Ctrl+V retained two groups and children; one Undo restored the original group",
+    "externalPng": "wl-paste obtained exact source RGBA pixels; live wl-copy owner pasted as one ordinary pixel layer",
+    "cut": "90% opacity + select all + Ctrl+X refused with guidance; image visible and exact prior PNG bytes retained",
+    "cleanup": "Only owned synthetic edits discarded; owned window closed and session ended."
+  },
+  "waylandClipboard": {
+    "backend": "Wayland",
+    "input": "Hyprland exact-window Ctrl+C dispatch",
+    "dimensions": [
+      64,
+      80
+    ],
+    "exactPixels": true,
+    "pngSha256": "c92437abe147ea5110f8c5a2f4c1bbb518b55666f095df1ab1f11add0c5089e3",
+    "executableSha256": "c61f4ff4544d73343ad3c68184b152131abd8517741055c27ef611a714d5fa03"
+  },
+  "installation": {
+    "current": {
+      "generation": "install-o_h4lt_d",
+      "files": {
+        "SOURCE-REVISION": "59e0d67256e48498518c09f79412a065fc99d488fd4021dbb56ca2483d4f01f9",
+        "omuse": "c61f4ff4544d73343ad3c68184b152131abd8517741055c27ef611a714d5fa03",
+        ".omuse-generation.json": "d5b3aede87f85fb983a4a408f8d7f17b15038cdbf826706214d2ecb86ad76a51",
+        "models/u2netp.onnx": "309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8",
+        "lib/libraw.so": "50a95112a6e1bbd06b032bcd8fa143bdfb6194aa861a5864ec714559681ea3ec",
+        "lib/libonnxruntime.so": "13ab8084954fa4a47c777880180b90810d6020f021441395712b48a75b74c68b",
+        "licenses/U2NET-APACHE-2.0.txt": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+        "licenses/Outfit-OFL-1.1.txt": "c676351bf8576b9aba743cd5eaa8c0e7ee0d51f805d720447b4df4ddb6a2e416",
+        "licenses/ONNX-ThirdPartyNotices.txt": "e9e90971a8e75a9a8ac0c6412e29c1202d079998389915aa485f46c816c3b4cc",
+        "licenses/ONNX-Runtime-MIT.txt": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c",
+        "licenses/LibRaw-LGPL.txt": "eea173a556abac0370461e57e12aab266894ea6be3874c2be05fd87871f75449",
+        "licenses/LibRaw-COPYRIGHT.txt": "574c88f5dd59414cfc896293a63defbc2d525a418ed413d7ab7dcc43cf79c509",
+        "licenses/LibRaw-CDDL.txt": "0e3098d2d54a12434715f6679ea408d57da5e8d613c385c58ecc6fe5d30cc81f",
+        "licenses/LUCIDE-LICENSE.txt": "b495047bd93a9b06913511076f504daba17d5bbeb3e0650f3bb53a4220329c57",
+        "licenses/GPUI-TABLET-PATCH.txt": "7e0f190ce524b987cfada65622db4d340eb9c560add27dff13f30e1c1d3a4595",
+        "licenses/GPUI-APACHE-2.0.txt": "752daf2fb234ca4a1fa372c073fe127f44b7b90fd2529ae44273a64f9d53da7a",
+        "licenses/Omuse-MIT.txt": "dd4ed477fc9654db5aca736b822c1a61ae75c325b38742905d010d070b2f9a19",
+        "icons/omuse.svg": "abc8af6c0087c66fa8fc36dbb6abf00743746b262d07ffb6bcf105b4d5d66cf5",
+        "icons/omuse.png": "f2c581469b601ed6b4c51f1bb4e2eeb91c23af7c47c7f5203c412290b95100d1"
+      },
+      "receipt": "source_revision=ea187a900c06ecc68c8ea70635f2abb09cf933b2\nsource_tree_dirty=false\ntarget=linux-x86_64\n"
+    },
+    "previous": {
+      "generation": "install-ac5gtmjb",
+      "files": {
+        "SOURCE-REVISION": "5963854173d176facc06a3e2404f1708a31cf46e99d2ee3bd9d4df6b4b51b7bc",
+        "omuse": "fd5a5400c16f3f1462132de950a01cceee7a31675d9802577316c50e69da6012",
+        ".omuse-generation.json": "febe6d5231a4ee495a88a6e6ef03416d9328da17e9ab9da8df3137b6823368a1",
+        "models/u2netp.onnx": "309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8",
+        "lib/libraw.so": "50a95112a6e1bbd06b032bcd8fa143bdfb6194aa861a5864ec714559681ea3ec",
+        "lib/libonnxruntime.so": "13ab8084954fa4a47c777880180b90810d6020f021441395712b48a75b74c68b",
+        "licenses/U2NET-APACHE-2.0.txt": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+        "licenses/Outfit-OFL-1.1.txt": "c676351bf8576b9aba743cd5eaa8c0e7ee0d51f805d720447b4df4ddb6a2e416",
+        "licenses/ONNX-ThirdPartyNotices.txt": "e9e90971a8e75a9a8ac0c6412e29c1202d079998389915aa485f46c816c3b4cc",
+        "licenses/ONNX-Runtime-MIT.txt": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c",
+        "licenses/LibRaw-LGPL.txt": "eea173a556abac0370461e57e12aab266894ea6be3874c2be05fd87871f75449",
+        "licenses/LibRaw-COPYRIGHT.txt": "574c88f5dd59414cfc896293a63defbc2d525a418ed413d7ab7dcc43cf79c509",
+        "licenses/LibRaw-CDDL.txt": "0e3098d2d54a12434715f6679ea408d57da5e8d613c385c58ecc6fe5d30cc81f",
+        "licenses/LUCIDE-LICENSE.txt": "b495047bd93a9b06913511076f504daba17d5bbeb3e0650f3bb53a4220329c57",
+        "licenses/GPUI-TABLET-PATCH.txt": "7e0f190ce524b987cfada65622db4d340eb9c560add27dff13f30e1c1d3a4595",
+        "licenses/GPUI-APACHE-2.0.txt": "752daf2fb234ca4a1fa372c073fe127f44b7b90fd2529ae44273a64f9d53da7a",
+        "licenses/Omuse-MIT.txt": "dd4ed477fc9654db5aca736b822c1a61ae75c325b38742905d010d070b2f9a19",
+        "icons/omuse.svg": "abc8af6c0087c66fa8fc36dbb6abf00743746b262d07ffb6bcf105b4d5d66cf5",
+        "icons/omuse.png": "f2c581469b601ed6b4c51f1bb4e2eeb91c23af7c47c7f5203c412290b95100d1"
+      },
+      "receipt": "source_revision=189f3e77e33f1b9fae7a7a5d19cf8a2a3bd930dd\nsource_tree_dirty=false\ntarget=linux-x86_64\n"
+    },
+    "rollbackBothDirections": true,
+    "verifiedPayloadFiles": 19,
+    "versions": [
+      "Omuse 0.2.1",
+      "Omuse 0.3.0"
+    ],
+    "desktopFileValid": true
+  },
+  "limits": [
+    "No live AI request sent in this editing pass; earlier receipts retain original runtime identities.",
+    "No clean-target, downloadable binary or broad physical display/input qualification.",
+    "Synthetic fixtures do not establish general photographic quality.",
+    "Editable clipboard transport stays in one running process, within 256 MiB and a 16 MP source canvas.",
+    "Wayland clipboard callback work is bounded; an idle consumer can retain its transfer buffer until it closes."
+  ],
+  "publicationChecks": {
+    "installerTestsPassed": 25,
+    "bundleTestsPassed": 11,
+    "releasePublisherTestsPassed": 28,
+    "releaseDeclaration": "passed",
+    "keyboardReference": "current",
+    "projectGuide": "current",
+    "shellSyntax": "passed",
+    "relativeDocumentationPathsChecked": 113
+  }
+}

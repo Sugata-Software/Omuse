@@ -1,6 +1,6 @@
 # Omuse user manual
 
-**Make, retouch and finish images on Linux.** This manual describes the Omuse 0.3.0 editing candidate.
+**Make, retouch and finish images on Linux.** This manual describes Omuse 0.3.0.
 Start with a photo, keep an editable project, and export a copy when it is ready.
 
 [Install Omuse](../install.md) · [Remove objects](remove-objects.md) ·
