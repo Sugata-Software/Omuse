@@ -3345,6 +3345,18 @@ fn creative_plan_review(
 ) -> Vec<String> {
     let Ok(plan) = CreativePlan::parse(plan_json) else {
         if let Ok(flow) = omuse::ai_workflow::WorkflowPlan::parse(plan_json) {
+            let workflow_layer_steps = flow
+                .steps
+                .iter()
+                .enumerate()
+                .flat_map(|(step_index, step)| match step {
+                    omuse::ai_workflow::WorkflowStep::Image { layer_ids, .. } => layer_ids
+                        .iter()
+                        .map(move |layer_id| (layer_id.as_str(), step_index + 1))
+                        .collect::<Vec<_>>(),
+                    _ => Vec::new(),
+                })
+                .collect::<Vec<_>>();
             return flow
                 .steps
                 .iter()
@@ -3359,7 +3371,12 @@ fn creative_plan_review(
                         )];
                         lines.extend(plan.operations.iter().enumerate().flat_map(
                             |(index, operation)| {
-                                creative_operation_review(index + 1, operation, documents)
+                                creative_operation_review(
+                                    index + 1,
+                                    operation,
+                                    documents,
+                                    &workflow_layer_steps,
+                                )
                             },
                         ));
                         lines
@@ -3385,7 +3402,9 @@ fn creative_plan_review(
     plan.operations
         .iter()
         .enumerate()
-        .flat_map(|(index, operation)| creative_operation_review(index + 1, operation, documents))
+        .flat_map(|(index, operation)| {
+            creative_operation_review(index + 1, operation, documents, &[])
+        })
         .collect()
 }
 
@@ -3447,7 +3466,11 @@ fn review_text(value: &str) -> String {
     }
 }
 
-fn review_layer_reference(layer_id: &str, documents: Option<PlanReviewDocuments<'_>>) -> String {
+fn review_layer_reference(
+    layer_id: &str,
+    documents: Option<PlanReviewDocuments<'_>>,
+    workflow_layer_steps: &[(&str, usize)],
+) -> String {
     let Some(documents) = documents else {
         // Provider follow-up context must retain exact IDs. The person-facing
         // review always supplies document snapshots and uses names instead.
@@ -3462,7 +3485,12 @@ fn review_layer_reference(layer_id: &str, documents: Option<PlanReviewDocuments<
                 .filter(|document| document.find_layer(layer_id).is_some())
         });
     let Some(document) = document else {
-        return "Referenced layer (not found in saved artwork)".into();
+        return workflow_layer_steps
+            .iter()
+            .find_map(|(recorded_id, step)| {
+                (*recorded_id == layer_id).then(|| format!("Image layer from step {step}"))
+            })
+            .unwrap_or_else(|| "Referenced layer (not found in saved artwork)".into());
     };
     let layer = document
         .find_layer(layer_id)
@@ -3510,6 +3538,7 @@ fn creative_operation_review(
     index: usize,
     operation: &CreativeOperation,
     documents: Option<PlanReviewDocuments<'_>>,
+    workflow_layer_steps: &[(&str, usize)],
 ) -> Vec<String> {
     let prefix = format!("{index}. ");
     match operation {
@@ -3600,12 +3629,12 @@ fn creative_operation_review(
         )],
         CreativeOperation::SetText { layer_id, content } => vec![format!(
             "{prefix}Set text on layer \"{}\" to: {}",
-            review_layer_reference(layer_id, documents),
+            review_layer_reference(layer_id, documents, workflow_layer_steps),
             review_text(content)
         )],
         CreativeOperation::StyleText { layer_id, style } => vec![format!(
             "{prefix}Restyle text layer \"{}\": \"{}\" · {} pt {}.",
-            review_layer_reference(layer_id, documents),
+            review_layer_reference(layer_id, documents, workflow_layer_steps),
             review_text(&style.content),
             style.font_size,
             review_text(&style.font_name)
@@ -3636,7 +3665,7 @@ fn creative_operation_review(
             }
             vec![format!(
                 "{prefix}Adjust photo layer \"{}\": {}. Original pixels are preserved; adjustments stay editable.",
-                review_layer_reference(layer_id, documents),
+                review_layer_reference(layer_id, documents, workflow_layer_steps),
                 settings.join(", ")
             )]
         }
@@ -3649,7 +3678,7 @@ fn creative_operation_review(
             rotation,
         } => vec![format!(
             "{prefix}Place layer \"{}\" at {x:.1}, {y:.1} · {width:.1} × {height:.1} · rotation {rotation:.1}°.",
-            review_layer_reference(layer_id, documents)
+            review_layer_reference(layer_id, documents, workflow_layer_steps)
         )],
         CreativeOperation::AddText { name, x, y, style } => vec![format!(
             "{prefix}Add editable text \"{}\" at {x:.1}, {y:.1}: {}",
@@ -6060,6 +6089,100 @@ mod tests {
             review[3].contains(target_id),
             "caption text is never rewritten as a layer reference"
         );
+    }
+    #[test]
+    fn saved_workflow_review_names_recorded_image_outputs_without_hiding_unknown_ids() {
+        let generated_id = "55555555-5555-4555-8555-555555555555";
+        let unrelated_id = "66666666-6666-4666-8666-666666666666";
+        let layout = CreativePlan {
+            summary: "Arrange the generated image".into(),
+            operations: vec![
+                CreativeOperation::PlaceLayer {
+                    layer_id: generated_id.into(),
+                    x: 2.0,
+                    y: 3.0,
+                    width: 30.0,
+                    height: 20.0,
+                    rotation: 0.0,
+                },
+                CreativeOperation::PlaceLayer {
+                    layer_id: unrelated_id.into(),
+                    x: 4.0,
+                    y: 5.0,
+                    width: 10.0,
+                    height: 8.0,
+                    rotation: 0.0,
+                },
+            ],
+        };
+        let caption = CreativePlan {
+            summary: "Add content details".into(),
+            operations: vec![CreativeOperation::SetContent {
+                caption: format!("Campaign reference {generated_id}"),
+                alt_text: "An editorial campaign image.".into(),
+            }],
+        };
+        let workflow = omuse::ai_workflow::WorkflowPlan {
+            version: 1,
+            source_page_id: None,
+            steps: vec![
+                omuse::ai_workflow::WorkflowStep::Image {
+                    provider: ProviderId::CodexSubscription,
+                    intent: ImageIntent::Generate,
+                    product_presentation: Default::default(),
+                    layer_ids: vec![generated_id.into()],
+                },
+                omuse::ai_workflow::WorkflowStep::Assistant {
+                    task: TaskKind::Design,
+                    provider: ProviderId::ClaudeCode,
+                    plan: layout,
+                    active_layer: String::new(),
+                },
+                omuse::ai_workflow::WorkflowStep::Assistant {
+                    task: TaskKind::Caption,
+                    provider: ProviderId::CodexSubscription,
+                    plan: caption,
+                    active_layer: String::new(),
+                },
+            ],
+        };
+        let plan_json = workflow.serialize().unwrap();
+        let source = Document::new(40, 30);
+
+        let stale_review = creative_plan_review(
+            &plan_json,
+            Some(PlanReviewDocuments {
+                source: Some(&source),
+                proposal: None,
+            }),
+        )
+        .join("\n");
+        assert!(stale_review.contains("Place layer \"Image layer from step 1\""));
+        assert!(stale_review.contains("Referenced layer (not found in saved artwork)"));
+        assert!(!stale_review.contains(&format!("Place layer \"{unrelated_id}\"")));
+        assert!(
+            stale_review.contains(&format!("Caption: Campaign reference {generated_id}")),
+            "caption contents that happen to contain an ID must remain verbatim"
+        );
+
+        let mut restored = source.clone();
+        let mut generated = Layer::paint("Campaign hero", 40, 30);
+        generated.id = generated_id.into();
+        restored.layers.push(generated);
+        let named_review = creative_plan_review(
+            &plan_json,
+            Some(PlanReviewDocuments {
+                source: Some(&source),
+                proposal: Some(&restored),
+            }),
+        )
+        .join("\n");
+        assert!(named_review.contains("Place layer \"Campaign hero\""));
+        assert!(!named_review.contains("Image layer from step 1"));
+
+        let provider_context = creative_plan_review(&plan_json, None).join("\n");
+        assert!(provider_context.contains(generated_id));
+        assert!(provider_context.contains(unrelated_id));
     }
     #[gpui_kit::test]
     fn selection_named_image_actions_stop_before_connection_or_submission(cx: &mut TestAppContext) {
