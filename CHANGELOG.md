@@ -11,6 +11,13 @@ for numbering, qualification and publication.
   Unverified after launching Omuse from the desktop. Wrapper, account and
   isolation checks remain enforced. Clarify first-use connection labels in the
   manual; see the [connection fix record](docs/ai-desktop-connection-fix.md).
+- Recognize Claude Code's internal schema-delivery `StructuredOutput` call only
+  for a requested structured assistant result. Continue rejecting every other
+  tool route, require the final validated result and refuse unvalidated prose
+  JSON. Claude 2.1.283 now passes corrected subscription discovery and a bounded
+  direct protocol capture. All 14 Claude cases passed within the 387-test
+  library run; repaired in-app and release qualification remain open, and these
+  changes are not part of 0.3.0.
 
 Planned editor work and remaining release gates are tracked in the
 [project guide](docs/project-guide.md).

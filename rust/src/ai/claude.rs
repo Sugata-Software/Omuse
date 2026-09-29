@@ -142,7 +142,7 @@ fn run_inner(
                 RunError::AfterSubmit(error)
             }
         })?;
-        reject_tool_use(&message)?;
+        reject_tool_use(&message, request.output_schema.is_some())?;
         match message.get("type").and_then(Value::as_str) {
             Some("assistant") => {
                 if let Some(content) = message
@@ -192,14 +192,8 @@ fn run_inner(
                             .map_err(RunError::AfterSubmit)?;
                     }
                 }
-                let structured_output = parse_structured_output(request, &message, &text)
-                    .map_err(RunError::AfterSubmit)?;
-                if let Some(value) = &structured_output {
-                    request
-                        .limits
-                        .validate_structured_output(value)
-                        .map_err(RunError::AfterSubmit)?;
-                }
+                let structured_output =
+                    parse_structured_output(request, &message).map_err(RunError::AfterSubmit)?;
                 return Ok(JobResult {
                     provider: ProviderId::ClaudeCode,
                     text,
@@ -246,19 +240,27 @@ fn claude_args(request: &JobRequest) -> Result<Vec<OsString>, RunError> {
     Ok(args)
 }
 
-fn reject_tool_use(message: &Value) -> Result<(), RunError> {
-    let uses_tool = message
+fn reject_tool_use(message: &Value, schema_requested: bool) -> Result<(), RunError> {
+    // --json-schema delivers data through the CLI's synthetic StructuredOutput
+    // tool even with --tools "". This is not permission to execute a real tool.
+    // Its intermediate input is deliberately ignored: only the final validated
+    // result is consumed, and schema retries may emit several intermediate calls.
+    let permits_structured_output = schema_requested
+        && message.get("type").and_then(Value::as_str) == Some("assistant")
+        && message.get("parent_tool_use_id").is_none_or(Value::is_null);
+    let disallowed = |block: &Value| match block.get("type").and_then(Value::as_str) {
+        Some("tool_use") => {
+            !permits_structured_output
+                || block.get("name").and_then(Value::as_str) != Some("StructuredOutput")
+        }
+        Some("server_tool_use" | "mcp_tool_use") => true,
+        _ => false,
+    };
+    let uses_disallowed_tool = message
         .pointer("/message/content")
         .and_then(Value::as_array)
-        .is_some_and(|content| {
-            content.iter().any(|block| {
-                matches!(
-                    block.get("type").and_then(Value::as_str),
-                    Some("tool_use" | "server_tool_use" | "mcp_tool_use")
-                )
-            })
-        });
-    if uses_tool {
+        .is_some_and(|content| content.iter().any(disallowed));
+    if uses_disallowed_tool {
         return Err(RunError::AfterSubmit(AiError::Protocol(
             "Claude Code attempted a disallowed tool operation".into(),
         )));
@@ -269,17 +271,17 @@ fn reject_tool_use(message: &Value) -> Result<(), RunError> {
 fn parse_structured_output(
     request: &JobRequest,
     message: &Value,
-    text: &str,
 ) -> Result<Option<Value>, AiError> {
     if request.output_schema.is_none() {
         return Ok(None);
     }
-    if let Some(value) = message.get("structured_output") {
-        return Ok(Some(value.clone()));
-    }
-    serde_json::from_str(text)
-        .map(Some)
-        .map_err(|_| AiError::Protocol("Claude Code returned invalid structured output".into()))
+    // Prose that happens to parse as JSON has not passed the requested schema.
+    // Do not promote it when the CLI omitted its validated result field.
+    let value = message.get("structured_output").ok_or_else(|| {
+        AiError::Protocol("Claude Code omitted its validated structured output".into())
+    })?;
+    request.limits.validate_structured_output(value)?;
+    Ok(Some(value.clone()))
 }
 
 fn append_delta(
@@ -415,7 +417,116 @@ fn failure(error: AiError) -> JobFailure {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ai::types::{JobOperation, ValidatedClient};
     use serde_json::json;
+
+    fn structured_request() -> JobRequest {
+        JobRequest::new(
+            ValidatedClient::fixture(ProviderId::ClaudeCode, "claude-fixture".into()),
+            JobOperation::Assistant,
+            "A welcome card",
+            "unused-private-workspace",
+        )
+        .with_output_schema(json!({
+            "type": "object",
+            "properties": { "summary": { "type": "string" } },
+            "required": ["summary"],
+            "additionalProperties": false
+        }))
+    }
+
+    #[test]
+    fn schema_delivery_tool_is_allowed_only_for_requested_assistant_output() {
+        let mut message = json!({
+            "type": "assistant",
+            "parent_tool_use_id": null,
+            "message": { "content": [{
+                "type": "tool_use", "name": "StructuredOutput",
+                "input": { "summary": "Welcome" }
+            }] }
+        });
+        assert!(reject_tool_use(&message, true).is_ok());
+        assert!(reject_tool_use(&message, false).is_err());
+        message["type"] = json!("user");
+        assert!(reject_tool_use(&message, true).is_err());
+        message["type"] = json!("assistant");
+        message["parent_tool_use_id"] = json!("unexpected-subagent");
+        assert!(reject_tool_use(&message, true).is_err());
+    }
+
+    #[test]
+    fn schema_delivery_does_not_allow_other_tools_or_lookalike_names() {
+        for block in [
+            json!({"type":"tool_use", "name":"Bash"}),
+            json!({"type":"tool_use", "name":"Read"}),
+            json!({"type":"tool_use", "name":"structuredoutput"}),
+            json!({"type":"tool_use", "name":"StructuredOutput "}),
+            json!({"type":"tool_use", "name":"mcp__StructuredOutput"}),
+            json!({"type":"tool_use"}),
+            json!({"type":"server_tool_use", "name":"StructuredOutput"}),
+            json!({"type":"mcp_tool_use", "name":"StructuredOutput"}),
+        ] {
+            for content in [
+                json!([block]),
+                json!([
+                    {"type":"tool_use", "name":"StructuredOutput"},
+                    block
+                ]),
+            ] {
+                let message = json!({"type":"assistant", "message":{"content":content}});
+                assert!(reject_tool_use(&message, true).is_err());
+                assert!(reject_tool_use(&message, false).is_err());
+            }
+        }
+    }
+
+    #[test]
+    fn only_final_validated_output_is_used_and_remains_bounded() {
+        let mut request = structured_request();
+        let output = json!({"summary":"Welcome"});
+        let result = json!({
+            "type":"result", "subtype":"success", "is_error":false,
+            "result":"Some optional narration", "structured_output":output
+        });
+        assert_eq!(
+            parse_structured_output(&request, &result).unwrap(),
+            Some(output)
+        );
+        request.limits.max_result_text_bytes = 4;
+        assert!(parse_structured_output(&request, &result).is_err());
+    }
+
+    #[test]
+    fn successful_prose_json_cannot_replace_missing_validated_output() {
+        let request = structured_request();
+        for message in [
+            json!({"type":"result", "subtype":"success", "result":"{\"summary\":\"Welcome\"}"}),
+            json!({"type":"result", "subtype":"success", "nested":{"structured_output":{"summary":"Welcome"}}}),
+        ] {
+            assert!(parse_structured_output(&request, &message).is_err());
+        }
+    }
+
+    #[test]
+    fn present_null_output_is_distinct_from_an_omitted_field() {
+        let request = structured_request().with_output_schema(json!({"type":"null"}));
+        let result = json!({"type":"result", "subtype":"success", "structured_output":null});
+        assert_eq!(
+            parse_structured_output(&request, &result).unwrap(),
+            Some(Value::Null)
+        );
+    }
+
+    #[test]
+    fn ordinary_text_does_not_require_structured_output() {
+        let mut request = structured_request();
+        request.output_schema = None;
+        let message =
+            json!({"type":"assistant", "message":{"content":[{"type":"text", "text":"Welcome"}]}});
+        assert!(reject_tool_use(&message, false).is_ok());
+        let result = json!({"type":"result", "subtype":"success", "result":"Welcome"});
+        assert_eq!(parse_structured_output(&request, &result).unwrap(), None);
+    }
 
     #[test]
     fn signed_out_json_is_normal_even_when_cli_exits_one() {

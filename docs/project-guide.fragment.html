@@ -826,8 +826,8 @@
           "id": "ai-desktop-runtime-discovery",
           "name": "Omarchy desktop subscription discovery",
           "status": "implemented-needs-qualification",
-          "current": "The 0.3.0 desktop launch can mistake a mise shim for the provider executable and show Unverified despite an existing login. The source correction resolves recognized mise symlinks with bounded manager output, then retains every provider identity/account/isolation check. Seven discovery regressions and a live read-only probe on the unchanged desktop PATH passed.",
-          "boundary": "The correction is not in the published 0.3.0 payload or installer pin. A host-specific launcher workaround passed one live image request, review and Keep in the installed app; it can be replaced by reinstalling the old launcher. Full corrected-app release qualification remains open.",
+          "current": "The 0.3.0 desktop launch can mistake a mise shim for the provider executable and show Unverified despite an existing login. The source correction resolves recognized mise symlinks with bounded manager output, then retains every provider identity/account/isolation check. Seven discovery regressions passed. Live read-only probes on the unchanged desktop PATH reported Codex 0.158.0 and, after its existing subscription login became available, Claude Code 2.1.283 as Ready / SubscriptionAllowance.",
+          "boundary": "The correction is not in the published 0.3.0 payload or installer pin. A host-specific launcher workaround passed one live Codex image request, review and Keep in the installed app; it can be replaced by reinstalling the old launcher. Discovery submitted no model request. Full corrected-app release qualification remains open.",
           "evidence": [
             "docs/ai-desktop-connection-fix.md",
             "docs/ai-experience.md"
@@ -939,16 +939,31 @@
         },
         {
           "id": "ai-claude-grok",
-          "name": "Claude and Grok subscription routes",
+          "name": "Claude subscription route",
+          "status": "implemented-needs-qualification",
+          "current": "Claude Code 2.1.283 with an existing subscription login now passes corrected discovery as Ready / SubscriptionAllowance. The first Omuse synthetic assistant request reached Submitted, then exposed a parser conflict with Claude Code's internal StructuredOutput delivery. A bounded direct CLI capture under the same flags returned validated structured output while exposing only StructuredOutput, no MCP servers and no permission denials. The source parser correction adds six focused regressions; all 14 Claude cases passed within a 387-test library run with zero failures.",
+          "boundary": "The earlier signed-out qualification receipt remains historical. A corrected in-app request and release qualification are not yet recorded as complete, and neither correction is in public 0.3.0. Claude is limited to the Assistant route for Design & layout; Codex remains required for Images and canvas-based Photo/Caption. No credential was copied and direct API fallback remains disabled.",
+          "evidence": [
+            "docs/ai-desktop-connection-fix.md",
+            "docs/ai-experience.md",
+            "docs/omuse-create-qualification.md"
+          ],
+          "modules": [
+            "rust/src/ai/claude.rs",
+            "rust/src/ai/discovery.rs"
+          ]
+        },
+        {
+          "id": "ai-grok",
+          "name": "Grok subscription route",
           "status": "blocked-deferred",
-          "current": "Adapters exist. The recorded qualification found Claude signed out; Grok's official runtime identity, account state and isolated operation remain unverified.",
-          "boundary": "Neither route should be advertised as supported until official sign-in, capability and in-app operation receipts exist.",
+          "current": "A Grok adapter exists in source, but the detected runtime's official identity, account state and isolated operation remain unverified. Grok remains unavailable.",
+          "boundary": "Do not advertise this route as supported until the official runtime, subscription route, isolation profile and an in-app operation have separate evidence. Grok availability is not implied by Claude or Codex progress.",
           "evidence": [
             "docs/omuse-create-qualification.md",
             "docs/omuse-create-release-notes.md"
           ],
           "modules": [
-            "rust/src/ai/claude.rs",
             "rust/src/ai/grok.rs",
             "rust/src/ai/discovery.rs"
           ]
