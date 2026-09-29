@@ -1,6 +1,31 @@
 # Main Omuse installation — 29 September 2026
 
-The current main application is **Omuse 0.2.0**, public runtime
+The current normal application is **Omuse 0.2.1**, public runtime `189f3e77e33f1b9fae7a7a5d19cf8a2a3bd930dd`.
+Its complete [GitHub validation](https://github.com/Sugata-Software/Omuse/actions/runs/36558893513)
+passed. The [image-editing qualification](ai-image-editing-qualification.md)
+records the 858-case test scope, production/native checks, separate live-image
+runtime and final Cua checks.
+
+- Production executable SHA-256: `fd5a5400c16f3f1462132de950a01cceee7a31675d9802577316c50e69da6012`.
+- Active generation: `install-ac5gtmjb`, clean public-source receipt.
+- Previous complete generation: `install-hly2uob3`, Omuse 0.2.0 (`3dc3e46`).
+- All 19 payload hashes matched through rollback to 0.2.0 and the reverse switch.
+- Production Wayland, production XWayland and the installed normal Wayland
+  launcher each passed 24 native checks at an 800×600 logical minimum viewport.
+  The installed run used reduced motion. Captures were inspected.
+- The wrapper resolves the qualified payload; `omuse --version` prints 0.2.1.
+  The normal desktop entry passed desktop-file validation. Cua separately
+  launched and drove the exact production binary in isolated XWayland fixtures.
+
+The normal command and desktop entry resolve this build, and the curl installer
+pins the same source. Reopen existing Omuse windows to use it; installation does
+not terminate a window with user work. Documents, settings and provider profiles
+were preserved. Development-host qualification does not establish clean-target
+or portable binaries.
+
+## Ask Omuse installation (historical 0.2.0 baseline)
+
+The main application for this promotion was **Omuse 0.2.0**, public runtime
 `3dc3e46310e40dcf109b1bc695bb4e9dda6d2d24`. Its complete
 [GitHub validation](https://github.com/Sugata-Software/Omuse/actions/runs/36528288193)
 passed, with 843 application tests and the recorded editing/Create journeys.

@@ -1,0 +1,460 @@
+{
+  "schema": "omuse.ai-image-live-receipts.v1",
+  "date": "2026-09-29",
+  "sourceRevision": "9100ef4858f85cb179c7ba1d233229f6511a4f25",
+  "sourceTree": "bf6434de2a5205c00980bec5f72bbd330a9cc93f",
+  "executableSha256": "ae5e3f1940aef9b62212ec36b437d8022978f2b6cd110ff81067332a23ea20b8",
+  "scope": "Five independent single-request native journeys on a synthetic 64x80 layered document. Captures are canvas renders, not desktop screenshot equality. No separate API billing or reset credit. These live image receipts retain the pre-focus-fix source identity; final release qualification is recorded separately.",
+  "records": [
+    {
+      "intent": "generate",
+      "provider": "codexSubscription",
+      "runtime": "codex-cli 0.158.0",
+      "resultID": "C8F9A004-4EAE-407C-B322-269F7F02CF23",
+      "hashes": {
+        "sourceCanvas": "fnv1a64:c7c7f5701f2f5b7c",
+        "sourceMask": null,
+        "resultAsset": "fnv1a64:d1e813248b766e65"
+      },
+      "dimensions": {
+        "source": [
+          64,
+          80
+        ],
+        "providerAsset": [
+          1122,
+          1402
+        ],
+        "keptCanvas": [
+          64,
+          80
+        ],
+        "reopenedCanvas": [
+          64,
+          80
+        ]
+      },
+      "variation": {
+        "index": 1,
+        "total": 1
+      },
+      "automaticRetries": 0,
+      "renderCaptures": [
+        {
+          "file": "before.png",
+          "contentHash": "fnv1a64:6132e68d7d7eb7fa",
+          "dimensions": [
+            64,
+            80
+          ]
+        },
+        {
+          "file": "candidate.png",
+          "contentHash": "fnv1a64:c7139a7d596a1b76",
+          "dimensions": [
+            64,
+            80
+          ]
+        },
+        {
+          "file": "kept.png",
+          "contentHash": "fnv1a64:c7139a7d596a1b76",
+          "dimensions": [
+            64,
+            80
+          ]
+        },
+        {
+          "file": "undo.png",
+          "contentHash": "fnv1a64:6132e68d7d7eb7fa",
+          "dimensions": [
+            64,
+            80
+          ]
+        },
+        {
+          "file": "redo.png",
+          "contentHash": "fnv1a64:c7139a7d596a1b76",
+          "dimensions": [
+            64,
+            80
+          ]
+        },
+        {
+          "file": "reopened.png",
+          "contentHash": "fnv1a64:c7139a7d596a1b76",
+          "dimensions": [
+            64,
+            80
+          ]
+        }
+      ],
+      "reviewSourceUnchanged": true,
+      "protectedPixelsByteExact": null,
+      "expandedOriginalTranslatedByteExact": null,
+      "nativeOriginalSourcePreserved": true,
+      "brandPreserved": true,
+      "keepSaveReopenUndoRedo": "passed"
+    },
+    {
+      "intent": "replace",
+      "provider": "codexSubscription",
+      "runtime": "codex-cli 0.158.0",
+      "resultID": "E9816B10-8877-4A08-8D98-AFF26D3787AE",
+      "hashes": {
+        "sourceCanvas": "fnv1a64:c7c7f5701f2f5b7c",
+        "sourceMask": "fnv1a64:b688bec613e4a289",
+        "resultAsset": "fnv1a64:ea9caa6becc6760b"
+      },
+      "dimensions": {
+        "source": [
+          64,
+          80
+        ],
+        "providerAsset": [
+          1122,
+          1402
+        ],
+        "keptCanvas": [
+          64,
+          80
+        ],
+        "reopenedCanvas": [
+          64,
+          80
+        ]
+      },
+      "variation": {
+        "index": 1,
+        "total": 1
+      },
+      "automaticRetries": 0,
+      "renderCaptures": [
+        {
+          "file": "before.png",
+          "contentHash": "fnv1a64:6132e68d7d7eb7fa",
+          "dimensions": [
+            64,
+            80
+          ]
+        },
+        {
+          "file": "candidate.png",
+          "contentHash": "fnv1a64:3417b0ec9adcfad9",
+          "dimensions": [
+            64,
+            80
+          ]
+        },
+        {
+          "file": "kept.png",
+          "contentHash": "fnv1a64:3417b0ec9adcfad9",
+          "dimensions": [
+            64,
+            80
+          ]
+        },
+        {
+          "file": "undo.png",
+          "contentHash": "fnv1a64:6132e68d7d7eb7fa",
+          "dimensions": [
+            64,
+            80
+          ]
+        },
+        {
+          "file": "redo.png",
+          "contentHash": "fnv1a64:3417b0ec9adcfad9",
+          "dimensions": [
+            64,
+            80
+          ]
+        },
+        {
+          "file": "reopened.png",
+          "contentHash": "fnv1a64:3417b0ec9adcfad9",
+          "dimensions": [
+            64,
+            80
+          ]
+        }
+      ],
+      "reviewSourceUnchanged": true,
+      "protectedPixelsByteExact": true,
+      "expandedOriginalTranslatedByteExact": null,
+      "nativeOriginalSourcePreserved": true,
+      "brandPreserved": true,
+      "keepSaveReopenUndoRedo": "passed"
+    },
+    {
+      "intent": "remove",
+      "provider": "codexSubscription",
+      "runtime": "codex-cli 0.158.0",
+      "resultID": "BAC696E8-C797-46AB-9588-A52EA1DE2D45",
+      "hashes": {
+        "sourceCanvas": "fnv1a64:c7c7f5701f2f5b7c",
+        "sourceMask": "fnv1a64:b688bec613e4a289",
+        "resultAsset": "fnv1a64:dae04f1fc6ad959b"
+      },
+      "dimensions": {
+        "source": [
+          64,
+          80
+        ],
+        "providerAsset": [
+          1122,
+          1402
+        ],
+        "keptCanvas": [
+          64,
+          80
+        ],
+        "reopenedCanvas": [
+          64,
+          80
+        ]
+      },
+      "variation": {
+        "index": 1,
+        "total": 1
+      },
+      "automaticRetries": 0,
+      "renderCaptures": [
+        {
+          "file": "before.png",
+          "contentHash": "fnv1a64:6132e68d7d7eb7fa",
+          "dimensions": [
+            64,
+            80
+          ]
+        },
+        {
+          "file": "candidate.png",
+          "contentHash": "fnv1a64:e20a50aaadffa665",
+          "dimensions": [
+            64,
+            80
+          ]
+        },
+        {
+          "file": "kept.png",
+          "contentHash": "fnv1a64:e20a50aaadffa665",
+          "dimensions": [
+            64,
+            80
+          ]
+        },
+        {
+          "file": "undo.png",
+          "contentHash": "fnv1a64:6132e68d7d7eb7fa",
+          "dimensions": [
+            64,
+            80
+          ]
+        },
+        {
+          "file": "redo.png",
+          "contentHash": "fnv1a64:e20a50aaadffa665",
+          "dimensions": [
+            64,
+            80
+          ]
+        },
+        {
+          "file": "reopened.png",
+          "contentHash": "fnv1a64:e20a50aaadffa665",
+          "dimensions": [
+            64,
+            80
+          ]
+        }
+      ],
+      "reviewSourceUnchanged": true,
+      "protectedPixelsByteExact": true,
+      "expandedOriginalTranslatedByteExact": null,
+      "nativeOriginalSourcePreserved": true,
+      "brandPreserved": true,
+      "keepSaveReopenUndoRedo": "passed"
+    },
+    {
+      "intent": "background",
+      "provider": "codexSubscription",
+      "runtime": "codex-cli 0.158.0",
+      "resultID": "13F5B1A9-DBC5-4F78-BAEB-BF3898B2B0AD",
+      "hashes": {
+        "sourceCanvas": "fnv1a64:c7c7f5701f2f5b7c",
+        "sourceMask": "fnv1a64:70da039af87042f9",
+        "resultAsset": "fnv1a64:a868da6c54a84057"
+      },
+      "dimensions": {
+        "source": [
+          64,
+          80
+        ],
+        "providerAsset": [
+          1122,
+          1402
+        ],
+        "keptCanvas": [
+          64,
+          80
+        ],
+        "reopenedCanvas": [
+          64,
+          80
+        ]
+      },
+      "variation": {
+        "index": 1,
+        "total": 1
+      },
+      "automaticRetries": 0,
+      "renderCaptures": [
+        {
+          "file": "before.png",
+          "contentHash": "fnv1a64:6132e68d7d7eb7fa",
+          "dimensions": [
+            64,
+            80
+          ]
+        },
+        {
+          "file": "candidate.png",
+          "contentHash": "fnv1a64:f6649887fff7fc3e",
+          "dimensions": [
+            64,
+            80
+          ]
+        },
+        {
+          "file": "kept.png",
+          "contentHash": "fnv1a64:f6649887fff7fc3e",
+          "dimensions": [
+            64,
+            80
+          ]
+        },
+        {
+          "file": "undo.png",
+          "contentHash": "fnv1a64:6132e68d7d7eb7fa",
+          "dimensions": [
+            64,
+            80
+          ]
+        },
+        {
+          "file": "redo.png",
+          "contentHash": "fnv1a64:f6649887fff7fc3e",
+          "dimensions": [
+            64,
+            80
+          ]
+        },
+        {
+          "file": "reopened.png",
+          "contentHash": "fnv1a64:f6649887fff7fc3e",
+          "dimensions": [
+            64,
+            80
+          ]
+        }
+      ],
+      "reviewSourceUnchanged": true,
+      "protectedPixelsByteExact": true,
+      "expandedOriginalTranslatedByteExact": null,
+      "nativeOriginalSourcePreserved": true,
+      "brandPreserved": true,
+      "keepSaveReopenUndoRedo": "passed"
+    },
+    {
+      "intent": "expand",
+      "provider": "codexSubscription",
+      "runtime": "codex-cli 0.158.0",
+      "resultID": "00043694-D9C1-41F9-973D-B850C481269E",
+      "hashes": {
+        "sourceCanvas": "fnv1a64:2db3b14cea5d1fec",
+        "sourceMask": "fnv1a64:f22cae770efe8155",
+        "resultAsset": "fnv1a64:12af143a62fa854b"
+      },
+      "dimensions": {
+        "source": [
+          64,
+          80
+        ],
+        "providerAsset": [
+          1254,
+          1254
+        ],
+        "keptCanvas": [
+          92,
+          92
+        ],
+        "reopenedCanvas": [
+          92,
+          92
+        ]
+      },
+      "variation": {
+        "index": 1,
+        "total": 1
+      },
+      "automaticRetries": 0,
+      "renderCaptures": [
+        {
+          "file": "before.png",
+          "contentHash": "fnv1a64:6132e68d7d7eb7fa",
+          "dimensions": [
+            64,
+            80
+          ]
+        },
+        {
+          "file": "candidate.png",
+          "contentHash": "fnv1a64:f1310baf48b90c7c",
+          "dimensions": [
+            92,
+            92
+          ]
+        },
+        {
+          "file": "kept.png",
+          "contentHash": "fnv1a64:f1310baf48b90c7c",
+          "dimensions": [
+            92,
+            92
+          ]
+        },
+        {
+          "file": "undo.png",
+          "contentHash": "fnv1a64:6132e68d7d7eb7fa",
+          "dimensions": [
+            64,
+            80
+          ]
+        },
+        {
+          "file": "redo.png",
+          "contentHash": "fnv1a64:f1310baf48b90c7c",
+          "dimensions": [
+            92,
+            92
+          ]
+        },
+        {
+          "file": "reopened.png",
+          "contentHash": "fnv1a64:f1310baf48b90c7c",
+          "dimensions": [
+            92,
+            92
+          ]
+        }
+      ],
+      "reviewSourceUnchanged": true,
+      "protectedPixelsByteExact": null,
+      "expandedOriginalTranslatedByteExact": true,
+      "nativeOriginalSourcePreserved": true,
+      "brandPreserved": true,
+      "keepSaveReopenUndoRedo": "passed"
+    }
+  ]
+}

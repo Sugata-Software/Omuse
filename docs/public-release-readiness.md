@@ -2,8 +2,8 @@
 
 **29 September 2026: Omuse source installation is available; downloadable binaries are not yet qualified.**
 
-The current numbered source release is **0.2.0**. Its
-[release notes](releases/v0.2.0.md) identify the tested runtime, installation,
+The current numbered source release is **0.2.1**. Its
+[release notes](releases/v0.2.1.md) identify the tested runtime, installation,
 changes and limitations; the [release policy](releases/README.md) keeps future
 versions and evidence consistent. It is marked as a GitHub pre-release while
 stable-release gates remain open. This does not add a separate Preview app.
@@ -26,26 +26,27 @@ GitHub App access and source publication are no longer blockers.
 
 ## Current application and installation
 
-The tested application source is `3dc3e46`. Its [full GitHub Rust/installer
-workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36528288193) passed.
-The [Ask Omuse qualification](ai-experience-qualification.md) records 843
-application tests, editing/Create exports, all 80 template variants,
-production Wayland/XWayland checks and complete installed rollback. Ask Omuse
-now has task-based creation, editable photo adjustments, caption/alt-text
-results, review/refinement and stronger subscription/history handling.
+The tested application source is `189f3e7`. Its [full GitHub Rust/installer
+workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36558893513) passed.
+The [image-editing qualification](ai-image-editing-qualification.md) records the
+858-case final suite, local phase boundaries, editing/Create exports, all 80
+template variants, final native checks and complete installed rollback.
 
-Three bounded live Codex requests used a synthetic still life. Photo and
-caption checks ran on near-final `df15fd4`; saved-result refinement, correct
-current-layer targeting, readable review, Keep/Undo and focused-prompt Close
-passed on exact final `3dc3e46`. These are scoped receipts, not qualification
-of every provider, image operation or photographic outcome.
+Five bounded live Codex requests passed Generate, Replace, Remove, Background
+and Expand on preceding `9100ef4`, including protected pixels, Keep,
+save/reopen and Undo/Redo. Final `189f3e7` changes only local-finishing focus and
+UI test coverage/selectors; its full CI, 241 local UI tests, native checks and
+Cua Apply/Remove Undo passed. Cua also checked local Spot Healing and selected
+Content-aware Fill. These synthetic checks do not qualify arbitrary photographic
+quality, every provider or multi-variation cancellation.
 
-The laptop's normal **Omuse** command and desktop entry select the exact final
-executable and complete runtime assets. The previous complete `9c99e50`
-installation remains available for rollback. The [main installation record](main-install-qualification.md)
-and curl installer identify the same tested runtime. Historical records below
-retain the former **Omuse Preview** name for isolated installations used during
-testing; it is not a separate public product.
+The normal Omuse command and desktop entry resolve the final executable and
+complete assets. The previous 0.2.0 generation remains available for rollback.
+The [main installation record](main-install-qualification.md) and curl installer
+identify the same runtime. The [user manual](user-guide/README.md) now explains
+common tasks, local/AI object removal, photo editing, content creation and export.
+Historical records retain the former Preview name solely to identify those
+past test installations.
 
 ## What is established
 

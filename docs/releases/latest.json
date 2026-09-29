@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "version": "0.2.0",
-  "tag": "v0.2.0",
-  "title": "Omuse 0.2.0 — Ask Omuse, rebuilt around creative tasks",
+  "version": "0.2.1",
+  "tag": "v0.2.1",
+  "title": "Omuse 0.2.1 — Safer AI image editing",
   "date": "2026-09-29",
   "prerelease": true,
-  "sourceRevision": "3dc3e46310e40dcf109b1bc695bb4e9dda6d2d24",
-  "notes": "docs/releases/v0.2.0.md",
-  "validationRun": 36528288193
+  "sourceRevision": "189f3e77e33f1b9fae7a7a5d19cf8a2a3bd930dd",
+  "notes": "docs/releases/v0.2.1.md",
+  "validationRun": 36558893513
 }

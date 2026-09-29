@@ -5,6 +5,9 @@ brief or select a starting point, then customise it. A starting point never
 sends a request. **Ctrl+Enter** and the primary button submit the same selected
 task; Enter adds a new line.
 
+For a complete removal walkthrough, see [Remove unwanted objects](user-guide/remove-objects.md).
+For first projects, see the [user manual](user-guide/README.md).
+
 ## Tasks
 
 | Task | Result and controls |
@@ -92,8 +95,11 @@ the photo for the new current layer. Readable review labels, Before/After,
 Keep/Undo and Close from the focused prompt passed. The final source differs
 from the first two requests only in readable layer-review labels and a test.
 
-Earlier generation, background and design receipts remain tied to their
-original candidates. These synthetic requests do not qualify other image
-operations, photographic taste or accuracy on arbitrary content. Claude and
-Grok remain unqualified, and separately billed API access remains disabled.
-Calendars and scheduling remain outside this work.
+The 0.2.1 work additionally passed five live image journeys: Generate, Replace,
+Remove, Background and Expand. Each used one explicit Codex subscription request,
+with exact protected-pixel checks where relevant and Keep/save/reopen/Undo/Redo.
+The [image-editing qualification](ai-image-editing-qualification.md) separates
+that live runtime from the final local-finishing focus correction. See its
+curated receipts and limits; synthetic examples do not certify photographic
+quality on arbitrary content. Claude and Grok remain unqualified, and separately
+billed API access remains disabled. Calendars and scheduling remain outside this work.

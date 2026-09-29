@@ -200,7 +200,7 @@
   "snapshotDate": "2026-09-29",
   "project": "Omuse",
   "releaseScope": "Native Rust/GPUI application for Arch/Omarchy Linux x86_64",
-  "releaseState": "Omuse 0.2.0 source release; downloadable binary qualification remains open",
+  "releaseState": "Omuse 0.2.1 source release; downloadable binary qualification remains open",
   "visualizationMirror": "omuse-project-guide.html",
   "statusDefinitions": [
     {
@@ -232,14 +232,14 @@
   "releaseSnapshot": [
     {
       "label": "Numbered source release",
-      "value": "Omuse 0.2.0",
-      "detail": "Ask Omuse rebuilt around eight creative tasks, reviewed editable photo adjustments, captions, refinement and safer history. The tested runtime is 3dc3e46; the installer, numbered notes and CI evidence agree. This remains a source pre-release while binary and stable-release gates are open.",
+      "value": "Omuse 0.2.1",
+      "detail": "Safer AI image masks, reversible review/history, expansion integrity and immediate finishing Undo. A practical user manual covers local and AI object removal, photo editing, social content and export. Tested runtime 189f3e7 is pinned by the installer; source pre-release gates remain open.",
       "status": "locally-tested"
     },
     {
       "label": "Current regression suite",
-      "value": "843 tests passed",
-      "detail": "365 library, 233 UI and 245 integration tests passed; four manual benchmarks excluded. Editing/Create exports and all 80 template variants passed. Final production Wayland/XWayland and the installed main launcher each passed 24 native checks. Full GitHub Rust/installer validation, exact 19-file rollback and normal desktop launch passed. Live Codex photo/caption receipts on df15fd4 are followed by saved-history/refinement and Keep/Undo on exact final 3dc3e46.",
+      "value": "858 tests passed",
+      "detail": "372 library, 241 UI and 245 integration cases; four manual timing benchmarks excluded. Full 857-case image candidate plus 241 final UI cases locally; complete final GitHub validation passed. Production Wayland/XWayland and installed Wayland each passed 24 checks, with 19-file rollback. Five live image requests retain 9100ef4 receipts; final 189f3e7 focus fix has UI/native/Cua evidence.",
       "status": "locally-tested"
     },
     {
@@ -251,7 +251,7 @@
     {
       "label": "Public-release blockers",
       "value": "Open gates",
-      "detail": "Two dependency texts, clean-machine installation and broader physical desktop acceptance remain open. Runtime 3dc3e46 passed full GitHub Rust/installer validation, desktop checks and complete rollback; the one-command installer pins this tested revision.",
+      "detail": "Two dependency texts, clean-machine installation and broader physical desktop/accessibility acceptance remain open. Runtime 189f3e7 passed full GitHub validation, native/Cua checks and 19-file rollback; the source installer pins that revision.",
       "status": "blocked-deferred"
     }
   ],
@@ -301,10 +301,11 @@
           "id": "photo-retouch",
           "name": "Retouching and controlled removal",
           "status": "locally-tested",
-          "current": "Healing layers, clone/heal tools, frequency separation, dodge/burn, refinement and controlled removal have bounded native and regression evidence.",
-          "boundary": "Healing strokes are raster edits rather than replayable source-linked recipes; broad portrait and object-removal quality review remains separate.",
+          "current": "Local Spot Healing, Clone/Healing, content-aware fill, healing layers, frequency separation and controlled removal are implemented. Final 189f3e7 Cua check removed a synthetic blemish with J, then with Ctrl+K Content-aware fill; each restored it with one Ctrl+Z. Engine tests cover exact selection/undo integrity and allowed sampling areas.",
+          "boundary": "The manual explains local versus AI removal and limits. Controlled removal has a 4 MP input ceiling; ordinary fill is bounded to 16,777,216 source pixels and 250,000 selected pixels. Synthetic checks do not establish complex photographic reconstruction quality.",
           "evidence": [
-            "docs/rust-advanced-workflows.md"
+            "docs/rust-advanced-workflows.md",
+            "docs/ai-image-editing-qualification.md"
           ],
           "modules": [
             "rust/src/retouch.rs",
@@ -793,13 +794,14 @@
           "id": "ai-codex",
           "name": "Codex subscription route",
           "status": "experimental",
-          "current": "Codex CLI 0.158.0 passed three live synthetic requests: photo adjustments and caption/alt text on df15fd4, then saved-result refinement on exact final 3dc3e46. Before/After, Keep/Undo and focused-prompt Close passed; Copy caption passed on df15fd4. Optional allowance/reset windows come from the official runtime; missing status does not disable a healthy connection.",
-          "boundary": "The final third request used the new document layer and retained prior proposal context. The first two receipts precede only the readable-layer-label change and its regression test. This does not qualify every account, runtime, prompt or image operation; earlier generation/background/design receipts retain their original candidates.",
+          "current": "Codex CLI 0.158.0 passed five independent live Generate, Replace, Remove, Background and Expand requests on 9100ef4, one variation each without automatic retries. Review, Keep, save/reopen and Undo/Redo passed, with exact protected/translated pixels where applicable. Prior photo/caption/refinement receipts retain their 0.2.0 identities.",
+          "boundary": "The final 189f3e7 changes only local finishing focus and UI coverage/selectors; it passed full CI and UI/native/Cua checks separately. Synthetic receipts do not qualify other accounts, prompts, provider versions, photographic quality or multi-variation cancellation.",
           "evidence": [
             "docs/omuse-create-qualification.md",
             "docs/omuse-create-release-notes.md",
             "docs/cua-ai-qualification.md",
-            "docs/ai-experience-qualification.md"
+            "docs/ai-experience-qualification.md",
+            "docs/ai-image-editing-qualification.md"
           ],
           "modules": [
             "rust/src/ai/codex.rs",
@@ -810,12 +812,13 @@
         {
           "id": "ai-image-operations",
           "name": "Generate and image-edit operations",
-          "status": "implemented-needs-qualification",
-          "current": "Generate, selection replacement, background edit, canvas expansion, removal, references, variations and refinement have source/UI paths.",
-          "boundary": "Earlier generation and background receipts remain tied to their named candidates. The new photo/caption/refinement checks do not qualify image generation or image-edit operations on 3dc3e46. Replacement, expansion, removal, multi-variation cancellation and broader failure/restart cases still need live receipts before support claims.",
+          "status": "locally-tested",
+          "current": "Generate, Replace, Remove, Background and Expand each passed a live Codex subscription journey on 9100ef4. Masked edits protected every excluded pixel; Expand preserved the original rectangle exactly. Locked clipping dependencies, adjustment-aware expansion, failed-history result lifetime and selection-aware review are covered. Final finishing focus repair qualified separately on 189f3e7.",
+          "boundary": "Bounded 64×80 synthetic source, one variation and zero automatic retries per intent. Multi-variation cancellation, longer refinement/failure/restart and representative photographic outcomes remain open. Claude/Grok require separate operation evidence.",
           "evidence": [
-            "docs/omuse-create-and-ai-plan.md",
-            "docs/omuse-create-qualification.md"
+            "docs/ai-image-editing-qualification.md",
+            "docs/ai-image-editing-receipts.json",
+            "docs/user-guide/remove-objects.md"
           ],
           "modules": [
             "rust/src/ai_edits.rs",
@@ -876,11 +879,12 @@
         {
           "id": "ai-product-finishing",
           "name": "Local product finishing",
-          "status": "implemented-needs-qualification",
-          "current": "Protected-subject background results can receive undoable local soft/contact shadow and subtle reflection layers without sending those choices to a provider.",
-          "boundary": "The source/UI path and local regression checks pass; the final visual quality of product shadows/reflections still needs a representative human review.",
+          "status": "locally-tested",
+          "current": "Background refinement restores supported shadow/reflection presets. Local finishing preserves protected artwork. Final 189f3e7 real-button regression and Cua checks prove Apply and Remove hand focus back to the editor for immediate Ctrl+Z; previous runtime also exercised Contact/Subtle finishing.",
+          "boundary": "Synthetic local-layer and bounded visual evidence; realistic product shadows/reflections still need representative image review.",
           "evidence": [
-            "docs/omuse-create-guide.md"
+            "docs/omuse-create-guide.md",
+            "docs/ai-image-editing-qualification.md"
           ],
           "modules": [
             "rust/src/product_ui.rs",
@@ -1115,7 +1119,7 @@
           "id": "linux-install",
           "name": "One-command install and rollback",
           "status": "locally-tested",
-          "current": "The one-command installer pins tested public runtime 3dc3e46 and installs one Omuse application. The normal laptop command and desktop entry run the exact final production executable. All 19 payload hashes, installed native checks, desktop launch and complete rollback in both directions passed. All 36 source/manager and bundle regressions passed. User documents, settings and provider profiles were preserved.",
+          "current": "The one-command source installer pins runtime 189f3e7. The normal installed Omuse 0.2.1 launcher resolves its exact production payload. All 19 files matched through rollback to 0.2.0 and back; installed native checks, version output and desktop-file validation passed. User work/settings/provider profiles remain preserved.",
           "boundary": "First install compiles source locally. No qualified prebuilt download or clean-machine acceptance is claimed. SIGKILL/power-loss installation recovery has not been qualified.",
           "evidence": [
             "docs/main-install-qualification.md",
@@ -1125,7 +1129,8 @@
             "docs/install.md",
             "docs/public-release-readiness.md",
             "docs/cua-ai-qualification.md",
-            "docs/ai-experience-qualification.md"
+            "docs/ai-experience-qualification.md",
+            "docs/ai-image-editing-qualification.md"
           ],
           "modules": [
             "install.sh",
@@ -1264,8 +1269,8 @@
           "id": "release-current-suite",
           "name": "Current candidate regression suite",
           "status": "locally-tested",
-          "current": "Public runtime 3dc3e46 passed 843 application tests (365 library, 233 UI, 245 integration), editing/Create exports and 80 template variants. Production Wayland/XWayland and installed main launcher each passed 24 checks. Exact 19-file rollback, normal desktop launch and full GitHub Rust/installer validation passed.",
-          "boundary": "Four manual timing benchmarks excluded. New live Codex photo/caption/refinement receipts have explicit candidate scope. Earlier performance and camera-corpus evidence retain their original candidates. No cross-app speed superiority, clean-target installation or universal physical-input claim is made.",
+          "current": "Final runtime 189f3e7 passed full GitHub Rust/installer validation. Local validation phases cover 372 library, 241 UI and 245 integration cases; the full 857-case image candidate was followed by all 241 final UI cases. Editing/Create exports and 80 template variants passed. Final production Wayland/XWayland and installed Wayland each passed 24 native checks; full 19-file rollback passed.",
+          "boundary": "Four manual timing benchmarks excluded. Five live image receipts retain 9100ef4; focus-only final runtime has separate Cua/UI/native checks. Prior performance and camera-corpus measurements retain their workload identities. Clean-target and broad hardware/accessibility acceptance remain open.",
           "evidence": [
             "docs/photo-integrity-hardening.md",
             "docs/desktop-history-qualification.md",
@@ -1275,7 +1280,8 @@
             "docs/omaphoto-comparison.md",
             "docs/releases/v0.1.0.md",
             "docs/ai-experience-qualification.md",
-            "docs/releases/v0.2.0.md"
+            "docs/releases/v0.2.0.md",
+            "docs/ai-image-editing-qualification.md"
           ],
           "modules": [
             "scripts/test-rust.sh",
@@ -1303,7 +1309,7 @@
           "id": "release-ci-github",
           "name": "Public source and remote CI",
           "status": "locally-tested",
-          "current": "Public runtime 3dc3e46 has an exact source-tree match and successful full GitHub Rust/installer validation. Omuse 0.2.0 release notes, qualification and installer pin identify that runtime. The licensed Sunset Muse promo remains in the README; main is not an unqualified rolling application channel.",
+          "current": "Public runtime 189f3e7 exactly matches the qualified source tree and passed full GitHub validation 36558893513. Omuse 0.2.1 release notes, qualification and installer pin identify that runtime. The GitHub manual links practical removal, photo and content tutorials from the README.",
           "boundary": "Installer-channel changes have separate local transaction tests. CI does not establish clean-machine installation or public-binary qualification.",
           "evidence": [
             "docs/main-install-qualification.md",
@@ -1312,7 +1318,8 @@
             ".github/workflows/rust-validation.yml",
             "docs/media/omuse-sunset-muse-credits.md",
             "docs/cua-ai-qualification.md",
-            "docs/ai-experience-qualification.md"
+            "docs/ai-experience-qualification.md",
+            "docs/ai-image-editing-qualification.md"
           ],
           "modules": []
         },
@@ -1320,7 +1327,7 @@
           "id": "release-artifact",
           "name": "Clean install and release identity",
           "status": "blocked-deferred",
-          "current": "Omuse 0.2.0 has a one-command source install pinned to tested runtime 3dc3e46. The normal laptop executable matches the qualified payload; installed native checks, desktop launch and complete 19-file rollback passed. The source tag/release identify the tested runtime; downloadable binaries and clean-target installation remain open.",
+          "current": "Omuse 0.2.1 source install is pinned to tested 189f3e7. The installed production executable, native checks and complete 19-file rollback passed. Source tag/release identify that runtime; downloadable binaries and clean-target installation remain open.",
           "boundary": "A downloadable binary still requires resolved notices and a reproduced artifact path on a clean supported system.",
           "evidence": [
             "docs/main-install-qualification.md",
@@ -1329,7 +1336,8 @@
             "docs/photo-release-qualification.md",
             "docs/public-release-readiness.md",
             "docs/rust-bundle.md",
-            "docs/ai-experience-qualification.md"
+            "docs/ai-experience-qualification.md",
+            "docs/ai-image-editing-qualification.md"
           ],
           "modules": [
             "scripts/package-rust.sh",
@@ -1376,6 +1384,25 @@
             "docs/public-release-readiness.md"
           ],
           "modules": []
+        },
+        {
+          "id": "release-user-manual",
+          "name": "User manual and common workflows",
+          "status": "locally-tested",
+          "current": "GitHub manual covers first edits, preserving originals, local/AI object removal, photo adjustment, cutouts/backgrounds, editable text, social pages, motion, export and troubleshooting. Source-checked command names/defaults; Cua exercised the Spot Healing and Content-aware fill instructions. Current Create guide no longer directs users to an obsolete preview or shortcut.",
+          "boundary": "Procedural documentation is not qualification of every photographic outcome, provider account or hardware setup. RAW/precision and operation limits remain linked to the advanced reference.",
+          "evidence": [
+            "docs/user-guide/README.md",
+            "docs/user-guide/remove-objects.md",
+            "docs/user-guide/photo-editing.md",
+            "docs/user-guide/create-content.md",
+            "docs/omuse-create-guide.md",
+            "docs/ai-image-editing-qualification.md"
+          ],
+          "modules": [
+            "rust/src/shortcuts.rs",
+            "rust/src/ai_experience.rs"
+          ]
         }
       ]
     }

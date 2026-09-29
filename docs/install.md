@@ -36,18 +36,21 @@ from source**; a downloadable binary release remains subject to the
 
 ## Tested source channel
 
-The current numbered source release is [Omuse 0.2.0](releases/v0.2.0.md).
+The current numbered source release is [Omuse 0.2.1](releases/v0.2.1.md).
 Its Git tag identifies the tested runtime; the normal curl command follows the
 current tested channel and may advance to later qualified releases.
 
 The public installer selects commit
-[`3dc3e46310e40dcf109b1bc695bb4e9dda6d2d24`](https://github.com/Sugata-Software/Omuse/commit/3dc3e46310e40dcf109b1bc695bb4e9dda6d2d24).
+[`189f3e77e33f1b9fae7a7a5d19cf8a2a3bd930dd`](https://github.com/Sugata-Software/Omuse/commit/189f3e77e33f1b9fae7a7a5d19cf8a2a3bd930dd).
 It fetches that exact revision and checks the resulting checkout before building.
-The [full Rust/installer workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36528288193) passed for this application source.
-The [Ask Omuse qualification](ai-experience-qualification.md) records 843
-application tests, production and installed native checks, complete rollback
-and bounded live subscription requests. Earlier editing, performance and
-provider receipts retain their named candidate and workload scope.
+The [full Rust/installer workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36558893513) passed for this application source.
+The [image-editing qualification](ai-image-editing-qualification.md) records
+858 application cases across the local validation phases and the final full CI
+pass, production/installed native checks, complete rollback and five bounded
+live subscription image operations. Live receipts retain their preceding runtime
+identity; the final focus-only correction has separate UI/native/Cua checks.
+Earlier performance and provider receipts retain their named workload scope.
+Start using the app with the [user manual](user-guide/README.md).
 
 The curl command downloads `install.sh` from `main`, so changes to the installer
 script take effect immediately. The application checkout is pinned separately:

@@ -12,9 +12,14 @@
 installer builds a tested source revision and adds the normal **Omuse** app.
 Downloadable binaries are still undergoing [release qualification](docs/public-release-readiness.md).
 
-**Current release: [0.2.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.2.0)**
-— our task-based Ask Omuse source release. Read the [release notes](docs/releases/v0.2.0.md)
+**Current release: [0.2.1](https://github.com/Sugata-Software/Omuse/releases/tag/v0.2.1)**
+— safer AI image editing and a practical user manual. Read the [release notes](docs/releases/v0.2.1.md)
 or browse the [changelog](CHANGELOG.md) for changes and known limitations.
+
+**[Read the user manual](docs/user-guide/README.md)** ·
+[Remove unwanted objects](docs/user-guide/remove-objects.md) ·
+[Edit a photo](docs/user-guide/photo-editing.md) ·
+[Create social content](docs/user-guide/create-content.md)
 
 <p align="center">
   <a href="docs/media/omuse-sunset-muse.mp4">

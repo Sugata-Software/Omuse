@@ -8,6 +8,47 @@ for numbering, qualification and publication.
 
 Planned editor work belongs in the [project guide](docs/project-guide.md).
 
+## [0.2.1](https://github.com/Sugata-Software/Omuse/releases/tag/v0.2.1) — 2026-09-29
+
+**Safer AI image editing · Arch Linux / Omarchy · x86_64 source pre-release**
+
+### AI image editing
+
+- Protect locked artwork when building replacement, removal and background
+  masks, including locked groups whose clipped layers depend on unlocked bases
+  or hidden mask sources. The unlocked base remains editable outside the
+  protected clipped contribution.
+- Refuse canvas expansion when reevaluating a live blur, motion blur, noise or
+  grain adjustment would change pixels in the original canvas. Pointwise
+  adjustments and layer-local effects remain editable when the original
+  translated pixels are preserved.
+- Keep completed image results and retained references available through review
+  and refinement if local history persistence fails, then remove their private
+  workspace after its final consumer releases it. Discard still works when the
+  history store is unavailable, without replacing damaged history.
+- Restore same-session image results against a newly drawn selection while
+  continuing to block Keep after artwork, document, project or session changes.
+  Generate and Expand no longer react to unrelated selection changes.
+- Restore visible shadow and reflection controls when refining a background
+  result. Custom historical values that the preset controls cannot represent
+  leave the current controls unchanged.
+- Stop an image-variation batch when a candidate is invalid, stale, not retained
+  in history or not locally qualified, rather than dispatching and relabeling a
+  later request as qualified.
+
+- Return editor focus after Apply/Remove local finishing so Ctrl+Z immediately
+  undoes the artwork transaction.
+- Add a practical [user manual](docs/user-guide/README.md), including local/AI
+  object removal, photo editing, backgrounds, social content, motion and export.
+  Correct the older Create guide's shortcut and task labels.
+
+858 application cases and the final full GitHub workflow passed. Production
+Wayland/XWayland and installed Wayland each passed 24 checks; full payload
+rollback passed. Five live image operations passed on the preceding image
+runtime; the final focus correction passed UI/native/Cua checks separately.
+See the [qualification record](docs/ai-image-editing-qualification.md) and
+[release notes](docs/releases/v0.2.1.md) for exact identities and scope.
+
 ## [0.2.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.2.0) — 2026-09-29
 
 **Task-based Ask Omuse · Arch Linux / Omarchy · x86_64 source pre-release**
