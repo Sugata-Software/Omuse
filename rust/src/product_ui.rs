@@ -222,8 +222,9 @@ impl EditorView {
                 ButtonVariant::Secondary,
                 cx,
             )
+            .debug_selector(|| "product-finish-apply".into())
             .disabled(busy || presentation.is_empty())
-            .on_click(cx.listener(|this, _, _, cx| {
+            .on_click(cx.listener(|this, _, window, cx| {
                 let result = (|| -> anyhow::Result<()> {
                     anyhow::ensure!(
                         !this.product_actions_busy(),
@@ -245,7 +246,14 @@ impl EditorView {
                     Ok(())
                 })();
                 this.status = match result {
-                    Ok(()) => "Local product finishing applied. Undo restores the source.".into(),
+                    Ok(()) => {
+                        // A focusable inspector control owns keyboard focus
+                        // after activation. Return focus to the editor so the
+                        // advertised global Undo shortcut immediately targets
+                        // this artwork transaction.
+                        this.focus.focus(window, cx);
+                        "Local product finishing applied. Undo restores the source.".into()
+                    }
                     Err(error) => error.to_string(),
                 };
                 cx.notify();
@@ -258,8 +266,9 @@ impl EditorView {
                 ButtonVariant::Secondary,
                 cx,
             )
+            .debug_selector(|| "product-finish-remove".into())
             .disabled(busy)
-            .on_click(cx.listener(|this, _, _, cx| {
+            .on_click(cx.listener(|this, _, window, cx| {
                 let result = (|| -> anyhow::Result<()> {
                     anyhow::ensure!(
                         !this.product_actions_busy(),
@@ -277,7 +286,10 @@ impl EditorView {
                     Ok(())
                 })();
                 this.status = match result {
-                    Ok(()) => "Local product finishing removed. Undo restores it.".into(),
+                    Ok(()) => {
+                        this.focus.focus(window, cx);
+                        "Local product finishing removed. Undo restores it.".into()
+                    }
                     Err(error) => error.to_string(),
                 };
                 cx.notify();

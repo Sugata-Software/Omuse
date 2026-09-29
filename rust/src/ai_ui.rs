@@ -511,6 +511,7 @@ impl EditorView {
         };
         let mut body = div()
             .id(body_id)
+            .debug_selector(|| "ai-body-viewport".into())
             .flex_1()
             .min_h_0()
             .overflow_y_scroll()
@@ -4408,8 +4409,39 @@ fn assistant_project_brief(project: &omuse::create_project::Project) -> serde_js
 #[cfg(all(test, feature = "ui-test"))]
 mod tests {
     use super::*;
-    use gpui_kit::{Focusable, Modifiers, TestAppContext};
+    use gpui_kit::{Focusable, Modifiers, TestAppContext, VisualTestContext};
     use std::path::PathBuf;
+
+    fn reveal_ai_control(cx: &mut VisualTestContext, id: &'static str) -> Bounds<Pixels> {
+        let visible = |cx: &mut VisualTestContext, bounds: Bounds<Pixels>| {
+            let viewport = cx
+                .debug_bounds("ai-body-viewport")
+                .expect("AI body viewport");
+            bounds.origin.y >= viewport.origin.y
+                && bounds.bottom_right().y <= viewport.bottom_right().y
+                && bounds.origin.x >= viewport.origin.x
+                && bounds.bottom_right().x <= viewport.bottom_right().x
+        };
+        if let Some(bounds) = cx.debug_bounds(id).filter(|bounds| visible(cx, *bounds)) {
+            return bounds;
+        }
+        let viewport = cx
+            .debug_bounds("ai-body-viewport")
+            .expect("AI body viewport");
+        for _ in 0..20 {
+            cx.simulate_event(gpui_kit::ScrollWheelEvent {
+                position: viewport.center(),
+                delta: gpui_kit::ScrollDelta::Pixels(point(px(0.), px(-80.))),
+                modifiers: Modifiers::default(),
+                touch_phase: gpui_kit::TouchPhase::Moved,
+            });
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+            if let Some(bounds) = cx.debug_bounds(id).filter(|bounds| visible(cx, *bounds)) {
+                return bounds;
+            }
+        }
+        panic!("AI control {id} is not reachable by scrolling");
+    }
 
     #[gpui_kit::test]
     fn ai_task_starter_is_editable_and_never_sends_until_submit(cx: &mut TestAppContext) {
@@ -4566,6 +4598,120 @@ mod tests {
                 presentation,
                 "an unrelated refinement must not rewrite hidden Background finishing"
             );
+        });
+    }
+
+    #[gpui_kit::test]
+    fn local_finishing_buttons_return_focus_for_keyboard_undo(cx: &mut TestAppContext) {
+        cx.update(crate::init_test_theme);
+        cx.update(|cx| install_shortcuts(&Shortcuts::default(), &Shortcuts::default(), cx));
+        let presentation = ai_edits::ProductPresentation {
+            shadow: Some(ai_edits::ProductShadow {
+                offset_x: 0,
+                offset_y: 6,
+                blur_px: 4,
+                opacity: 0.5,
+                color: [0, 0, 0],
+            }),
+            reflection: Some(ai_edits::ProductReflection::default()),
+        };
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            let mut view = EditorView::new(None, window, cx);
+            view.dialog = Dialog::None;
+            let mut document = Document::new(40, 30);
+            document.background = [80, 100, 120, 255];
+            view.editor = Editor::new(document);
+            view.editor.select_rectangle(8., 4., 16., 10.);
+            assert!(view.editor.record_selection_change(None));
+            assert!(view.product.restore_presentation(&presentation));
+            view.ai.task = AiTask::Background;
+            // Suppress live discovery while preserving the normal inspector.
+            view.ai.checking = true;
+            view.inspector_tab = studio_ui::InspectorTab::Assistant;
+            view.inspector_visible = true;
+            view.refresh(cx);
+            view.focus_ai_prompt(window, cx);
+            view
+        });
+        cx.simulate_resize(size(px(1100.), px(900.)));
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.update(|window, cx| {
+            assert!(
+                view.read(cx)
+                    .ai
+                    .prompt
+                    .read(cx)
+                    .focus_handle(cx)
+                    .is_focused(window)
+            )
+        });
+        let original = cx.update(|_, cx| {
+            let view = view.read(cx);
+            (
+                view.editor.document.clone(),
+                view.pixels.clone(),
+                view.editor.undo_depth(),
+            )
+        });
+
+        let apply = reveal_ai_control(cx, "product-finish-apply");
+        cx.simulate_click(apply.center(), Modifiers::default());
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        let finished = cx.update(|window, cx| {
+            let view = view.read(cx);
+            assert_eq!(
+                view.status,
+                "Local product finishing applied. Undo restores the source."
+            );
+            assert!(view.focus.is_focused(window));
+            assert_eq!(view.editor.undo_depth(), original.2 + 1);
+            assert_eq!(
+                view.editor.document.layers.len(),
+                original.0.layers.len() + 2
+            );
+            assert_ne!(view.pixels, original.1);
+            (view.editor.document.clone(), view.pixels.clone())
+        });
+
+        cx.simulate_keystrokes("ctrl-z");
+        cx.update(|_, cx| {
+            let view = view.read(cx);
+            assert!(omuse::create_history::documents_match(
+                &view.editor.document,
+                &original.0
+            ));
+            assert_eq!(view.pixels, original.1);
+        });
+
+        cx.simulate_keystrokes("ctrl-shift-z");
+        cx.update(|_, cx| {
+            assert!(omuse::create_history::documents_match(
+                &view.read(cx).editor.document,
+                &finished.0
+            ))
+        });
+        view.update_in(cx, |view, window, cx| view.focus_ai_prompt(window, cx));
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        let remove = reveal_ai_control(cx, "product-finish-remove");
+        cx.simulate_click(remove.center(), Modifiers::default());
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.update(|window, cx| {
+            let view = view.read(cx);
+            assert!(view.focus.is_focused(window));
+            assert!(omuse::create_history::documents_match(
+                &view.editor.document,
+                &original.0
+            ));
+            assert_eq!(view.pixels, original.1);
+        });
+        cx.simulate_keystrokes("ctrl-z");
+        cx.update(|_, cx| {
+            let view = view.read(cx);
+            assert!(omuse::create_history::documents_match(
+                &view.editor.document,
+                &finished.0
+            ));
+            assert_eq!(view.pixels, finished.1);
         });
     }
 
