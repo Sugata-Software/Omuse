@@ -1,8 +1,9 @@
 # Choose AI providers by task
 
 > **Unreleased source candidate:** this routing and sequence UI is implemented on
-> the feature branch, but its build and live qualification are still in
-> progress. It is not part of the published Omuse 0.3.0 release or installer.
+> the feature branch. Candidate `f972adb` passed the complete public CI workflow
+> with 945 application tests. See the [validation record](ai-routing-qualification.md).
+> It is not part of the published Omuse 0.3.0 release or installer.
 
 Open **Ask Omuse → Connections** to choose the subscriptions Omuse should
 prefer. **Assistant** is the starting choice for text and layout work;
@@ -38,7 +39,10 @@ Current adapter limits are deliberate:
 For an image or image-edit task, **FOLLOW-ON STEPS · optional** can add **Then
 arrange the layout** and **Then draft caption & alt text**. A sequence runs at
 most three displayed requests in order: the chosen task, editable layout, then
-caption. It uses one brief, one variation, and produces one final review. Layout finishing edits the current page with native text, shapes, placement, resize and animation; collection-wide page, resource and component operations belong in a standalone Design & layout request. Each
+caption. It uses one brief, one variation, and produces one final review. Layout
+finishing edits the current page with native text, shapes, placement, resize and
+animation; collection-wide page, resource and component operations belong in a
+standalone Design & layout request. Each
 step shows its provider and may use that subscription's allowance. You can open
 the step row to change that task's Auto or pinned choice before submitting.
 
@@ -63,6 +67,8 @@ API billing. Other open Omuse windows keep the choices they loaded at launch;
 open a new window after changing saved routing elsewhere.
 
 Malformed version 2 task pins fail closed. Ask Omuse blocks submission until
-you use **Reset unreadable choices**. Routing, chained-request cancellation,
-saved-sequence replay, clean-host behavior, and representative provider output
-still require qualification before release.
+you use **Reset unreadable choices**. The [qualification record](ai-routing-qualification.md)
+describes automated routing, cancellation and replay coverage and the
+remaining release checks. Clean-host behavior, live failure/cancellation cases and
+representative provider output still require broader qualification before
+release.

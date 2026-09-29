@@ -200,7 +200,7 @@
   "snapshotDate": "2026-09-30",
   "project": "Omuse",
   "releaseScope": "Native Rust/GPUI application for Arch/Omarchy Linux x86_64",
-  "releaseState": "Published Omuse 0.3.0 remains unchanged; the local unreleased Claude assistant candidate passed full exact-source CI and bounded native/live checks, while broader release qualification remains open",
+  "releaseState": "Published Omuse 0.3.0 remains unchanged; the selectable AI routing candidate passed complete public CI, while broader release qualification remains open",
   "visualizationMirror": "omuse-project-guide.html",
   "statusDefinitions": [
     {
@@ -231,10 +231,10 @@
   ],
   "releaseSnapshot": [
     {
-      "label": "Local unreleased AI candidate",
-      "value": "Bounded Claude assistant proof",
-      "detail": "Public candidate 3117032 passed all 910 application tests and complete GitHub validation 36612969908, 24 native Wayland checks and one installed Claude Design journey with Review, Keep, Undo and Redo. Published 0.3.0 and its installer pin remain unchanged; broader release qualification remains open.",
-      "status": "experimental"
+      "label": "Unreleased AI candidate",
+      "value": "Selectable providers and shared drafts",
+      "detail": "Public candidate f972adb passed all 945 application tests and complete GitHub run 36625728469. It adds saved per-task provider choices and optional image/edit → layout → caption sequences with one final reviewed Keep/Undo. Saved workflow reviews name generated image layers correctly. Published 0.3.0 and its installer pin are unchanged; broader release checks remain open.",
+      "status": "locally-tested"
     },
     {
       "label": "Numbered source release",
@@ -243,9 +243,9 @@
       "status": "locally-tested"
     },
     {
-      "label": "Current regression suite",
-      "value": "901 tests passed",
-      "detail": "Exact-source GitHub validation passed 378 library, 248 UI and 275 integration cases, plus editing/Create/motion journeys and all 80 template variants. Production Wayland, XWayland and installed Wayland each passed 24 native checks; complete 19-file rollback passed. Four manual benchmarks excluded.",
+      "label": "AI routing candidate regression suite",
+      "value": "945 tests passed",
+      "detail": "Exact-source GitHub run 36625728469 passed 407 library, 263 UI and 275 integration cases, plus editing/Create/motion journeys, all 80 template variants, interruption/recovery, installer and dependency checks. Four manual benchmarks excluded. This is candidate f972adb evidence, separate from the published 0.3.0 runtime.",
       "status": "locally-tested"
     },
     {
@@ -831,12 +831,13 @@
         {
           "id": "ai-provider-routing-workflows",
           "name": "Per-task provider routing and follow-on sequences",
-          "status": "implemented-needs-qualification",
+          "status": "locally-tested",
           "current": "Unreleased source lets each of the eight Ask Omuse tasks use Auto or a pinned provider, with preferred Assistant and Images roles plus per-provider Auto exclusions. Optional image/edit follow-ons can run editable Design then Caption as a frozen sequence of at most three displayed requests, one brief and one final review. Saved preferences migrate from version 1 without enabling direct API billing; saved sequence replay validates bounded plans and exact generated-layer identities before rebuilding an editable candidate.",
-          "boundary": "Automated builds and tests are still running; no passing qualification is recorded yet. Pins never fall back, failed requests are not retried through another provider, and first use requires explicit submission. Codex remains required for current visual Photo/Caption and image operations; Claude is text/layout only, Grok has no qualified runtime, and the published 0.3.0 release and installer are unchanged. Stop, Local-only, source changes and invalid steps halt unsent workflow work.",
+          "boundary": "Candidate f972adb passed all 945 application cases and complete public CI. Tests cover routing choices, workflow preflight, cancellation, source changes and bounded saved replay. Pins never fall back and failed requests are not retried. Codex is required for visual Photo/Caption and images; Claude is text/layout only, Grok unqualified. Broader live failure/cancellation, clean-host and output acceptance remain open; published 0.3.0 is unchanged.",
           "evidence": [
             "docs/ai-provider-routing.md",
-            "docs/user-guide/create-content.md"
+            "docs/user-guide/create-content.md",
+            "docs/ai-routing-qualification.md"
           ],
           "modules": [
             "rust/src/ai/routing.rs",

@@ -15,6 +15,10 @@ for numbering, qualification and publication.
   displayed subscription requests and one final review/Undo transaction. Stop,
   Local-only, stale source state or an invalid step prevents unsent work; saved
   replay guards the exact generated layer identities used by later edits.
+- Name image layers created by earlier steps when reopening a saved workflow
+  review, while retaining warnings for missing artwork references.
+  See the [routing qualification record](docs/ai-routing-qualification.md) for
+  the exact tested candidates and remaining release checks.
 - Resolve Omarchy's mise-managed provider shims to the installed runtime before
   checking its identity. This fixes signed-in Codex installations appearing as
   Unverified after launching Omuse from the desktop. Wrapper, account and

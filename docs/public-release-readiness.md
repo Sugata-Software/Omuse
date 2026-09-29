@@ -150,10 +150,13 @@ for redistribution.
 
 ## Provider boundaries
 
-The bounded live route is a signed-in official Codex runtime. Claude is signed
-out in the current evidence; Grok's official runtime and isolated operation are
-unverified. Optional API billing remains disabled. These routes must not be
-advertised as generally supported solely because an adapter exists in source.
+The unreleased routing candidate `f972adb` adds per-task provider selection and
+optional image/layout/caption sequences. Its complete public workflow passed
+945 application tests and the editing, export, recovery and installer checks.
+See the [routing validation](ai-routing-qualification.md). Claude remains
+limited to text/layout without image input; Grok remains unqualified. Optional
+API billing is disabled. Automated results do not establish general provider
+quality or clean-host support.
 No account credentials, provider sessions or user artwork belong in this repo.
 
 ## Evidence curation
