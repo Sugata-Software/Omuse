@@ -74,6 +74,20 @@ Choosing a task or a starting point does not send anything. Read the context
 card, then explicitly submit. [Ask Omuse](../ai-experience.md) explains provider
 connections, allowance, Before/After, history and refinement.
 
+In the unreleased source preview, use **Connections** to set preferred
+**Assistant** and **Images** subscriptions. The **Auto · provider ▾** control
+under the brief can choose Auto or pin a provider for the current task; a pin
+never falls back after failure. Codex is currently required for image tasks and
+the canvas-based Photo/Caption tasks, while Claude can handle text-only
+**Design & layout**. See [provider routing and optional follow-on
+steps](../ai-provider-routing.md) for first-use labels, exclusions and limits.
+
+Image and image-edit tasks can optionally add **Then arrange the layout** and
+**Then draft caption & alt text**. This runs at most three displayed subscription
+requests from one brief and ends in one review. Keep applies the complete
+editable result once; Stop, Local-only, a changed source, or a failed step
+halts anything not yet sent.
+
 ## Make a short animation
 
 1. In **Motion**, set **Page seconds** and **Frames / second**.

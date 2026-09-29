@@ -238,7 +238,7 @@ impl EditorView {
                 };
 
                 view.update_in(cx, |this, window, cx| -> Result<()> {
-                    this.ai.image_provider = ProviderId::CodexSubscription;
+                    this.ai.routing.image_provider = ProviderId::CodexSubscription;
                     this.ai.variation_count = 1;
                     this.ai.variation_batch = None;
                     this.ai.references.clear();
@@ -675,7 +675,7 @@ impl EditorView {
             // state. A retained review must never inherit an arbitrary UI
             // selection or queue from an earlier window.
             view.update(cx, |this, _| {
-                this.ai.image_provider = ProviderId::CodexSubscription;
+                this.ai.routing.image_provider = ProviderId::CodexSubscription;
                 this.ai.variation_count = 1;
                 this.ai.references.clear();
                 this.ai.follow_up = None;
@@ -952,7 +952,7 @@ async fn qualify_native_assistant(
         this.clear_ai_result(cx);
         this.ai.references.clear();
         this.ai.follow_up = None;
-        this.ai.assistant = ProviderId::CodexSubscription;
+        this.ai.routing.assistant = ProviderId::CodexSubscription;
         this.ai.prompt.update(cx, |prompt, cx| prompt.set_value(
             "Create a useful six-slide Sugata carousel about five ways to work with focus. This collection already has its first native cover page. Keep that cover editable and set its caption and alt text. Add exactly FIVE more editable pages using add_template_page, with concise headline/body copy, captions and alt text on each. Use the active brand and only valid catalog templates and named fields. Immediately after each added page, use resize_page to adapt it to 1080 by 1350 and animate_page with fade for 2000 ms. The final collection must contain exactly six pages, all with live text, meaningful captions and meaningful alt text. Do not generate or import raster images. Return one complete bounded native editing plan.",
             window, cx,
@@ -1145,7 +1145,7 @@ impl EditorView {
         create::apply_brand_to_project(&mut project, &brand_id)?;
         self.apply_creative_project(project, cx)?;
         self.editor.mark_saved();
-        self.ai.image_provider = ProviderId::CodexSubscription;
+        self.ai.routing.image_provider = ProviderId::CodexSubscription;
         self.ai.variation_count = 1;
         self.ai.references.clear();
         self.ai.follow_up = None;

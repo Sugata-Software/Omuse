@@ -804,7 +804,7 @@
       "id": "ai",
       "name": "AI",
       "icon": "sparkles",
-      "summary": "Task-based creation with review, editable photo results, captions and refinement; bounded live Codex journeys and one local Claude Design proof are recorded separately from unqualified provider operations.",
+      "summary": "Task-based creation with review, editable photo results, captions and refinement; flexible task routing and bounded follow-on sequences are implemented in unreleased source while their qualification remains pending.",
       "items": [
         {
           "id": "ai-framework",
@@ -826,6 +826,24 @@
             "rust/src/ai_history.rs",
             "rust/src/ai_ui.rs",
             "rust/src/ai_experience.rs"
+          ]
+        },
+        {
+          "id": "ai-provider-routing-workflows",
+          "name": "Per-task provider routing and follow-on sequences",
+          "status": "implemented-needs-qualification",
+          "current": "Unreleased source lets each of the eight Ask Omuse tasks use Auto or a pinned provider, with preferred Assistant and Images roles plus per-provider Auto exclusions. Optional image/edit follow-ons can run editable Design then Caption as a frozen sequence of at most three displayed requests, one brief and one final review. Saved preferences migrate from version 1 without enabling direct API billing; saved sequence replay validates bounded plans and exact generated-layer identities before rebuilding an editable candidate.",
+          "boundary": "Automated builds and tests are still running; no passing qualification is recorded yet. Pins never fall back, failed requests are not retried through another provider, and first use requires explicit submission. Codex remains required for current visual Photo/Caption and image operations; Claude is text/layout only, Grok has no qualified runtime, and the published 0.3.0 release and installer are unchanged. Stop, Local-only, source changes and invalid steps halt unsent workflow work.",
+          "evidence": [
+            "docs/ai-provider-routing.md",
+            "docs/user-guide/create-content.md"
+          ],
+          "modules": [
+            "rust/src/ai/routing.rs",
+            "rust/src/ai_workflow.rs",
+            "rust/src/ai_routing_ui.rs",
+            "rust/src/ai_workflow_ui.rs",
+            "rust/src/ai_ui.rs"
           ]
         },
         {

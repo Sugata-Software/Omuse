@@ -41,6 +41,7 @@ pub mod advanced_ops;
 pub mod ai;
 pub mod ai_edits;
 pub mod ai_history;
+pub mod ai_workflow;
 pub mod asset_library;
 pub mod brush_dynamics;
 pub mod content_export;

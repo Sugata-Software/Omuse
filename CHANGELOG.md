@@ -6,6 +6,15 @@ for numbering, qualification and publication.
 
 ## Unreleased
 
+- Choose **Auto** or pin a subscription provider separately for each Ask Omuse
+  task. Set preferred Assistant and Images roles, exclude connections from Auto,
+  and see first-use routing before submitting. Pins and failed requests never
+  fall back silently, and separately billed API access remains disabled.
+- Optionally finish one image or image-edit request with editable layout and a
+  caption/alt-text step. The bounded sequence uses one brief, at most three
+  displayed subscription requests and one final review/Undo transaction. Stop,
+  Local-only, stale source state or an invalid step prevents unsent work; saved
+  replay guards the exact generated layer identities used by later edits.
 - Resolve Omarchy's mise-managed provider shims to the installed runtime before
   checking its identity. This fixes signed-in Codex installations appearing as
   Unverified after launching Omuse from the desktop. Wrapper, account and
@@ -16,8 +25,10 @@ for numbering, qualification and publication.
   tool route, require the final validated result and refuse unvalidated prose
   JSON. Claude 2.1.283 now passes corrected subscription discovery and a bounded
   direct protocol capture. All 14 Claude cases passed within the 387-test
-  library run; repaired in-app and release qualification remain open, and these
-  changes are not part of 0.3.0.
+  library run, and the local corrective build completed one installed Claude
+  Design journey with five editable operations, Review, Keep, Undo and Redo.
+  Broader and release qualification remain open; these changes are not part of
+  0.3.0.
 
 Planned editor work and remaining release gates are tracked in the
 [project guide](docs/project-guide.md).

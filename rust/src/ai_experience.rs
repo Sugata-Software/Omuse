@@ -28,7 +28,7 @@ impl AiTask {
         Self::Expand,
     ];
 
-    fn label(self) -> &'static str {
+    pub(super) fn label(self) -> &'static str {
         match self {
             Self::Design => "Design & layout",
             Self::Photo => "Enhance photo",
@@ -83,7 +83,7 @@ impl AiTask {
         }
     }
 
-    fn capability(self) -> Capability {
+    pub(super) fn capability(self) -> Capability {
         match self {
             Self::Design | Self::Photo | Self::Caption => Capability::AssistantStreaming,
             Self::Generate => Capability::ImageGeneration,
@@ -241,14 +241,6 @@ impl AiTask {
 }
 
 impl EditorView {
-    fn ai_task_provider(&self) -> ProviderId {
-        if self.ai.task.uses_assistant() {
-            self.ai.assistant
-        } else {
-            self.ai.image_provider
-        }
-    }
-
     fn ai_task_note(&self) -> Option<String> {
         if self.ai_local_only() {
             return Some("Local-only is on. Turn it off in Connections to send a request.".into());
@@ -261,28 +253,11 @@ impl EditorView {
         {
             return Some(format!("Choose an unlocked photo layer: {error}"));
         }
-        let provider = self.ai_task_provider();
-        let capability = self.ai.task.capability();
-        if !self.ai_provider_is_verified(provider, capability)
-            && !self.ai_provider_needs_first_use(provider, capability)
-        {
-            return Some(format!(
-                "Check Connections to use {} for this task.",
-                provider.display_name()
-            ));
+        if let Err(note) = self.ai_route_for_task(self.ai.task) {
+            return Some(note);
         }
-        if self.ai.task.uses_assistant() && provider != ProviderId::CodexSubscription {
-            if matches!(self.ai.task, AiTask::Photo | AiTask::Caption) {
-                return Some(
-                    "This task needs a canvas preview. Choose ChatGPT via Codex in Connections."
-                        .into(),
-                );
-            }
-            if !effective_reference_paths(self.ai.follow_up.as_ref(), &self.ai.references)
-                .is_empty()
-            {
-                return Some("This assistant cannot receive reference images. Remove them or choose ChatGPT via Codex.".into());
-            }
+        if let Some(note) = self.ai_sequence_note() {
+            return Some(note);
         }
         match self.ai.task {
             AiTask::Replace | AiTask::Remove if !self.ai_has_edit_selection() => {
@@ -307,8 +282,14 @@ impl EditorView {
             cx.notify();
             return;
         }
-        let first =
-            self.ai_provider_needs_first_use(self.ai_task_provider(), self.ai.task.capability());
+        if let Err(error) = self.begin_ai_workflow(cx) {
+            self.ai.activity = error.to_string();
+            cx.notify();
+            return;
+        }
+        let first = self
+            .ai_route_for_task(self.ai.task)
+            .is_ok_and(|route| route.first_use);
         let submission = if first {
             CapabilitySubmission::FirstUseQualification
         } else {
@@ -326,6 +307,9 @@ impl EditorView {
                 let intent = match task { AiTask::Generate => ImageIntent::Generate, AiTask::Replace => ImageIntent::Replace, AiTask::Background => ImageIntent::Background, _ => unreachable!() };
                 if first { self.start_first_use_ai_image_job(intent, cx) } else { self.start_ai_image_job(intent, cx) }
             }
+        }
+        if !self.ai_busy() {
+            self.stop_ai_workflow();
         }
     }
 
@@ -392,7 +376,7 @@ impl EditorView {
                 })),
             );
         }
-        section = section.child(starters);
+        section = section.child(self.ai_workflow_controls(cx)).child(starters);
         if self.ai.task == AiTask::Expand {
             section = section
                 .child(label(
@@ -456,9 +440,9 @@ impl EditorView {
     pub(super) fn ai_composer(&self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let t = cx.omarchy().clone();
         let busy = self.ai_busy();
-        let provider = self.ai_task_provider();
+        let route = self.ai_route_for_task(self.ai.task);
         let note = self.ai_task_note();
-        let first = self.ai_provider_needs_first_use(provider, self.ai.task.capability());
+        let first = route.as_ref().is_ok_and(|route| route.first_use);
         let mut composer = div()
             .id("ai-composer")
             .key_context("AiPrompt")
@@ -470,17 +454,19 @@ impl EditorView {
             .border_t_1()
             .border_color(t.divider())
             .flex_shrink_0()
-            .child(label(
-                format!("{} · {}", self.ai.task.label(), provider.display_name()),
-                cx,
-            ))
+            .child(self.ai_route_button(cx))
             .child(
                 gpui_omarchy::textarea("ai-prompt", &self.ai.prompt, window, cx)
                     .debug_selector(|| "ai-prompt".into())
                     .min_h(px(56.))
                     .max_h(px(88.)),
             );
-        let active = self.ai.running.is_some() || self.ai.preparing_work_dir.is_some();
+        if let Some(progress) = self.ai_workflow_progress() {
+            composer = composer.child(label(progress, cx));
+        }
+        let active = self.ai.running.is_some()
+            || self.ai.preparing_work_dir.is_some()
+            || self.ai.workflow.is_some();
         let primary = if active {
             button("ai-cancel", "Stop request", ButtonVariant::Secondary, cx)
                 .debug_selector(|| "ai-cancel".into())
@@ -557,6 +543,7 @@ impl EditorView {
     }
 
     fn stop_ai_request(&mut self, cx: &mut Context<Self>) {
+        self.stop_ai_workflow();
         if let Some(job) = &self.ai.running {
             job.handle.cancel();
         }

@@ -13,12 +13,17 @@ mod jobs;
 mod process;
 mod qualification;
 mod results;
+pub mod routing;
 mod types;
 
 pub use auth::{AuthEvent, AuthFailure, AuthHandle, AuthOutcome, AuthRequest, begin_auth};
 pub use discovery::{DiscoveryConfig, discover_providers};
 pub use jobs::{JobHandle, spawn_job};
 pub use qualification::QualificationReceipts;
+pub use routing::{
+    MAX_PREFERENCES_BYTES, ProviderChoice, ROUTING_PREFERENCES_VERSION, ResolvedRoute,
+    RouteUnavailable, RoutingPreferences, RoutingPreferencesError, TaskKind, resolve_route,
+};
 pub use types::{
     AiError, AllowanceWindow, BillingMode, Capability, CapabilityStatus, ConnectionState,
     EvidenceLevel, JobEvent, JobFailure, JobLimits, JobOperation, JobOutcome, JobRequest,

@@ -21,6 +21,16 @@ mod ai_experience;
 #[path = "ai_native.rs"]
 mod ai_native;
 use ai_experience::AiTask;
+use omuse::ai::routing::{
+    ProviderChoice, ResolvedRoute, RoutingPreferences, TaskKind, resolve_route,
+};
+#[cfg(all(test, feature = "ui-test"))]
+#[path = "ai_routing_tests.rs"]
+mod ai_routing_tests;
+#[path = "ai_routing_ui.rs"]
+mod ai_routing_ui;
+#[path = "ai_workflow_ui.rs"]
+mod ai_workflow_ui;
 
 const MAX_PROVIDER_INPUT_IMAGES: usize = 8;
 const MAX_REFERENCE_INPUT_BYTES: u64 = 32 * 1024 * 1024;
@@ -50,8 +60,12 @@ pub(super) struct AiState {
     checking: bool,
     discovery_cancel: Option<Arc<std::sync::atomic::AtomicBool>>,
     auth: Option<ai::AuthHandle>,
-    assistant: ProviderId,
-    image_provider: ProviderId,
+    routing: RoutingPreferences,
+    routing_error: Option<String>,
+    route_picker_task: Option<AiTask>,
+    finish_with_layout: bool,
+    finish_with_caption: bool,
+    workflow: Option<ai_workflow_ui::AiWorkflow>,
     running: Option<AiJob>,
     preparing_image: bool,
     preparing_work_dir: Option<PathBuf>,
@@ -95,6 +109,7 @@ enum CapabilitySubmission {
     ExplicitNativeQualification,
 }
 struct AiJob {
+    workflow: Option<ai_workflow_ui::WorkflowContinuation>,
     handle: ai::JobHandle,
     client: ai::ValidatedClient,
     submission: CapabilitySubmission,
@@ -204,6 +219,7 @@ struct PreparedImageRequest {
 /// provider can receive them.
 #[derive(Clone)]
 struct PendingAssistantRequest {
+    workflow: Option<ai_workflow_ui::WorkflowContinuation>,
     _reference_workspaces: Vec<Arc<PrivateAiWorkspace>>,
     client: ai::ValidatedClient,
     provider: ProviderId,
@@ -264,7 +280,7 @@ struct AiVariationBatch {
 }
 impl AiState {
     pub fn new(window: &mut Window, cx: &mut Context<EditorView>) -> Self {
-        let (assistant, image_provider) = load_ai_preferences();
+        let (routing, routing_error) = load_ai_preferences();
         let qualification_receipts_path =
             omuse::identity::config_dir().join("ai-capability-receipts.json");
         let qualification_receipts = QualificationReceipts::load(&qualification_receipts_path);
@@ -281,8 +297,12 @@ impl AiState {
             checking: false,
             discovery_cancel: None,
             auth: None,
-            assistant,
-            image_provider,
+            routing,
+            routing_error,
+            route_picker_task: None,
+            finish_with_layout: false,
+            finish_with_caption: false,
+            workflow: None,
             running: None,
             preparing_image: false,
             preparing_work_dir: None,
@@ -486,7 +506,7 @@ impl EditorView {
                 this.ai.providers = providers;
                 this.ai.checking = false;
                 this.ai.discovery_cancel = None;
-                this.ai.activity = if this.ai.providers.iter().any(|p| p.provider == this.ai.assistant && p.connection == ConnectionState::Ready) {
+                this.ai.activity = if this.ai_route_for_task(this.ai.task).is_ok() {
                     "Describe your idea, or choose a starting point. Review every change before keeping it.".into()
                 } else {
                     this.ai.connections_visible = true;
@@ -504,6 +524,8 @@ impl EditorView {
         // Starter controls should not push the result below the visible panel.
         let body_id: SharedString = if self.ai.connections_visible {
             "ai-connections-content".into()
+        } else if self.ai.route_picker_task.is_some() {
+            "ai-routing-content".into()
         } else if let Some(proposal) = &self.ai.result {
             format!("ai-review-{}", proposal.id).into()
         } else {
@@ -519,14 +541,18 @@ impl EditorView {
             .flex_col()
             .gap_3()
             .p_3();
+        if !self.ai.connections_visible && self.ai.route_picker_task.is_some() {
+            body = body.child(self.ai_route_picker(cx));
+        }
         if !self.ai.connections_visible && self.ai.result.is_none() {
             body = body.child(self.ai_task_controls(window, cx));
         }
         if self.ai.connections_visible {
+            body = body.child(label("Set your preferred assistant and image provider. Auto uses these when they support the task; a pinned task always keeps its own choice.", cx));
             for status in &self.ai.providers {
                 let provider = status.provider;
-                let assistant_selected = self.ai.assistant == provider;
-                let image_selected = self.ai.image_provider == provider;
+                let assistant_selected = self.ai.routing.assistant == provider;
+                let image_selected = self.ai.routing.image_provider == provider;
                 let assistant_selectable =
                     status.client.is_some() && status.may_attempt(Capability::AssistantStreaming);
                 let image_selectable =
@@ -591,10 +617,13 @@ impl EditorView {
                         ButtonVariant::Secondary,
                         cx,
                     )
-                    .disabled(ai_busy || !assistant_selectable)
+                    .disabled(ai_busy || self.ai.routing_error.is_some() || !assistant_selectable)
                     .selected(assistant_selected)
                     .on_click(cx.listener(move |this, _, _, cx| {
-                        this.ai.assistant = provider;
+                        if this.ai_busy() || this.ai.routing_error.is_some() {
+                            return;
+                        }
+                        this.ai.routing.assistant = provider;
                         this.save_ai_preferences();
                         cx.notify();
                     })),
@@ -614,10 +643,13 @@ impl EditorView {
                             ButtonVariant::Secondary,
                             cx,
                         )
-                        .disabled(ai_busy || !image_selectable)
+                        .disabled(ai_busy || self.ai.routing_error.is_some() || !image_selectable)
                         .selected(image_selected)
                         .on_click(cx.listener(move |this, _, _, cx| {
-                            this.ai.image_provider = provider;
+                            if this.ai_busy() || this.ai.routing_error.is_some() {
+                                return;
+                            }
+                            this.ai.routing.image_provider = provider;
                             this.save_ai_preferences();
                             cx.notify();
                         })),
@@ -637,7 +669,32 @@ impl EditorView {
                         ),
                     );
                 }
-                card = card.child(controls);
+                let excluded = self.ai.routing.excluded_from_auto.contains(&provider);
+                card = card.child(controls).child(
+                    button(
+                        SharedString::from(format!("ai-auto-include-{provider:?}")),
+                        if excluded {
+                            "Auto · excluded"
+                        } else {
+                            "Auto · allowed"
+                        },
+                        ButtonVariant::Secondary,
+                        cx,
+                    )
+                    .selected(!excluded)
+                    .disabled(ai_busy || self.ai.routing_error.is_some())
+                    .debug_selector(move || format!("ai-auto-include-{provider:?}"))
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        if this.ai_busy() || this.ai.routing_error.is_some() {
+                            return;
+                        }
+                        if !this.ai.routing.excluded_from_auto.remove(&provider) {
+                            this.ai.routing.excluded_from_auto.insert(provider);
+                        }
+                        this.save_ai_preferences();
+                        cx.notify();
+                    })),
+                );
                 body = body.child(card);
             }
             body=body.child(button("ai-refresh-connections","Refresh connections",ButtonVariant::Secondary,cx).disabled(self.ai.checking||ai_busy).on_click(cx.listener(|this,_,_,cx|{this.ai.providers.clear();this.discover_ai_connections(cx);cx.notify();})))
@@ -674,7 +731,11 @@ impl EditorView {
             self.ai
                 .history
                 .iter()
-                .filter(|entry| entry.group_id == proposal.group_id)
+                .filter(|entry| {
+                    entry.group_id == proposal.group_id
+                        && entry.variation_total > 1
+                        && proposal.variation_total > 1
+                })
                 .map(|entry| {
                     (
                         entry.id.clone(),
@@ -878,6 +939,14 @@ impl EditorView {
                 );
             }
             for (index, asset) in proposal.assets.iter().enumerate() {
+                if proposal
+                    .provenance
+                    .get("workflowPreviewAsset")
+                    .and_then(|value| value.as_u64())
+                    == Some(index as u64)
+                {
+                    continue;
+                }
                 let text = format!(
                     "Add image {} · {} × {}",
                     index + 1,
@@ -997,7 +1066,7 @@ impl EditorView {
 
         if !self.ai.connections_visible {
             let context = if self.ai.task.uses_assistant() {
-                if self.ai.assistant == ProviderId::CodexSubscription
+                if self.ai_task_provider() == Some(ProviderId::CodexSubscription)
                     && (self.ai.share_canvas || self.ai.task != AiTask::Design)
                 {
                     "Shared on submit: this canvas preview, editable layer details, project and brand summaries, and your references."
@@ -1019,7 +1088,8 @@ impl EditorView {
                 .border_color(t.divider())
                 .child(label("REQUEST CONTEXT", cx))
                 .child(label(context, cx));
-            if self.ai.task == AiTask::Design && self.ai.assistant == ProviderId::CodexSubscription
+            if self.ai.task == AiTask::Design
+                && self.ai_task_provider() == Some(ProviderId::CodexSubscription)
             {
                 context_card = context_card.child(
                     button(
@@ -1284,6 +1354,7 @@ impl EditorView {
         session.generation = generation;
         session.project.metadata.local_only = enabled;
         if enabled {
+            self.stop_ai_workflow();
             let provider_or_input_active =
                 self.ai.running.is_some() || self.ai.preparing_work_dir.is_some();
             if let Some(job) = &self.ai.running {
@@ -1574,11 +1645,18 @@ impl EditorView {
             } else {
                 Capability::ImageEditing
             };
-            self.ensure_ai_provider_submission(
-                self.ai.image_provider,
-                required_capability,
-                submission,
-            )?;
+            let task = match &intent {
+                ImageIntent::Generate => AiTask::Generate,
+                ImageIntent::Replace if action_instruction.is_some() => AiTask::Remove,
+                ImageIntent::Replace => AiTask::Replace,
+                ImageIntent::Background => AiTask::Background,
+                ImageIntent::Expand { .. } => AiTask::Expand,
+            };
+            let provider = self
+                .ai_route_for_task(task)
+                .map_err(anyhow::Error::msg)?
+                .provider;
+            self.ensure_ai_provider_submission(provider, required_capability, submission)?;
             self.finish_interaction(cx);
             let brief = self.ai.prompt.read(cx).value().trim().to_string();
             anyhow::ensure!(!brief.is_empty(), "Describe what you want to make first");
@@ -1591,7 +1669,7 @@ impl EditorView {
                     .ai
                     .providers
                     .iter()
-                    .find(|status| status.provider == self.ai.image_provider)
+                    .find(|status| status.provider == provider)
                     .ok_or_else(|| anyhow::anyhow!("Check your subscription connection first"))?;
                 anyhow::ensure!(
                     status.connection == ConnectionState::Ready,
@@ -1625,15 +1703,9 @@ impl EditorView {
             let work_dir = new_ai_job_work_dir()?;
             let pending = PendingImageRequest {
                 _reference_workspaces: self.ai_reference_workspaces_for(&reference_paths),
-                task: match &intent {
-                    ImageIntent::Generate => AiTask::Generate,
-                    ImageIntent::Replace if action_instruction.is_some() => AiTask::Remove,
-                    ImageIntent::Replace => AiTask::Replace,
-                    ImageIntent::Background => AiTask::Background,
-                    ImageIntent::Expand { .. } => AiTask::Expand,
-                },
+                task,
                 client,
-                provider: self.ai.image_provider,
+                provider,
                 provider_version,
                 source,
                 source_document,
@@ -1727,7 +1799,8 @@ impl EditorView {
                 match prepared {
                     Ok(prepared) if this.ai_source_matches(&prepared.pending.source) => {
                         if this.ai_local_only() {
-                            this.ai.variation_batch = None;
+                            this.stop_ai_workflow();
+                        this.ai.variation_batch = None;
                             this.ai.activity = "Local-only was enabled while input was being prepared. Nothing was sent.".into();
                             cx.notify();
                             return;
@@ -1748,6 +1821,7 @@ impl EditorView {
                                 );
                                 this.ai.connections_visible = false;
                                 this.ai.running = Some(AiJob {
+                                    workflow: None,
                                     handle,
                                     client: prepared.pending.client,
                                     submission: prepared.pending.submission,
@@ -1774,7 +1848,8 @@ impl EditorView {
                                 this.poll_ai_job(cx);
                             }
                             Err(error) => {
-                                this.ai.variation_batch = None;
+                                this.stop_ai_workflow();
+                        this.ai.variation_batch = None;
                                 if let Some(connection) = connection_state_for_ai_error(&error) {
                                     this.mark_ai_provider_connection_failed(
                                         prepared.pending.provider,
@@ -1786,10 +1861,12 @@ impl EditorView {
                         }
                     }
                     Ok(_prepared) => {
+                        this.stop_ai_workflow();
                         this.ai.variation_batch = None;
                         this.ai.activity = "The canvas changed while the image request was being prepared. Nothing was sent.".into();
                     }
                     Err(error) => {
+                        this.stop_ai_workflow();
                         this.ai.variation_batch = None;
                         this.ai.activity = format!("Could not prepare image request: {error:#}");
                     }
@@ -1905,8 +1982,12 @@ impl EditorView {
                 !self.ai_local_only(),
                 "Local-only is enabled for this collection. Remote AI requests are disabled."
             );
+            let provider = self
+                .ai_route_for_task(self.ai.task)
+                .map_err(anyhow::Error::msg)?
+                .provider;
             self.ensure_ai_provider_submission(
-                self.ai.assistant,
+                provider,
                 Capability::AssistantStreaming,
                 submission,
             )?;
@@ -1920,7 +2001,6 @@ impl EditorView {
                 brief.len() <= 16_384,
                 "Please keep the creative brief under 16 KB"
             );
-            let provider = self.ai.assistant;
             let status = self
                 .ai
                 .providers
@@ -1960,6 +2040,7 @@ impl EditorView {
             );
             let work_dir = new_ai_job_work_dir()?;
             let pending = PendingAssistantRequest {
+                workflow: None,
                 _reference_workspaces: self.ai_reference_workspaces_for(&reference_paths),
                 client,
                 provider,
@@ -2033,6 +2114,7 @@ impl EditorView {
                                 );
                                 this.ai.connections_visible = false;
                                 this.ai.running = Some(AiJob {
+                                    workflow: prepared.pending.workflow,
                                     handle,
                                     client: prepared.pending.client,
                                     submission: prepared.pending.submission,
@@ -2059,6 +2141,7 @@ impl EditorView {
                                 this.poll_ai_job(cx);
                             }
                             Err(error) => {
+                                this.stop_ai_workflow();
                                 if let Some(connection) = connection_state_for_ai_error(&error) {
                                     this.mark_ai_provider_connection_failed(
                                         prepared.pending.provider,
@@ -2072,11 +2155,13 @@ impl EditorView {
                         }
                     }
                     Ok(_) => {
+                        this.stop_ai_workflow();
                         this.ai.activity =
                             "The canvas changed while the assistant input was being prepared. Nothing was sent."
                                 .into();
                     }
                     Err(error) => {
+                        this.stop_ai_workflow();
                         this.ai.activity = format!("Could not prepare assistant input: {error:#}");
                     }
                 }
@@ -2138,11 +2223,13 @@ impl EditorView {
         let result = match outcome {
             JobOutcome::Completed(result) => result,
             JobOutcome::Cancelled => {
+                self.stop_ai_workflow();
                 self.ai.variation_batch = None;
                 self.ai.activity = "Request stopped. The canvas is unchanged.".into();
                 return;
             }
             JobOutcome::Failed(error) => {
+                self.stop_ai_workflow();
                 self.ai.variation_batch = None;
                 if let Some(connection) = connection_state_for_job_failure(&error) {
                     self.mark_ai_provider_connection_failed(provider, connection);
@@ -2154,6 +2241,7 @@ impl EditorView {
                 return;
             }
             JobOutcome::OutcomeUnknown(error) => {
+                self.stop_ai_workflow();
                 self.ai.variation_batch = None;
                 if let Some(connection) = connection_state_for_job_failure(&error) {
                     self.mark_ai_provider_connection_failed(provider, connection);
@@ -2232,6 +2320,9 @@ impl EditorView {
                         if this.ai.transcript.len() > 20 {
                             this.ai.transcript.remove(0);
                         }
+                        let can_continue_sequence = source_is_current && prepared.stored.is_some()
+                            && qualification_error.is_none() && prepared.proposal.error.is_none()
+                            && (prepared.proposal.project.is_some() || prepared.proposal.document.is_some());
                         if let Some(entry) = prepared.stored {
                             this.ai.history.retain(|item| item.id != entry.id);
                             this.ai.history.insert(0, entry);
@@ -2251,7 +2342,9 @@ impl EditorView {
                             "Saved result is ready to review, but its source canvas changed before preparation completed.".into()
                         };
                         this.ai.show_before = false;
+                        let continued = this.continue_ai_workflow(&mut prepared.proposal, can_continue_sequence, cx);
                         this.ai.result = Some(prepared.proposal);
+                        if continued { cx.notify(); return; }
                         // A batch is useful only while every completed item
                         // remains a comparable, locally retained candidate.
                         // In particular, never relabel a later first-use
@@ -2260,6 +2353,7 @@ impl EditorView {
                         this.continue_or_stop_ai_variations(continue_variations, cx);
                     }
                     Err(error) => {
+                        this.stop_ai_workflow();
                         this.ai.activity = format!("Could not prepare AI result: {error:#}");
                     }
                 }
@@ -2752,6 +2846,15 @@ impl EditorView {
                     proposal
                         .assets
                         .iter()
+                        .enumerate()
+                        .filter(|(index, _)| {
+                            proposal
+                                .provenance
+                                .get("workflowPreviewAsset")
+                                .and_then(|v| v.as_u64())
+                                != Some(*index as u64)
+                        })
+                        .map(|(_, asset)| asset)
                         .take(1)
                         .map(|asset| asset.path.clone())
                         .collect(),
@@ -3241,6 +3344,42 @@ fn creative_plan_review(
     documents: Option<PlanReviewDocuments<'_>>,
 ) -> Vec<String> {
     let Ok(plan) = CreativePlan::parse(plan_json) else {
+        if let Ok(flow) = omuse::ai_workflow::WorkflowPlan::parse(plan_json) {
+            return flow
+                .steps
+                .iter()
+                .enumerate()
+                .flat_map(|(step_index, step)| match step {
+                    omuse::ai_workflow::WorkflowStep::Assistant { provider, plan, .. } => {
+                        let mut lines = vec![format!(
+                            "Step {} · {} · {}",
+                            step_index + 1,
+                            provider.display_name(),
+                            review_text(&plan.summary)
+                        )];
+                        lines.extend(plan.operations.iter().enumerate().flat_map(
+                            |(index, operation)| {
+                                creative_operation_review(index + 1, operation, documents)
+                            },
+                        ));
+                        lines
+                    }
+                    omuse::ai_workflow::WorkflowStep::Image {
+                        provider, intent, ..
+                    } => vec![format!(
+                        "Step {} · {} · {}",
+                        step_index + 1,
+                        provider.display_name(),
+                        match intent {
+                            ImageIntent::Generate => "Generate image",
+                            ImageIntent::Replace => "Edit selected area",
+                            ImageIntent::Background => "Replace background",
+                            ImageIntent::Expand { .. } => "Expand canvas",
+                        }
+                    )],
+                })
+                .collect();
+        }
         return vec!["The saved plan could not be read for review.".into()];
     };
     plan.operations
@@ -3268,11 +3407,23 @@ fn follow_up_plan_context(plan_json: &str) -> String {
 }
 
 fn plan_content_copy(plan_json: &str) -> Option<(String, String)> {
-    CreativePlan::parse(plan_json)
-        .ok()?
-        .operations
+    let plans = if let Ok(plan) = CreativePlan::parse(plan_json) {
+        vec![plan]
+    } else {
+        omuse::ai_workflow::WorkflowPlan::parse(plan_json)
+            .ok()?
+            .steps
+            .into_iter()
+            .filter_map(|step| match step {
+                omuse::ai_workflow::WorkflowStep::Assistant { plan, .. } => Some(plan),
+                _ => None,
+            })
+            .collect()
+    };
+    plans
         .into_iter()
         .rev()
+        .flat_map(|plan| plan.operations.into_iter().rev())
         .find_map(|operation| {
             if let CreativeOperation::SetContent { caption, alt_text } = operation {
                 Some((caption, alt_text))
@@ -3650,13 +3801,20 @@ fn prepare_assistant_request(
     } else {
         "No canvas preview is supplied. Base the proposal on the editable layer description and project brief."
     };
+    let mut project_brief = assistant_project_brief(&pending.source_project);
+    if pending.workflow.is_some() && pending.task == AiTask::Design {
+        // A finishing step edits this page's existing layers. Do not advertise
+        // newly packaged result resources as independent insertion targets.
+        project_brief["packagedResources"] = serde_json::json!([]);
+        project_brief["reusableComponents"] = serde_json::json!([]);
+    }
     let prompt = format!(
         "{}\nActive layer ID: {}. {} Use supplied reference images only as visual inspiration.\nDeterministic content checks from the current editable project:\n{}\nProject brief:\n{}{}",
         omuse::creative_commands::assistant_instructions(&pending.source_document, &pending.brief),
         pending.active_layer,
         canvas_note,
         assistant_deterministic_checks(&pending.source_project),
-        assistant_project_brief(&pending.source_project),
+        project_brief,
         pending.follow_up_context,
     );
     Ok(PreparedAssistantRequest {
@@ -3793,6 +3951,8 @@ fn ai_result_provenance(job: &AiJob, result: &ai::JobResult) -> serde_json::Valu
         "intent": &job.intent,
         "omuseTask": job.task,
         "productPresentation": &job.product_presentation,
+        "inputPageID": job.source_project.active_page_id(),
+        "assistantActiveLayer": job.assistant_task.as_ref().map(|(_, layer)| layer),
         "sourceIdentityHash": &job.source_hash,
         "sourceMaskHash": &job.source_mask_hash,
         "referenceHashes": &job.reference_hashes,
@@ -4033,6 +4193,25 @@ fn prepare_completed_ai_job(
             }
         }
     }
+    if let Some(continuation) = job.workflow {
+        let active_layer = job
+            .assistant_task
+            .as_ref()
+            .map(|(_, layer)| layer.as_str())
+            .unwrap_or("");
+        if let Err(error) = ai_workflow_ui::complete_workflow_proposal(
+            continuation,
+            job.task,
+            active_layer,
+            &job.source_project,
+            &mut proposal,
+            job.workspace.path(),
+        ) {
+            proposal.error = Some(format!("Could not assemble the sequence: {error:#}"));
+            proposal.document = None;
+            proposal.project = None;
+        }
+    }
     let mut stored = None;
     let mut history_error = None;
     match HistoryStore::open(&history_root).and_then(|mut history| {
@@ -4178,7 +4357,18 @@ fn prepare_saved_ai_proposal(
         preview: None,
         error: None,
     };
-    if source_is_current && proposal.operation == Operation::Assistant {
+    if source_is_current
+        && proposal
+            .provenance
+            .get("workflow")
+            .and_then(|v| v.as_bool())
+            == Some(true)
+    {
+        if let Err(error) = ai_workflow_ui::replay_workflow_proposal(&mut proposal, &source_project)
+        {
+            proposal.error = Some(format!("Cannot restore this sequence: {error:#}"));
+        }
+    } else if source_is_current && proposal.operation == Operation::Assistant {
         if let Some(plan_json) = &proposal.plan_json {
             match CreativePlan::parse(plan_json) {
                 Ok(plan) if plan.operations.is_empty() => {}
@@ -4265,7 +4455,13 @@ fn proposal_preview_pixels(proposal: &AiProposal) -> anyhow::Result<Option<image
             640,
         )));
     }
-    if let Some(asset) = proposal.assets.first() {
+    let preview_index = proposal
+        .provenance
+        .get("workflowPreviewAsset")
+        .and_then(|v| v.as_u64())
+        .and_then(|index| usize::try_from(index).ok())
+        .unwrap_or(0);
+    if let Some(asset) = proposal.assets.get(preview_index) {
         let document = document::open(&asset.path).map_err(|error| {
             anyhow::anyhow!("Image preview {}: {error:#}", asset.path.display())
         })?;
@@ -6027,6 +6223,7 @@ mod tests {
                 provider_item_id: Some("offline-result".into()),
             };
             let job = AiJob {
+                workflow: None,
                 handle,
                 client: client.clone(),
                 submission: CapabilitySubmission::Verified,
@@ -6327,26 +6524,39 @@ impl EditorView {
     }
 }
 
-fn load_ai_preferences() -> (ProviderId, ProviderId) {
-    let fallback = (ProviderId::CodexSubscription, ProviderId::CodexSubscription);
+fn load_ai_preferences() -> (RoutingPreferences, Option<String>) {
     let path = omuse::identity::config_dir().join("ai-preferences.json");
-    let Some(bytes) = std::fs::metadata(&path)
-        .ok()
-        .filter(|m| m.is_file() && m.len() <= 4096)
-        .and_then(|_| std::fs::read(&path).ok())
-    else {
-        return fallback;
-    };
-    let Ok(value) = serde_json::from_slice::<serde_json::Value>(&bytes) else {
-        return fallback;
-    };
-    (
-        serde_json::from_value(value["assistant"].clone()).unwrap_or(fallback.0),
-        serde_json::from_value(value["imageProvider"].clone()).unwrap_or(fallback.1),
-    )
+    let result = (|| -> anyhow::Result<RoutingPreferences> {
+        let metadata = match std::fs::metadata(&path) {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                return Ok(RoutingPreferences::default());
+            }
+            Err(error) => return Err(error.into()),
+        };
+        anyhow::ensure!(
+            metadata.is_file()
+                && metadata.len() <= omuse::ai::routing::MAX_PREFERENCES_BYTES as u64,
+            "Saved AI choices are too large or are not a regular file"
+        );
+        let file = std::fs::File::open(path)?;
+        let mut bytes = Vec::new();
+        std::io::Read::read_to_end(
+            &mut std::io::Read::take(file, omuse::ai::routing::MAX_PREFERENCES_BYTES as u64 + 1),
+            &mut bytes,
+        )?;
+        RoutingPreferences::from_json_bounded(&bytes).map_err(anyhow::Error::msg)
+    })();
+    match result {
+        Ok(preferences) => (preferences, None),
+        Err(_) => (RoutingPreferences::default(), Some("Saved AI choices could not be read. Open the provider chooser and reset the choices before sending.".into())),
+    }
 }
 impl EditorView {
     fn save_ai_preferences(&mut self) {
+        if self.ai.routing_error.is_some() {
+            return;
+        }
         let result = (|| -> anyhow::Result<()> {
             use std::io::Write;
             let root = omuse::identity::config_dir();
@@ -6361,7 +6571,9 @@ impl EditorView {
             }
             let mut file = options.open(&temporary)?;
             let result = (|| -> anyhow::Result<()> {
-                file.write_all(&serde_json::to_vec(&serde_json::json!({"version":1,"assistant":self.ai.assistant,"imageProvider":self.ai.image_provider,"directApiEnabled":false}))?)?;
+                let mut value = serde_json::to_value(&self.ai.routing)?;
+                value["directApiEnabled"] = serde_json::Value::Bool(false);
+                file.write_all(&serde_json::to_vec(&value)?)?;
                 file.sync_all()?;
                 std::fs::rename(&temporary, root.join("ai-preferences.json"))?;
                 Ok(())
