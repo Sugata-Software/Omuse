@@ -589,10 +589,9 @@ mod tests {
 
         let mut candidate = workflow.replay(&fresh, None, None).unwrap();
         assert_eq!(candidate.active_page_id(), fresh_page_id);
-        assert_eq!(
-            candidate.active_document().unwrap().background,
-            [12, 34, 56, 255]
-        );
+        let rendered = crate::raster::composite(candidate.active_document().unwrap());
+        assert!(rendered.pixels().all(|pixel| pixel.0 == [12, 34, 56, 255]));
+        assert_eq!(fresh.active_document().unwrap().layers.len(), 1);
 
         fresh.add_page("Second", Document::new(8, 8)).unwrap();
         assert!(workflow.replay(&fresh, None, None).is_err());
