@@ -1062,6 +1062,53 @@ fn clone_alpha_is_source_over_and_cancellation_restores_state() {
     assert_eq!(e.undo_depth(), 0);
     assert!(!e.is_dirty());
 }
+
+#[test]
+fn clone_and_heal_use_sample_alpha_independently_of_foreground_color() {
+    for alpha in [0, 127, 255] {
+        for heal in [false, true] {
+            for from_canvas in [false, true] {
+                let mut e = editor();
+                let image = e.document.layers[0].image.as_mut().unwrap();
+                image.put_pixel(1, 1, Rgba([200, 50, 20, 128]));
+                image.put_pixel(8, 8, Rgba([20, 40, 60, 128]));
+                let before = image.clone();
+                e.brush.size = 1.;
+                e.brush.hardness = 1.;
+                e.brush.opacity = 0.5;
+                e.brush.color = [170, 90, 230, alpha];
+                assert!(if from_canvas {
+                    e.begin_clone_stroke_from_canvas((1.5, 1.5), (8.5, 8.5), heal)
+                } else {
+                    e.begin_clone_stroke((1.5, 1.5), (8.5, 8.5), heal)
+                });
+                assert!(
+                    e.finish_clone_stroke(),
+                    "foreground alpha {alpha}, heal {heal}, canvas {from_canvas}"
+                );
+                // At half opacity, a half-transparent sample contributes 64
+                // alpha. Heal matches the destination tone before compositing.
+                assert_eq!(
+                    pixel(&e, 8, 8),
+                    if heal {
+                        [20, 40, 60, 160]
+                    } else {
+                        [92, 44, 44, 160]
+                    }
+                );
+                assert_eq!(pixel(&e, 1, 1), [200, 50, 20, 128]);
+                assert_eq!(e.undo_depth(), 1);
+                let after = e.document.layers[0].image.clone();
+                assert!(e.undo());
+                assert_eq!(e.document.layers[0].image.as_ref().unwrap(), &before);
+                assert!(!e.is_dirty());
+                assert!(e.redo());
+                assert_eq!(e.document.layers[0].image, after);
+            }
+        }
+    }
+}
+
 #[test]
 fn continuous_clone_rejects_locked_ancestor_and_preserves_selection() {
     let mut e = editor();

@@ -360,6 +360,44 @@ fn uniquely_owned_small_stroke_does_not_report_a_full_raster_detach() {
 }
 
 #[test]
+fn eraser_ignores_foreground_alpha_and_keeps_compact_reversible_history() {
+    for alpha in [0, 127, 255] {
+        let before = image::RgbaImage::from_pixel(WIDTH, HEIGHT, image::Rgba([240, 60, 20, 192]));
+        let mut document = Document::new(WIDTH, HEIGHT);
+        // Keep the oracle in a separate allocation so it does not force the
+        // candidate's copy-on-write image to detach when the stroke begins.
+        document.layers[0].image = Some(before.clone().into());
+        let mut editor = Editor::new(document);
+        editor.set_region_history_enabled(true);
+        editor.brush.color = [170, 90, 230, alpha];
+        editor.brush.size = 1.;
+        editor.brush.hardness = 1.;
+        editor.brush.opacity = 0.5;
+        assert!(editor.begin_stroke(8.5, 8.5, 1., PaintTool::Eraser));
+        assert!(editor.finish_stroke(), "foreground alpha {alpha}");
+        let mut after = before.clone();
+        after.put_pixel(8, 8, image::Rgba([240, 60, 20, 96]));
+        assert_eq!(editor.document.layers[0].image.as_deref(), Some(&after));
+        let stats = editor.history_stats();
+        assert_eq!(stats.raster_patch_entries, 1);
+        assert_eq!(stats.raster_patch_tiles, 1);
+        assert!(stats.raster_patch_bytes < before.as_raw().len());
+        assert_eq!(stats.detached_raster_bytes, 0);
+        assert_eq!(editor.undo_depth(), 1);
+        for _ in 0..2 {
+            assert!(editor.undo());
+            assert_eq!(editor.document.layers[0].image.as_deref(), Some(&before));
+            assert!(!editor.is_dirty());
+            assert!(editor.redo());
+            assert_eq!(editor.document.layers[0].image.as_deref(), Some(&after));
+            assert!(editor.is_dirty());
+        }
+        assert_eq!(editor.history_stats().detached_raster_bytes, 0);
+        assert_eq!(editor.history_stats().raster_patch_entries, 1);
+    }
+}
+
+#[test]
 fn image_buffers_with_trailing_bytes_keep_reversible_snapshot_history() {
     let mut document = Document::new(WIDTH, HEIGHT);
     // ImageBuffer permits trailing bytes. Region swap requires an exact layout,

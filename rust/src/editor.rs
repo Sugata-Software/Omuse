@@ -966,7 +966,12 @@ impl Editor {
         } else {
             dynamic_dab.map_or(brush.hardness.clamp(0.0, 1.0), |dab| dab.hardness)
         };
-        if opacity <= 0.0 || brush.color[3] == 0 {
+        // Raster erasing uses brush opacity, and clone/heal sample their own
+        // color. A transparent foreground can only suppress paths that use it
+        // when computing coverage (including the existing mask-paint path).
+        let uses_foreground_alpha =
+            stroke.mask_target || (stroke.clone.is_none() && stroke.tool != PaintTool::Eraser);
+        if opacity <= 0.0 || (uses_foreground_alpha && brush.color[3] == 0) {
             return;
         }
         if stroke.mask_target
