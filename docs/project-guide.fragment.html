@@ -200,7 +200,7 @@
   "snapshotDate": "2026-10-01",
   "project": "Omuse",
   "releaseScope": "Native Rust/GPUI application for Arch/Omarchy Linux x86_64",
-  "releaseState": "Omuse 0.5.0 source pre-release: .omuse for all projects, safe legacy migration and batch collection input; binary and stable-release gates remain open",
+  "releaseState": "Omuse 0.6.0 source pre-release: photo finishing, direct editing, Photoshop/SVG imports and save/reload safety; binary and stable-release gates remain open",
   "visualizationMirror": "omuse-project-guide.html",
   "statusDefinitions": [
     {
@@ -231,15 +231,15 @@
   ],
   "releaseSnapshot": [
     {
-      "label": "Editing update in qualification",
-      "value": "Omuse 0.6 candidate",
-      "detail": "OmaPhoto 1.3.3 backlog implementation on feature/omaphoto-133-editing: imports, text, masks, effects, numeric controls, recent projects and save/reload safety. Focused tests are passing; final Camera Raw/numeric integration and combined/native qualification are still running. Installed/public 0.5 remains the rollback baseline.",
-      "status": "implemented-needs-qualification"
+      "label": "Editing update released",
+      "value": "Omuse 0.6.0",
+      "detail": "Implemented the OmaPhoto 1.3.3 editing backlog: Camera Raw gestures, text styling, imports, mask growth, effects, numeric controls, recent projects and save/reload safety. 1,105 application cases, exact-source CI, native journeys, compatibility and complete rollback passed.",
+      "status": "locally-tested"
     },
     {
       "label": "One project extension",
       "value": ".omuse for every project",
-      "detail": "Omuse 0.5.0 uses .omuse for canvases, collections, nested pages/components and recovery. Legacy .comp opens and saves to a new copy. Migration, overwrite, recovery and batch tests passed; collection v2 needs 0.5.0 or later.",
+      "detail": ".omuse for canvases, collections, pages/components and recovery. Legacy projects open without rewriting. Canvas formats 1–10 are readable; new format 10 saves require 0.6.0 or later. Save As retains older artwork; application rollback does not downgrade files.",
       "status": "locally-tested"
     },
     {
@@ -250,14 +250,14 @@
     },
     {
       "label": "Numbered source release",
-      "value": "Omuse 0.5.0",
-      "detail": "Tested public runtime 73dd0d4 is the numbered source release, normal installed app and curl installer pin. Includes all preceding AI, panel and editing work. Source only; broader release gates remain open.",
+      "value": "Omuse 0.6.0",
+      "detail": "Tested public runtime a8b7ac7 is the numbered source release, installed normal app and curl installer pin. Includes preceding AI/panel work. Source only; broader release gates remain open.",
       "status": "locally-tested"
     },
     {
       "label": "Current release regression suite",
-      "value": "970 tests passed",
-      "detail": "Exact-source GitHub run 36682319767 and local validation passed 417 library, 274 UI and 279 integration cases, plus editing/Create/motion and 80 template variants. Remote recovery and installer checks passed. Four manual benchmarks excluded.",
+      "value": "1,105 tests passed",
+      "detail": "457 library, 327 final UI and 321 integration cases. Unchanged core evidence reused from a28ac; exact-source GitHub run 36784517002 also passed the full suite, media/recovery and installer/reference checks. Editing/Create/motion and 80 templates passed. Four timing benchmarks excluded.",
       "status": "locally-tested"
     },
     {
@@ -269,7 +269,7 @@
     {
       "label": "Public-release blockers",
       "value": "Open gates",
-      "detail": "Two dependency texts, clean-machine installation and broader physical desktop/accessibility acceptance remain open. Runtime 73dd0d4 passed complete CI, 24 native checks each on Wayland, XWayland and installed Wayland, plus 19-file rollback. The installer pins that revision.",
+      "detail": "Two dependency texts, clean-machine installation and broader hardware/accessibility acceptance remain open. Runtime a8b7ac7 passed complete CI, 24 native checks each on Wayland, XWayland and the installed launcher, plus complete 19-file rollback.",
       "status": "blocked-deferred"
     }
   ],
@@ -351,10 +351,11 @@
         {
           "id": "photo-camera-scopes",
           "name": "Camera Raw scopes and preview responsiveness",
-          "status": "implemented-needs-qualification",
+          "status": "locally-tested",
           "current": "RGB histogram and hue/saturation vectorscope use bounded alpha-weighted samples. Camera Raw adds stage-aware neutral white-balance and defringe sampling, targeted curve/HSL drags, and one active plus one newest queued preview. Cancelled and stale work cannot replace another document or dialog.",
-          "boundary": "Existing reference and four new numerical gesture tests passed on the candidate; final integrated/production run is pending. Grading remains full resolution within 16 MP, while canvas reference textures are bounded. Scopes and samplers describe 8-bit display RGB, not sensor RAW/HDR; no comparative speed claim.",
+          "boundary": "Six numerical gesture cases, four GUI gesture cases and lifecycle checks pass within the release suite. Full-resolution 8-bit grading is limited to 16 MP; canvas references are bounded. Scopes/samplers describe display RGB, not sensor RAW/HDR; no comparative speed claim.",
           "evidence": [
+            "docs/release-060-qualification.md",
             "docs/omaphoto-comparison.md",
             "rust/tests/camera_reference.rs"
           ],
@@ -458,10 +459,11 @@
         {
           "id": "photo-selection-contour-lod",
           "name": "Responsive outlines for complex selections",
-          "status": "implemented-needs-qualification",
+          "status": "locally-tested",
           "current": "Zoom-aware background outlines, visible-region clipping, cancellation and a 65,536-point display cap. Exact selection pixels remain unchanged.",
-          "boundary": "Six contour engine tests and two generation tests passed; combined/native qualification is pending. One immutable selection snapshot is copied per selection generation; no measured comparative speed claim.",
+          "boundary": "Contour, selection-generation and combined UI regressions passed. One immutable selection snapshot is copied per generation. Exact masks remain unchanged; no comparative speed measurement.",
           "evidence": [
+            "docs/release-060-qualification.md",
             "docs/omaphoto-comparison.md",
             "docs/omaphoto-watch.json",
             "docs/omaphoto-133-implementation.md"
@@ -475,10 +477,11 @@
         {
           "id": "photo-dither",
           "name": "Dither, halftone and retro image effects",
-          "status": "implemented-needs-qualification",
+          "status": "locally-tested",
           "current": "Ten deterministic Dither styles plus Bloom Glow, Vignette Overlay and Local Contrast. The finishing panel previews, applies cached exact pixels and supports selection-aware Undo.",
-          "boundary": "Thirteen focused engine tests passed; combined GUI qualification is pending. Finishing tools require an 8-bit raster copy and at most 16 MP canvases/layers; retained masters stay unchanged.",
+          "boundary": "Engine, Apply/Undo, selection and lower-controls scrolling/typing regressions passed. Production Dither/Bloom/Vignette panels were inspected in dark/light themes. Requires 8-bit raster copies and canvases/layers up to 16 MP; retained masters stay unchanged.",
           "evidence": [
+            "docs/release-060-qualification.md",
             "docs/omaphoto-comparison.md",
             "docs/omaphoto-watch.json",
             "docs/omaphoto-133-implementation.md"
@@ -612,10 +615,11 @@
         {
           "id": "layers-growing-masks",
           "name": "Paint masks beyond their original bounds",
-          "status": "implemented-needs-qualification",
+          "status": "locally-tested",
           "current": "Brush, fill and gradient masks can grow while preserving placement, linked/detached geometry, outside coverage and original layer pixels.",
-          "boundary": "Fourteen new and sixteen existing mask regressions passed. Expansion has a 16 MP interactive cap with failure rollback. New outside-coverage semantics require canvas format 10; final combined/native run pending.",
+          "boundary": "New and existing mask regressions passed in the combined suite. Expansion has a 16 MP interactive cap with failure rollback. Outside coverage and grown folder-mask placement require canvas format 10.",
           "evidence": [
+            "docs/release-060-qualification.md",
             "docs/omaphoto-comparison.md",
             "docs/omaphoto-watch.json",
             "docs/omaphoto-133-implementation.md"
@@ -744,10 +748,11 @@
         {
           "id": "design-canvas-text-preview",
           "name": "Live canvas text and effects while typing",
-          "status": "implemented-needs-qualification",
+          "status": "locally-tested",
           "current": "Background draft rendering uses the committed text/compositing path. Select actual letters to colour them, retain styles during Unicode typing, and Apply as one document Undo.",
-          "boundary": "New regressions cover preview/apply pixels, placed masks/rotation/blend, picker cancel/focus, stale jobs and typing/Undo. Combined tests are pending; native IME and broad font coverage are not established.",
+          "boundary": "Preview/Apply pixels, placed masks/rotation/blend, picker cancellation/focus, stale jobs and Unicode typing/Undo regressions passed. Native IME and broad font coverage remain separate evidence gaps.",
           "evidence": [
+            "docs/release-060-qualification.md",
             "docs/omaphoto-comparison.md",
             "docs/omaphoto-watch.json",
             "docs/omaphoto-133-implementation.md"
@@ -1110,9 +1115,10 @@
           "id": "formats-canvas",
           "name": "`.omuse` canvases and legacy import",
           "status": "locally-tested",
-          "current": "Single canvases now use .omuse. The document reader accepts schema versions 1–9 and writes version 9 while retaining legacy metadata. Opening a .comp project leaves it unchanged; the first UI Save offers an .omuse copy. Existing destinations require replacement confirmation.",
-          "boundary": "Public 0.5 qualification remains historical. The 0.6 work branch reads/writes format 10 and preserves .comp originals; older readers cannot open its new saves. See the current format 10 implementation record and pending combined qualification.",
+          "current": "Single canvases and collections use .omuse. Canvases read formats 1–10 and write format 10; Unicode colour runs are validated. Legacy .comp opens without rewriting and first Save offers an .omuse copy. Existing destinations require confirmation.",
+          "boundary": "Omuse 0.5 and earlier cannot read new format 10 saves. Previous production format 9 artwork rendered identically and its 7 source files were unchanged. Save As preserves older copies; app rollback does not downgrade files.",
           "evidence": [
+            "docs/release-060-qualification.md",
             "docs/release-050-qualification.md",
             "docs/project-format.md",
             "docs/rust-release-qualification.md",
@@ -1218,10 +1224,11 @@
         {
           "id": "formats-extended-imports",
           "name": "PSB, editable Photoshop text and SVG import",
-          "status": "implemented-needs-qualification",
+          "status": "locally-tested",
           "current": "Bounded PSB and SVG/SVGZ import, selectable SVG raster size, supported editable TypeTool descriptors, cached fallback artwork and explicit conversion notes.",
-          "boundary": "24 PSD/text and 8 SVG focused cases passed before the latest alignment-padding fixture repair. MIT-licensed independent Photoshop fixtures are included; final rebuild pending. Embedded-ICC PSD remains an explicit refusal; SVG imports pixels, not editable vector trees.",
+          "boundary": "The combined suite passed real Photoshop alignment/cached-text fixtures, SVG source-change checks and bounded import regressions. Embedded-ICC Photoshop input remains an explicit refusal. SVG imports pixels, not editable vector trees; full interchange is not claimed.",
           "evidence": [
+            "docs/release-060-qualification.md",
             "docs/omaphoto-comparison.md",
             "docs/omaphoto-watch.json",
             "docs/omaphoto-133-implementation.md"
@@ -1336,9 +1343,10 @@
           "id": "linux-wayland-xwayland",
           "name": "Wayland and XWayland journeys",
           "status": "locally-tested",
-          "current": "The exact Omuse 0.5.0 production executable passed 24 native Wayland and 24 XWayland checks; its installed normal launcher passed 24 Wayland checks. All used the 800×600 minimum viewport and reduced motion. Historical installed 3117032 Cua separately completed one Claude Design journey through Review, Keep, Undo and Redo.",
+          "current": "Omuse 0.6 production passed 24 native checks on Wayland and 24 on XWayland; the installed normal launcher passed 24 on Wayland. All used 800×600 logical minimum size and reduced motion. Dark/light finishing captures were inspected; earlier Cua evidence keeps its own identity.",
           "boundary": "Native checks dispatch GPUI events in process; the separate Cua journey supplies bounded compositor input evidence. Broader XWayland, hardware and accessibility coverage remains open.",
           "evidence": [
+            "docs/release-060-qualification.md",
             "docs/release-050-qualification.md",
             "docs/release-040-qualification.md",
             "docs/keyboard-qualification.md",
@@ -1357,9 +1365,10 @@
           "id": "linux-install",
           "name": "One-command install and rollback",
           "status": "locally-tested",
-          "current": "The curl installer and normal development-host launcher select Omuse 0.5.0 runtime 73dd0d4. The complete 19-file installation retains 0.4.0 for rollback. Both directions passed isolated editing self-tests and all payload hashes matched. Existing artwork windows and settings were preserved.",
-          "boundary": "First install compiles source locally. No qualified prebuilt download, clean-machine acceptance or power-loss recovery is claimed. Existing windows use their running version until reopened. App rollback does not downgrade v2 collections; keep a v1 copy if older-release access is needed.",
+          "current": "The curl installer and normal launcher select Omuse 0.6.0 runtime a8b7ac7. Complete 19-file generations retain 0.5.0 for rollback. Both directions passed isolated editing self-tests and every payload hash matched. Existing artwork windows/settings were preserved.",
+          "boundary": "First install compiles source locally. Clean-machine, prebuilt-binary and power-loss acceptance remain open. Existing windows use their running version until reopened. App rollback cannot read newer format 10 saves; keep an older copy with Save As.",
           "evidence": [
+            "docs/release-060-qualification.md",
             "docs/release-050-qualification.md",
             "docs/release-040-qualification.md",
             "docs/main-install-qualification.md",
@@ -1466,10 +1475,11 @@
         {
           "id": "linux-numeric-scrubbing",
           "name": "Precise draggable numeric controls",
-          "status": "implemented-needs-qualification",
+          "status": "locally-tested",
           "current": "Shared typed numeric rows with label drag, arrow nudge, Shift fine control, double-click reset and exact Escape restoration. Layer opacity previews before one history commit.",
-          "boundary": "Tool, transform, mask-placement, live-adjustment and Camera Raw numeric controls are implemented, including coloured adjustment tracks. Combined qualification is checking native field focus, modal pointer capture and single-transaction history.",
+          "boundary": "Combined UI regressions passed for typed focus, modal drag capture, outside release, cancellation and single-transaction history. Physical pointer/trackpad and mixed-DPI acceptance remain separate gates.",
           "evidence": [
+            "docs/release-060-qualification.md",
             "docs/omaphoto-comparison.md",
             "docs/omaphoto-watch.json",
             "docs/omaphoto-133-implementation.md"
@@ -1483,10 +1493,11 @@
         {
           "id": "linux-open-recent",
           "name": "Searchable recent projects",
-          "status": "implemented-needs-qualification",
+          "status": "locally-tested",
           "current": "Ctrl+Alt+O and the Open recent clock icon search ten persisted canvases/collections. Clear history keeps files; successful open/save promotion uses the existing dirty-document guard.",
-          "boundary": "Library and native UI regressions cover persistence, Unicode/non-UTF8 paths, collections, order, missing entries, corruption, cancel and failed open; combined test run pending.",
+          "boundary": "Library/UI regressions passed for persistence, Unicode/non-UTF8 paths, collections, order, missing entries, corruption, cancellation and failed opens. Ten entries are retained; Clear history does not remove artwork.",
           "evidence": [
+            "docs/release-060-qualification.md",
             "docs/omaphoto-comparison.md",
             "docs/omaphoto-watch.json",
             "docs/omaphoto-133-implementation.md"
@@ -1564,9 +1575,10 @@
           "id": "release-current-suite",
           "name": "Current release regression suite",
           "status": "locally-tested",
-          "current": "Omuse 0.5.0 source 73dd0d4 passed 970 local application tests (417 library, 274 UI, 279 integration) and complete exact-source GitHub run 36682319767. Editing/Create/motion, all 80 template variants, remote interrupted recovery and installer/reference checks passed. Three production/installed desktop runs passed 24 checks each.",
+          "current": "Omuse 0.6.0 source a8b7ac7 passed all 1,105 tests in GitHub run 36784517002: 457 library, 327 UI and 321 integration. Local evidence separately combines unchanged core from a28ac with the final UI rerun. Editing/Create/motion, 80 templates, remote media/recovery and installer/reference checks passed. Three production/installed native runs passed 24 checks each.",
           "boundary": "Four manual timing benchmarks were excluded. Clean-target installation, broad hardware/accessibility acceptance and the remaining Claude cancellation/refinement/history journeys are not established by this suite.",
           "evidence": [
+            "docs/release-060-qualification.md",
             "docs/release-050-qualification.md",
             "docs/release-040-qualification.md",
             "docs/photo-integrity-hardening.md",
@@ -1608,9 +1620,10 @@
           "id": "release-ci-github",
           "name": "Public source and remote CI",
           "status": "locally-tested",
-          "current": "Public Omuse 0.4.0 runtime 3f5ece3 passed full GitHub validation 36669607056; the normal app, numbered release and curl pin select this same source. Release documentation and guide checks are maintained with the publication.",
+          "current": "Public Omuse 0.6.0 runtime a8b7ac7 passed full GitHub validation 36784517002; the normal app, numbered release and curl pin select this same source. Release documentation, manual, shortcut reference and guide checks are maintained with publication.",
           "boundary": "Source pre-release only. CI does not establish clean-machine installation, complete live-provider quality or portable binary qualification.",
           "evidence": [
+            "docs/release-060-qualification.md",
             "docs/release-040-qualification.md",
             "docs/main-install-qualification.md",
             "docs/keyboard-qualification.md",
@@ -1629,9 +1642,10 @@
           "id": "release-artifact",
           "name": "Clean install and release identity",
           "status": "blocked-deferred",
-          "current": "Omuse 0.4.0 source install pins tested runtime 3f5ece3. The development host uses the matching clean source receipt, production executable and all 19 payload files. Complete rollback to the prior 521f9f1 panel candidate and back passed.",
+          "current": "Omuse 0.6.0 source installation pins tested runtime a8b7ac7. The development host uses its clean source receipt, production executable and all 19 payload files. Complete rollback to 0.5.0 and back passed with every payload hash preserved.",
           "boundary": "A downloadable binary still requires resolved notices and clean supported-machine artifact qualification. This source pre-release does not satisfy those gates.",
           "evidence": [
+            "docs/release-060-qualification.md",
             "docs/release-040-qualification.md",
             "docs/main-install-qualification.md",
             "docs/photo-integrity-hardening.md",
@@ -1680,9 +1694,10 @@
           "id": "release-competitor-comparison",
           "name": "OmaPhoto whole-repository comparison",
           "status": "locally-tested",
-          "current": "1 October review checks OmaPhoto 1.3.3 at 1904144 and three later commits through e94fd73: 12 new commits, 150 changed paths, four releases/tags, eight issues, two PRs and nine workflow results. Previously tracked editing improvements are now released. New priorities include format-10 import, Dither, Open Recent, selected-text colour and save/focus lifecycle coverage.",
-          "boundary": "Focused upstream source and tests were inspected, not executed. Omuse comparison uses current 0.5.0 source 479ae31/public runtime 73dd0d4; its 970-case qualification is separate prior evidence. Release CI proves packaging, not a full test run. The post-tag window-teardown fix and offscreen acceptance screenshots are not tagged 1.3.3 app code. No comparative speed or stability result.",
+          "current": "The 1 October review covers OmaPhoto 1.3.3 at 1904144 and three later commits through e94fd73: 12 new commits, 150 changed paths, four releases/tags, eight issues, two PRs and nine workflow results. Omuse 0.6.0 completes the resulting editing backlog, including format-10 import, Dither, Open Recent, selected-text colour and save/focus lifecycle coverage.",
+          "boundary": "Focused upstream source and tests were inspected, not executed. The historical comparison uses Omuse 0.5.0 source 479ae31/public runtime 73dd0d4. Omuse 0.6.0 has separate exact-source CI and local qualification. Upstream release CI proves packaging, not a full test run; its post-tag teardown fix and offscreen acceptance screenshots are not tagged 1.3.3 application code. No comparative speed or stability result.",
           "evidence": [
+            "docs/release-060-qualification.md",
             "docs/omaphoto-comparison.md",
             "docs/omaphoto-watch.json",
             "docs/rust-performance-roadmap.md",
@@ -1696,7 +1711,7 @@
           "id": "release-user-manual",
           "name": "User manual and common workflows",
           "status": "locally-tested",
-          "current": "GitHub manual covers first edits, preserving originals, local/AI object removal, crop ratios, anchored zoom, editable layer copying, safe pixel Cut, adjustments, cutouts/backgrounds, text, social pages, motion, export and troubleshooting. Commands/defaults are source-checked; Cua exercised crop/Undo, group Copy/Paste and refused Cut, with earlier removal journeys retaining their identities.",
+          "current": "The GitHub manual covers first edits, local/AI object removal, crop/zoom and layer copying, adjustments, imports, growing masks, Dither and finishing, text colours, precise numeric controls, recent projects, external reload, social pages, motion, export and troubleshooting. The command/default reference is source-checked. Earlier Cua journeys retain their own identities.",
           "boundary": "Procedural documentation is not qualification of every photographic outcome, provider account or hardware setup. RAW/precision and operation limits remain linked to the advanced reference.",
           "evidence": [
             "docs/user-guide/README.md",
@@ -1715,10 +1730,11 @@
         {
           "id": "reliability-external-reload",
           "name": "Review and reload externally changed projects",
-          "status": "implemented-needs-qualification",
+          "status": "locally-tested",
           "current": "Two matching filesystem observations trigger reload only for a clean idle project. Dirty work offers Keep editing, Save a copy or acknowledged discard/reload; existing save locks remain authoritative.",
-          "boundary": "New tests cover partial/corrupt packages, stale work, local edit preservation, view position and crop teardown. Combined test run pending. Unavailable files never replace the live document.",
+          "boundary": "Partial/corrupt packages, stale completions, local edits, view position and crop teardown are covered by passing regressions. Unavailable files never replace the live document; this is not a general filesystem durability guarantee.",
           "evidence": [
+            "docs/release-060-qualification.md",
             "docs/omaphoto-comparison.md",
             "docs/omaphoto-watch.json",
             "docs/omaphoto-133-implementation.md"
@@ -1732,10 +1748,11 @@
         {
           "id": "reliability-save-focus-lifecycle",
           "name": "Save, text and panel lifecycle stress coverage",
-          "status": "implemented-needs-qualification",
+          "status": "locally-tested",
           "current": "Repeated save requests coalesce one newest snapshot; subsequent navigation waits for that result. Save completions preserve unrelated newer dialog drafts, and native text is committed before quit prompts.",
-          "boundary": "Added queue/failure/navigation/dialog regressions and fixed three source-review findings. Combined/native qualification is pending; this is not a claim about upstream Qt teardown behaviour.",
+          "boundary": "Queue, failure, navigation and dialog regressions passed. Saves preserve newer drafts and text is committed before quit decisions. This is not a claim about upstream Qt teardown behavior.",
           "evidence": [
+            "docs/release-060-qualification.md",
             "docs/omaphoto-comparison.md",
             "docs/omaphoto-watch.json",
             "docs/omaphoto-133-implementation.md"

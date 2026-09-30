@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "version": "0.5.0",
-  "tag": "v0.5.0",
-  "title": "Omuse 0.5.0 — One project, one extension",
-  "date": "2026-09-30",
+  "version": "0.6.0",
+  "tag": "v0.6.0",
+  "title": "Omuse 0.6.0 — More control over every edit",
+  "date": "2026-10-01",
   "prerelease": true,
-  "sourceRevision": "73dd0d47c99b6718f640c430f47f4ea33c8d047d",
-  "notes": "docs/releases/v0.5.0.md",
-  "validationRun": 36682319767
+  "sourceRevision": "a8b7ac70e7513d305a671673a347eecaf2d6cc4c",
+  "notes": "docs/releases/v0.6.0.md",
+  "validationRun": 36784517002
 }

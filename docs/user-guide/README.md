@@ -63,7 +63,7 @@ Existing **`.comp`** projects still open. Their first **Save** offers an
 **`.omuse` copy** and keeps the original intact.
 
 Saving an older version 1 collection upgrades it to version 2, which stores
-nested pages and components as `.omuse` packages. Earlier Omuse releases cannot
+nested pages and components as `.omuse` packages. Omuse 0.4.0 and earlier cannot
 read version 2 collections. Use **Save As** to a new location if you need an
 original copy that still opens in an earlier release.
 

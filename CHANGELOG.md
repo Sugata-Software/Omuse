@@ -4,7 +4,9 @@ User-facing changes are grouped by release. Version numbers belong to Omuse;
 they do not follow Compositor or OmaPhoto. See the [release policy](docs/releases/README.md)
 for numbering, qualification and publication.
 
-## Unreleased
+## [0.6.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.6.0) — 2026-10-01
+
+**More control over every edit · Arch Linux / Omarchy · x86_64 source pre-release**
 
 - Preview text on the artwork through the committed rendering path, colour
   selected letters, and preserve Unicode formatting while typing. Cancel keeps
@@ -39,8 +41,14 @@ for numbering, qualification and publication.
   samples account for earlier grading, while cancellation restores the draft.
   Coalesced preview work retains only one active job and the newest request.
 
-The [implementation record](docs/omaphoto-133-implementation.md) tracks the
-combined qualification. This section is not a published release receipt.
+- Keep finishing choices and fixed actions usable at the minimum window size,
+  including scrolling and typing into lower effect controls.
+- Preserve raster Eraser and sampled Clone/Heal behavior with a transparent
+  foreground colour, with exact pixels and compact reversible history.
+
+The [qualification record](docs/release-060-qualification.md) records 1,105
+application cases, exact-source CI, production desktop checks, previous-release
+compatibility and complete installation rollback. See the [release notes](docs/releases/v0.6.0.md).
 
 ## [0.5.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.5.0) — 2026-09-30
 

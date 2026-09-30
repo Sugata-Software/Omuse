@@ -1,9 +1,9 @@
 # Public release readiness
 
-**30 September 2026: Omuse source installation is available; downloadable binaries are not yet qualified.**
+**1 October 2026: Omuse source installation is available; downloadable binaries are not yet qualified.**
 
-The current numbered source release is **0.5.0**. Its
-[release notes](releases/v0.5.0.md) identify the tested runtime, installation,
+The current numbered source release is **0.6.0**. Its
+[release notes](releases/v0.6.0.md) identify the tested runtime, installation,
 changes and limitations; the [release policy](releases/README.md) keeps future
 versions and evidence consistent. It is marked as a GitHub pre-release while
 stable-release gates remain open. This does not add a separate Preview app.
@@ -26,28 +26,31 @@ GitHub App access and source publication are no longer blockers.
 
 ## Current application and installation
 
-The tested application source is `73dd0d4`. Its [full GitHub Rust/installer
-workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36682319767) passed. The [0.5.0 qualification](release-050-qualification.md)
-records 970 application cases, editing/Create/motion journeys, all 80 template
-variants, final native checks and complete installed rollback.
+The tested application source is `a8b7ac7`. Its [complete GitHub workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36784517002)
+passed. The [0.6.0 qualification](release-060-qualification.md) records 1,105
+application cases, editing/Create/motion, all 80 template variants, native checks
+and complete installation rollback. Local core evidence is reused from the
+unchanged preceding candidate; the final UI suite and exact-source CI cover the
+last compact-window repair.
 
-The exact production executable passed 24 native checks on Wayland, 24 on
-XWayland and 24 through the installed Wayland launcher. The normal app and
-curl installer select the same 0.5.0 source; the previous complete 0.4.0
-installation is retained for rollback. The [installation record](main-install-qualification.md)
-and [receipt](release-050-receipts.json) identify the executable and all payloads.
+The production executable passed 24 native checks on Wayland, 24 on XWayland
+and 24 through the installed normal launcher at 800×600 with reduced motion.
+Dark and light captures were inspected. The normal app and curl installer select
+0.6.0; a complete 0.5.0 installation is retained for rollback. The
+[installation record](main-install-qualification.md) and
+[receipt](release-060-receipts.json) identify every payload.
 
-No new live provider request was sent for this migration release. The earlier
-[Claude Design journey](ai-claude-qualification.md),
-[Codex image-editing checks](ai-image-editing-qualification.md) and
-[0.3.0 crop/clipboard Cua checks](editing-workflows-qualification.md) keep their
-own source identities and scope. They do not establish arbitrary photographic
-quality, every provider or full physical-device acceptance.
+Older format-9 artwork rendered identically with both production readers and
+was not modified. **New format-10 saves require 0.6.0 or later**; retain an older
+copy with Save As before upgrading artwork. App rollback does not downgrade it.
 
-The [user manual](user-guide/README.md) explains the current panel controls,
-connections, provider selection, local/AI object removal, everyday photo edits,
-content creation and export. Historical reports retain the former Preview name
-only to identify past test installations.
+No new live AI request was sent for this editing release. Earlier
+[Claude Design](ai-claude-qualification.md),
+[Codex image editing](ai-image-editing-qualification.md) and
+[Cua checks](cua-ai-qualification.md) retain their own source identities.
+The [manual](user-guide/README.md) covers the new editing workflows and limits.
+Broader hardware, independent interchange/image-quality evaluation and the
+remaining binary/stable-release gates below are still open.
 
 ## What is established
 

@@ -1,0 +1,406 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-01",
+  "version": "0.6.0",
+  "scope": "Development-host Arch/Omarchy Linux x86_64; synthetic fixtures plus independent Photoshop import fixtures",
+  "production": {
+    "source": "a8b7ac70e7513d305a671673a347eecaf2d6cc4c",
+    "tree": "97ad18c5aa05a916b49af3dff9acc397e105cdfb",
+    "localCommit": "4f673ed64f39f84a8c64782b46acb74347d7593f",
+    "runtimeTree": "34115afd60e5c96a0cf2f62af5f5ca4d1a69fa61",
+    "version": "Omuse 0.6.0",
+    "sha256": "bf3b8f5f510865fd832d3305b1b2ea40505c5eab6c93bf9fa2d49dc629b41a46",
+    "build": "scripts/build-rust.sh; release locked jobs2; normal production features without ui-test",
+    "compiler": "rustc 1.98.1 (48a229cea 2026-09-01) (Arch Linux rust 1:1.98.1-1)",
+    "localPublicCommittedTreesMatch": true,
+    "workingChanges": "release documentation only"
+  },
+  "continuousIntegration": {
+    "id": 36784517002,
+    "head_sha": "a8b7ac70e7513d305a671673a347eecaf2d6cc4c",
+    "status": "completed",
+    "conclusion": "success",
+    "html_url": "https://github.com/Sugata-Software/Omuse/actions/runs/36784517002",
+    "updated_at": "2026-09-30T22:32:39Z",
+    "tests": {
+      "passed": 1105,
+      "failed": 0,
+      "ignored": 4,
+      "library": 457,
+      "ui": 327,
+      "integration": 321,
+      "nonDocBatches": 36
+    },
+    "jobs": [
+      {
+        "id": 110122580861,
+        "name": "Omuse format, check, UI tests, and editing journey",
+        "status": "completed",
+        "conclusion": "success",
+        "steps": [
+          {
+            "name": "Set up job",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install documented Linux build dependencies",
+            "conclusion": "success"
+          },
+          {
+            "name": "Install the exercised Rust toolchain",
+            "conclusion": "success"
+          },
+          {
+            "name": "Cache locked Cargo inputs and build outputs",
+            "conclusion": "success"
+          },
+          {
+            "name": "Check all Rust targets with the UI test surface",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run the Rust release validation suite",
+            "conclusion": "success"
+          },
+          {
+            "name": "Retain editable-template and carousel render evidence",
+            "conclusion": "success"
+          },
+          {
+            "name": "Qualify motion exports and interrupted collection saves",
+            "conclusion": "success"
+          },
+          {
+            "name": "Retain motion and recovery evidence",
+            "conclusion": "success"
+          },
+          {
+            "name": "Verify dependency notice overrides",
+            "conclusion": "success"
+          },
+          {
+            "name": "Retain dependency review evidence",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Cache locked Cargo inputs and build outputs",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "conclusion": "success"
+          }
+        ]
+      },
+      {
+        "id": 110122581049,
+        "name": "Linux installer and reference fixtures",
+        "status": "completed",
+        "conclusion": "success",
+        "steps": [
+          {
+            "name": "Set up job",
+            "conclusion": "success"
+          },
+          {
+            "name": "Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+            "conclusion": "success"
+          },
+          {
+            "name": "Verify installation, update, rollback and archive integrity",
+            "conclusion": "success"
+          },
+          {
+            "name": "Post Run actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+            "conclusion": "success"
+          },
+          {
+            "name": "Complete job",
+            "conclusion": "success"
+          }
+        ]
+      }
+    ]
+  },
+  "localTests": {
+    "passed": 1105,
+    "failed": 0,
+    "ignored": 4,
+    "library": 457,
+    "ui": 327,
+    "integration": 321,
+    "batches": 36,
+    "coreAndIntegrationSource": "a28ac448cf627f3ee80085d3249e6e5874b7ee0e",
+    "finalUiSource": "a8b7ac70e7513d305a671673a347eecaf2d6cc4c",
+    "reuseBoundary": "Full core/integration evidence reused unchanged; final UI suite rerun after finishing layout change. Git diff contains only finishing_ui.rs and finishing_tests.rs."
+  },
+  "journeys": {
+    "editing": "passed",
+    "editingJourneys": 11,
+    "createExport": "passed",
+    "motion": "passed",
+    "editableTemplateVariants": 80,
+    "remoteInterruptedRecovery": "passed"
+  },
+  "native": [
+    {
+      "run": "native-wayland",
+      "status": "passed",
+      "backend": "Wayland",
+      "checks": [
+        "coalesced in-progress stroke preview",
+        "pointer painting",
+        "undo",
+        "redo",
+        "unsaved guard",
+        "save",
+        "reopen pixel equality",
+        "light theme retains artwork",
+        "system theme following",
+        "inline text insert/edit",
+        "live adjustment insert/reopen",
+        "live effects",
+        "live-document save/reopen",
+        "luminosity selection and undo",
+        "colour range mask save/reopen",
+        "16-bit source import retains exact samples",
+        "editable filter preview and Apply",
+        "editable source save/reopen and undo",
+        "16-bit export pixel equality",
+        "background photo open",
+        "photo adjustment crop resize and undo redo",
+        "background photo export pixel equality",
+        "command palette keyboard open search execute",
+        "palette command keyboard undo and focus restoration"
+      ],
+      "logicalViewport": [
+        800.0,
+        600.0
+      ],
+      "executableSha256": "bf3b8f5f510865fd832d3305b1b2ea40505c5eab6c93bf9fa2d49dc629b41a46",
+      "harnessSha256": "e50228d89b83fc8afcedbfd827c749770c99e294e3845e2c56319139385e70c8",
+      "hashScope": "production executable",
+      "captureInspected": true,
+      "inspectionPanel": "dither",
+      "inspectionTheme": "dark",
+      "reducedMotion": true
+    },
+    {
+      "run": "native-xwayland",
+      "status": "passed",
+      "backend": "XWayland",
+      "checks": [
+        "coalesced in-progress stroke preview",
+        "pointer painting",
+        "undo",
+        "redo",
+        "unsaved guard",
+        "save",
+        "reopen pixel equality",
+        "light theme retains artwork",
+        "system theme following",
+        "inline text insert/edit",
+        "live adjustment insert/reopen",
+        "live effects",
+        "live-document save/reopen",
+        "luminosity selection and undo",
+        "colour range mask save/reopen",
+        "16-bit source import retains exact samples",
+        "editable filter preview and Apply",
+        "editable source save/reopen and undo",
+        "16-bit export pixel equality",
+        "background photo open",
+        "photo adjustment crop resize and undo redo",
+        "background photo export pixel equality",
+        "command palette keyboard open search execute",
+        "palette command keyboard undo and focus restoration"
+      ],
+      "logicalViewport": [
+        800.0,
+        600.0
+      ],
+      "executableSha256": "bf3b8f5f510865fd832d3305b1b2ea40505c5eab6c93bf9fa2d49dc629b41a46",
+      "harnessSha256": "e50228d89b83fc8afcedbfd827c749770c99e294e3845e2c56319139385e70c8",
+      "hashScope": "production executable",
+      "captureInspected": true,
+      "inspectionPanel": "bloom-glow",
+      "inspectionTheme": "light",
+      "reducedMotion": true
+    },
+    {
+      "run": "native-installed",
+      "status": "passed",
+      "backend": "Wayland",
+      "checks": [
+        "coalesced in-progress stroke preview",
+        "pointer painting",
+        "undo",
+        "redo",
+        "unsaved guard",
+        "save",
+        "reopen pixel equality",
+        "light theme retains artwork",
+        "system theme following",
+        "inline text insert/edit",
+        "live adjustment insert/reopen",
+        "live effects",
+        "live-document save/reopen",
+        "luminosity selection and undo",
+        "colour range mask save/reopen",
+        "16-bit source import retains exact samples",
+        "editable filter preview and Apply",
+        "editable source save/reopen and undo",
+        "16-bit export pixel equality",
+        "background photo open",
+        "photo adjustment crop resize and undo redo",
+        "background photo export pixel equality",
+        "command palette keyboard open search execute",
+        "palette command keyboard undo and focus restoration"
+      ],
+      "logicalViewport": [
+        800.0,
+        600.0
+      ],
+      "executableSha256": "1f4792f0bdb0945c05532db4924e3b2a016aaf62b9d6423e2f17596cc7cadfab",
+      "harnessSha256": "e50228d89b83fc8afcedbfd827c749770c99e294e3845e2c56319139385e70c8",
+      "hashScope": "installed launcher; production payload independently verified",
+      "captureInspected": true,
+      "inspectionPanel": "vignette-overlay",
+      "inspectionTheme": "dark",
+      "reducedMotion": true
+    }
+  ],
+  "previousReleaseCompatibility": {
+    "status": "passed",
+    "previousVersion": "Omuse 0.5.0",
+    "newVersion": "Omuse 0.6.0",
+    "previousReaderSha256": "17034c434f13c38304188ef7cfbd6b1a5ea785d8bf0bbfadcc5e68d0d08e503f",
+    "newReaderSha256": "bf3b8f5f510865fd832d3305b1b2ea40505c5eab6c93bf9fa2d49dc629b41a46",
+    "previousCanvasFormat": 9,
+    "newCanvasFormat": 10,
+    "dimensions": [
+      128,
+      96
+    ],
+    "decodedRGBAEquality": true,
+    "pixelSha256": "71591747dafdb0a3a2468d342b33768aad4c761c2e5b9ded1ac699b83dc0dc0c",
+    "previousFilesUnchanged": 7,
+    "olderReaderRejectsFormat10": true,
+    "olderReaderCreatedOutput": false,
+    "scope": "Synthetic prior-production fixture; not independent interchange or colour-quality qualification"
+  },
+  "installation": {
+    "source": "a8b7ac70e7513d305a671673a347eecaf2d6cc4c",
+    "tree": "97ad18c5aa05a916b49af3dff9acc397e105cdfb",
+    "version": "Omuse 0.6.0",
+    "current": {
+      "generation": "install-brzel9z6",
+      "files": {
+        ".omuse-generation.json": "063b7b2618c3ee8ed09d424f6e164dd9a3d80cab13049fead559f2fc9b161d2e",
+        "SOURCE-REVISION": "ba34bd3adbe374d7b1f2a99c49fdc2fb3b4c662e7d1806a29d9e448b86d75f5d",
+        "icons/omuse.png": "f2c581469b601ed6b4c51f1bb4e2eeb91c23af7c47c7f5203c412290b95100d1",
+        "icons/omuse.svg": "abc8af6c0087c66fa8fc36dbb6abf00743746b262d07ffb6bcf105b4d5d66cf5",
+        "lib/libonnxruntime.so": "13ab8084954fa4a47c777880180b90810d6020f021441395712b48a75b74c68b",
+        "lib/libraw.so": "50a95112a6e1bbd06b032bcd8fa143bdfb6194aa861a5864ec714559681ea3ec",
+        "licenses/GPUI-APACHE-2.0.txt": "752daf2fb234ca4a1fa372c073fe127f44b7b90fd2529ae44273a64f9d53da7a",
+        "licenses/GPUI-TABLET-PATCH.txt": "7e0f190ce524b987cfada65622db4d340eb9c560add27dff13f30e1c1d3a4595",
+        "licenses/LUCIDE-LICENSE.txt": "b495047bd93a9b06913511076f504daba17d5bbeb3e0650f3bb53a4220329c57",
+        "licenses/LibRaw-CDDL.txt": "0e3098d2d54a12434715f6679ea408d57da5e8d613c385c58ecc6fe5d30cc81f",
+        "licenses/LibRaw-COPYRIGHT.txt": "574c88f5dd59414cfc896293a63defbc2d525a418ed413d7ab7dcc43cf79c509",
+        "licenses/LibRaw-LGPL.txt": "eea173a556abac0370461e57e12aab266894ea6be3874c2be05fd87871f75449",
+        "licenses/ONNX-Runtime-MIT.txt": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c",
+        "licenses/ONNX-ThirdPartyNotices.txt": "e9e90971a8e75a9a8ac0c6412e29c1202d079998389915aa485f46c816c3b4cc",
+        "licenses/Omuse-MIT.txt": "dd4ed477fc9654db5aca736b822c1a61ae75c325b38742905d010d070b2f9a19",
+        "licenses/Outfit-OFL-1.1.txt": "c676351bf8576b9aba743cd5eaa8c0e7ee0d51f805d720447b4df4ddb6a2e416",
+        "licenses/U2NET-APACHE-2.0.txt": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+        "models/u2netp.onnx": "309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8",
+        "omuse": "bf3b8f5f510865fd832d3305b1b2ea40505c5eab6c93bf9fa2d49dc629b41a46"
+      },
+      "source": "source_revision=a8b7ac70e7513d305a671673a347eecaf2d6cc4c\nsource_tree_dirty=false\ntarget=linux-x86_64\n"
+    },
+    "previous": {
+      "generation": "install-p5qqp974",
+      "files": {
+        ".omuse-generation.json": "fb4b260d79e760260003be127453959cd5cf63b9d390dd048b8ef693fe569709",
+        "SOURCE-REVISION": "d9b635b33ff24515be3235e0a32abccc96de4681379fa31e3fdb4f3aac98be7c",
+        "icons/omuse.png": "f2c581469b601ed6b4c51f1bb4e2eeb91c23af7c47c7f5203c412290b95100d1",
+        "icons/omuse.svg": "abc8af6c0087c66fa8fc36dbb6abf00743746b262d07ffb6bcf105b4d5d66cf5",
+        "lib/libonnxruntime.so": "13ab8084954fa4a47c777880180b90810d6020f021441395712b48a75b74c68b",
+        "lib/libraw.so": "50a95112a6e1bbd06b032bcd8fa143bdfb6194aa861a5864ec714559681ea3ec",
+        "licenses/GPUI-APACHE-2.0.txt": "752daf2fb234ca4a1fa372c073fe127f44b7b90fd2529ae44273a64f9d53da7a",
+        "licenses/GPUI-TABLET-PATCH.txt": "7e0f190ce524b987cfada65622db4d340eb9c560add27dff13f30e1c1d3a4595",
+        "licenses/LUCIDE-LICENSE.txt": "b495047bd93a9b06913511076f504daba17d5bbeb3e0650f3bb53a4220329c57",
+        "licenses/LibRaw-CDDL.txt": "0e3098d2d54a12434715f6679ea408d57da5e8d613c385c58ecc6fe5d30cc81f",
+        "licenses/LibRaw-COPYRIGHT.txt": "574c88f5dd59414cfc896293a63defbc2d525a418ed413d7ab7dcc43cf79c509",
+        "licenses/LibRaw-LGPL.txt": "eea173a556abac0370461e57e12aab266894ea6be3874c2be05fd87871f75449",
+        "licenses/ONNX-Runtime-MIT.txt": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c",
+        "licenses/ONNX-ThirdPartyNotices.txt": "e9e90971a8e75a9a8ac0c6412e29c1202d079998389915aa485f46c816c3b4cc",
+        "licenses/Omuse-MIT.txt": "dd4ed477fc9654db5aca736b822c1a61ae75c325b38742905d010d070b2f9a19",
+        "licenses/Outfit-OFL-1.1.txt": "c676351bf8576b9aba743cd5eaa8c0e7ee0d51f805d720447b4df4ddb6a2e416",
+        "licenses/U2NET-APACHE-2.0.txt": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+        "models/u2netp.onnx": "309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8",
+        "omuse": "17034c434f13c38304188ef7cfbd6b1a5ea785d8bf0bbfadcc5e68d0d08e503f"
+      },
+      "source": "source_revision=73dd0d47c99b6718f640c430f47f4ea33c8d047d\nsource_tree_dirty=false\ntarget=linux-x86_64\n"
+    },
+    "rollback": {
+      "status": "passed",
+      "currentGeneration": "install-brzel9z6",
+      "previousGeneration": "install-p5qqp974",
+      "oldVersion": "Omuse 0.5.0",
+      "newVersion": "Omuse 0.6.0",
+      "payloadFilesPerGeneration": 19,
+      "everyPayloadHashPreserved": true,
+      "rollbackSelfTest": "passed",
+      "reverseSwitchSelfTest": "passed",
+      "launcherSha256": "1f4792f0bdb0945c05532db4924e3b2a016aaf62b9d6423e2f17596cc7cadfab",
+      "sourceReceipt": "clean a8b7ac70e7513d305a671673a347eecaf2d6cc4c",
+      "desktopFileValidation": "passed",
+      "scope": "Development-host installation; original settings and artwork untouched; existing windows retain their running executable"
+    }
+  },
+  "earlierCuaWalkthrough": {
+    "status": "passed",
+    "source": "0a417a81c1b008b94d09c2c3ef285b2695e39607",
+    "executableSha256": "980bfd6318e75f86733f9c8f02475a33c40429032ad88a9dee277c72185492b2",
+    "build": "ui-test candidate; separate from final production",
+    "backend": "XWayland",
+    "driverVersion": "0.29.1",
+    "route": "foreground global input with independently inspected exact-window screenshots",
+    "checks": [
+      "Ctrl+K opens command search",
+      "Typing dither narrows 176 commands to the matching effect",
+      "Return opens the finishing dialog",
+      "ASCII selection changes style and preview",
+      "Wheel scrolling exposes the lower ASCII characters input",
+      "Escape closes the draft and returns to visually unchanged synthetic artwork",
+      "Ctrl+Q closes only the isolated window; fresh window listing empty"
+    ],
+    "limits": [
+      "Background key input was ineffective; foreground route verified",
+      "AT-SPI tree unavailable; pixel/keyboard interactions verified visually",
+      "Cua resize request ignored by tiling; this interaction receipt is not a minimum-window qualification",
+      "Final responsive preview repair is tested separately on the release candidate"
+    ],
+    "sessionEnded": true,
+    "deviceViewport": [
+      1916,
+      1170
+    ]
+  },
+  "limits": [
+    "Four manual timing benchmarks excluded",
+    "Source release only; no prebuilt application assets",
+    "No new live AI provider request or comparative speed claim",
+    "Physical-device, broader hardware/accessibility, independent image-quality and full Photoshop interchange remain separate gates",
+    "New canvas format 10 cannot be read by Omuse 0.5 or earlier; application rollback does not downgrade artwork"
+  ]
+}

@@ -36,24 +36,25 @@ from source**; a downloadable binary release remains subject to the
 
 ## Tested source channel
 
-The current numbered source release is [Omuse 0.5.0](releases/v0.5.0.md).
+The current numbered source release is [Omuse 0.6.0](releases/v0.6.0.md).
 Its Git tag identifies the tested runtime; the normal curl command follows the
 current tested channel and may advance to later qualified releases.
 
 The public installer selects commit
-[`73dd0d47c99b6718f640c430f47f4ea33c8d047d`](https://github.com/Sugata-Software/Omuse/commit/73dd0d47c99b6718f640c430f47f4ea33c8d047d).
+[`a8b7ac70e7513d305a671673a347eecaf2d6cc4c`](https://github.com/Sugata-Software/Omuse/commit/a8b7ac70e7513d305a671673a347eecaf2d6cc4c).
 It fetches that exact revision and checks the checkout before building.
-The [full Rust/installer workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36682319767) passed for this source.
-The [0.5.0 qualification](release-050-qualification.md) records 970 application
-cases, editing/Create/motion journeys, all 80 template variants, production
-Wayland/XWayland and installed Wayland checks, and complete 19-file rollback.
-Every new project now uses `.omuse`, including canvases and collections. Legacy
-`.comp` projects still open; the first Save offers an `.omuse` copy. Collections
-upgrade to schema v2 on save, which older releases cannot read. Use Save As to
-retain a v1 copy if you need to roll back to 0.4.0.
-No new live AI request was sent for this migration release; earlier subscription
-receipts retain their runtime identities. Start with the
-[user manual](user-guide/README.md).
+The [full Rust/installer workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36784517002) passed for this source.
+The [0.6.0 qualification](release-060-qualification.md) records 1,105 application
+cases, editing/Create/motion journeys, all 80 template variants, three production
+and installed native journeys with 24 checks each, and complete 19-file rollback.
+
+All new projects use `.omuse`. Older projects remain readable and are not
+rewritten merely by opening them. **0.6.0 writes canvas format 10**, including
+pages in collections; **0.5.0 and earlier cannot read those new saves**. Use
+**Save As** to retain an older copy. App rollback does not downgrade artwork.
+Collection schema v2 is separate and requires 0.5.0 or later. No new live AI
+request was sent for this editing release; earlier provider receipts keep their
+own runtime identities. Start with the [user manual](user-guide/README.md).
 
 The curl command downloads `install.sh` from `main`, so changes to the installer
 script take effect immediately. The application checkout is pinned separately:

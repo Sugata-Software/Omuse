@@ -4,8 +4,8 @@ Reviewed 1 October 2026 against [OmaPhoto v1.3.3](https://github.com/ZacharyZhan
 published 30 September at exact tag commit
 [`190414451148d9627e902ded53082dc3b3019913`](https://github.com/ZacharyZhang-NY/OmaPhoto/tree/190414451148d9627e902ded53082dc3b3019913).
 The local source comparison uses Omuse 0.5.0, canonical `479ae31` and public
-runtime `73dd0d4`; the installed launcher reports 0.5.0 with that public source
-receipt. Source and regression tests establish intended behavior. OmaPhoto was
+runtime `73dd0d4`; at review time the installed launcher reported 0.5.0
+with that public source receipt. Source and regression tests establish intended behavior. OmaPhoto was
 not installed or executed for this review, and neither application's tests were
 rerun. This is not evidence that either editor is faster or more reliable.
 
@@ -35,8 +35,10 @@ capability-aware layer actions, background selection outlines, queued saves
 and external-change decisions. Camera Raw gains stage-aware sampling and
 targeted drags with coalesced, cancellable work.
 
-See the [implementation and qualification record](omaphoto-133-implementation.md)
-for current evidence. These implementations do not establish interchangeable
+This backlog is released in **Omuse 0.6.0**. See the
+[implementation record](omaphoto-133-implementation.md) and
+[0.6.0 qualification](release-060-qualification.md) for source-scoped test,
+production, native, installation and compatibility evidence. These implementations do not establish interchangeable
 project semantics, cross-app performance superiority, a larger safe document
 budget or a portable binary release. Historical gaps in the tables should be
 read with this newer implementation record.
@@ -94,12 +96,14 @@ though the acceptance document is titled 1.3.3; it must not be attributed to
 the tagged release binaries. Upstream reports 295 test programs at this later
 head. Raw counts are not comparable with Omuse's individually counted cases.
 
-Recommended order: address format-10 import and save/focus lifecycle coverage;
+The review recommended addressing format-10 import and save/focus lifecycle coverage;
 then recent projects, numeric controls and accurate live text; then Dither,
-mask growth and richer imports. Omuse's current
+mask growth and richer imports. The historical
 [0.5.0 qualification](release-050-qualification.md) records 970 passing cases,
 all 80 template variants, exact-source CI and installed update/rollback checks.
-Those receipts remain separate from this source-only competitor review. A
+Those receipts remain separate from this source-only competitor review. The
+subsequent [0.6.0 qualification](release-060-qualification.md) records completion
+of that backlog and 1,105 passing cases on the final runtime. A
 same-machine photo corpus and timing run is still required for any competitive
 speed, quality or stability claim.
 
@@ -327,7 +331,7 @@ matching canonical source `fd4b47c` by tree
 - The exact public runtime passed its [full GitHub Rust/installer validation](https://github.com/Sugata-Software/Omuse/actions/runs/36492555743).
   The installer selected that runtime at qualification time. The current
   numbered release and installer pin are now Omuse 0.5.0; see its separate
-  [release qualification](release-050-qualification.md). The 0.3.0
+  [release qualification](release-060-qualification.md). The 0.3.0
   [editing-workflow qualification](editing-workflows-qualification.md) remains
   historical evidence for its own runtime.
 

@@ -1,6 +1,29 @@
-# Main Omuse installation — 30 September 2026
+# Main Omuse installation — 1 October 2026
 
-## Current Omuse 0.4.0 release
+## Current Omuse 0.6.0 release
+
+The normal launcher and curl installer select clean public source
+`a8b7ac70e7513d305a671673a347eecaf2d6cc4c`. The [exact-source GitHub workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36784517002) passed.
+The [qualification](release-060-qualification.md) and
+[compact receipt](release-060-receipts.json) record 1,105 application cases,
+editing/Create/motion, 80 template variants, compatibility and native checks.
+
+- Production SHA-256: `bf3b8f5f510865fd832d3305b1b2ea40505c5eab6c93bf9fa2d49dc629b41a46`.
+- Current generation: `install-brzel9z6`, complete 19-file Omuse 0.6.0 payload.
+- Previous generation: `install-p5qqp974`, complete 19-file Omuse 0.5.0 payload.
+- Wayland, XWayland and the installed Wayland launcher each passed 24 native
+  checks at the 800×600 logical minimum viewport with reduced motion.
+- Both rollback directions passed isolated editing self-tests, with every
+  payload hash preserved. The normal command reports **Omuse 0.6.0** and the
+  desktop file validates.
+
+Existing windows keep their running executable until reopened. Original artwork,
+settings and provider profiles remain intact. New format-10 saves cannot be read
+by 0.5.0 or earlier; app rollback does not downgrade files. Use Save As to retain
+older artwork. The [0.5.0 record](release-050-qualification.md) and all sections
+below are historical evidence for their own candidates.
+
+## Historical Omuse 0.4.0 release
 
 The normal launcher selects public source `3f5ece38ba1ee84af2d80062412bd9e11e26fbe3` with a clean source
 receipt. The curl installer pins the same tested runtime. Complete GitHub

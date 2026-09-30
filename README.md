@@ -12,8 +12,8 @@
 installer builds a tested source revision and adds the normal **Omuse** app.
 Downloadable binaries are still undergoing [release qualification](docs/public-release-readiness.md).
 
-**Current release: [0.5.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.5.0)**
-— one `.omuse` extension for every project, safe legacy migration and clearer saves. Read the [release notes](docs/releases/v0.5.0.md)
+**Current release: [0.6.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.6.0)**
+— richer photo finishing, direct editing controls, Photoshop/SVG imports and safer saves. Read the [release notes](docs/releases/v0.6.0.md)
 or browse the [changelog](CHANGELOG.md) for changes and known limitations.
 
 **[Read the user manual](docs/user-guide/README.md)** ·
@@ -94,9 +94,13 @@ and troubleshooting.
 ## Highlights
 
 - Layers, groups, masks, clipping, blend modes, live adjustments and effects.
-- Interactive crop ratios, anchored zoom and editable layer/group Copy/Paste.
+- Interactive crop ratios including 3:4, anchored zoom and editable layer/group Copy/Paste.
 - Brush, Pencil, Eraser, Fill, Gradient, Clone, Heal and selection tools.
-- Editable text and shapes, Bézier paths, vector masks and transform workflows.
+- Editable text with live artwork previews and selected-letter colour styling;
+  shapes, Bézier paths, vector masks and transform workflows.
+- Dither, halftone and ASCII, Bloom into transparency, Vignette overlay and
+  spatial Local Contrast, with preview and Undo on 8-bit raster copies up to 16 MP.
+- Brush, fill and gradient mask growth with preserved placement and outside coverage.
 - Editable `.omuse` projects for single canvases and multi-page collections.
 - Brand kits, 20 editable templates with 80 tested size variants, rich text, reusable components, image
   frames, CSV variants and a searchable local asset library.
@@ -108,10 +112,16 @@ and troubleshooting.
 - Choose Auto or a provider per task; optionally follow an image edit with
   editable layout and a caption in one reviewed workflow.
 - PNG, JPEG, WebP and TIFF export, including retained 16-bit workflows.
-- Layered PSD import, Camera RAW development and local subject selection within
-  their documented limits.
+- Layered PSD/PSB import with supported editable text: 8-bit RGB only;
+  embedded ICC profiles are refused. [Import limits](docs/user-guide/photo-editing.md#import-photoshop-or-svg-artwork).
+- SVG/SVGZ raster import with selectable dimensions, up to 25 MP;
+  self-contained artwork becomes one pixel layer, with the original preserved.
+- Camera RAW development and local subject selection; Camera Raw sampling and
+  targeted curve/mixer adjustments on 8-bit raster layers up to 16 MP.
 - Omarchy-aware controls, colours, theme watching and native Linux file dialogs.
 - Refined editing, Create and AI panels with grouped controls and compact layouts.
+- Searchable recent projects, draggable numeric values and layer actions that
+  explain missing prerequisites.
 - Searchable, executable commands and customizable Photoshop-inspired shortcuts.
 
 Explore the [editing workflows](docs/rust-advanced-workflows.md),
@@ -123,12 +133,12 @@ content; calendars and scheduling are outside its scope.
 
 ## Work from the keyboard
 
-Press **Ctrl+K** or click the search icon to find and run any of **171 commands**.
+Press **Ctrl+K** or click the search icon to find and run any of **176 commands**.
 Search by action, tool, category or key combination; use **↑ / ↓** and **Enter**
 to run, or **Esc** to return to your canvas. Commands without a shortcut are
 available here too.
 
-There are **101 default shortcuts**, including familiar tools, **Ctrl+L** for
+There are **102 default shortcuts**, including familiar tools, **Ctrl+L** for
 Levels, **Ctrl+M** for Curves, **Ctrl+U** for Hue/Saturation, and **[ / ]** for
 brush size. **Ctrl+Alt+K** opens the recorder for customizing, clearing and
 restoring bindings. Super stays available to Omarchy.
@@ -163,9 +173,13 @@ Existing `.comp` projects still open. Their first **Save** offers an `.omuse`
 copy and leaves the original intact. Opening a project does not rename or
 rewrite it; recovery snapshots stay separate from saved artwork.
 
+**Omuse 0.6.0 writes canvas format 10**, including pages inside collections.
+**Omuse 0.5.0 and earlier cannot read those new saves.** Use **Save As** to retain
+an older copy; rolling back the app does not downgrade project files.
+
 New collection saves use schema version 2 with nested `.omuse` pages and
 components. Version 1 collections still open, but saving upgrades them to
-version 2, which earlier Omuse releases cannot read. Use **Save As** to a new
+version 2, which Omuse 0.4.0 and earlier cannot read. Use **Save As** to a new
 location if you need to retain a version 1 copy for an earlier release. The
 [compatibility contract](docs/omuse-rename.md) explains the preserved layer
 format and migration behavior.

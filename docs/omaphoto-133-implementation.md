@@ -1,10 +1,10 @@
 # Editing improvements following the OmaPhoto 1.3.3 review
 
 Work branch: `feature/omaphoto-133-editing`, based on Omuse 0.5.0.
-The installed 0.5.0 remains the rollback baseline. This file records work in
-progress; checked-in source is not release qualification.
+The implemented backlog is released as Omuse 0.6.0. The complete installed
+0.5.0 remains the rollback baseline; final evidence is linked below.
 
-Candidate application version: **0.6.0**. New saves write canvas format **10**,
+Released application version: **0.6.0**. New saves write canvas format **10**,
 because explicit mask outside coverage and grown folder-mask placement cannot
 be represented losslessly for the version-9 reader. Read versions 1–10;
 `.omuse` remains the only new project suffix. App rollback does not downgrade
@@ -33,35 +33,29 @@ project files; Save As keeps an older copy.
   curve/HSL drags with draft cancellation, coalesced work and Apply guards.
 - [x] Update user instructions, shortcuts, changelog and project guide from
   implemented/tested behaviour.
-- [ ] Run focused regressions, full suite and production/native journeys; review
+- [x] Run focused regressions, full suite and production/native journeys; review
   the built UI and qualify installation/rollback before replacing the live app.
 
-The checked items above describe implemented source. The remaining release
-qualification item is separate and is not implied by those checks.
+## Completed qualification
 
-## Focused evidence so far
+Public source `a8b7ac70e7513d305a671673a347eecaf2d6cc4c` passed the [complete GitHub workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36784517002).
+The [0.6.0 qualification](release-060-qualification.md) and
+[compact receipt](release-060-receipts.json) record 1,105 local application cases:
+457 unchanged library, 321 unchanged integration and the final 327-case UI run.
+Editing/Create/motion, 80 template variants, three 24-check native journeys,
+previous-reader compatibility and complete 19-file installation rollback passed.
 
-- Fourteen new mask-growth and sixteen existing mask-engine regressions passed.
-- Thirteen finishing-effect, three Dither helper, six outline, five crop and
-  two selection-generation cases passed.
-- Twenty-four PSD/text and eight SVG cases passed before an additional real
-  Photoshop TypeTool padding fixture repair. Final rebuild remains required.
-- Twenty-five installer cases passed, including the new image MIME associations.
-- A separate integration review found and repaired style restoration on ordinary
-  deletion, queued saves closing newer dialog drafts, and crop geometry surviving
-  external reload. Their regressions are part of the pending combined UI suite.
+The combined review fixed ordinary text deletion restoring old styles, queued
+saves closing newer dialogs, stale crop geometry after reload, dangling merge
+mask links, changed SVG sources, cached Photoshop-text rasterization, optics-stage
+Camera Raw sampling, transparent-foreground Eraser/Clone/Heal and compact-window
+controls. Lower finishing controls are reached through real scrolling and native
+field typing in the final UI regression.
 
-An initial combined UI pass passed 314 cases and found four regressions in
-modal numeric dragging/typing, the Nest chooser and minimum-width header.
-Those were repaired; the final full run is in progress. A library pass passed
-453 cases, with one outdated future-version fixture corrected for format 10.
-Later review also repaired dangling mask links after merges, changed SVG source
-identity, cached Photoshop-text rasterization and Camera Raw optics sampling.
-These later changes require the final rebuilt suite.
-
-The source includes small MIT-licensed independent Photoshop PSB and TypeTool
-fixtures with hashes and provenance. Derived untagged PSD/PSB smoke inputs do
-not establish embedded-ICC import; that remains an explicit refusal.
+Small MIT-licensed independent Photoshop PSB and TypeTool fixtures include hashes
+and provenance. They do not establish embedded-ICC support or complete Photoshop
+interchange. The earlier Cua walkthrough is recorded separately from final
+production/native qualification.
 
 ## Boundaries
 
