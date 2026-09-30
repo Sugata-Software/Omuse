@@ -1,5 +1,5 @@
 use super::*;
-use gpui_kit::{Modifiers, TestAppContext, VisualTestContext};
+use gpui_kit::{Focusable, Modifiers, TestAppContext, VisualTestContext};
 
 fn setup(
     cx: &mut TestAppContext,
