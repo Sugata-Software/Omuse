@@ -1,5 +1,5 @@
 use super::*;
-use gpui_kit::{TestAppContext, VisualTestContext};
+use gpui_kit::{Modifiers, TestAppContext, VisualTestContext};
 
 fn setup(
     cx: &mut TestAppContext,
@@ -42,6 +42,36 @@ fn setup(
 fn draw(cx: &mut VisualTestContext) {
     cx.update(|window, cx| window.draw(cx).clear(cx));
 }
+fn inside(bounds: Bounds<Pixels>, viewport: Bounds<Pixels>) -> bool {
+    bounds.origin.x >= viewport.origin.x
+        && bounds.origin.y >= viewport.origin.y
+        && bounds.bottom_right().x <= viewport.bottom_right().x
+        && bounds.bottom_right().y <= viewport.bottom_right().y
+}
+fn reveal(cx: &mut VisualTestContext, id: &'static str) -> (Bounds<Pixels>, usize) {
+    // Use real wheel dispatch through the modal body; do not set scroll offsets
+    // or focus an offscreen input directly, which would hide layout failures.
+    for scrolls in 0..30 {
+        let viewport = cx.debug_bounds("dialog-body").unwrap();
+        let bounds = cx.debug_bounds(id);
+        if let Some(bounds) = bounds.filter(|bounds| inside(*bounds, viewport)) {
+            return (bounds, scrolls);
+        }
+        let delta = if bounds.is_some_and(|bounds| bounds.origin.y < viewport.origin.y) {
+            100.
+        } else {
+            -100.
+        };
+        cx.simulate_event(gpui_kit::ScrollWheelEvent {
+            position: viewport.center(),
+            delta: gpui_kit::ScrollDelta::Pixels(point(px(0.), px(delta))),
+            modifiers: Modifiers::default(),
+            touch_phase: gpui_kit::TouchPhase::Moved,
+        });
+        draw(cx);
+    }
+    panic!("Finishing control {id} is not reachable by scrolling");
+}
 fn complete(view: &Entity<EditorView>, cx: &mut VisualTestContext) {
     view.update(cx, |view, cx| view.run_finishing(false, cx));
     cx.run_until_parked();
@@ -83,6 +113,30 @@ fn finishing_search_opens_cancel_discards_preview_and_footer_fits(cx: &mut TestA
             "{id}: {bounds:?}"
         );
     }
+    assert_eq!(
+        cx.debug_bounds("finishing-artwork-preview")
+            .unwrap()
+            .size
+            .height,
+        px(160.)
+    );
+    let body = cx.debug_bounds("dialog-body").unwrap();
+    for id in ["dither-style-0", "dither-style-9", "dither-palette-1"] {
+        let bounds = cx.debug_bounds(id).unwrap();
+        assert!(
+            inside(bounds, body),
+            "{id} must be visible without scrolling: {bounds:?}"
+        );
+    }
+    cx.simulate_resize(size(px(1200.), px(900.)));
+    draw(cx);
+    assert_eq!(
+        cx.debug_bounds("finishing-artwork-preview")
+            .unwrap()
+            .size
+            .height,
+        px(280.)
+    );
     cx.simulate_keystrokes("escape");
     cx.run_until_parked();
     cx.update(|window, cx| {
@@ -92,6 +146,80 @@ fn finishing_search_opens_cancel_discards_preview_and_footer_fits(cx: &mut TestA
         assert_eq!(view.pixels, before);
         assert_eq!(view.editor.undo_depth(), 0);
         assert!(view.focus.is_focused(window));
+    });
+}
+
+#[gpui_kit::test]
+fn finishing_lower_ascii_and_colour_fields_support_wheel_navigation_and_native_typing(
+    cx: &mut TestAppContext,
+) {
+    let (view, cx, _recovery) = setup(cx);
+    cx.update(|window, _| window.activate_window());
+    cx.run_until_parked();
+    view.update_in(cx, |view, window, cx| view.open_finishing(0, window, cx));
+    complete(&view, cx);
+    let before = cx.update(|_, cx| view.read(cx).pixels.clone());
+    for id in ["dither-style-9", "dither-palette-1"] {
+        let (bounds, _) = reveal(cx, id);
+        cx.simulate_click(bounds.center(), Modifiers::default());
+        draw(cx);
+    }
+    let mut scrolls = 0;
+    for (index, id, value) in [
+        (7, "finishing-field-7", "#123456"),
+        (8, "finishing-field-8", "#F4DDB3"),
+        (9, "finishing-field-9", " .o#"),
+    ] {
+        let (bounds, count) = reveal(cx, id);
+        scrolls += count;
+        cx.simulate_click(bounds.center(), Modifiers::default());
+        view.update_in(cx, |view, window, cx| {
+            let input = &view.finishing_draft.as_ref().unwrap().inputs[index];
+            assert!(window.is_window_active());
+            assert!(input.read(cx).focus_handle(cx).is_focused(window));
+        });
+        cx.simulate_keystrokes("ctrl-a");
+        cx.simulate_input(value);
+        cx.update(|_, cx| {
+            let view = view.read(cx);
+            assert_eq!(
+                view.finishing_draft.as_ref().unwrap().inputs[index]
+                    .read(cx)
+                    .value()
+                    .as_ref(),
+                value
+            );
+        });
+        draw(cx);
+    }
+    assert!(
+        scrolls > 0,
+        "The regression must exercise the lower-controls wheel path"
+    );
+    complete(&view, cx);
+    view.update(cx, |view, cx| {
+        let Filter::Dither(settings) = view.finishing_filter(cx).unwrap() else {
+            panic!("Expected the typed Dither settings");
+        };
+        assert_eq!(settings.style, Style::Ascii);
+        assert_eq!(settings.palette, Palette::TwoColors);
+        assert_eq!(settings.dark, [0x12, 0x34, 0x56]);
+        assert_eq!(settings.light, [0xF4, 0xDD, 0xB3]);
+        assert_eq!(settings.characters, " .o#");
+        assert_eq!(view.editor.undo_depth(), 0);
+        assert_eq!(view.pixels, before);
+    });
+    let apply = cx.debug_bounds("confirm-dialog").unwrap();
+    assert!(apply.origin.y >= px(0.) && apply.bottom_right().y <= px(600.));
+    cx.simulate_click(apply.center(), Modifiers::default());
+    cx.run_until_parked();
+    view.update(cx, |view, cx| {
+        assert_eq!(view.dialog, Dialog::None);
+        assert_eq!(view.editor.undo_depth(), 1);
+        assert_ne!(view.pixels, before);
+        assert!(view.editor.undo());
+        view.refresh(cx);
+        assert_eq!(view.pixels, before);
     });
 }
 

@@ -444,6 +444,9 @@ impl EditorView {
             return div().into_any_element();
         };
         let t = cx.omarchy().clone();
+        // Keep the effect choices visible on short windows while retaining the
+        // larger artwork preview when the window has room for it.
+        let preview_height = (f32::from(window.viewport_size().height) - 440.).clamp(140., 280.);
         let mut body = div().flex().flex_col().gap_3().text_sm();
         let mut tabs = div().flex().flex_wrap().gap_1();
         for (i, name) in NAMES.iter().enumerate() {
@@ -477,7 +480,8 @@ impl EditorView {
             div()
                 .id("finishing-artwork-preview")
                 .debug_selector(|| "finishing-artwork-preview".into())
-                .h(px(280.))
+                .h(px(preview_height))
+                .flex_shrink_0()
                 .w_full()
                 .flex()
                 .justify_center()
@@ -553,6 +557,7 @@ impl EditorView {
                         },
                         cx,
                     )
+                    .debug_selector(move || format!("dither-palette-{i}").into())
                     .on_click(cx.listener(move |this, _, _, cx| {
                         if let Some(draft) = this.finishing_draft.as_mut() {
                             draft.settings.palette = palette;
@@ -648,12 +653,15 @@ impl EditorView {
                     .flex_col()
                     .gap_1()
                     .child(*label)
-                    .child(input(
-                        SharedString::from(format!("finishing-field-{i}")),
-                        &draft.inputs[i],
-                        window,
-                        cx,
-                    )),
+                    .child(
+                        input(
+                            SharedString::from(format!("finishing-field-{i}")),
+                            &draft.inputs[i],
+                            window,
+                            cx,
+                        )
+                        .debug_selector(move || format!("finishing-field-{i}").into()),
+                    ),
             );
         }
         body = body.child(controls).child(match draft.kind {
