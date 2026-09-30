@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
   "repository": "https://github.com/ZacharyZhang-NY/OmaPhoto",
-  "reviewedAt": "2026-09-29",
+  "reviewedAt": "2026-09-30",
   "defaultBranch": "main",
-  "reviewedHead": "ffba1753c62f5ad82a48248a598366c951faac8d",
-  "reviewStatus": "Source, tests and public metadata reviewed; upstream code was not executed",
+  "reviewedHead": "838d5b1459965e83f1693ff480fe60d14cff3377",
+  "reviewStatus": "Complete change inventory and relevant source, test fixtures and public metadata inspected; upstream code was not executed",
   "releaseBaseline": {
     "tag": "v1.2.3",
     "commit": "96ce546508a920e10f2747ad3907da6eb87f4700"
@@ -12,7 +12,7 @@
   "branches": [
     {
       "name": "main",
-      "sha": "ffba1753c62f5ad82a48248a598366c951faac8d"
+      "sha": "838d5b1459965e83f1693ff480fe60d14cff3377"
     }
   ],
   "tags": [
@@ -150,6 +150,51 @@
   ],
   "recentCommits": [
     {
+      "sha": "838d5b1459965e83f1693ff480fe60d14cff3377",
+      "date": "2026-09-30T00:13:20Z",
+      "summary": "Reload a project changed on disk, fingerprinted by its manifest and image sizes (12.13a)"
+    },
+    {
+      "sha": "aa253d97159ee6736307bab59bcd1ee9e0000116",
+      "date": "2026-09-29T21:07:35Z",
+      "summary": "Scrub numbers by dragging their titles in the sheets and panels (12.12c2)"
+    },
+    {
+      "sha": "5bc788938737a95ec149da1a2e6d154a31d2a53a",
+      "date": "2026-09-29T19:06:49Z",
+      "summary": "Scrub numbers by dragging their labels in the tool bars and layer opacity (12.12c1)"
+    },
+    {
+      "sha": "f335818e533118c94ee1a8abde4671e1ca6c4b46",
+      "date": "2026-09-29T17:26:01Z",
+      "summary": "Masks painted anywhere on the canvas; mask thumbnails' ground white or black (12.12b)"
+    },
+    {
+      "sha": "136ee65a48f60e2cf20f48f886b426a340fe86da",
+      "date": "2026-09-29T16:47:36Z",
+      "summary": "Typed text drawn as its pixels; effects kept while typing, painting masks and undoing (12.12a)"
+    },
+    {
+      "sha": "8fbb104c485611e8eaa3c7805c5635d878b5d80a",
+      "date": "2026-09-29T14:55:10Z",
+      "summary": "Clicked text on its baseline, live text on the Move tool's double click, SVG import (12.11c)"
+    },
+    {
+      "sha": "008493b0a3de461775014a4e8341e01fcd6d542b",
+      "date": "2026-09-29T13:04:50Z",
+      "summary": "Import simple Photoshop text as editable text (12.11b2)"
+    },
+    {
+      "sha": "a2241601ec3e5ac10378d075689253b36dc257d8",
+      "date": "2026-09-29T08:23:27Z",
+      "summary": "Read Photoshop Large Documents, layerless files and oversized layers (12.11b1)"
+    },
+    {
+      "sha": "8a9c56ee1fd677adca6c2c154fed0ee44d7911b5",
+      "date": "2026-09-29T04:19:45Z",
+      "summary": "The document's own pixel budget, marching ants at screen resolution (12.11a)"
+    },
+    {
       "sha": "ffba1753c62f5ad82a48248a598366c951faac8d",
       "date": "2026-09-29T01:03:16Z",
       "summary": "Crop ratios and selection start, Vignette on empty layers, text colour previews (12.10c); mutation runs use 12 cores"
@@ -177,6 +222,15 @@
   ],
   "pullRequests": [
     {
+      "number": 10,
+      "title": "Appimage ci pr",
+      "state": "closed",
+      "head": "4af63d37956c188fad340c99ae1de199cc9fb19a",
+      "updatedAt": "2026-09-29T22:52:42Z",
+      "mergedAt": null,
+      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/pull/10"
+    },
+    {
       "number": 8,
       "title": "Add a self-contained AppImage build, verified on two minimal containers",
       "state": "open",
@@ -188,10 +242,52 @@
   ],
   "issues": [
     {
-      "number": 7,
-      "title": "AUR?",
+      "number": 1,
+      "title": "[Bug Report] Docker dev run cannot import files from the host",
+      "state": "closed",
+      "updatedAt": "2026-09-29T19:01:07Z",
+      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/1"
+    },
+    {
+      "number": 2,
+      "title": "[Bug Report] Docker dev run shows black/stale areas without the host DRM render device",
+      "state": "closed",
+      "updatedAt": "2026-09-29T19:01:02Z",
+      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/2"
+    },
+    {
+      "number": 3,
+      "title": "[Feature Request] configurable Photoshop-style interaction preferences",
       "state": "open",
-      "updatedAt": "2026-09-28T16:12:57Z",
+      "updatedAt": "2026-09-29T19:00:58Z",
+      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/3"
+    },
+    {
+      "number": 5,
+      "title": "[Bug Report] Failed to resolve the transaction",
+      "state": "closed",
+      "updatedAt": "2026-09-29T19:00:54Z",
+      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/5"
+    },
+    {
+      "number": 9,
+      "title": "[Bug Report] Custom tool cursors render garbled/partial on NVIDIA + Hyprland at fractional scale (hardware cursor path)",
+      "state": "open",
+      "updatedAt": "2026-09-29T19:00:48Z",
+      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/9"
+    },
+    {
+      "number": 6,
+      "title": "[Feature Request] This aproche.",
+      "state": "open",
+      "updatedAt": "2026-09-29T18:53:34Z",
+      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/6"
+    },
+    {
+      "number": 7,
+      "title": "[Feature Request]AUR?",
+      "state": "open",
+      "updatedAt": "2026-09-29T18:52:56Z",
       "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/7"
     },
     {
@@ -200,44 +296,17 @@
       "state": "open",
       "updatedAt": "2026-09-26T21:04:41Z",
       "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/4"
-    },
-    {
-      "number": 2,
-      "title": "Docker dev run shows black/stale areas without the host DRM render device",
-      "state": "closed",
-      "updatedAt": "2026-09-26T19:42:50Z",
-      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/2"
-    },
-    {
-      "number": 1,
-      "title": "Docker dev run cannot import files from the host",
-      "state": "closed",
-      "updatedAt": "2026-09-26T19:42:49Z",
-      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/1"
-    },
-    {
-      "number": 5,
-      "title": "Failed to resolve the transaction",
-      "state": "closed",
-      "updatedAt": "2026-09-26T19:42:47Z",
-      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/5"
-    },
-    {
-      "number": 6,
-      "title": "This aproche.",
-      "state": "open",
-      "updatedAt": "2026-09-26T19:15:00Z",
-      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/6"
-    },
-    {
-      "number": 3,
-      "title": "Feature request: configurable Photoshop-style interaction preferences",
-      "state": "open",
-      "updatedAt": "2026-09-26T08:04:22Z",
-      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/3"
     }
   ],
   "workflowSignals": [
+    {
+      "id": 36642096544,
+      "name": "Build AppImage",
+      "head": "4af63d37956c188fad340c99ae1de199cc9fb19a",
+      "status": "completed",
+      "conclusion": "failure",
+      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/actions/runs/36642096544"
+    },
     {
       "id": 36429213792,
       "name": "Release",
@@ -247,22 +316,83 @@
       "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/actions/runs/36429213792"
     },
     {
+      "id": 36426756649,
+      "name": "Release",
+      "head": "d59bd6246085b0181bc6bd92a10468e0b9c76aa1",
+      "status": "completed",
+      "conclusion": "failure",
+      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/actions/runs/36426756649"
+    },
+    {
       "id": 36351361361,
       "name": "Build AppImage",
       "head": "e2ad7549b7fdbaf0b4c2b198b43ed98ed77c9984",
       "status": "completed",
       "conclusion": "action_required",
       "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/actions/runs/36351361361"
+    },
+    {
+      "id": 36350956450,
+      "name": "Build AppImage",
+      "head": "cc6dab969c75abea5a0ea393a674456b1c81fa06",
+      "status": "completed",
+      "conclusion": "action_required",
+      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/actions/runs/36350956450"
+    },
+    {
+      "id": 36350699995,
+      "name": "Build AppImage",
+      "head": "e027eb7f282de785955d88671174f60f42d96e67",
+      "status": "completed",
+      "conclusion": "action_required",
+      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/actions/runs/36350699995"
+    },
+    {
+      "id": 36262916729,
+      "name": "Release",
+      "head": "b07cff29ed8adbce9c2800b595f7e960dcf50b53",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/actions/runs/36262916729"
+    },
+    {
+      "id": 36218751102,
+      "name": "Release",
+      "head": "c864304695d5e9ed288b27d91d336d413791b4d6",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/actions/runs/36218751102"
     }
   ],
   "collectionCoverage": {
     "branches": "1 of 1",
-    "tags": "3 of 3",
-    "releases": "3 of 3",
-    "issues": "7 of 7 excluding pull requests",
-    "pullRequests": "1 of 1",
-    "commits": "All 5 commits from release baseline to reviewed main; not a review of every historical commit",
-    "workflowRuns": "Latest 5 inspected; release and current AppImage PR runs recorded"
+    "tags": "3 of 3; all tag objects unchanged",
+    "releases": "3 of 3; all note hashes and asset names, sizes, timestamps and digests unchanged",
+    "issues": "8 of 8 excluding pull requests; updated reports and their discussions inspected",
+    "pullRequests": "2 of 2; PR 8 remains open and unchanged, PR 10 closed unmerged with one workflow file",
+    "commits": "All 9 new commits and 201 changed paths inventoried in ffba175...838d5b1; relevant implementation and tests inspected. 14 post-release commits reviewed cumulatively. All 42 commit metadata entries fit in one 100-item page; not a review of all historical code.",
+    "workflowRuns": "8 of 8 run metadata entries inspected; new PR 10 run reports failure with zero jobs returned. No test execution inferred for new main commits."
   },
-  "nextReview": "Compare new or changed refs, notes/assets, PRs, issues and relevant workflow results to this snapshot. Read source/tests for meaningful changes and advance only the parts actually reviewed. Do not treat proposals, green builds or unreleased commits as shipped/qualified features."
+  "nextReview": "Compare new or changed refs, notes/assets, PRs, issues and relevant workflow results to this snapshot. Read source/tests for meaningful changes and advance only the parts actually reviewed. Do not treat proposals, green builds or unreleased commits as shipped/qualified features.",
+  "lastReview": {
+    "base": "ffba1753c62f5ad82a48248a598366c951faac8d",
+    "head": "838d5b1459965e83f1693ff480fe60d14cff3377",
+    "compareUrl": "https://github.com/ZacharyZhang-NY/OmaPhoto/compare/ffba1753c62f5ad82a48248a598366c951faac8d...838d5b1459965e83f1693ff480fe60d14cff3377",
+    "commitCount": 9,
+    "changedFiles": 201,
+    "omuseSource": "488cf3465b9a8ade49346c639326a216aaf2429a",
+    "releaseChanged": false,
+    "meaningfulChanges": [
+      "Bounded PSB import, merged layerless images and optional over-budget cropping",
+      "Editable Photoshop text with conversion limitations and notices",
+      "Raster SVG/SVGZ import and Qt SVG packaging inputs",
+      "Baseline text placement, Move double-click and rendered live text/effect continuity",
+      "Mask growth beyond original bounds and consistent outside coverage",
+      "Numeric label scrubbing across tools and panels",
+      "RAM-derived document budgets and reduced-resolution selection outlines",
+      "External project watching/reload with manifest-and-image-size fingerprints",
+      "NVIDIA fractional-scale cursor report and closed unmerged AppImage PR 10"
+    ],
+    "qualification": "Source comparison only. No upstream or Omuse runtime/tests executed in this review; no software installed, committed or published. Future work is planned in the guide, not a shipped feature claim."
+  }
 }

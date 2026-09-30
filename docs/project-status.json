@@ -242,6 +242,21 @@
             "rust/src/crop_ui.rs",
             "rust/src/editing_workflow_ui_tests.rs"
           ]
+        },
+        {
+          "id": "photo-selection-contour-lod",
+          "name": "Responsive outlines for complex selections",
+          "status": "planned",
+          "current": "Move contour generation off the UI thread and adapt display detail to zoom and screen size, preserving the exact editing selection separately.",
+          "boundary": "Planned performance work. Current contours cache up to 200,000 points after a mask scan. Measure large-selection latency and memory, then test stale results, zoom, thin features, holes and Undo; no speedup has been measured.",
+          "evidence": [
+            "docs/omaphoto-comparison.md",
+            "docs/omaphoto-watch.json"
+          ],
+          "modules": [
+            "rust/src/ui.rs",
+            "rust/src/selection_tools.rs"
+          ]
         }
       ]
     },
@@ -274,10 +289,11 @@
           "name": "Raster, linked and folder masks",
           "status": "locally-tested",
           "current": "Per-layer masks, detached placement, link/unlink behavior, live alpha links and folder masks persist through project save/reopen.",
-          "boundary": "Mask rasterization and document limits remain bounded; older project versions cannot represent every newer mask feature.",
+          "boundary": "Brush dabs stay within the existing mask raster; automatic growth beyond its bounds is planned. Mask rasterization and document limits remain bounded; older project versions cannot represent every newer mask feature.",
           "evidence": [
             "docs/project-format.md",
-            "docs/photo-editing-hardening.md"
+            "docs/photo-editing-hardening.md",
+            "docs/omaphoto-comparison.md"
           ],
           "modules": [
             "rust/src/document.rs",
@@ -361,6 +377,22 @@
             "rust/src/clipboard_ui.rs",
             "rust/tests/layer_clipboard.rs"
           ]
+        },
+        {
+          "id": "layers-growing-masks",
+          "name": "Paint masks beyond their original bounds",
+          "status": "planned",
+          "current": "Extend mask coverage within bounded document space while preserving the source layer, placement, links and reveal/hide background coverage.",
+          "boundary": "Planned only. Current mask painting clamps to its raster bounds. Qualify linked/detached and rotated masks, effect previews, untouched corners, limits and one-step Undo/save/reopen before claiming parity.",
+          "evidence": [
+            "docs/omaphoto-comparison.md",
+            "docs/omaphoto-watch.json"
+          ],
+          "modules": [
+            "rust/src/editor.rs",
+            "rust/src/raster.rs",
+            "rust/tests/range_mask_transactions.rs"
+          ]
         }
       ]
     },
@@ -375,10 +407,11 @@
           "name": "Live text and rich typography",
           "status": "locally-tested",
           "current": "Editable text supports rich runs, alignment, fitting, minimum sizes, reusable styles, text backgrounds and overflow reports.",
-          "boundary": "Unusual fallback fonts, long copy, manual rich-run editing and assistive workflows remain manual release checks.",
+          "boundary": "The current inline editor is a textarea overlay, not a matching live canvas preview of masks/effects. Unusual fallback fonts, long copy, manual rich-run editing and assistive workflows remain manual release checks.",
           "evidence": [
             "docs/omuse-create-and-ai-plan.md",
-            "docs/omuse-create-guide.md"
+            "docs/omuse-create-guide.md",
+            "docs/omaphoto-comparison.md"
           ],
           "modules": [
             "rust/src/objects.rs",
@@ -474,6 +507,22 @@
           "modules": [
             "rust/src/advanced_ops.rs",
             "rust/src/workflow_ui.rs"
+          ]
+        },
+        {
+          "id": "design-canvas-text-preview",
+          "name": "Live canvas text and effects while typing",
+          "status": "planned",
+          "current": "Render a reversible text draft using the same typography, blend, mask and effects path as committed artwork, including predictable baseline placement and Move-tool editing.",
+          "boundary": "Planned only. Current text overlay already supports commit/cancel and Undo; that does not prove preview fidelity. Require preview/commit pixel comparisons, stale-result rejection, font/zoom checks and cancel/Undo/save/reopen preservation.",
+          "evidence": [
+            "docs/omaphoto-comparison.md",
+            "docs/omaphoto-watch.json"
+          ],
+          "modules": [
+            "rust/src/ui.rs",
+            "rust/src/objects.rs",
+            "rust/tests/text_editing.rs"
           ]
         }
       ]
@@ -874,7 +923,7 @@
           "name": "PSD subset",
           "status": "locally-tested",
           "current": "Layered 8-bit PSD import retains supported groups, opacity/fill, masks, clipping and blend/adjustment mappings, with an import report. New always-on generated fixtures exercise nested group opacity, masks, clipping and Vivid/Linear/Pin Light/Hard Mix pixels; all passed as part of the 808-test candidate.",
-          "boundary": "A supported subset, not a complete Photoshop document engine. Generated layered tests use raw channel compression; real application corpus, compressed-layer combinations and bidirectional .comp v9 interchange remain separate qualification work.",
+          "boundary": "A supported 8-bit RGB PSD subset. PSB is rejected; editable Photoshop text imports as cached pixels with a notice; embedded ICC profiles are rejected. Layerless raw/RLE/ZIP/prediction fixtures exist, but real application corpus, layered compressed-channel combinations and bidirectional .comp v9 interchange remain separate qualification work.",
           "evidence": [
             "docs/photo-editing-hardening.md",
             "docs/omaphoto-comparison.md"
@@ -927,6 +976,22 @@
             "docs/rust-advanced-workflows.md"
           ],
           "modules": []
+        },
+        {
+          "id": "formats-extended-imports",
+          "name": "PSB, editable Photoshop text and SVG import",
+          "status": "planned",
+          "current": "The repository comparison identifies PSB decoding, supported native PSD text descriptors and bounded SVG/SVGZ raster import as concrete next import work. Existing layerless PSD support is already implemented.",
+          "boundary": "Planned only. Require real cross-app fixtures, malformed/compressed input limits, ICC handling, conversion previews/notices and external-resource rejection for SVG; preserve original artwork and off-canvas pixels by default.",
+          "evidence": [
+            "docs/omaphoto-comparison.md",
+            "docs/omaphoto-watch.json"
+          ],
+          "modules": [
+            "rust/src/psd.rs",
+            "rust/src/document.rs",
+            "rust/src/import_report.rs"
+          ]
         }
       ]
     },
@@ -1092,11 +1157,12 @@
           "name": "Displays, DPI and accessibility",
           "status": "implemented-needs-qualification",
           "current": "Minimum-window layouts, themes, reduced motion and bounded scale behavior have automated/native coverage.",
-          "boundary": "Real mixed-DPI/multi-monitor behavior, physical trackpad input and AT-SPI exact-window coverage remain unqualified.",
+          "boundary": "Real mixed-DPI/multi-monitor behavior, physical trackpad input and AT-SPI exact-window coverage remain unqualified. The new upstream NVIDIA/fractional-scale cursor report adds a desktop acceptance case; it has not been reproduced in GPUI Omuse.",
           "evidence": [
             "docs/rust-studio-design.md",
             "docs/public-release-readiness.md",
-            "docs/omuse-create-qualification.md"
+            "docs/omuse-create-qualification.md",
+            "docs/omaphoto-comparison.md"
           ],
           "modules": [
             "rust/src/studio_ui.rs",
@@ -1132,6 +1198,22 @@
             "rust/src/canvas_navigation.rs",
             "rust/src/ui.rs",
             "rust/src/editing_workflow_ui_tests.rs"
+          ]
+        },
+        {
+          "id": "linux-numeric-scrubbing",
+          "name": "Precise draggable numeric controls",
+          "status": "planned",
+          "current": "Add shared native drag-to-adjust labels for opacity, transforms, brushes and adjustment panels, with precise typing and keyboard controls alongside them.",
+          "boundary": "Planned interaction work, separate from the completed inspector layout refinement. Qualify one Undo step per drag, Escape restoration, disabled controls, range/step limits, lost releases, focus and target changes.",
+          "evidence": [
+            "docs/omaphoto-comparison.md",
+            "docs/omaphoto-watch.json"
+          ],
+          "modules": [
+            "rust/src/inspector_ui.rs",
+            "rust/src/studio_ui.rs",
+            "rust/src/range_ui.rs"
           ]
         }
       ]
@@ -1312,8 +1394,8 @@
           "id": "release-competitor-comparison",
           "name": "OmaPhoto whole-repository comparison",
           "status": "locally-tested",
-          "current": "The daily watch covers commits, active branches, tags/releases, PRs, issues, source/tests, build workflows, dependencies, docs and packaging. In addition to v1.2.3, five merged but unreleased commits through ffba175 were reviewed. The recorded upstream snapshot is unchanged. Omuse 0.3.0 implements anchored zoom, session layer Copy/Paste and crop ratios with automated/native/Cua evidence; AppImage/Flatpak remain upstream proposals.",
-          "boundary": "The additional source/tests were inspected, not executed. Existing 808-test/native evidence belongs to runtime 9c99e50; neither app has been benchmarked against the other. The scheduled watch does not publish or install software. Open PRs and user reports do not prove released behavior.",
+          "current": "30 September review covers all current refs, three unchanged releases, eight issues, two PRs and eight workflow results. Nine new main commits (201 paths) through 838d5b1 add PSB/editable PSD text, raster SVG import, live text/effects, growing masks, numeric drags, selection outline work and external project reload; all remain unreleased. Concrete Omuse gaps and test requirements are now recorded as planned work.",
+          "boundary": "Upstream source and regression fixtures were inspected, not executed. The comparison uses Omuse source 488cf34; historical 808-test evidence belongs to runtime 9c99e50. No comparative speed/stability result or new runtime qualification is claimed. PR 8 remains open, PR 10 closed unmerged, and cursor report 9 is not a reproduced Omuse bug.",
           "evidence": [
             "docs/omaphoto-comparison.md",
             "docs/omaphoto-watch.json",
@@ -1341,6 +1423,22 @@
           "modules": [
             "rust/src/shortcuts.rs",
             "rust/src/ai_experience.rs"
+          ]
+        },
+        {
+          "id": "reliability-external-reload",
+          "name": "Review and reload externally changed projects",
+          "status": "planned",
+          "current": "Add a clear external-change decision with safe reload and save-copy choices while preserving existing locked saves and conflict detection.",
+          "boundary": "Planned only. Current save/read guards reject conflicting publication and prompt Save as. Require partial-write, package replacement, same-size image rewrite, active edit/AI, dialog race and view-state tests; a manifest-plus-image-size digest alone is insufficient.",
+          "evidence": [
+            "docs/omaphoto-comparison.md",
+            "docs/omaphoto-watch.json"
+          ],
+          "modules": [
+            "rust/src/save_guard.rs",
+            "rust/src/ui.rs",
+            "rust/src/create_project.rs"
           ]
         }
       ]
