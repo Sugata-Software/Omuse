@@ -14,10 +14,16 @@
    supporting line and a readable call to action.
 5. In **Assets**, import your image into the local library, then place it or
    replace a selected frame. Replacing a frame keeps its crop and layout.
-6. Save the collection as a **`.omuse` package**. Keep the entire package.
+6. Save the collection as a **`.omuse` project**, the same extension used for a
+   single canvas. Keep the entire directory package when copying it.
 
 Templates and guides are composition aids. Check the destination's current
 size/cropping requirements before making the final export.
+
+An older version 1 collection opens normally, but saving upgrades it to version
+2 with nested `.omuse` pages and components. Earlier releases cannot read that
+new collection format. Use **Save As** to a new location if you need to keep the
+original for an earlier release. See [saving and compatibility](README.md#save-projects-export-deliverables).
 
 ## Add text, a logo and a call to action
 

@@ -64,7 +64,7 @@ fn ordinary_open_retains_oriented_tiff16_through_project_and_explicit_16_bit_exp
             .any(|pixel| pixel[3] < u16::MAX && pixel.0.iter().any(|value| value % 257 != 0))
     );
 
-    let package = directory.path().join("retained.comp");
+    let package = directory.path().join("retained.omuse");
     document::save(&opened, &package).unwrap();
     let reopened = document::open(&package).unwrap();
     assert_eq!(
@@ -151,7 +151,7 @@ fn advanced_photo_rejects_destructive_byte_edits_until_explicit_rasterization() 
     assert_ne!(editor.document.layers[0].image, before);
     let edited = raster::composite(&editor.document);
 
-    let package = directory.path().join("rasterized-edit.comp");
+    let package = directory.path().join("rasterized-edit.omuse");
     document::save(&editor.document, &package).unwrap();
     let reopened = document::open(&package).unwrap();
     assert!(reopened.layers[0].advanced.is_none());

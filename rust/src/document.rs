@@ -1,4 +1,6 @@
-//! Bounded, metadata-preserving legacy .comp package I/O for Omuse.
+//! Bounded, metadata-preserving .omuse document package I/O.
+//!
+//! The compatible document manifest also opens legacy .comp packages.
 //!
 //! Saving stages a complete sibling package, fsyncs it, then atomically exchanges
 //! it with the old directory on Linux. Errors before exchange leave the old file intact.
@@ -23,6 +25,47 @@ const MAX_DEPTH: usize = 64;
 // decoder's own allocation at that model boundary rather than relying on a
 // codec-specific default for a high-bit-depth or malformed source.
 const MAX_DECODE_BYTES: u64 = MAX_PIXELS * 4;
+
+/// Whether a path has the native Omuse extension, regardless of ASCII case.
+pub fn is_omuse_path(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|extension| extension.as_encoded_bytes().eq_ignore_ascii_case(b"omuse"))
+}
+
+/// Normalize a user-selected project save destination without touching disk.
+/// Legacy suffixes are replaced; other suffixes remain part of the chosen name
+/// so saving an imported `photo.png` produces `photo.png.omuse`.
+///
+/// Low-level package writers deliberately accept exact caller paths, including
+/// legacy packages. Save dialogs and other user-facing callers use this helper.
+pub fn project_save_path(path: &Path) -> Result<PathBuf> {
+    let final_component = path
+        .as_os_str()
+        .as_encoded_bytes()
+        .rsplit(|byte| *byte == b'/')
+        .next()
+        .unwrap_or_default();
+    ensure!(
+        !final_component.is_empty() && final_component != b"." && final_component != b"..",
+        "Choose a project filename"
+    );
+    let filename = path.file_name().context("Choose a project filename")?;
+    ensure!(
+        !filename.to_string_lossy().trim().is_empty(),
+        "Choose a nonblank project filename"
+    );
+    if is_omuse_path(path) {
+        return Ok(path.to_owned());
+    }
+    if path.extension().is_none_or(|extension| {
+        extension.is_empty() || extension.as_encoded_bytes().eq_ignore_ascii_case(b"comp")
+    }) {
+        return Ok(path.with_extension("omuse"));
+    }
+    let mut filename = filename.to_owned();
+    filename.push(".omuse");
+    Ok(path.with_file_name(filename))
+}
 
 fn canonical_id(id: &str) -> Result<String> {
     Ok(uuid::Uuid::parse_str(id)
@@ -801,11 +844,11 @@ where
         "Saving would require unsupported feature handling: {}. Original project has not been changed.",
         unsupported.join(", ")
     );
-    // Background is not part of the Mac document schema; never silently create a file
-    // whose appearance differs there. Explicit background layers remain compatible.
+    // The document schema stores backgrounds as layers. Require that explicit
+    // representation rather than silently discarding the canvas background.
     ensure!(
         doc.background[3] == 0,
-        "Convert the document background to a layer before saving a compatible .comp project"
+        "Convert the document background to a layer before saving an .omuse project"
     );
     let mut flat = vec![];
     flatten(&doc.layers, None, 0, &mut flat)?;
@@ -1117,6 +1160,62 @@ mod tests {
     use image::{Rgba, RgbaImage};
     use tempfile::tempdir;
 
+    #[test]
+    fn native_extension_detection_is_case_insensitive_and_exact() {
+        for name in ["Artwork.omuse", "Artwork.OMUSE", "folder/Artwork.OmUsE"] {
+            assert!(is_omuse_path(Path::new(name)), "{name}");
+        }
+        for name in ["Artwork.comp", "Artwork.omuse.png", "Artwork", ".omuse", ""] {
+            assert!(!is_omuse_path(Path::new(name)), "{name}");
+        }
+    }
+
+    #[test]
+    fn user_save_paths_preserve_chosen_names_and_always_use_omuse() {
+        for (chosen, expected) in [
+            ("Artwork", "Artwork.omuse"),
+            ("Artwork.", "Artwork.omuse"),
+            ("Artwork.omuse", "Artwork.omuse"),
+            ("Artwork.OMUSE", "Artwork.OMUSE"),
+            ("Artwork.comp", "Artwork.omuse"),
+            ("Artwork.CoMp", "Artwork.omuse"),
+            ("photo.png", "photo.png.omuse"),
+            ("Campaign.v2", "Campaign.v2.omuse"),
+            ("Campaign.v2.comp", "Campaign.v2.omuse"),
+            (".private", ".private.omuse"),
+            ("/art/Brand kit", "/art/Brand kit.omuse"),
+            ("art/Musée.png", "art/Musée.png.omuse"),
+        ] {
+            let saved = project_save_path(Path::new(chosen)).unwrap();
+            assert_eq!(saved, Path::new(expected), "{chosen}");
+            assert!(is_omuse_path(&saved));
+            assert_eq!(project_save_path(&saved).unwrap(), saved);
+        }
+    }
+
+    #[test]
+    fn user_save_paths_reject_blank_and_directory_targets() {
+        for chosen in [
+            "", " ", "\t\n", "/", ".", "..", "art/", "art/.", "art/..", "art/   ",
+        ] {
+            assert!(project_save_path(Path::new(chosen)).is_err(), "{chosen:?}");
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn user_save_paths_preserve_non_utf8_filename_bytes() {
+        use std::{ffi::OsStr, os::unix::ffi::OsStrExt};
+        let chosen = Path::new(OsStr::from_bytes(b"Artwork-\xff.png"));
+        let saved = project_save_path(chosen).unwrap();
+        assert_eq!(saved.as_os_str().as_bytes(), b"Artwork-\xff.png.omuse");
+        let legacy = Path::new(OsStr::from_bytes(b"Artwork-\xff.COMP"));
+        assert_eq!(
+            project_save_path(legacy).unwrap().as_os_str().as_bytes(),
+            b"Artwork-\xff.omuse"
+        );
+    }
+
     fn read_manifest(path: &Path) -> Value {
         serde_json::from_slice(&fs::read(path.join("manifest.json")).unwrap()).unwrap()
     }
@@ -1148,7 +1247,7 @@ mod tests {
     #[test]
     fn uuid_case_is_canonical_and_group_mask_bounds_are_preserved() {
         let dir = tempdir().unwrap();
-        let path = dir.path().join("Case.comp");
+        let path = dir.path().join("Case.omuse");
         let mut doc = patterned();
         doc.layers[0].id = doc.layers[0].id.to_lowercase();
         let mut group = Layer::group("Masked folder");
@@ -1182,7 +1281,7 @@ mod tests {
     #[test]
     fn malformed_guides_and_blends_are_rejected() {
         let dir = tempdir().unwrap();
-        let path = dir.path().join("Guides.comp");
+        let path = dir.path().join("Guides.omuse");
         let mut doc = patterned();
         doc.metadata["guides"] = json!([{"id": uuid::Uuid::new_v4().to_string(), "axis": "horizontal", "position": 1e20}]);
         assert!(save(&doc, &path).is_err());
@@ -1195,7 +1294,7 @@ mod tests {
     }
 
     #[test]
-    fn comp_roundtrip_retains_pixels_transform_nested_order_and_unknown_metadata() {
+    fn legacy_comp_roundtrip_retains_pixels_transform_nested_order_and_unknown_metadata() {
         let dir = tempdir().unwrap();
         let path = dir.path().join("Roundtrip.comp");
         let mut doc = patterned();
@@ -1245,7 +1344,7 @@ mod tests {
     #[test]
     fn fractional_high_quality_scale_roundtrips_bits_and_pixels() {
         let dir = tempdir().unwrap();
-        let path = dir.path().join("Fractional.comp");
+        let path = dir.path().join("Fractional.omuse");
         let mut doc = Document::new(240, 240);
         let layer = &mut doc.layers[0];
         layer.image = Some(
@@ -1282,7 +1381,7 @@ mod tests {
     #[test]
     fn atomic_replacement_and_validation_failure_preserve_previous_package() {
         let dir = tempdir().unwrap();
-        let path = dir.path().join("Atomic.comp");
+        let path = dir.path().join("Atomic.omuse");
         let mut doc = patterned();
         save(&doc, &path).unwrap();
         doc.layers[0].name = "Updated".into();
@@ -1315,7 +1414,7 @@ mod tests {
     #[test]
     fn rejected_prepublication_check_preserves_existing_package_and_cleans_stage() {
         let dir = tempdir().unwrap();
-        let path = dir.path().join("Guarded.comp");
+        let path = dir.path().join("Guarded.omuse");
         let mut original = patterned();
         original.layers[0].name = "Saved work".into();
         save(&original, &path).unwrap();
@@ -1362,7 +1461,7 @@ mod tests {
     #[test]
     fn unsupported_semantics_fail_without_modifying_source() {
         let dir = tempdir().unwrap();
-        let path = dir.path().join("Effects.comp");
+        let path = dir.path().join("Effects.omuse");
         let mut doc = patterned();
         save(&doc, &path).unwrap();
         edit_manifest(&path, |v| {
@@ -1385,7 +1484,7 @@ mod tests {
     fn rejects_duplicate_cycle_missing_parent_and_oversized_documents() {
         for mutation in 0..5 {
             let dir = tempdir().unwrap();
-            let path = dir.path().join("Malformed.comp");
+            let path = dir.path().join("Malformed.omuse");
             let mut doc = patterned();
             doc.layers.push(Layer::group("Folder"));
             save(&doc, &path).unwrap();
@@ -1403,7 +1502,7 @@ mod tests {
     #[test]
     fn rejects_traversal_asset_names_and_symlink_escapes() {
         let dir = tempdir().unwrap();
-        let path = dir.path().join("Traversal.comp");
+        let path = dir.path().join("Traversal.omuse");
         let doc = patterned();
         save(&doc, &path).unwrap();
         edit_manifest(&path, |v| {
@@ -1467,7 +1566,7 @@ mod tests {
     #[test]
     fn rejects_non_grayscale_mask_without_mutation() {
         let dir = tempdir().unwrap();
-        let path = dir.path().join("Mask.comp");
+        let path = dir.path().join("Mask.omuse");
         let mut doc = patterned();
         save(&doc, &path).unwrap();
         let old = fs::read(path.join("manifest.json")).unwrap();
@@ -1479,7 +1578,7 @@ mod tests {
     #[test]
     fn unknown_future_version_and_corrupt_png_fail_clearly() {
         let dir = tempdir().unwrap();
-        let path = dir.path().join("Corrupt.comp");
+        let path = dir.path().join("Corrupt.omuse");
         let doc = patterned();
         save(&doc, &path).unwrap();
         edit_manifest(&path, |v| v["version"] = json!(10));

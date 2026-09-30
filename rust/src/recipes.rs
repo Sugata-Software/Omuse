@@ -219,8 +219,10 @@ pub struct BatchReport {
     pub cancelled: bool,
 }
 
-/// Nonrecursive, sorted enumeration. Each output is exclusively published;
-/// collisions and per-file failures are reported and never overwrite a file.
+/// Nonrecursive, sorted enumeration of images and `.omuse` / legacy `.comp`
+/// packages. Collections export only their saved active page, matching the
+/// editor and CLI export. Each output is exclusively published; collisions and
+/// per-file failures are reported and never overwrite a file.
 pub fn batch(
     recipe: &Recipe,
     input: &Path,
@@ -261,7 +263,7 @@ pub fn batch(
             .and_then(|v| v.to_str())
             .unwrap_or("")
             .to_ascii_lowercase();
-        if (kind.is_dir() && ext == "comp")
+        if (kind.is_dir() && matches!(ext.as_str(), "omuse" | "comp"))
             || (kind.is_file()
                 && (matches!(
                     ext.as_str(),
@@ -288,7 +290,22 @@ pub fn batch(
         let destination = output.join(format!("{name}.{extension}"));
         let result = (|| -> Result<()> {
             ensure!(!destination.exists(), "Output already exists");
-            let source = document::open(&path)?;
+            let source = if path.join("project.json").is_file() {
+                let mut project = crate::create_project::Project::open(&path)?;
+                let active = project
+                    .page_summaries()
+                    .into_iter()
+                    .find(|page| page.id == project.active_page_id())
+                    .context("Collection active page is missing")?;
+                // Check the collection manifest before decoding its lazy page.
+                ensure!(
+                    u64::from(active.width) * u64::from(active.height) <= 16_777_216,
+                    "Recipe source exceeds 16 million pixels"
+                );
+                project.active_document()?.clone()
+            } else {
+                document::open(&path)?
+            };
             ensure!(
                 u64::from(source.width) * u64::from(source.height) <= 16_777_216,
                 "Recipe source exceeds 16 million pixels"

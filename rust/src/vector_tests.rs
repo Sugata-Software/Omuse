@@ -144,7 +144,7 @@ fn path_styling_recomputes_retained_filters_and_survives_reopen(cx: &mut TestApp
         v.editor.document.clone()
     });
     let tmp = tempfile::tempdir().unwrap();
-    let package = tmp.path().join("styled.comp");
+    let package = tmp.path().join("styled.omuse");
     omuse::document::save(&document, &package).unwrap();
     let reopened = omuse::document::open(&package).unwrap();
     let state = reopened.layers[0].advanced.as_ref().unwrap();

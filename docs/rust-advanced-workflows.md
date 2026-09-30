@@ -8,7 +8,9 @@ Most entry points are in the right-hand **Develop** inspector, under **Editable 
 
 Choose an unlocked pixel layer and finish any floating selection first. Preview work uses a disposable draft; **Apply** publishes a validated document transaction with undo. Closing/cancelling a draft invalidates pending results. Asynchronous results are checked against their originating document revision. In Smart source, RAW, colour, automation and merge panels, choose an action, fill its fields, then press **Apply** to run the highlighted action. Record/Stop, recipe-builder buttons and Disable display proof act immediately.
 
-Editable layer state retains a tiled 16-bit source and evaluated result, a compressed recipe, and embedded RAW bytes where applicable. `.comp` saves these assets alongside its 8-bit cached layer image. Reopening in the Rust editor restores supported recipes. Painting directly on an editable source is guarded: paint on another layer or explicitly rasterize a copy. Rasterization sacrifices that copy's retained editing model; it is not a high-precision paint mode.
+Editable layer state retains a tiled 16-bit source and evaluated result, a compressed recipe, and embedded RAW bytes where applicable. `.omuse` saves these assets alongside its 8-bit cached layer image. Reopening in the Rust editor restores supported recipes. Painting directly on an editable source is guarded: paint on another layer or explicitly rasterize a copy. Rasterization sacrifices that copy's retained editing model; it is not a high-precision paint mode.
+
+Use `.omuse` directory packages for both canvases and collections, keeping the whole directory when copying artwork. Their manifests identify the kind: `manifest.json` for a canvas, `project.json` for a collection. Legacy `.comp` projects remain readable; the first UI Save offers an `.omuse` copy and leaves the original intact. Collection saves use schema version 2 with nested `.omuse` pages/components; reading version 1 remains supported, but saving upgrades it. Earlier releases cannot read version 2, so use Save As to preserve a version 1 original when needed. The layer wire identifier remains `com.compositor.project`. See the [compatibility contract](omuse-rename.md).
 
 The preserved editors do not understand these Rust-specific assets. Their cached image view does not establish equivalent rendering of backdrop-dependent features, nor preservation of recipes after saving there. Retain the Rust project when comparing another editor.
 
@@ -42,7 +44,7 @@ Monitor/proof ICC paths, rendering intent (0 Perceptual, 1 Relative colorimetric
 
 **Develop → Smart source** offers **Import / replace**, **Duplicate linked instance** and **Refresh same source**. Import retains decoded high-precision raster pixels; RAW import additionally embeds the original camera-file bytes. Linked paths are explicit references, not background file watchers. Refresh updates instances sharing the source identity as one validated transaction and reevaluates their recipes.
 
-**Develop → Embedded RAW** redevelops the embedded original using exposure, temperature, tint and boost, with LibRaw producing a **16-bit source**. This is distinct from the 8-bit Camera Raw compatibility node. External files are not silently substituted during redevelop. RAW files are bounded to 512 MiB and advanced decoded sources to 16 MP. Importing a layered `.comp` or PSD through Smart source retains its rendered image rather than nesting its full layer graph.
+**Develop → Embedded RAW** redevelops the embedded original using exposure, temperature, tint and boost, with LibRaw producing a **16-bit source**. This is distinct from the 8-bit Camera Raw compatibility node. External files are not silently substituted during redevelop. RAW files are bounded to 512 MiB and advanced decoded sources to 16 MP. Importing a layered `.omuse` canvas, a legacy `.comp` canvas or PSD through Smart source retains its rendered image rather than nesting its full layer graph.
 
 ## 5. Vector paths and masks
 
@@ -85,6 +87,8 @@ The broader kernel can represent denser meshes, but the UI does not offer a gene
 **Develop → Recipes & batch.** Record supported whole-image filter and quick-adjust operations; add Resize, Crop, quarter-turn Rotate and Flip steps explicitly. Selection-dependent or unsupported edits pause recording rather than pretend to be captured. Recipes are portable versioned JSON, limited to 256 steps and 1 MiB on load; saving requires a new filename.
 
 **Apply as new layer** evaluates through an 8-bit proxy and retains the previous layer. Folder batches enumerate supported inputs nonrecursively in sorted order, require a separate existing output directory, preserve existing files, and report individual failures/cancellation. Up to 10,000 files are enumerated; recipe input/output processing is bounded to 16 MP. Completed outputs remain after cancellation. Reopening the workspace shows the last run's summary and up to twenty filename/result rows; the full report remains in memory for the session.
+
+Batches accept `.omuse` projects and legacy `.comp` packages alongside supported images. For a collection, only its saved active page is processed, matching `omuse --export INPUT.omuse OUTPUT.png`. Use Create's content-pack export for all pages. Output names retain the input suffix, such as `Artwork.omuse.png`, so projects and images with the same stem remain distinct.
 
 ```sh
 omuse --batch RECIPE.json INPUT_FOLDER OUTPUT_FOLDER png CANCEL_FILE

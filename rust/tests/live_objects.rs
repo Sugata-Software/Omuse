@@ -60,7 +60,7 @@ fn swift_live_objects_roundtrip_source_and_cached_pixels() {
     let mut doc = Document::new(300, 200);
     doc.layers = vec![text_layer, shape_layer];
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("Live.comp");
+    let path = dir.path().join("Live.omuse");
     document::save(&doc, &path).unwrap();
     let reopened = document::open(&path).unwrap();
     assert_eq!(objects::live_text(&reopened.layers[0]).unwrap(), Some(text));

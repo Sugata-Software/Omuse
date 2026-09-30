@@ -30,6 +30,9 @@ mod motion_ui;
 mod photo_io_ui;
 #[path = "product_ui.rs"]
 mod product_ui;
+#[cfg(all(test, feature = "ui-test"))]
+#[path = "project_extension_ui_tests.rs"]
+mod project_extension_ui_tests;
 #[path = "range_ui.rs"]
 mod range_ui;
 #[path = "restore_ui.rs"]
@@ -239,6 +242,12 @@ enum Dialog {
     Gradient,
 }
 
+struct SaveConfirmation {
+    path: PathBuf,
+    stamp: u64,
+    dialog_generation: u64,
+}
+
 enum CameraRawResult {
     Preview {
         pixels: image::RgbaImage,
@@ -355,6 +364,7 @@ pub struct EditorView {
     clone_aligned_draft: bool,
     clone_all_layers_draft: bool,
     dialog_generation: u64,
+    save_confirmation: Option<SaveConfirmation>,
     jpeg_preview: Option<(Arc<RenderImage>, usize, u32, u32)>,
     // Preview work has its own lifecycle.  It must never invalidate a submitted
     // file operation, whose completion is guarded by `dialog_generation`.
@@ -464,7 +474,11 @@ impl PreparedEditor {
                 (doc, None, pixels, None, status)
             }
         };
-        let path = path.filter(|_| live_stamp.is_some());
+        // Shell completion commonly supplies a trailing slash for directory
+        // packages. Keep a filename-shaped save target after a successful open.
+        let path = path
+            .filter(|_| live_stamp.is_some())
+            .map(|path| path.components().collect());
         if cancelled.load(Ordering::Relaxed) {
             return None;
         }
@@ -858,6 +872,7 @@ impl EditorView {
             clone_aligned_draft: true,
             clone_all_layers_draft: false,
             dialog_generation: 0,
+            save_confirmation: None,
             jpeg_preview: None,
             jpeg_preview_generation: 0,
             jpeg_preview_task: None,
@@ -2077,6 +2092,7 @@ impl EditorView {
         }
         self.finish_interaction(cx);
         self.dialog_generation += 1;
+        self.save_confirmation = None;
         self.dialog = if import { Dialog::Import } else { Dialog::Open };
         self.path_input.update(cx, |state, cx| {
             state.set_placeholder("File path", window, cx);
@@ -2130,10 +2146,8 @@ impl EditorView {
                 .join("Pictures");
             let name = if mode == Dialog::Export {
                 "Untitled.png"
-            } else if self.create.session.is_some() {
-                "Untitled.omuse"
             } else {
-                "Untitled.comp"
+                "Untitled.omuse"
             };
             let task = cx.prompt_for_new_path(&dir, Some(name));
             cx.spawn_in(window, async move |view, cx| {
@@ -2168,6 +2182,7 @@ impl EditorView {
         }
         self.finish_interaction(cx);
         self.dialog_generation += 1;
+        self.save_confirmation = None;
         self.dialog = if export { Dialog::Export } else { Dialog::Save };
         let default = self
             .path
@@ -2176,7 +2191,7 @@ impl EditorView {
                 if export {
                     p.with_extension("png")
                 } else {
-                    p.clone()
+                    document::project_save_path(p).unwrap_or_else(|_| p.clone())
                 }
             })
             .unwrap_or_else(|| {
@@ -2187,11 +2202,7 @@ impl EditorView {
                     .join(if export {
                         "Untitled.png"
                     } else {
-                        if self.create.session.is_some() {
-                            "Untitled.omuse"
-                        } else {
-                            "Untitled.comp"
-                        }
+                        "Untitled.omuse"
                     })
             });
         self.path_input.update(cx, |state, cx| {
@@ -2199,6 +2210,14 @@ impl EditorView {
             state.set_value(default.to_string_lossy().to_string(), window, cx);
             state.focus(window, cx);
         });
+        if !export
+            && self
+                .path
+                .as_ref()
+                .is_some_and(|path| !document::is_omuse_path(path))
+        {
+            self.status = "Save an .omuse copy. Your original project will be kept.".into();
+        }
         if export {
             self.jpeg_preview = None;
             let dpi = self
@@ -2224,7 +2243,7 @@ impl EditorView {
             return;
         }
         self.finish_interaction(cx);
-        if let Some(path) = self.path.clone() {
+        if let Some(path) = self.path.clone().filter(|p| document::is_omuse_path(p)) {
             self.save_to(path, window, cx);
         } else {
             self.save_dialog(false, window, cx);
@@ -2247,17 +2266,80 @@ impl EditorView {
             cx.notify();
             return;
         }
+        let path = match document::project_save_path(&path) {
+            Ok(path) => path,
+            Err(error) => {
+                self.status = error.to_string();
+                cx.notify();
+                return;
+            }
+        };
+        let current_stamp = project_stamp(&path);
         if self.path.as_ref() == Some(&path)
             && self.live_stamp.is_some()
-            && project_stamp(&path) != self.live_stamp
+            && current_stamp != self.live_stamp
         {
             self.status = "The project changed on disk. Use Save as to keep both versions.".into();
             cx.notify();
             return;
         }
-        let result = self.save_content_background(path, window, cx);
+        // A legacy project can have a newer .omuse sibling already. Confirm the
+        // exact destination and disk version before replacing another project.
+        let expected_stamp = if self.path.as_ref() != Some(&path)
+            && std::fs::symlink_metadata(&path).is_ok()
+        {
+            let Some(stamp) = current_stamp else {
+                self.save_confirmation = None;
+                self.status =
+                    "Cannot safely replace this destination. Choose another project name.".into();
+                cx.notify();
+                return;
+            };
+            let approved = self.save_confirmation.as_ref().is_some_and(|confirmation| {
+                self.dialog == Dialog::Save
+                    && confirmation.dialog_generation == self.dialog_generation
+                    && confirmation.path == path
+                    && confirmation.stamp == stamp
+            });
+            if !approved {
+                if self.dialog != Dialog::Save {
+                    self.dialog_generation += 1;
+                    self.dialog = Dialog::Save;
+                }
+                self.path_input.update(cx, |input, cx| {
+                    input.set_value(path.to_string_lossy().to_string(), window, cx);
+                    input.focus(window, cx);
+                });
+                self.save_confirmation = Some(SaveConfirmation {
+                    path: path.clone(),
+                    stamp,
+                    dialog_generation: self.dialog_generation,
+                });
+                self.status = format!(
+                    "{} already exists. Choose another name, or Replace project to overwrite it.",
+                    path.display()
+                );
+                cx.notify();
+                return;
+            }
+            Some(stamp)
+        } else {
+            current_stamp
+        };
+        self.save_confirmation = None;
+        let result = self.save_content_background(path, expected_stamp, window, cx);
         self.create_error(result, cx);
         cx.notify();
+    }
+    fn confirming_project_replacement(&self, cx: &App) -> bool {
+        self.dialog == Dialog::Save
+            && self.save_confirmation.as_ref().is_some_and(|confirmation| {
+                confirmation.dialog_generation == self.dialog_generation
+                    && document::project_save_path(std::path::Path::new(
+                        self.path_input.read(cx).value().trim(),
+                    ))
+                    .is_ok_and(|path| path == confirmation.path)
+            })
     }
     fn confirm_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let value = self.path_input.read(cx).value().to_string();
@@ -7736,7 +7818,7 @@ impl EditorView {
                                 cx.listener(|this, _, window, cx| this.native_browse(window, cx)),
                             ),
                     );
-                    body=body.child(div().text_sm().text_color(t.secondary).child(match self.dialog{Dialog::Export=>"PNG · JPEG · WebP · TIFF. Choose the format using the file extension.",Dialog::Save=>"Omuse project folder (.omuse for collections, .comp for a single canvas). Layers remain editable.",Dialog::Open=>"Choose an .omuse collection, .comp project folder or image file.",_=>"The image will be added as a new layer."}));
+                    body=body.child(div().text_sm().text_color(t.secondary).child(match self.dialog{Dialog::Export=>"PNG · JPEG · WebP · TIFF. Choose the format using the file extension.",Dialog::Save=>"Omuse project folder (.omuse). Layers and collection pages remain editable. The extension is added automatically.",Dialog::Open=>"Choose an .omuse project, an image, or an older .comp project.",_=>"The image will be added as a new layer."}));
                 }
             }
             footer = Some(
@@ -7801,6 +7883,9 @@ impl EditorView {
                                     match self.dialog {
                                         Dialog::Open => "Open",
                                         Dialog::Import => "Import",
+                                        Dialog::Save if self.confirming_project_replacement(cx) => {
+                                            "Replace project"
+                                        }
                                         Dialog::Save => "Save",
                                         Dialog::Export => "Export",
                                         Dialog::New => "Create",
@@ -8437,7 +8522,7 @@ pub fn self_test(output: Option<PathBuf>) -> anyhow::Result<()> {
         raster::composite(&editor.document) == painted,
         "redo pixel match"
     );
-    let project = dir.join("Journey.comp");
+    let project = dir.join("Journey.omuse");
     document::save(&editor.document, &project).context("save project")?;
     editor.mark_saved();
     ensure!(!editor.is_dirty(), "saved document clean");
@@ -9190,7 +9275,7 @@ mod interaction_tests {
             assert_eq!(view.read(cx).pixels, painted);
         });
         // Saving through the actual dialog leaves reopened pixels identical.
-        let project = temp.path().join("UI.comp");
+        let project = temp.path().join("UI.omuse");
         let project_path = project.clone();
         view.update(cx, |app, cx| {
             app.path = Some(project_path);
@@ -10873,7 +10958,7 @@ mod parity_interaction_tests {
                     "Editable Linux"
                 );
                 v.command("redo", window, cx);
-                let path = temp.path().join("Editable.comp");
+                let path = temp.path().join("Editable.omuse");
                 document::save(&v.editor.document, &path).unwrap();
                 let reopened = document::open(&path).unwrap();
                 assert_eq!(raster::composite(&reopened), v.pixels);
@@ -10897,7 +10982,7 @@ mod parity_interaction_tests {
             v.recovery = Recovery::at(temp.path().join("recovery"));
             v.dialog = Dialog::None;
             v.editor = Editor::new(Document::new(32, 32));
-            v.path = Some(temp.path().join("Keys.comp"));
+            v.path = Some(temp.path().join("Keys.omuse"));
             v
         });
         cx.update(|window, cx| {
@@ -10921,10 +11006,10 @@ mod parity_interaction_tests {
             })
         });
         cx.simulate_keystrokes("ctrl-s");
-        assert!(!temp.path().join("Keys.comp").exists());
+        assert!(!temp.path().join("Keys.omuse").exists());
         cx.simulate_keystrokes("ctrl-alt-s");
         cx.run_until_parked();
-        assert!(temp.path().join("Keys.comp/manifest.json").exists());
+        assert!(temp.path().join("Keys.omuse/manifest.json").exists());
         cx.update(|_, cx| assert!(!view.read(cx).editor.is_dirty()));
     }
 
@@ -10933,7 +11018,7 @@ mod parity_interaction_tests {
         cx.update(crate::init_test_theme);
         cx.update(bind_keys);
         let temp = tempfile::tempdir().unwrap();
-        let path = temp.path().join("Existing.comp");
+        let path = temp.path().join("Existing.omuse");
         let mut doc = Document::new(160, 120);
         doc.layers.push(
             objects::live_text_layer(
@@ -11393,7 +11478,7 @@ impl EditorView {
                 cx.update(|window,cx|window.dispatch_action(Box::new(New),cx))?;
                 ensure!(view.update(cx,|this,_|this.dialog==Dialog::Unsaved)?,"native new must prompt before replacing document");
                 view.update_in(cx,|this,window,cx|{this.dialog=Dialog::None;this.pending=None;this.focus.focus(window,cx);})?;
-                let project=dir.join("Native.comp");
+                let project=dir.join("Native.omuse");
                 view.update_in(cx,|this,window,cx|this.save_to(project.clone(),window,cx))?;
                 let save_deadline=std::time::Instant::now()+std::time::Duration::from_secs(30);
                 while view.update(cx,|this,_|this.create.saving)? {
@@ -11430,7 +11515,7 @@ impl EditorView {
                     this.command("effects",window,cx);
                     this.confirm_dialog(window,cx);
                     ensure!(this.dialog==Dialog::None,"native effects: {}",this.status);
-                    this.save_to(dir.join("NativeParity.comp"),window,cx);
+                    this.save_to(dir.join("NativeParity.omuse"),window,cx);
                     Ok(())
                 })??;
                 let save_deadline=std::time::Instant::now()+std::time::Duration::from_secs(30);
@@ -11439,7 +11524,7 @@ impl EditorView {
                     cx.background_executor().timer(std::time::Duration::from_millis(10)).await;
                 }
                 ensure!(view.update(cx,|this,_|!this.has_unsaved_work())?,"native save left unsaved work: {}",view.update(cx,|this,_|this.status.clone())?);
-                ensure!(raster::composite(&document::open(&dir.join("NativeParity.comp"))?)==view.update(cx,|this,_|this.pixels.clone())?,"native live-document reopen differs");
+                ensure!(raster::composite(&document::open(&dir.join("NativeParity.omuse"))?)==view.update(cx,|this,_|this.pixels.clone())?,"native live-document reopen differs");
                 // Exercise both asynchronous range tools against known tones.
                 view.update_in(cx, |this, window, cx| {
                     let mut doc = Document::new(128,64);
@@ -11480,7 +11565,7 @@ impl EditorView {
                     ensure!(layer.image==source,"range mask changed source pixels");
                     let mask=layer.mask.as_ref().context("range layer mask missing")?;
                     ensure!(mask.get_pixel(0,0)[0]==0 && mask.get_pixel(127,0)[0]==255,"native colour range mismatch");
-                    this.save_to(dir.join("NativeRange.comp"),window,cx);
+                    this.save_to(dir.join("NativeRange.omuse"),window,cx);
                     Ok(())
                 })??;
                 let save_deadline=std::time::Instant::now()+std::time::Duration::from_secs(30);
@@ -11489,7 +11574,7 @@ impl EditorView {
                     cx.background_executor().timer(std::time::Duration::from_millis(10)).await;
                 }
                 ensure!(view.update(cx,|this,_|!this.has_unsaved_work())?,"native save left unsaved work: {}",view.update(cx,|this,_|this.status.clone())?);
-                ensure!(raster::composite(&document::open(&dir.join("NativeRange.comp"))?)==view.update(cx,|this,_|this.pixels.clone())?,"range mask save/reopen mismatch");
+                ensure!(raster::composite(&document::open(&dir.join("NativeRange.omuse"))?)==view.update(cx,|this,_|this.pixels.clone())?,"range mask save/reopen mismatch");
                 view.update(cx,|this,_|{
                     this.install_opened_content(Document::new(640,480),None);
                     this.path=None;this.live_stamp=None;
@@ -11533,7 +11618,7 @@ impl EditorView {
                     ensure!(this.dialog==Dialog::None,"editable stack Apply: {}",this.status);
                     let state = this.editor.document.find_layer(&this.editor.active_layer).and_then(|l|l.advanced.as_ref()).context("editable stack missing")?;
                     ensure!(state.recipe.nodes.len()==1 && state.source.to_rgba16()==master,"filter stack lost original or operation");
-                    this.save_to(dir.join("NativeEditable.comp"),window,cx);
+                    this.save_to(dir.join("NativeEditable.omuse"),window,cx);
                     Ok(())
                 })??;
                 let save_deadline=std::time::Instant::now()+std::time::Duration::from_secs(30);
@@ -11544,7 +11629,7 @@ impl EditorView {
                 ensure!(view.update(cx,|this,_|!this.has_unsaved_work())?,"native save left unsaved work: {}",view.update(cx,|this,_|this.status.clone())?);
                 view.update_in(cx,|this,_window,_cx| -> anyhow::Result<()> {
                     let before = raster::composite16(&this.editor.document)?;
-                    let reopened=document::open(&dir.join("NativeEditable.comp"))?;
+                    let reopened=document::open(&dir.join("NativeEditable.omuse"))?;
                     ensure!(raster::composite16(&reopened)?==before,"16-bit reopen differed");
                     let exported=dir.join("NativeEditable16.png");
                     raster::export16(&reopened,&exported)?;

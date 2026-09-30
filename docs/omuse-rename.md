@@ -1,14 +1,15 @@
 # Omuse rename and compatibility contract
 
 Omuse is the active product name for the native Rust/GPUI Linux application.
-This rename changes the application-facing names and paths while preserving
-project compatibility, user data and truthful repository history.
+The application-facing names and paths use Omuse while preserving access to
+existing projects, user data and truthful repository history.
 
 ## Canonical names
 
 | Surface | Canonical value |
 | --- | --- |
 | Product and desktop entry | `Omuse` |
+| Editable project extension | `.omuse` for single canvases and collections |
 | Terminal command and executable | `omuse` |
 | Default build output | `rust/target/release/omuse` |
 | Per-user installation | `~/.local/opt/omuse/omuse` |
@@ -25,10 +26,25 @@ not a runtime requirement.
 
 ## Existing projects and user data
 
-The `.comp` extension, manifest type identifiers, schema versions and retained
-source metadata do not change. Renaming the application must not rewrite an
-otherwise unchanged project merely to replace an application name. Unknown
-metadata continues to round-trip.
+The canonical editable project extension is **`.omuse`** for both single
+canvases and Create collections. These are directory packages, not flat image
+files; move or back up the complete directory. Package contents identify the
+kind: a canvas has `manifest.json`, while a collection has `project.json`.
+The shared extension does not flatten a collection into one canvas.
+
+Legacy `.comp` projects remain readable. Opening one does not rewrite or rename
+it. Its first UI **Save** offers an `.omuse` copy and leaves the original intact;
+subsequent saves use the new project location. Retained layer format identifiers,
+including `com.compositor.project`, and unknown source metadata remain stable.
+Changing the public extension does not require rewriting those wire records.
+
+Create collections now save schema version **2**, with `.omuse` packages for
+their nested pages and reusable components. The reader also accepts version
+**1** collections containing `.comp` pages/components. Saving a version 1
+collection upgrades it to version 2. Earlier Omuse releases cannot read version
+2 collections: use **Save As** to a new location before saving if an older
+release must still open the original. Reading an existing collection alone
+does not upgrade it.
 
 Settings, custom shortcuts, brushes and recovery sessions from the previous
 Rust application remain discoverable. Omuse prefers the canonical `omuse` XDG
@@ -52,7 +68,9 @@ compatibility or falsify the record:
   instructions remain in Git history, outside the current source layout.
 - The independent C reference kernels retain their original identifiers,
   source hashes and copyright notice under `rust/tests/reference/`.
-- `.comp` wire-format identifiers and metadata remain stable for interchange.
+- The `com.compositor.project` layer wire identifier, retained metadata and
+  legacy `.comp` read paths remain for compatibility. Version 1 collection
+  readers are retained; new collection writes use version 2.
 - Legacy executable, environment and XDG names may appear in migration and
   alias code.
 - Dated validation receipts, hashes, screenshots and fixed-checkpoint reports

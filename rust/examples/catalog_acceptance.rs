@@ -175,7 +175,7 @@ fn main() -> Result<()> {
                 "altText": format!("Editable {} design in the Sugata palette", template.name),
             });
             let name = format!("{}-{variant}", template.id);
-            let package = output.join(format!("{name}.comp"));
+            let package = output.join(format!("{name}.omuse"));
             let text = live_text(&artwork.layers)?;
             ensure!(!text.is_empty(), "Template {name} has no native text");
             let expected = raster::composite(&artwork);

@@ -458,6 +458,7 @@ impl EditorView {
     pub(super) fn save_content_background(
         &mut self,
         path: PathBuf,
+        expected_stamp: Option<u64>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> anyhow::Result<()> {
@@ -482,11 +483,6 @@ impl EditorView {
             .transpose()?;
         let document = project.is_none().then(|| self.editor.document.clone());
         let dialog_identity = (self.dialog, self.dialog_generation);
-        let expected_stamp = if self.path.as_ref() == Some(&path) {
-            self.live_stamp.or_else(|| project_stamp(&path))
-        } else {
-            project_stamp(&path)
-        };
         self.create.saving = true;
         self.status = "Saving project…".into();
         cx.spawn_in(window, async move |view, cx| {
@@ -1938,7 +1934,7 @@ mod tests {
     fn photo_save_keeps_newer_edits_dirty_and_saves_the_frozen_snapshot(cx: &mut TestAppContext) {
         cx.update(crate::init_test_theme);
         let temp = tempfile::tempdir().unwrap();
-        let path = temp.path().join("photo.comp");
+        let path = temp.path().join("photo.omuse");
         let (view, cx) = cx.add_window_view(|window, cx| {
             let mut view = EditorView::new(None, window, cx);
             view.recovery = Recovery::at(temp.path().join("recovery"));
@@ -1981,7 +1977,7 @@ mod tests {
     fn photo_save_refuses_a_destination_changed_after_submission(cx: &mut TestAppContext) {
         cx.update(crate::init_test_theme);
         let temp = tempfile::tempdir().unwrap();
-        let path = temp.path().join("photo.comp");
+        let path = temp.path().join("photo.omuse");
         document::save(&Document::new(8, 8), &path).unwrap();
         let manifest = std::fs::read(path.join("manifest.json")).unwrap();
         let (view, cx) = cx.add_window_view(|window, cx| {
@@ -2015,7 +2011,7 @@ mod tests {
     fn photo_save_completion_preserves_a_newer_dialog(cx: &mut TestAppContext) {
         cx.update(crate::init_test_theme);
         let temp = tempfile::tempdir().unwrap();
-        let path = temp.path().join("photo.comp");
+        let path = temp.path().join("photo.omuse");
         let (view, cx) = cx.add_window_view(|window, cx| {
             let mut view = EditorView::new(None, window, cx);
             view.recovery = Recovery::at(temp.path().join("recovery"));
@@ -2040,7 +2036,7 @@ mod tests {
     fn photo_save_waits_before_replacing_a_clean_document(cx: &mut TestAppContext) {
         cx.update(crate::init_test_theme);
         let temp = tempfile::tempdir().unwrap();
-        let path = temp.path().join("photo.comp");
+        let path = temp.path().join("photo.omuse");
         let (view, cx) = cx.add_window_view(|window, cx| {
             let mut view = EditorView::new(None, window, cx);
             view.recovery = Recovery::at(temp.path().join("recovery"));
@@ -2067,7 +2063,7 @@ mod tests {
     fn failed_photo_save_makes_a_waiting_new_request_explicit(cx: &mut TestAppContext) {
         cx.update(crate::init_test_theme);
         let temp = tempfile::tempdir().unwrap();
-        let path = temp.path().join("missing-folder").join("photo.comp");
+        let path = temp.path().join("missing-folder").join("photo.omuse");
         let (view, cx) = cx.add_window_view(|window, cx| {
             let mut view = EditorView::new(None, window, cx);
             view.recovery = Recovery::at(temp.path().join("recovery"));
@@ -2173,7 +2169,7 @@ mod tests {
             Some(image::RgbaImage::from_pixel(8, 8, image::Rgba([201, 54, 24, 255])).into());
         document::save(
             &external,
-            &path.join("pages").join(format!("{second}.comp")),
+            &path.join("pages").join(format!("{second}.omuse")),
         )
         .unwrap();
         view.update(cx, |view, cx| {

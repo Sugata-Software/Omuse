@@ -1647,7 +1647,7 @@ fn subject_mask_multiplies_existing_mask_and_undo_restores_source() {
     );
     assert!(e.redo());
     let temp = tempfile::tempdir().unwrap();
-    let path = temp.path().join("cutout.comp");
+    let path = temp.path().join("cutout.omuse");
     omuse::document::save(&e.document, &path).unwrap();
     let reopened = omuse::document::open(&path).unwrap();
     assert_eq!(
@@ -1805,7 +1805,7 @@ fn sampling_changes_are_undoable_and_roundtrip_canonical_metadata() {
         "Nearest"
     );
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("Sampling.comp");
+    let path = dir.path().join("Sampling.omuse");
     omuse::document::save(&editor.document, &path).unwrap();
     let opened = omuse::document::open(&path).unwrap();
     assert_eq!(

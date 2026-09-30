@@ -1,8 +1,47 @@
-# Omuse `.comp` project format, versions 1–9
+# Omuse `.omuse` project format
 
-A `.comp` project is a directory package containing `manifest.json` and an
-`images/` directory of `<layer UUID>.png` assets. Omuse reads and writes the
-JSON manifest and asset layout through its native Rust document layer.
+Every new editable project uses **`.omuse`**, including single canvases and
+multi-page Create collections. Both are directory packages: copy or back up the
+whole directory. Readers identify the contents, not just the filename suffix.
+
+| Package | Manifest | Current write version |
+| --- | --- | --- |
+| Single canvas | `manifest.json`, `com.compositor.project` | 9 |
+| Create collection | `project.json`, `com.omuse.create-project` | 2 |
+
+The save dialog adds `.omuse` automatically. An entered `.comp` suffix becomes
+`.omuse`; other suffixes are preserved as part of the name (`photo.png.omuse`).
+An existing destination requires **Replace project**, except when saving the
+currently opened project. Disk changes invalidate the replacement confirmation.
+Background saves verify the destination again before publishing it.
+
+## Existing projects and collection migration
+
+Legacy `.comp` projects still open without modification. Their first UI **Save**
+offers an `.omuse` copy and retains the original. New recovery snapshots also use
+`.omuse`; older `.comp` recovery sessions remain discoverable.
+
+Version 1 collections contain `pages/<UUID>.comp` and
+`components/<UUID>.comp`. Version 2 uses `.omuse` for both. The declared version
+selects the layout: missing or malformed current packages never fall back to
+legacy siblings. Pages, components, shared resources, brand data and document
+metadata survive migration. Inactive documents remain lazily loaded.
+
+Saving an older collection stages a complete version 2 replacement before the
+atomic exchange. Reading alone never upgrades it. Omuse 0.4.0 and earlier cannot
+read version 2 collections. Use **Save As** to a separate location to retain a
+version 1 copy for those releases. Application versions and the two package
+schema versions are independent.
+
+CLI export and batch recipes use a collection's saved active page. Use Create's
+content-pack export for multiple pages. The document manifest identifier remains
+unchanged for compatibility; the public product and filename are Omuse.
+
+## Single-canvas document schema, versions 1–9
+
+A canvas package contains `manifest.json` and an `images/` directory of
+`<layer UUID>.png` assets. Omuse reads and writes the JSON manifest and asset
+layout through its native Rust document layer.
 
 The manifest retains the legacy `com.compositor.project` identifier for wire
 compatibility. Omuse writes version `9` for new saves (versions `1`–`8` remain
@@ -14,8 +53,7 @@ asset. The identifier is format metadata, not the active product name; see the
 [rename compatibility contract](omuse-rename.md).
 
 Readers supporting only older format versions cannot open a new version-9
-save. The application version (currently 0.1.0) and project format version are
-independent. A shared format number is not proof of complete cross-app
+save. A shared format number is not proof of complete cross-app
 interchange; independently authored fixtures remain a qualification gap.
 
 Embedded PNGs preserve source pixels and transparency; transforms remain

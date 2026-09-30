@@ -275,7 +275,7 @@ fn exact_source_survives_edit_reorder_save_undo_redo_and_reopen() {
     );
 
     let directory = tempfile::tempdir().unwrap();
-    let path = directory.path().join("Exact.comp");
+    let path = directory.path().join("Exact.omuse");
     document::save(&editor.document, &path).unwrap();
     let reopened = document::open(&path).unwrap();
     let layer = reopened.find_layer(&id).unwrap();
@@ -412,7 +412,7 @@ fn resize_preserves_exact_advanced_source_and_rejects_shear_atomically() {
         "canvas resize must retain the immutable 16-bit source"
     );
     let directory = tempfile::tempdir().unwrap();
-    let path = directory.path().join("Resized.comp");
+    let path = directory.path().join("Resized.omuse");
     document::save(&editor.document, &path).unwrap();
     let reopened = document::open(&path).unwrap();
     assert_eq!((reopened.width, reopened.height), (8, 6));
@@ -547,7 +547,7 @@ fn malformed_advanced_assets_are_rejected_without_replacing_existing_project() {
             .is_file()
     );
 
-    let project = directory.path().join("Existing.comp");
+    let project = directory.path().join("Existing.omuse");
     let valid_state = state_with_exact_source(2, 2);
     let expected = valid_state.source.to_rgba16();
     let mut valid_doc = Document::new(2, 2);

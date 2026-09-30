@@ -1,6 +1,8 @@
 # Creating content in Omuse
 
-Open **Create** from the header, or press **Ctrl+Alt+N**. A Create collection keeps its pages, brand kits, reusable components and packaged resources together in a `.omuse` package. Keep the whole package when moving work between machines. Existing `.comp` projects still open.
+Open **Create** from the header, or press **Ctrl+Alt+N**. Both single canvases and Create collections use `.omuse` projects. A collection keeps its pages, brand kits, reusable components and packaged resources together in one directory package. Keep the whole directory when moving work between machines. Omuse identifies a collection by `project.json`; a single canvas uses `manifest.json`.
+
+Existing `.comp` projects still open. Their first **Save** offers an `.omuse` copy, leaving the original intact. Collections now save schema version 2, with nested `.omuse` pages and components. Version 1 collections still open, but saving upgrades them and earlier releases cannot read version 2. Use **Save As** to a new location if you need to keep the version 1 original for an earlier release. See the [compatibility contract](omuse-rename.md).
 
 For step-by-step first projects, start with the [user manual](user-guide/README.md)
 and [social content tutorial](user-guide/create-content.md). This guide describes

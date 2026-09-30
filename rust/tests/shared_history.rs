@@ -92,7 +92,7 @@ fn painting_detaches_only_target_and_frozen_save_keeps_original_pixels() {
         painted.get_pixel(4, 5)
     );
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("frozen.comp");
+    let path = dir.path().join("frozen.omuse");
     std::thread::spawn(move || {
         document::save(&frozen, &path).unwrap();
         document::open(&path).unwrap()

@@ -1,6 +1,6 @@
 # Omuse user manual
 
-**Make, retouch and finish images on Linux.** This manual describes Omuse 0.4.0.
+**Make, retouch and finish images on Linux.** This manual describes Omuse 0.5.0.
 Start with a photo, keep an editable project, and export a copy when it is ready.
 
 [Install Omuse](../install.md) · [Remove objects](remove-objects.md) ·
@@ -10,8 +10,8 @@ Start with a photo, keep an editable project, and export a copy when it is ready
 ## Your first edit
 
 1. Launch **Omuse**. Press **Ctrl+O** and open a photo.
-2. Press **Ctrl+Shift+S** and save an Omuse project in your work folder. Saving a
-   project preserves editable layers; exporting produces a finished image.
+2. Press **Ctrl+Shift+S** and save an **`.omuse` project** in your work folder.
+   Saving preserves editable layers; exporting produces a finished image.
 3. Select the photo layer in **Layers**. Press **Ctrl+J** to duplicate it before
    using a tool that changes pixels. Keep the original underneath.
 4. Press **Ctrl+0** to fit the canvas. Press **Ctrl+1** to inspect detail at
@@ -52,10 +52,20 @@ workspace for pages, templates, brand assets and content exports.
 
 ## Save projects; export deliverables
 
-A Create collection is a **`.omuse` package** containing pages and resources.
-Keep the whole package when copying or backing it up. Existing **`.comp`**
-projects also open. An exported PNG/JPEG does not replace that editable project.
-Use **Save as** for an independent working copy.
+Save both a single canvas and a Create collection as an **`.omuse` project**.
+Projects are directory packages, so keep the whole directory when copying or
+backing up artwork. Omuse recognizes a single canvas from `manifest.json` and
+a collection from `project.json`; a collection also keeps its pages and
+resources inside the package. An exported PNG/JPEG does not replace that
+editable project. Use **Save As** for an independent working copy.
+
+Existing **`.comp`** projects still open. Their first **Save** offers an
+**`.omuse` copy** and keeps the original intact.
+
+Saving an older version 1 collection upgrades it to version 2, which stores
+nested pages and components as `.omuse` packages. Earlier Omuse releases cannot
+read version 2 collections. Use **Save As** to a new location if you need an
+original copy that still opens in an earlier release.
 
 Use PNG for transparency and sharp graphics; JPEG for opaque photographs;
 WebP when your destination accepts it. Create's **Export content pack…** can
@@ -92,7 +102,7 @@ presents one final review. **Keep** is one undoable artwork change. See the
 **Unverified** means Omuse could not prove the discovered runtime's identity.
 **Sign in needed** means its identity passed but its provider account is not
 available. Sign in through the official provider runtime if needed, then select
-**Refresh** in Connections. Omuse 0.4.0 fixes the Omarchy issue where recognized
+**Refresh** in Connections. Omuse 0.5.0 fixes the Omarchy issue where recognized
 mise-managed Codex or Claude shims could appear as **Unverified** despite an
 existing login. Update with the install command if you still use 0.3.0.
 Unrecognized wrappers are still refused. Discovery uses the official runtime's

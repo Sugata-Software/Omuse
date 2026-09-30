@@ -6,7 +6,7 @@
 //! cargo run --release --example studio_preview -- /tmp/omuse-studio-preview
 //! ```
 //!
-//! The output directory must be new. The example creates `chromatic-form-01.comp`
+//! The output directory must be new. The example creates `chromatic-form-01.omuse`
 //! and `chromatic-form-01.png`, reopens the project, and verifies its pixels before
 //! checking the exported PNG. It uses only procedural pixels and system fonts.
 
@@ -318,7 +318,7 @@ fn run(root: &Path) -> Result<()> {
     }
     fs::create_dir(root)
         .with_context(|| format!("create fresh output directory {}", root.display()))?;
-    let project = root.join("chromatic-form-01.comp");
+    let project = root.join("chromatic-form-01.omuse");
     let preview = root.join("chromatic-form-01.png");
     let document = make_document()?;
     document::save(&document, &project).context("save Studio preview project")?;

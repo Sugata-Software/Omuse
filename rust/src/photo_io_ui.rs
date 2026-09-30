@@ -187,7 +187,7 @@ impl EditorView {
                         this.import_notes = omuse::import_report::conversion_notes(&doc);
                         this.install_opened_content(doc, project);
                         this.live_stamp = stamp;
-                        this.path = stamp.map(|_| path);
+                        this.path = stamp.map(|_| path.components().collect());
                         this.selection_box = None;
                         this.pan = (0., 0.);
                         this.paint_mask = false;

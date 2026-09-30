@@ -563,7 +563,7 @@ fn main() -> Result<()> {
         text_content(&story_variant, "headline")? == headline_before_save,
         "Layout resize did not preserve editable headline text"
     );
-    let story_path = output.join("sugata-story-variant.comp");
+    let story_path = output.join("sugata-story-variant.omuse");
     document::save(&story_variant, &story_path)?;
     let reopened_story = document::open(&story_path)?;
     ensure!(

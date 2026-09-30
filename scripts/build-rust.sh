@@ -13,4 +13,4 @@ if ! pkg-config --exists wayland-client xkbcommon xkbcommon-x11 fontconfig lcms2
 fi
 cd "$repo_root"
 cargo build --manifest-path rust/Cargo.toml --release --locked --jobs "$jobs" "$@"
-printf '%s\n' 'Omuse build complete. Run: cargo run --manifest-path rust/Cargo.toml --release --locked -- [optional-project.comp]'
+printf '%s\n' 'Omuse build complete. Run: cargo run --manifest-path rust/Cargo.toml --release --locked -- [optional-project.omuse]'

@@ -514,7 +514,7 @@ mod tests {
             (*master).to_rgba16()
         );
         let directory = tempfile::tempdir().unwrap();
-        let path = directory.path().join("high-precision-restoration.comp");
+        let path = directory.path().join("high-precision-restoration.omuse");
         crate::document::save(&prepared.document, &path).unwrap();
         let reopened = crate::document::open(&path).unwrap();
         assert_eq!(

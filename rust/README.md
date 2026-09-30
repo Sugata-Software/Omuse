@@ -23,7 +23,7 @@ From the repository root:
 scripts/build-rust.sh
 cargo run --manifest-path rust/Cargo.toml --release --locked
 # Open a project copy directly:
-cargo run --manifest-path rust/Cargo.toml --release --locked -- /path/to/Artwork.comp
+cargo run --manifest-path rust/Cargo.toml --release --locked -- /path/to/Artwork.omuse
 ```
 
 The scripts default to two build jobs. Set `CARGO_BUILD_JOBS` to change this. Cargo's optional `CARGO_TARGET_DIR` is honored without embedding a machine-specific cache path. With Cargo's default target directory, the executable is `rust/target/release/omuse`. A clean build downloads and compiles GPUI's substantial dependency graph; incremental builds reuse it.
@@ -58,7 +58,7 @@ The [Create workspace](../docs/omuse-create-guide.md) adds branded content, caro
 
 ## Editing and files
 
-New documents start with a transparent paint layer. Use Brush, Pencil, Eraser, Fill, Gradient, selections, layers and groups, masks, image imports, live adjustments/effects, editable text and shapes, retouch strokes, Camera Raw, local subject masks, and selection transforms. `Ctrl+S` saves an editable `.comp` folder; `Ctrl+Alt+Shift+S` exports PNG, JPEG, WebP, or TIFF. JPEG is flattened against the chosen matte because it cannot store transparency. Clone and Heal use Alt-click to choose their source.
+New documents start with a transparent paint layer. Use Brush, Pencil, Eraser, Fill, Gradient, selections, layers and groups, masks, image imports, live adjustments/effects, editable text and shapes, retouch strokes, Camera Raw, local subject masks, and selection transforms. `Ctrl+S` saves an editable `.omuse` package for both single canvases and Create collections; `Ctrl+Alt+Shift+S` exports PNG, JPEG, WebP, or TIFF. JPEG is flattened against the chosen matte because it cannot store transparency. Clone and Heal use Alt-click to choose their source.
 
 Use Type (`T`) to click existing text, click empty canvas for point text, or drag a paragraph box. Alt-click starts new text even over another text layer. Type directly in the canvas-anchored editor, including multiple lines; Ctrl+Enter or Apply commits one document undo step, Escape cancels, and Ctrl+S commits before saving. Clicking outside applies without also activating the control underneath. Empty new drafts create no layer. Edit Object still provides detailed font, spacing, alignment and color settings. Text edits retain scale, rotation, flips and the transformed upper-left anchor instead of compressing longer text into its old bounds.
 
@@ -72,7 +72,9 @@ Connected subject selects the detected foreground component under a click using 
 
 Press `Ctrl+K` to search and execute commands by name, category or current binding. There are 171 catalogued commands and 101 default shortcuts, with Photoshop-inspired tools, photo adjustments, layers, brush controls and navigation. `Ctrl+Alt+K` records, clears and restores custom shortcuts; the [generated keyboard reference](../docs/keyboard-shortcuts.md) includes every command and gesture. Tooltips show the effective binding after customization. Scroll zooms; Shift-scroll pans. Native file dialogs have an explicit path-entry fallback. New windows request a maximized desktop view, with an 800×600 minimum, so dense tiling does not leave the canvas unusable.
 
-The existing `.comp` format is retained, including live text/shape source records, adjustment layers, effects, groups, transforms, opacity, blend modes, linked/unlinked masks and live clipping sources. Unknown metadata is preserved; malformed or unsupported visual semantics fail explicitly. Live text and shapes stay editable until you choose Rasterize or resize the entire image. Layered 8-bit RGB PSD import preserves supported records and retains cached pixels with conversion notes for selected unsupported objects.
+An `.omuse` project is a directory package identified by its manifest: `manifest.json` for a single canvas, `project.json` for a Create collection. Copy the whole directory. Layer manifests retain the `com.compositor.project` wire identifier, including live text/shape source records, adjustment layers, effects, groups, transforms, opacity, blend modes, linked/unlinked masks and live clipping sources. Unknown metadata is preserved; malformed or unsupported visual semantics fail explicitly. Live text and shapes stay editable until you choose Rasterize or resize the entire image. Layered 8-bit RGB PSD import preserves supported records and retains cached pixels with conversion notes for selected unsupported objects.
+
+Legacy `.comp` projects still open; the first UI Save offers an `.omuse` copy and keeps the original. New collection saves use schema version 2 with nested `.omuse` pages/components. Version 1 collections can be read, but saving upgrades them; earlier releases cannot open version 2. Choose Save As to a new location when retaining an older-release copy. See the [compatibility contract](../docs/omuse-rename.md).
 
 Camera RAW and local subject tools require the optional assets described in [runtime setup](../docs/rust-runtime-assets.md). Run `scripts/prepare-rust-assets.sh` before installation to include LibRaw, ONNX Runtime and U2NETP. Your images are processed locally. Camera Raw is also available as an adjustment to ordinary raster layers; preview/cancel does not change source pixels. These Linux backends are not pixel-identical substitutes for Apple RAW/Vision.
 
@@ -82,8 +84,8 @@ Recovery uses a separate application data location under
 Recovery copies do not overwrite the user's saved project. Save remains the way
 to choose a durable project location. Existing settings, shortcut, brush and
 recovery locations are migrated or read through the compatibility paths
-described in the [rename contract](../docs/omuse-rename.md); ordinary `.comp`
-documents do not need conversion.
+described in the [rename contract](../docs/omuse-rename.md); legacy `.comp`
+documents remain readable without renaming them first.
 
 ## Test
 
@@ -104,7 +106,7 @@ Headless GPUI interaction tests exercise real element hit-testing and event disp
 | Module | Responsibility |
 | --- | --- |
 | `model.rs` / `shared_image.rs` | Bounded document and layer model, copy-on-write straight-alpha RGBA pixels |
-| `document.rs` | `.comp` loading/saving, bounded imports, validation and metadata preservation |
+| `document.rs` | Single-canvas `.omuse` packages, legacy `.comp` reads, bounded imports, validation and metadata preservation |
 | `editor.rs` | Tool operations, selection, layers, masks, transactions and bounded undo/redo |
 | `raster.rs` | CPU reference compositing, pass-through folders, transforms, blend modes and exports |
 | `filters.rs` | Validated native image adjustments and filters |
@@ -122,7 +124,7 @@ Headless GPUI interaction tests exercise real element hit-testing and event disp
 | `ui.rs` | Native GPUI window, controls, gestures, dialogs and image presentation |
 | `startup.rs` | First-frame splash, background document preparation and accessible handoff |
 | `recovery.rs` | Separate background recovery snapshots |
-| `create_project.rs`, `create.rs`, `create_history.rs`, `save_guard.rs` | Multi-page packages, brand/layout operations, collection undo and guarded saves |
+| `create_project.rs`, `create.rs`, `create_history.rs`, `save_guard.rs` | Multi-page `.omuse` packages, version 1 migration, brand/layout operations, collection undo and guarded saves |
 | `content_export.rs`, `social_preview.rs`, `motion.rs`, `restoration.rs` | Content packs, preflight, local video export and reversible restoration |
 | `ai/`, `ai_ui.rs`, `ai_edits.rs`, `ai_history.rs` | Official subscription runtimes, staged artwork, review and retained provenance |
 

@@ -155,8 +155,8 @@ fn run(root: &Path, revisions: u64, width: u32, height: u32, layers: usize) -> R
         "qualification exceeds 16 million total pixels"
     );
     fs::create_dir_all(root)?;
-    let project = root.join("Sustained.comp");
-    let recovery = root.join("recovery/session-11111111-1111-4111-8111-111111111111.comp");
+    let project = root.join("Sustained.omuse");
+    let recovery = root.join("recovery/session-11111111-1111-4111-8111-111111111111.omuse");
     fs::create_dir_all(recovery.parent().unwrap())?;
     let mut journal = OpenOptions::new()
         .create(true)
@@ -212,7 +212,7 @@ fn main() -> Result<()> {
             layers.to_string_lossy().parse()?,
         ),
         _ => bail!(
-            "usage: release_qualification_fixture run ROOT REVISIONS WIDTH HEIGHT LAYERS | verify PROJECT.comp"
+            "usage: release_qualification_fixture run ROOT REVISIONS WIDTH HEIGHT LAYERS | verify PROJECT.omuse"
         ),
     }
 }

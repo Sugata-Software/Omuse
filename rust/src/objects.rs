@@ -1,5 +1,5 @@
 //! Native raster object insertion. Shapes and text become ordinary image layers,
-//! so .comp files remain compatible with the preserved editor. Source parameters
+//! so Omuse projects retain compatibility with legacy document metadata. Source parameters
 //! are retained as provenance, not advertised as an editable Mac text/shape object.
 use crate::model::{Layer, valid_dimensions};
 use anyhow::{Context, Result, ensure};
@@ -1567,7 +1567,7 @@ mod tests {
             .unwrap(),
         ];
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("Shape.comp");
+        let path = dir.path().join("Shape.omuse");
         crate::document::save(&doc, &path).unwrap();
         let loaded = crate::document::open(&path).unwrap();
         assert_eq!(loaded.layers[0].image, doc.layers[0].image);
@@ -1598,7 +1598,7 @@ mod tests {
         let mut doc = crate::model::Document::new(180, 64);
         doc.layers = vec![layer];
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("Text.comp");
+        let path = dir.path().join("Text.omuse");
         crate::document::save(&doc, &path).unwrap();
         assert_eq!(
             crate::document::open(&path).unwrap().layers[0].image,
@@ -1687,7 +1687,7 @@ mod tests {
         let mut document = crate::model::Document::new(400, 140);
         document.layers = vec![layer];
         let directory = tempfile::tempdir().unwrap();
-        let path = directory.path().join("Rich.comp");
+        let path = directory.path().join("Rich.omuse");
         crate::document::save(&document, &path).unwrap();
         let reopened = crate::document::open(&path).unwrap();
         assert_eq!(live_text(&reopened.layers[0]).unwrap(), Some(style));

@@ -3,7 +3,7 @@
   "snapshotDate": "2026-09-30",
   "project": "Omuse",
   "releaseScope": "Native Rust/GPUI application for Arch/Omarchy Linux x86_64",
-  "releaseState": "Omuse 0.4.0 source pre-release: combined AI connection fixes, selectable providers, shared creation workflows and refined panels; binary and stable-release gates remain open",
+  "releaseState": "Omuse 0.5.0 candidate: one .omuse extension for all projects, legacy read support and safer Save As; migration qualification in progress. Published source remains 0.4.0 until checks complete.",
   "visualizationMirror": "omuse-project-guide.html",
   "statusDefinitions": [
     {
@@ -33,6 +33,12 @@
     }
   ],
   "releaseSnapshot": [
+    {
+      "label": "One project extension",
+      "value": ".omuse for every project",
+      "detail": "The 0.5.0 candidate uses .omuse for canvases, collections, nested pages/components and recovery. Legacy .comp opens and saves to a new .omuse copy; collection v1 reads remain supported. Qualification is in progress.",
+      "status": "implemented-needs-qualification"
+    },
     {
       "label": "AI creation workflows",
       "value": "Choose providers and finish a shared brief",
@@ -874,14 +880,15 @@
       "summary": "Omuse preserves editable project state and common raster/media outputs while keeping colour and format limitations explicit.",
       "items": [
         {
-          "id": "formats-comp",
-          "name": "`.comp` projects",
-          "status": "locally-tested",
-          "current": "The Rust reader/writer covers project versions 1–7: canvas, hierarchy, transforms, opacity/blends, raster/live/folder masks and adjustment layers.",
-          "boundary": "Newer Rust-specific editable assets may render only as cached images in preserved older editors and may not survive resave there.",
+          "id": "formats-canvas",
+          "name": "`.omuse` canvases and legacy import",
+          "status": "implemented-needs-qualification",
+          "current": "Single canvases now use .omuse. The document reader accepts schema versions 1–9 and writes version 9 while retaining legacy metadata. Opening a .comp project leaves it unchanged; the first UI Save offers an .omuse copy. Existing destinations require replacement confirmation.",
+          "boundary": "The new migration and overwrite paths are being qualified. Newer editable assets can render only as cached images in older editors and may not survive resave there.",
           "evidence": [
             "docs/project-format.md",
-            "docs/rust-release-qualification.md"
+            "docs/rust-release-qualification.md",
+            "rust/src/project_extension_ui_tests.rs"
           ],
           "modules": [
             "rust/src/document.rs",
@@ -892,9 +899,9 @@
         {
           "id": "formats-omuse",
           "name": "`.omuse` collections",
-          "status": "locally-tested",
-          "current": "Multi-page native collections retain pages, resources, brand/components, Create history, motion and export metadata through save/reopen and recovery.",
-          "boundary": "This is the active native format; cross-version and independent macOS interchange still need broader external review.",
+          "status": "implemented-needs-qualification",
+          "current": "Multi-page .omuse collections save schema v2 with nested .omuse pages and components. The reader accepts v1 collections with nested .comp packages, preserving lazy documents, resources, metadata and undo snapshots during migration.",
+          "boundary": "Migration tests are being qualified. Saving a v1 collection upgrades it; Omuse 0.4.0 and earlier cannot read v2. Use Save As to preserve a v1 copy for older releases. Independent cross-app interchange remains a separate gate.",
           "evidence": [
             "docs/omuse-create-qualification.md",
             "docs/omuse-create-guide.md"

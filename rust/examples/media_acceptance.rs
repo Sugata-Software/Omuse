@@ -102,8 +102,8 @@ fn run(output: &Path) -> Result<()> {
         "Audio, captions\nand transitions",
         [50, 24, 48, 255],
     )?;
-    let first_path = output.join("page-one-native-text.comp");
-    let second_path = output.join("page-two-native-text.comp");
+    let first_path = output.join("page-one-native-text.omuse");
+    let second_path = output.join("page-two-native-text.omuse");
     document::save(&first, &first_path)?;
     document::save(&second, &second_path)?;
     let first = document::open(&first_path)?;
@@ -291,8 +291,8 @@ fn run(output: &Path) -> Result<()> {
 fn artwork(label: &str, headline: &str, background: [u8; 4]) -> Result<Document> {
     let mut document = Document::new(WIDTH, HEIGHT);
     document.name = label.into();
-    // `.comp` has no document-background field. A regular raster layer makes
-    // this fixture portable through the production document save path.
+    // Use an ordinary raster background so this fixture exercises layer
+    // pixels through the production document save path.
     document.background = [0; 4];
     let mut background_layer = Layer::paint(format!("{label} background"), WIDTH, HEIGHT);
     for pixel in background_layer

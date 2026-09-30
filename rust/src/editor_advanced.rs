@@ -334,7 +334,7 @@ mod blend_if_raster_tests {
         assert!(editor.finish_stroke());
         let painted = crate::raster::composite(&editor.document);
         let tmp = tempfile::tempdir().unwrap();
-        let path = tmp.path().join("blend-if.comp");
+        let path = tmp.path().join("blend-if.omuse");
         crate::document::save(&editor.document, &path).unwrap();
         let reopened = crate::document::open(&path).unwrap();
         assert_eq!(crate::raster::composite(&reopened), painted);

@@ -75,10 +75,10 @@ record("recovery-worker",started,status="passed",command=recovery_command)
 started=time.monotonic(); sustained=evidence/"sustained"
 subprocess.run(fixture(sustained), cwd=ROOT, env=env, check=True,timeout=600)
 journal=[json.loads(line) for line in (sustained/"journal.jsonl").read_text().splitlines()]
-project=verify(sustained/"Sustained.comp"); recovery=verify(sustained/"recovery"/"session-11111111-1111-4111-8111-111111111111.comp")
+project=verify(sustained/"Sustained.omuse"); recovery=verify(sustained/"recovery"/"session-11111111-1111-4111-8111-111111111111.omuse")
 require(len(journal)==args.revisions and project["revision"]==recovery["revision"]==args.revisions-1, "sustained revision count mismatch")
 require(project["fingerprint"]==recovery["fingerprint"]==journal[-1]["projectFingerprint"]==journal[-1]["recoveryFingerprint"], "sustained pixel fingerprints differ")
-record("sustained-session", started, status="passed", revisions=len(journal), project=project, sha256=package_hash(sustained/"Sustained.comp"))
+record("sustained-session", started, status="passed", revisions=len(journal), project=project, sha256=package_hash(sustained/"Sustained.omuse"))
 
 started=time.monotonic(); interrupted=evidence/"interrupted"
 process=subprocess.Popen(fixture(interrupted), cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
@@ -99,11 +99,11 @@ if killed_phase is None:
     process.kill(); stderr=process.communicate()[1]; raise RuntimeError(f"did not observe interrupt window: {stderr}")
 process.wait(timeout=10)
 require(process.returncode == -signal.SIGKILL, "writer did not terminate from the requested signal")
-project=verify(interrupted/"Sustained.comp"); recovery=verify(interrupted/"recovery"/"session-11111111-1111-4111-8111-111111111111.comp")
+project=verify(interrupted/"Sustained.omuse"); recovery=verify(interrupted/"recovery"/"session-11111111-1111-4111-8111-111111111111.omuse")
 require(project["revision"] in (args.kill_revision-1,args.kill_revision), "interrupted project revision is not adjacent to killed write")
 require(recovery["revision"]==args.kill_revision, "recovery did not retain the newest completed revision")
 stages=sorted(p.name for p in interrupted.glob(".omuse-stage-*"))
-record("interrupted-save", started, status="passed", signal="SIGKILL", observedPhase=killed_phase, visibleProject=project, recovery=recovery, projectSha256=package_hash(interrupted/"Sustained.comp"), recoverySha256=package_hash(interrupted/"recovery"/"session-11111111-1111-4111-8111-111111111111.comp"), orphanStages=stages)
+record("interrupted-save", started, status="passed", signal="SIGKILL", observedPhase=killed_phase, visibleProject=project, recovery=recovery, projectSha256=package_hash(interrupted/"Sustained.omuse"), recoverySha256=package_hash(interrupted/"recovery"/"session-11111111-1111-4111-8111-111111111111.omuse"), orphanStages=stages)
 report["completedUtc"]=datetime.datetime.now(datetime.timezone.utc).isoformat(); report["passed"]=True
 (evidence/"results.json").write_text(json.dumps(report,indent=2)+"\n")
 print(json.dumps(report,indent=2))

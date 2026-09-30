@@ -24,7 +24,7 @@ fn image_less_adjustment_uses_soft_range_mask_and_round_trips() {
     assert!((127..=128).contains(&output.get_pixel(1, 0)[0]));
     assert_eq!(output.get_pixel(2, 0)[0], 175);
     let directory = tempfile::tempdir().unwrap();
-    let path = directory.path().join("MaskedAdjustment.comp");
+    let path = directory.path().join("MaskedAdjustment.omuse");
     document::save(&editor.document, &path).unwrap();
     assert_eq!(raster::composite(&document::open(&path).unwrap()), output);
 }
@@ -173,7 +173,7 @@ fn replacement_is_one_transaction_replaces_live_metadata_and_round_trips() {
     assert_eq!(editor.undo_depth(), depth);
 
     let directory = tempfile::tempdir().unwrap();
-    let path = directory.path().join("range-mask.comp");
+    let path = directory.path().join("range-mask.omuse");
     document::save(&editor.document, &path).unwrap();
     let reopened = document::open(&path).unwrap();
     assert_eq!(raster::composite(&reopened), rendered);

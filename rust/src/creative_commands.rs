@@ -1530,7 +1530,7 @@ mod tests {
         assert_eq!(after.get_pixel(1, 0), before.get_pixel(1, 0));
 
         let directory = tempfile::tempdir().unwrap();
-        let path = directory.path().join("assistant-adjustment.comp");
+        let path = directory.path().join("assistant-adjustment.omuse");
         crate::document::save(&draft, &path).unwrap();
         let reopened = crate::document::open(&path).unwrap();
         assert_eq!(crate::raster::composite(&reopened), after);
@@ -1601,7 +1601,7 @@ mod tests {
         assert_eq!(after.get_pixel(1000, 1000).0, color);
 
         let directory = tempfile::tempdir().unwrap();
-        let path = directory.path().join("native-background.comp");
+        let path = directory.path().join("native-background.omuse");
         crate::document::save(&draft, &path).unwrap();
         let reopened = crate::document::open(&path).unwrap();
         assert_eq!(crate::raster::composite(&reopened), after);

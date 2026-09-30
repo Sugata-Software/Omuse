@@ -4,7 +4,8 @@
 
 ## Open, protect and inspect
 
-Use **Ctrl+O** to open a photo, then **Ctrl+Shift+S** to save an editable project.
+Use **Ctrl+O** to open a photo, then **Ctrl+Shift+S** to save an editable `.omuse`
+project.
 Use **Ctrl+J** to duplicate the selected photo before direct pixel retouch.
 Check the layer is unlocked, including its parent group. **Ctrl+0** fits the
 canvas; **Ctrl+1** shows actual pixels; hold **Space** and drag to pan.
@@ -143,7 +144,7 @@ Use **Create → Assets** for local restoration if needed: choose denoise/sharpe
 settings and 1×, 2× or 4× pixels, then **Preview restoration** and **Keep restoration**.
 Enlargement interpolates pixels; it does not recover detail that was never captured.
 
-Save the project, then **Ctrl+Alt+Shift+S** to export. Check the exported file's
-dimensions, edges, transparency and colour at its intended viewing size. For
+Save the `.omuse` project, then **Ctrl+Alt+Shift+S** to export. Check the exported
+file's dimensions, edges, transparency and colour at its intended viewing size. For
 16-bit PNG/TIFF use **Precision & colour**, review its supported layer types,
 and keep an editable project alongside the output.

@@ -136,7 +136,7 @@ fn ancestor_lock_rejects_edit_and_mask_relationship_survives_edit_and_reopen() {
     );
 
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("Edited.comp");
+    let path = dir.path().join("Edited.omuse");
     document::save(&editor.document, &path).unwrap();
     let reopened = document::open(&path).unwrap();
     assert_eq!(

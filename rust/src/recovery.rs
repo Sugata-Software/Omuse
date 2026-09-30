@@ -123,7 +123,7 @@ impl Recovery {
         legacy_roots.retain(|candidate| candidate != &root);
         let mut discovery_roots = vec![root.clone()];
         discovery_roots.extend(legacy_roots);
-        let path = root.join(format!("session-{}.comp", uuid::Uuid::new_v4()));
+        let path = root.join(format!("session-{}.omuse", uuid::Uuid::new_v4()));
         let shared = Arc::new(Shared {
             state: Mutex::new(State {
                 pending: None,
@@ -302,13 +302,17 @@ impl Recovery {
                 if path == self.path || !entry.file_type().is_ok_and(|kind| kind.is_dir()) {
                     continue;
                 }
-                let name = entry.file_name();
-                let Some(name) = name.to_str() else {
+                if !document::is_omuse_path(&path)
+                    && !path.extension().is_some_and(|extension| {
+                        extension.as_encoded_bytes().eq_ignore_ascii_case(b"comp")
+                    })
+                {
                     continue;
-                };
-                let Some(session) = name
-                    .strip_prefix("session-")
-                    .and_then(|s| s.strip_suffix(".comp"))
+                }
+                let Some(session) = path
+                    .file_stem()
+                    .and_then(|name| name.to_str())
+                    .and_then(|name| name.strip_prefix("session-"))
                 else {
                     continue;
                 };
@@ -421,7 +425,7 @@ fn save_snapshot(snapshot: RecoverySnapshot, shared: &Shared, path: &Path) -> an
     let stage_path = parent.join(format!(".omuse-recovery-stage-{}", uuid::Uuid::new_v4()));
     fs::create_dir(&stage_path)?;
     let stage = RecoveryStage(stage_path);
-    let prepared = stage.0.join("snapshot.comp");
+    let prepared = stage.0.join("snapshot.omuse");
     save_snapshot_at(snapshot, shared, &prepared)?;
     #[cfg(test)]
     {
@@ -579,6 +583,8 @@ mod tests {
         let first = Recovery::at(temp.path().to_owned());
         let second = Recovery::at(temp.path().to_owned());
         assert_ne!(first.path, second.path);
+        assert_eq!(first.path.extension().unwrap(), "omuse");
+        assert_eq!(second.path.extension().unwrap(), "omuse");
         first.schedule(&Document::new(8, 8), true);
         second.schedule(&Document::new(8, 8), true);
         wait_until(|| {
@@ -641,6 +647,49 @@ mod tests {
         assert!(observer.available().is_none());
         drop(owner);
         assert_eq!(observer.available(), Some(stale));
+    }
+
+    #[test]
+    fn mixed_omuse_and_legacy_recovery_discovery_retains_ownership_checks() {
+        let temp = tempfile::tempdir().unwrap();
+        let paths = [
+            temp.path()
+                .join(format!("session-{}.omuse", uuid::Uuid::new_v4())),
+            temp.path()
+                .join(format!("session-{}.OMUSE", uuid::Uuid::new_v4())),
+            temp.path()
+                .join(format!("session-{}.comp", uuid::Uuid::new_v4())),
+            temp.path().join("session-4242.comp"),
+        ];
+        let mut owners = Vec::new();
+        for path in &paths {
+            document::save(&Document::new(8, 8), path).unwrap();
+            owners.push(Ownership::acquire(&path.with_extension("lock")).unwrap());
+            assert!(owners.last().unwrap().is_some());
+        }
+        for name in [
+            "session-not-a-session.omuse",
+            "artwork.omuse",
+            "session-4243.png",
+        ] {
+            document::save(&Document::new(8, 8), &temp.path().join(name)).unwrap();
+        }
+        let observer = Recovery::at(temp.path().to_owned());
+        assert!(observer.available().is_none());
+        for (path, owner) in paths.iter().zip(&mut owners) {
+            drop(owner.take());
+            assert_eq!(observer.available(), Some(path.clone()));
+            *owner = Ownership::acquire(&path.with_extension("lock")).unwrap();
+            assert!(owner.is_some());
+            assert!(observer.available().is_none());
+            assert!(document::open(path).is_ok());
+        }
+        observer.clear();
+        assert!(
+            paths
+                .iter()
+                .all(|path| path.join("manifest.json").is_file())
+        );
     }
 
     #[test]
@@ -767,7 +816,7 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         let path = temp
             .path()
-            .join("session-11111111-1111-4111-8111-111111111111.comp");
+            .join("session-11111111-1111-4111-8111-111111111111.omuse");
         document::save(&Document::new(8, 8), &path).unwrap();
         let child = std::process::Command::new(std::env::current_exe().unwrap())
             .args([
@@ -870,7 +919,7 @@ mod create_recovery_tests {
             })
             .collect();
         assert_eq!(stages.len(), 1);
-        stages[0].join("snapshot.comp")
+        stages[0].join("snapshot.omuse")
     }
 
     fn assert_recovered_artwork(actual: &Document, expected: &Document) {

@@ -6,6 +6,19 @@ for numbering, qualification and publication.
 
 ## Unreleased
 
+- Use `.omuse` for all new editable projects, Save/Save As defaults, recovery
+  snapshots, examples and CLI instructions. Existing `.comp` projects still
+  open; their first Save offers an `.omuse` copy and preserves the original.
+- Confirm replacement of an existing Save As destination and check that exact
+  disk version again before publication. A legacy project with an existing
+  `.omuse` sibling cannot silently replace it.
+- Save Create collections as schema version 2 with nested `.omuse` pages and
+  components. Read version 1 collections and preserve lazy pages, resources,
+  metadata and undo snapshots during atomic migration. Earlier releases cannot
+  read version 2; use Save As to keep a version 1 copy when needed.
+- Include single-canvas and collection `.omuse` packages in batch recipes.
+  Collections use their saved active page; old `.comp` inputs remain supported.
+
 Planned editor work and remaining release gates are tracked in the
 [project guide](docs/project-guide.md).
 

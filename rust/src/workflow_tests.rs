@@ -152,7 +152,7 @@ fn source_import_duplicate_undo_and_package_roundtrip(cx: &mut TestAppContext) {
         view.update(cx, |view, _| view.editor.document.layers.len()),
         1
     );
-    let package = tmp.path().join("workflow.comp");
+    let package = tmp.path().join("workflow.omuse");
     let document = view.update(cx, |view, _| view.editor.document.clone());
     omuse::document::save(&document, &package).unwrap();
     let reopened = omuse::document::open(&package).unwrap();
@@ -275,7 +275,7 @@ fn colour_proof_is_display_only_and_working_space_is_persisted(cx: &mut TestAppC
     click(cx, "confirm-dialog");
     cx.run_until_parked();
     draw(cx);
-    let package = tmp.path().join("linear.comp");
+    let package = tmp.path().join("linear.omuse");
     let document = view.update(cx, |v, _| {
         let layer = v
             .editor

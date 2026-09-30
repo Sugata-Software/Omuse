@@ -259,7 +259,7 @@ mod tests {
     fn remapped_save_commits_inline_text_and_old_binding_stays_inactive(cx: &mut TestAppContext) {
         let (view, cx) = setup(cx);
         let temp = tempfile::tempdir().unwrap();
-        let path = temp.path().join("Keys.comp");
+        let path = temp.path().join("Keys.omuse");
         view.update_in(cx, |view, window, cx| {
             view.recovery = Recovery::at(temp.path().join("recovery"));
             view.path = Some(path.clone());

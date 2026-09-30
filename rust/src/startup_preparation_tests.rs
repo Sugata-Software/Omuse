@@ -20,7 +20,7 @@ fn prepared_image_keeps_pixels_and_never_becomes_a_project_save_target() {
 #[test]
 fn prepared_project_keeps_render_save_target_and_external_change_stamp() {
     let tmp = tempfile::tempdir().unwrap();
-    let path = tmp.path().join("source.comp");
+    let path = tmp.path().join("source.omuse");
     let mut doc = Document::new(19, 13);
     doc.layers[0].image =
         Some(image::RgbaImage::from_pixel(19, 13, image::Rgba([127, 42, 201, 255])).into());
@@ -38,7 +38,7 @@ fn prepared_project_keeps_render_save_target_and_external_change_stamp() {
 #[test]
 fn failed_folder_open_falls_back_without_overwriting_the_failed_project() {
     let tmp = tempfile::tempdir().unwrap();
-    let path = tmp.path().join("broken.comp");
+    let path = tmp.path().join("broken.omuse");
     std::fs::create_dir(&path).unwrap();
     std::fs::write(path.join("document.json"), b"invalid").unwrap();
     let prepared = PreparedEditor::load(Some(path.clone()), &AtomicBool::new(false)).unwrap();
@@ -50,6 +50,25 @@ fn failed_folder_open_falls_back_without_overwriting_the_failed_project() {
         std::fs::read(path.join("document.json")).unwrap(),
         b"invalid"
     );
+}
+
+#[test]
+fn opened_directory_spelling_keeps_a_usable_project_save_destination() {
+    let tmp = tempfile::tempdir().unwrap();
+    for extension in ["omuse", "comp"] {
+        let path = tmp.path().join(format!("Artwork.{extension}"));
+        document::save(&Document::new(8, 8), &path).unwrap();
+        for suffix in ["/", "/."] {
+            let source = PathBuf::from(format!("{}{suffix}", path.display()));
+            let prepared = PreparedEditor::load(Some(source), &AtomicBool::new(false)).unwrap();
+            assert_eq!(prepared.path.as_ref(), Some(&path));
+            assert_eq!(prepared.live_stamp, project_stamp(&path));
+            assert_eq!(
+                document::project_save_path(prepared.path.as_ref().unwrap()).unwrap(),
+                path.with_extension("omuse")
+            );
+        }
+    }
 }
 
 #[test]

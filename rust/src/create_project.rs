@@ -2,9 +2,10 @@
 //!
 //! A Create project is a directory package. Its `project.json` envelope owns
 //! page order, brand kits, shared resources and reusable components; every page
-//! and component remains an ordinary `.comp` package handled by the existing
-//! document engine. Opening a project records inactive package paths and only
-//! decodes a page when a caller asks for its document.
+//! and component is an ordinary `.omuse` package handled by the document
+//! engine. Version 1 collections retain read support for nested `.comp`
+//! packages and are upgraded on save. Opening a project records inactive
+//! package paths and only decodes a page when a caller asks for its document.
 
 use crate::{
     document,
@@ -22,7 +23,7 @@ use std::{
 };
 
 pub const PROJECT_FORMAT: &str = "com.omuse.create-project";
-pub const PROJECT_VERSION: u32 = 1;
+pub const PROJECT_VERSION: u32 = 2;
 pub const MAX_PAGES: usize = 256;
 pub const MAX_BRANDS: usize = 64;
 pub const MAX_COMPONENTS: usize = 512;
@@ -32,6 +33,29 @@ pub const MAX_TOTAL_SHARED_RESOURCE_BYTES: u64 = 512 * 1024 * 1024;
 pub const MAX_TOTAL_PAGE_CANVAS_PIXELS: u64 = 512_000_000;
 pub const MAX_RESIDENT_PROJECT_IMAGE_BYTES: u64 = 1024 * 1024 * 1024;
 const MAX_PROJECT_MANIFEST_BYTES: u64 = 4 * 1024 * 1024;
+
+#[derive(Clone, Copy)]
+enum DocumentPackageLayout {
+    LegacyComp,
+    Omuse,
+}
+
+impl DocumentPackageLayout {
+    fn from_version(version: u32) -> Result<Self> {
+        match version {
+            1 => Ok(Self::LegacyComp),
+            PROJECT_VERSION => Ok(Self::Omuse),
+            _ => anyhow::bail!("Unsupported Create project version {version}"),
+        }
+    }
+
+    fn extension(self) -> &'static str {
+        match self {
+            Self::LegacyComp => "comp",
+            Self::Omuse => "omuse",
+        }
+    }
+}
 
 fn new_id() -> String {
     uuid::Uuid::new_v4().to_string().to_uppercase()
@@ -376,7 +400,7 @@ impl Project {
         for page in &mut self.pages {
             if matches!(page.storage, DocumentStorage::Lazy { .. }) {
                 page.storage = DocumentStorage::Lazy {
-                    path: page_path(&root, &page.id),
+                    path: page_path(&root, &page.id, DocumentPackageLayout::Omuse),
                     cache: Arc::new(Mutex::new(None)),
                 };
             }
@@ -384,7 +408,7 @@ impl Project {
         for component in &mut self.components {
             if matches!(component.storage, DocumentStorage::Lazy { .. }) {
                 component.storage = DocumentStorage::Lazy {
-                    path: component_path(&root, &component.id),
+                    path: component_path(&root, &component.id, DocumentPackageLayout::Omuse),
                     cache: Arc::new(Mutex::new(None)),
                 };
             }
@@ -1251,11 +1275,9 @@ fn open_create_package_unchecked(path: &Path) -> Result<Project> {
         manifest.format == PROJECT_FORMAT,
         "Not an Omuse Create project"
     );
-    ensure!(
-        manifest.version == PROJECT_VERSION,
-        "Unsupported Create project version {}",
-        manifest.version
-    );
+    // The declared version owns the nested layout. A missing or malformed
+    // current package must never fall back to a stale legacy sibling.
+    let layout = DocumentPackageLayout::from_version(manifest.version)?;
     let project_id = canonical_id(&manifest.project_id)?;
     let active_page_id = canonical_id(&manifest.active_page_id)?;
     let active_brand_id = manifest
@@ -1284,7 +1306,7 @@ fn open_create_package_unchecked(path: &Path) -> Result<Project> {
             valid_dimensions(record.width, record.height),
             "Invalid page dimensions"
         );
-        let source = page_path(path, &id);
+        let source = page_path(path, &id, layout);
         ensure!(
             source.is_dir() && !fs::symlink_metadata(&source)?.file_type().is_symlink(),
             "Missing or unsafe page package"
@@ -1305,7 +1327,7 @@ fn open_create_package_unchecked(path: &Path) -> Result<Project> {
     for record in manifest.components {
         let id = canonical_id(&record.id)?;
         ensure!(record.revision > 0, "Invalid component revision");
-        let source = component_path(path, &id);
+        let source = component_path(path, &id, layout);
         ensure!(
             source.is_dir() && !fs::symlink_metadata(&source)?.file_type().is_symlink(),
             "Missing or unsafe component package"
@@ -1368,11 +1390,13 @@ fn open_create_package_unchecked(path: &Path) -> Result<Project> {
     Ok(project)
 }
 
-fn page_path(root: &Path, id: &str) -> PathBuf {
-    root.join("pages").join(format!("{id}.comp"))
+fn page_path(root: &Path, id: &str, layout: DocumentPackageLayout) -> PathBuf {
+    root.join("pages")
+        .join(format!("{id}.{}", layout.extension()))
 }
-fn component_path(root: &Path, id: &str) -> PathBuf {
-    root.join("components").join(format!("{id}.comp"))
+fn component_path(root: &Path, id: &str, layout: DocumentPackageLayout) -> PathBuf {
+    root.join("components")
+        .join(format!("{id}.{}", layout.extension()))
 }
 fn resource_path(root: &Path, id: &str) -> PathBuf {
     root.join("resources").join(format!("{id}.bin"))
@@ -1556,7 +1580,7 @@ where
     for page in &project.pages {
         save_stored_document(
             &page.storage,
-            &page_path(&stage.0, &page.id),
+            &page_path(&stage.0, &page.id, DocumentPackageLayout::Omuse),
             &source_session,
         )
         .with_context(|| format!("Cannot save page {}", page.name))?;
@@ -1564,7 +1588,7 @@ where
     for component in &project.components {
         save_stored_document(
             &component.storage,
-            &component_path(&stage.0, &component.id),
+            &component_path(&stage.0, &component.id, DocumentPackageLayout::Omuse),
             &source_session,
         )
         .with_context(|| format!("Cannot save component {}", component.name))?;
@@ -1738,6 +1762,304 @@ mod tests {
         let mut document = Document::new(8, 6);
         document.layers[0].image = Some(RgbaImage::from_pixel(8, 6, Rgba(color)).into());
         document
+    }
+
+    fn write_legacy_collection(path: &Path) -> (String, String, String, String) {
+        let mut first_document = document([10, 20, 30, 255]);
+        first_document.metadata["creation-note"] = serde_json::json!({"preserve": [1, 2, 3]});
+        first_document.layers[0].name = "Editable artwork".into();
+        first_document.layers[0].opacity = 0.625;
+        first_document.layers[0].metadata["layer-note"] = serde_json::json!({"preserve": true});
+        let prototype = first_document.layers[0].clone();
+        let mut project = Project::new("Legacy campaign", first_document);
+        let first = project.active_page_id().to_owned();
+        project.set_page_name(&first, "Cover").unwrap();
+        project
+            .set_page_template(&first, Some("social-square"))
+            .unwrap();
+        let second = project
+            .add_page("Story", document([40, 50, 60, 255]))
+            .unwrap();
+        project.set_active_page(&second).unwrap();
+        let component = project
+            .define_component("Shared artwork", vec![prototype.clone()])
+            .unwrap();
+        project
+            .update_component(&component, vec![prototype])
+            .unwrap();
+        let resource = project
+            .add_resource("Logo", "image/png", vec![1, 3, 5, 7])
+            .unwrap();
+        let mut brand = BrandKit::new("Campaign brand");
+        brand.colors.insert("Accent".into(), [50, 100, 150, 255]);
+        brand.spacing.insert("Margin".into(), 24.0);
+        brand.logo_resource_ids.push(resource.clone());
+        project.add_brand(brand).unwrap();
+        project.metadata.local_only = true;
+        project.metadata.shared_background_component_id = Some(component.clone());
+        project.save(path).unwrap();
+
+        // Version 1 has the same envelope fields but explicitly uses .comp
+        // nested documents. Construct that on-disk format independently of
+        // the reader's layout selector, then open it as a fresh session.
+        for directory in ["pages", "components"] {
+            for entry in fs::read_dir(path.join(directory)).unwrap() {
+                let source = entry.unwrap().path();
+                fs::rename(&source, source.with_extension("comp")).unwrap();
+            }
+        }
+        let manifest_path = path.join("project.json");
+        let mut manifest: serde_json::Value =
+            serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
+        manifest["version"] = serde_json::json!(1);
+        fs::write(manifest_path, serde_json::to_vec_pretty(&manifest).unwrap()).unwrap();
+        (first, second, component, resource)
+    }
+
+    fn assert_all_lazy(project: &Project) {
+        assert!(project.page_summaries().iter().all(|page| !page.is_loaded));
+        assert!(
+            project
+                .component_summaries()
+                .iter()
+                .all(|component| !component.is_loaded)
+        );
+        assert!(
+            project
+                .resource_summaries()
+                .iter()
+                .all(|resource| !resource.is_loaded)
+        );
+    }
+
+    fn layer_pixel(layer: &Layer) -> [u8; 4] {
+        layer.image.as_ref().unwrap().get_pixel(0, 0).0
+    }
+
+    #[test]
+    fn legacy_collection_save_as_migrates_documents_and_preserves_metadata() {
+        let directory = tempdir().unwrap();
+        let source = directory.path().join("Legacy.omuse");
+        let target = directory.path().join("Current.omuse");
+        let (first, second, component, resource) = write_legacy_collection(&source);
+        let original_manifest = fs::read(source.join("project.json")).unwrap();
+        let mut expected_manifest: serde_json::Value =
+            serde_json::from_slice(&original_manifest).unwrap();
+        expected_manifest["version"] = serde_json::json!(2);
+
+        let mut migrated = Project::open(&source).unwrap();
+        assert_all_lazy(&migrated);
+        migrated.save(&target).unwrap();
+        assert_all_lazy(&migrated);
+        assert_eq!(
+            fs::read(source.join("project.json")).unwrap(),
+            original_manifest
+        );
+        let written: serde_json::Value =
+            serde_json::from_slice(&fs::read(target.join("project.json")).unwrap()).unwrap();
+        assert_eq!(written, expected_manifest);
+        for (directory, id) in [
+            ("pages", &first),
+            ("pages", &second),
+            ("components", &component),
+        ] {
+            assert!(source.join(directory).join(format!("{id}.comp")).is_dir());
+            assert!(target.join(directory).join(format!("{id}.omuse")).is_dir());
+            assert!(!target.join(directory).join(format!("{id}.comp")).exists());
+        }
+
+        // The saved live project must now resolve its lazy paths independently
+        // of the legacy source, as must a freshly reopened project.
+        fs::remove_dir_all(&source).unwrap();
+        let mut reopened = Project::open(&target).unwrap();
+        for project in [&mut migrated, &mut reopened] {
+            assert_eq!(project.active_page_id(), second);
+            let cover = project.page_document(&first).unwrap();
+            assert_eq!(cover.name, "Cover");
+            assert_eq!(
+                cover.metadata["creation-note"],
+                serde_json::json!({"preserve": [1, 2, 3]})
+            );
+            assert_eq!(cover.layers[0].name, "Editable artwork");
+            assert_eq!(cover.layers[0].opacity, 0.625);
+            assert_eq!(
+                cover.layers[0].metadata["layer-note"],
+                serde_json::json!({"preserve": true})
+            );
+            assert_eq!(layer_pixel(&cover.layers[0]), [10, 20, 30, 255]);
+            assert_eq!(
+                layer_pixel(&project.page_document(&second).unwrap().layers[0]),
+                [40, 50, 60, 255]
+            );
+            let (revision, layers) = project.component_snapshot(&component).unwrap();
+            assert_eq!(revision, 2);
+            assert_eq!(layer_pixel(&layers[0]), [10, 20, 30, 255]);
+            assert_eq!(
+                layers[0].metadata["layer-note"],
+                serde_json::json!({"preserve": true})
+            );
+            assert_eq!(project.resource_bytes(&resource).unwrap(), &[1, 3, 5, 7]);
+        }
+    }
+
+    #[test]
+    fn legacy_collection_same_path_migration_keeps_lazy_undo_snapshots() {
+        let directory = tempdir().unwrap();
+        let path = directory.path().join("Campaign.omuse");
+        let (first, second, component, resource) = write_legacy_collection(&path);
+        let mut current = Project::open(&path).unwrap();
+        let mut undo = current.clone();
+        current
+            .replace_page_document(&first, document([70, 80, 90, 255]))
+            .unwrap();
+        current.save(&path).unwrap();
+        assert!(!path.join("pages").join(format!("{second}.comp")).exists());
+        assert!(path.join("pages").join(format!("{second}.omuse")).is_dir());
+        assert!(
+            !current
+                .page_summaries()
+                .iter()
+                .find(|page| page.id == second)
+                .unwrap()
+                .is_loaded
+        );
+        assert!(!current.component_summaries()[0].is_loaded);
+        assert!(!current.resource_summaries()[0].is_loaded);
+
+        assert_eq!(
+            layer_pixel(&undo.page_document(&first).unwrap().layers[0]),
+            [10, 20, 30, 255]
+        );
+        assert_eq!(
+            layer_pixel(&undo.page_document(&second).unwrap().layers[0]),
+            [40, 50, 60, 255]
+        );
+        assert_eq!(
+            layer_pixel(&undo.component_snapshot(&component).unwrap().1[0]),
+            [10, 20, 30, 255]
+        );
+        assert_eq!(undo.resource_bytes(&resource).unwrap(), &[1, 3, 5, 7]);
+        assert_eq!(
+            layer_pixel(&current.page_document(&first).unwrap().layers[0]),
+            [70, 80, 90, 255]
+        );
+        assert_eq!(
+            layer_pixel(&current.page_document(&second).unwrap().layers[0]),
+            [40, 50, 60, 255]
+        );
+        assert_eq!(
+            layer_pixel(&current.component_snapshot(&component).unwrap().1[0]),
+            [10, 20, 30, 255]
+        );
+        assert_eq!(current.resource_bytes(&resource).unwrap(), &[1, 3, 5, 7]);
+
+        // Undo can publish its preserved legacy pixels back to the same path,
+        // writing the current layout instead of reviving old .comp packages.
+        undo.save(&path).unwrap();
+        let mut reopened = Project::open(&path).unwrap();
+        assert_eq!(
+            layer_pixel(&reopened.page_document(&first).unwrap().layers[0]),
+            [10, 20, 30, 255]
+        );
+        assert!(
+            !path
+                .join("components")
+                .join(format!("{component}.comp"))
+                .exists()
+        );
+    }
+
+    #[test]
+    fn declared_collection_version_rejects_missing_packages_without_extension_fallback() {
+        for version in [1, 2] {
+            for nested in ["pages", "components"] {
+                let directory = tempdir().unwrap();
+                let path = directory.path().join("Missing.omuse");
+                let (first, _, component, _) = write_legacy_collection(&path);
+                if version == 2 {
+                    Project::open(&path).unwrap().save(&path).unwrap();
+                }
+                let id = if nested == "pages" { first } else { component };
+                let (expected, other) = if version == 1 {
+                    ("comp", "omuse")
+                } else {
+                    ("omuse", "comp")
+                };
+                fs::rename(
+                    path.join(nested).join(format!("{id}.{expected}")),
+                    path.join(nested).join(format!("{id}.{other}")),
+                )
+                .unwrap();
+                let error = Project::open(&path).unwrap_err().to_string();
+                assert!(error.contains("Missing or unsafe"), "{error}");
+            }
+        }
+    }
+
+    #[test]
+    fn malformed_current_packages_never_fall_back_to_valid_legacy_siblings() {
+        for nested in ["pages", "components"] {
+            let directory = tempdir().unwrap();
+            let path = directory.path().join("Malformed.omuse");
+            let (first, _, component, _) = write_legacy_collection(&path);
+            Project::open(&path).unwrap().save(&path).unwrap();
+            let id = if nested == "pages" {
+                &first
+            } else {
+                &component
+            };
+            let current = path.join(nested).join(format!("{id}.omuse"));
+            let legacy = path.join(nested).join(format!("{id}.comp"));
+            fs::rename(&current, &legacy).unwrap();
+            fs::create_dir(&current).unwrap();
+            fs::write(current.join("manifest.json"), b"invalid JSON").unwrap();
+            let before = fs::read(path.join("project.json")).unwrap();
+            let mut project = Project::open(&path).unwrap();
+            assert_all_lazy(&project);
+            if nested == "pages" {
+                assert!(project.page_document(&first).is_err());
+            } else {
+                assert!(project.component_snapshot(&component).is_err());
+            }
+            assert!(project.save(&path).is_err());
+            assert_eq!(fs::read(path.join("project.json")).unwrap(), before);
+            assert!(document::open(&legacy).is_ok());
+        }
+    }
+
+    #[test]
+    fn legacy_migration_refuses_an_external_source_replacement() {
+        let directory = tempdir().unwrap();
+        let path = directory.path().join("Changed.omuse");
+        write_legacy_collection(&path);
+        let mut project = Project::open(&path).unwrap();
+        let mut replacement = Project::new("External edit", document([91, 92, 93, 255]));
+        replacement.save(&path).unwrap();
+        let before = fs::read(path.join("project.json")).unwrap();
+        let error = format!("{:#}", project.save(&path).unwrap_err());
+        assert!(error.contains("changed on disk"), "{error}");
+        assert_eq!(fs::read(path.join("project.json")).unwrap(), before);
+        assert_all_lazy(&project);
+    }
+
+    #[test]
+    fn unknown_collection_versions_are_rejected_before_reading_nested_packages() {
+        for version in [0, 3] {
+            let directory = tempdir().unwrap();
+            let path = directory.path().join("Unknown.omuse");
+            write_legacy_collection(&path);
+            let manifest_path = path.join("project.json");
+            let mut manifest: serde_json::Value =
+                serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
+            manifest["version"] = serde_json::json!(version);
+            fs::write(manifest_path, serde_json::to_vec(&manifest).unwrap()).unwrap();
+            assert!(
+                Project::open(&path)
+                    .unwrap_err()
+                    .to_string()
+                    .contains("Unsupported Create project version")
+            );
+        }
     }
 
     #[test]

@@ -96,7 +96,7 @@ fn main() {
     }
     if matches!(args.first().map(String::as_str), Some("--help" | "-h")) {
         println!(
-            "Omuse {}\n\nUsage: omuse [PROJECT.omuse | PROJECT.comp | IMAGE]\n       omuse --export INPUT.comp OUTPUT.png\n       omuse --batch RECIPE.json INPUT_FOLDER OUTPUT_FOLDER [png|jpg|webp|tiff] [CANCEL_FILE]\n       omuse --self-test [EVIDENCE_DIRECTORY]\n       omuse --ui-smoke EVIDENCE_DIRECTORY\n\nNative Linux editor using GPUI and gpui-omarchy. The previous editor remains separate.",
+            "Omuse {}\n\nUsage: omuse [PROJECT.omuse | IMAGE]\n       omuse --export INPUT.omuse OUTPUT.png\n       omuse --batch RECIPE.json INPUT_FOLDER OUTPUT_FOLDER [png|jpg|webp|tiff] [CANCEL_FILE]\n       omuse --self-test [EVIDENCE_DIRECTORY]\n       omuse --ui-smoke EVIDENCE_DIRECTORY\n\nNative Linux editor using GPUI and gpui-omarchy. Legacy .comp projects remain readable. Collection exports and batch recipes use the saved active page.",
             env!("CARGO_PKG_VERSION")
         );
         return;
@@ -108,7 +108,7 @@ fn main() {
 
     if args.first().map(String::as_str) == Some("--export") {
         if args.len() != 3 {
-            eprintln!("Usage: omuse --export INPUT.comp OUTPUT.png");
+            eprintln!("Usage: omuse --export INPUT.omuse OUTPUT.png");
             std::process::exit(2);
         }
         let result = ui::EditorView::open_content(std::path::Path::new(&args[1]))

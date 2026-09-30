@@ -181,7 +181,7 @@ fn saved_reopened_and_then_edited_rasters_use_region_path_exactly() {
     let mut document = simple_document();
     document.background = [0; 4];
     let directory = tempfile::tempdir().unwrap();
-    let path = directory.path().join("region.comp");
+    let path = directory.path().join("region.omuse");
     document::save(&document, &path).unwrap();
     let mut reopened = document::open(&path).unwrap();
 

@@ -97,7 +97,7 @@ and troubleshooting.
 - Interactive crop ratios, anchored zoom and editable layer/group Copy/Paste.
 - Brush, Pencil, Eraser, Fill, Gradient, Clone, Heal and selection tools.
 - Editable text and shapes, Bézier paths, vector masks and transform workflows.
-- Layered `.comp` documents and packaged multi-page `.omuse` projects.
+- Editable `.omuse` projects for single canvases and multi-page collections.
 - Brand kits, 20 editable templates with 80 tested size variants, rich text, reusable components, image
   frames, CSV variants and a searchable local asset library.
 - Social previews, ordered raster/PDF content packs, captions and image descriptions.
@@ -153,13 +153,22 @@ fix or contribution. Omuse uses Rust and native Linux libraries.
 
 ## Projects and user data
 
-Omuse retains the existing `.comp` project format and its format identifiers so
-projects remain portable across compatible implementations. Existing projects
-are opened in place only when requested; recovery snapshots do not overwrite a
-saved project.
-Multi-page Create projects use `.omuse` packages, retaining native objects,
-brand definitions and referenced assets. Their additional collection metadata
-is specific to Omuse.
+Use **`.omuse`** for every editable project, from a single canvas to a multi-page
+Create collection. Projects are directory packages: keep the entire directory
+when copying or backing up artwork. Omuse identifies a canvas by its
+`manifest.json` and a collection by its `project.json`, preserving editable
+layers, native objects and the collection's pages, brands and packaged assets.
+
+Existing `.comp` projects still open. Their first **Save** offers an `.omuse`
+copy and leaves the original intact. Opening a project does not rename or
+rewrite it; recovery snapshots stay separate from saved artwork.
+
+New collection saves use schema version 2 with nested `.omuse` pages and
+components. Version 1 collections still open, but saving upgrades them to
+version 2, which earlier Omuse releases cannot read. Use **Save As** to a new
+location if you need to retain a version 1 copy for an earlier release. The
+[compatibility contract](docs/omuse-rename.md) explains the preserved layer
+format and migration behavior.
 
 New settings and application data use the XDG locations
 `$XDG_CONFIG_HOME/omuse` and `$XDG_DATA_HOME/omuse` (normally
