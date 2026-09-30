@@ -673,18 +673,13 @@ impl EditorView {
         }
         let t = cx.omarchy().clone();
         let mut bar = div()
-            .id("studio-context")
-            .debug_selector(|| "studio-context".into())
+            .id("studio-context-options")
             .flex()
             .items_center()
             .gap(px(6.))
-            .px_3()
-            .h(px(44.))
-            .flex_shrink_0()
+            .flex_1()
+            .min_w_0()
             .overflow_x_scroll()
-            .bg(t.background)
-            .border_b_1()
-            .border_color(t.divider())
             .child(
                 div()
                     .min_w(px(104.))
@@ -816,7 +811,11 @@ impl EditorView {
                 cx,
             ));
         }
-        bar.child(div().flex_1().min_w(px(8.)))
+        let actions = div()
+            .flex()
+            .items_center()
+            .gap(px(6.))
+            .flex_shrink_0()
             .child(self.studio_icon_action(
                 "tool-settings",
                 "Tool settings",
@@ -830,7 +829,21 @@ impl EditorView {
                 "Swap foreground and background",
                 "rotate-cw",
                 cx,
-            ))
+            ));
+        div()
+            .id("studio-context")
+            .debug_selector(|| "studio-context".into())
+            .flex()
+            .items_center()
+            .gap(px(6.))
+            .px_3()
+            .h(px(44.))
+            .flex_shrink_0()
+            .bg(t.background)
+            .border_b_1()
+            .border_color(t.divider())
+            .child(bar)
+            .child(actions)
             .into_any_element()
     }
 

@@ -164,6 +164,8 @@ fn studio_tool_dock_selects_all_tools_at_minimum_size(cx: &mut TestAppContext) {
     for tool in tool_catalog() {
         assert_in_window(tool.studio_id(), cx);
         click(cx, tool.studio_id());
+        assert_in_window("tool-settings", cx);
+        assert_in_window("color-picker-trigger", cx);
         cx.update(|_, cx| assert_eq!(view.read(cx).tool, tool, "{} did not select", tool.name()));
     }
 }
