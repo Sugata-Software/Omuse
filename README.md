@@ -12,8 +12,8 @@
 installer builds a tested source revision and adds the normal **Omuse** app.
 Downloadable binaries are still undergoing [release qualification](docs/public-release-readiness.md).
 
-**Current release: [0.4.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.4.0)**
-— selectable AI providers, image-to-content workflows and a clearer studio. Read the [release notes](docs/releases/v0.4.0.md)
+**Current release: [0.5.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.5.0)**
+— one `.omuse` extension for every project, safe legacy migration and clearer saves. Read the [release notes](docs/releases/v0.5.0.md)
 or browse the [changelog](CHANGELOG.md) for changes and known limitations.
 
 **[Read the user manual](docs/user-guide/README.md)** ·

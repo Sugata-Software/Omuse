@@ -200,7 +200,7 @@
   "snapshotDate": "2026-09-30",
   "project": "Omuse",
   "releaseScope": "Native Rust/GPUI application for Arch/Omarchy Linux x86_64",
-  "releaseState": "Omuse 0.5.0 candidate: one .omuse extension for all projects, legacy read support and safer Save As; migration qualification in progress. Published source remains 0.4.0 until checks complete.",
+  "releaseState": "Omuse 0.5.0 source pre-release: .omuse for all projects, safe legacy migration and batch collection input; binary and stable-release gates remain open",
   "visualizationMirror": "omuse-project-guide.html",
   "statusDefinitions": [
     {
@@ -233,8 +233,8 @@
     {
       "label": "One project extension",
       "value": ".omuse for every project",
-      "detail": "The 0.5.0 candidate uses .omuse for canvases, collections, nested pages/components and recovery. Legacy .comp opens and saves to a new .omuse copy; collection v1 reads remain supported. Qualification is in progress.",
-      "status": "implemented-needs-qualification"
+      "detail": "Omuse 0.5.0 uses .omuse for canvases, collections, nested pages/components and recovery. Legacy .comp opens and saves to a new copy. Migration, overwrite, recovery and batch tests passed; collection v2 needs 0.5.0 or later.",
+      "status": "locally-tested"
     },
     {
       "label": "AI creation workflows",
@@ -244,14 +244,14 @@
     },
     {
       "label": "Numbered source release",
-      "value": "Omuse 0.4.0",
-      "detail": "Tested public runtime 3f5ece3 is the numbered source release, normal installed app and curl installer pin. Includes all preceding crop, zoom, editable clipboard and photo-editing work. Source only; broader release gates remain open.",
+      "value": "Omuse 0.5.0",
+      "detail": "Tested public runtime 73dd0d4 is the numbered source release, normal installed app and curl installer pin. Includes all preceding AI, panel and editing work. Source only; broader release gates remain open.",
       "status": "locally-tested"
     },
     {
       "label": "Current release regression suite",
-      "value": "949 tests passed",
-      "detail": "Exact-source GitHub run 36669607056 and local validation passed 407 library, 267 UI and 275 integration cases, plus editing/Create/motion and 80 template variants. Remote interruption/recovery, installer and dependency checks passed. Four manual benchmarks excluded.",
+      "value": "970 tests passed",
+      "detail": "Exact-source GitHub run 36682319767 and local validation passed 417 library, 274 UI and 279 integration cases, plus editing/Create/motion and 80 template variants. Remote recovery and installer checks passed. Four manual benchmarks excluded.",
       "status": "locally-tested"
     },
     {
@@ -263,7 +263,7 @@
     {
       "label": "Public-release blockers",
       "value": "Open gates",
-      "detail": "Two dependency texts, clean-machine installation and broader physical desktop/accessibility acceptance remain open. Runtime 3f5ece3 passed complete CI, 24 native checks on each of production Wayland, XWayland and installed Wayland, and 19-file rollback. The source installer pins that revision.",
+      "detail": "Two dependency texts, clean-machine installation and broader physical desktop/accessibility acceptance remain open. Runtime 73dd0d4 passed complete CI, 24 native checks each on Wayland, XWayland and installed Wayland, plus 19-file rollback. The installer pins that revision.",
       "status": "blocked-deferred"
     }
   ],
@@ -1079,10 +1079,11 @@
         {
           "id": "formats-canvas",
           "name": "`.omuse` canvases and legacy import",
-          "status": "implemented-needs-qualification",
+          "status": "locally-tested",
           "current": "Single canvases now use .omuse. The document reader accepts schema versions 1–9 and writes version 9 while retaining legacy metadata. Opening a .comp project leaves it unchanged; the first UI Save offers an .omuse copy. Existing destinations require replacement confirmation.",
-          "boundary": "The new migration and overwrite paths are being qualified. Newer editable assets can render only as cached images in older editors and may not survive resave there.",
+          "boundary": "Migration and overwrite regressions passed. Newer editable assets can render only as cached images in older editors and may not survive resave there.",
           "evidence": [
+            "docs/release-050-qualification.md",
             "docs/project-format.md",
             "docs/rust-release-qualification.md",
             "rust/src/project_extension_ui_tests.rs"
@@ -1096,10 +1097,11 @@
         {
           "id": "formats-omuse",
           "name": "`.omuse` collections",
-          "status": "implemented-needs-qualification",
+          "status": "locally-tested",
           "current": "Multi-page .omuse collections save schema v2 with nested .omuse pages and components. The reader accepts v1 collections with nested .comp packages, preserving lazy documents, resources, metadata and undo snapshots during migration.",
-          "boundary": "Migration tests are being qualified. Saving a v1 collection upgrades it; Omuse 0.4.0 and earlier cannot read v2. Use Save As to preserve a v1 copy for older releases. Independent cross-app interchange remains a separate gate.",
+          "boundary": "Migration and prior-release reader checks passed. Saving a v1 collection upgrades it; Omuse 0.4.0 and earlier cannot read v2. Use Save As to preserve a v1 copy for older releases. Independent cross-app interchange remains a separate gate.",
           "evidence": [
+            "docs/release-050-qualification.md",
             "docs/omuse-create-qualification.md",
             "docs/omuse-create-guide.md"
           ],
@@ -1285,9 +1287,10 @@
           "id": "linux-wayland-xwayland",
           "name": "Wayland and XWayland journeys",
           "status": "locally-tested",
-          "current": "The exact Omuse 0.4.0 production executable passed 24 native Wayland and 24 XWayland checks; its installed normal launcher passed 24 Wayland checks. All used the 800×600 minimum viewport and reduced motion. Historical installed 3117032 Cua separately completed one Claude Design journey through Review, Keep, Undo and Redo.",
+          "current": "The exact Omuse 0.5.0 production executable passed 24 native Wayland and 24 XWayland checks; its installed normal launcher passed 24 Wayland checks. All used the 800×600 minimum viewport and reduced motion. Historical installed 3117032 Cua separately completed one Claude Design journey through Review, Keep, Undo and Redo.",
           "boundary": "Native checks dispatch GPUI events in process; the separate Cua journey supplies bounded compositor input evidence. Broader XWayland, hardware and accessibility coverage remains open.",
           "evidence": [
+            "docs/release-050-qualification.md",
             "docs/release-040-qualification.md",
             "docs/keyboard-qualification.md",
             "docs/photo-integrity-hardening.md",
@@ -1305,9 +1308,10 @@
           "id": "linux-install",
           "name": "One-command install and rollback",
           "status": "locally-tested",
-          "current": "The curl installer and normal development-host launcher select public Omuse 0.4.0 runtime 3f5ece3. The complete 19-file installation retains the preceding 521f9f1 panel candidate for rollback. Both directions passed editing self-tests and every payload hash matched. User work, settings and provider profiles were preserved.",
-          "boundary": "First install compiles source locally. No qualified prebuilt download, clean-machine acceptance or power-loss recovery is claimed. Existing windows use their running version until reopened.",
+          "current": "The curl installer and normal development-host launcher select Omuse 0.5.0 runtime 73dd0d4. The complete 19-file installation retains 0.4.0 for rollback. Both directions passed isolated editing self-tests and all payload hashes matched. Existing artwork windows and settings were preserved.",
+          "boundary": "First install compiles source locally. No qualified prebuilt download, clean-machine acceptance or power-loss recovery is claimed. Existing windows use their running version until reopened. App rollback does not downgrade v2 collections; keep a v1 copy if older-release access is needed.",
           "evidence": [
+            "docs/release-050-qualification.md",
             "docs/release-040-qualification.md",
             "docs/main-install-qualification.md",
             "docs/keyboard-qualification.md",
@@ -1454,9 +1458,10 @@
           "id": "reliability-recovery",
           "name": "Save, recovery and interruption",
           "status": "locally-tested",
-          "current": "Staged saves, external identity checks and isolated recovery preserve complete packages. Photo-to-collection and reverse recovery conversions stage the complete replacement before an atomic exchange. Failed staging, failed exchange and cancellation retain or discard the appropriate snapshot; retry succeeds. Same-path background save and older interruption evidence remain covered separately.",
+          "current": "Staged saves, external identity checks and isolated recovery preserve complete packages. Photo-to-collection and reverse recovery conversions stage the complete replacement before an atomic exchange. Failed staging, failed exchange and cancellation retain or discard the appropriate snapshot; retry succeeds. Same-path background save and older interruption evidence remain covered separately. New snapshots use .omuse; old .comp sessions remain discoverable under the same ownership safeguards.",
           "boundary": "Process interruption is not sudden power-loss durability; a clean filesystem and machine matrix remains untested.",
           "evidence": [
+            "docs/release-050-qualification.md",
             "docs/photo-integrity-hardening.md",
             "docs/desktop-history-qualification.md",
             "docs/photo-editing-hardening.md",
@@ -1492,9 +1497,10 @@
           "id": "release-current-suite",
           "name": "Current release regression suite",
           "status": "locally-tested",
-          "current": "Omuse 0.4.0 source 3f5ece3 passed 949 local application tests (407 library, 267 UI, 275 integration) and complete exact-source GitHub run 36669607056. Editing/Create/motion, all 80 template variants, remote interrupted recovery, installer/reference and dependency checks passed. Production Wayland/XWayland and installed Wayland each passed 24 native checks.",
+          "current": "Omuse 0.5.0 source 73dd0d4 passed 970 local application tests (417 library, 274 UI, 279 integration) and complete exact-source GitHub run 36682319767. Editing/Create/motion, all 80 template variants, remote interrupted recovery and installer/reference checks passed. Three production/installed desktop runs passed 24 checks each.",
           "boundary": "Four manual timing benchmarks were excluded. Clean-target installation, broad hardware/accessibility acceptance and the remaining Claude cancellation/refinement/history journeys are not established by this suite.",
           "evidence": [
+            "docs/release-050-qualification.md",
             "docs/release-040-qualification.md",
             "docs/photo-integrity-hardening.md",
             "docs/desktop-history-qualification.md",

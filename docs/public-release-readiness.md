@@ -2,8 +2,8 @@
 
 **30 September 2026: Omuse source installation is available; downloadable binaries are not yet qualified.**
 
-The current numbered source release is **0.4.0**. Its
-[release notes](releases/v0.4.0.md) identify the tested runtime, installation,
+The current numbered source release is **0.5.0**. Its
+[release notes](releases/v0.5.0.md) identify the tested runtime, installation,
 changes and limitations; the [release policy](releases/README.md) keeps future
 versions and evidence consistent. It is marked as a GitHub pre-release while
 stable-release gates remain open. This does not add a separate Preview app.
@@ -26,18 +26,18 @@ GitHub App access and source publication are no longer blockers.
 
 ## Current application and installation
 
-The tested application source is `3f5ece3`. Its [full GitHub Rust/installer
-workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36669607056) passed. The [0.4.0 qualification](release-040-qualification.md)
-records 949 application cases, editing/Create/motion journeys, all 80 template
+The tested application source is `73dd0d4`. Its [full GitHub Rust/installer
+workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36682319767) passed. The [0.5.0 qualification](release-050-qualification.md)
+records 970 application cases, editing/Create/motion journeys, all 80 template
 variants, final native checks and complete installed rollback.
 
 The exact production executable passed 24 native checks on Wayland, 24 on
 XWayland and 24 through the installed Wayland launcher. The normal app and
-curl installer select the same 0.4.0 source; the previous complete panel
-candidate is retained for rollback. The [installation record](main-install-qualification.md)
-and [receipt](release-040-receipts.json) identify the executable and all payloads.
+curl installer select the same 0.5.0 source; the previous complete 0.4.0
+installation is retained for rollback. The [installation record](main-install-qualification.md)
+and [receipt](release-050-receipts.json) identify the executable and all payloads.
 
-No new live provider request was sent for this combined release. The earlier
+No new live provider request was sent for this migration release. The earlier
 [Claude Design journey](ai-claude-qualification.md),
 [Codex image-editing checks](ai-image-editing-qualification.md) and
 [0.3.0 crop/clipboard Cua checks](editing-workflows-qualification.md) keep their
@@ -115,7 +115,7 @@ to Omuse without declaring a prebuilt binary release qualified.
 
 | Gate | Current state | Completion evidence |
 | --- | --- | --- |
-| Clean CI build | Installed runtime `3f5ece3`: the [full Rust/installer run](https://github.com/Sugata-Software/Omuse/actions/runs/36669607056) passed; guide/reference checks are current. Later runtime changes require their own run | Green Rust workflow for the exact candidate commit, retained artifacts and notice inventory |
+| Clean CI build | Installed runtime `73dd0d4`: the [full Rust/installer run](https://github.com/Sugata-Software/Omuse/actions/runs/36682319767) passed; guide/reference checks are current. Later runtime changes require their own run | Green Rust workflow for the exact candidate commit, retained artifacts and notice inventory |
 | Dependency legal texts | Two unresolved entries in the locked graph; upstream texts recovered for `seahash` and `simd_helpers` | Resolve `hexf-parse` and `mac` by verifiable upstream terms or tested dependency changes; see the [notice review](rust-license-findings.md) |
 | Reproducible release identity | The hardening pass records tested source hashes, the production executable, native runs, installation and rollback; a clean public build/archive remains pending | One clean release commit/tag, fresh build, source-to-binary-to-archive hash ledger and reproducible packaging instructions |
 | Clean target installation | Passed only on the development host | Install, launch, upgrade and rollback on a clean supported Arch/Omarchy system |

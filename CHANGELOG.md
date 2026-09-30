@@ -6,6 +6,13 @@ for numbering, qualification and publication.
 
 ## Unreleased
 
+Planned editor work and remaining release gates are tracked in the
+[project guide](docs/project-guide.md).
+
+## [0.5.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.5.0) — 2026-09-30
+
+**One project, one extension · Arch Linux / Omarchy · x86_64 source pre-release**
+
 - Use `.omuse` for all new editable projects, Save/Save As defaults, recovery
   snapshots, examples and CLI instructions. Existing `.comp` projects still
   open; their first Save offers an `.omuse` copy and preserves the original.
@@ -19,8 +26,9 @@ for numbering, qualification and publication.
 - Include single-canvas and collection `.omuse` packages in batch recipes.
   Collections use their saved active page; old `.comp` inputs remain supported.
 
-Planned editor work and remaining release gates are tracked in the
-[project guide](docs/project-guide.md).
+The [qualification record](docs/release-050-qualification.md) records 970 passing
+application tests, migration interoperability, native checks and complete rollback.
+See the [release notes](docs/releases/v0.5.0.md).
 
 ## [0.4.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.4.0) — 2026-09-30
 

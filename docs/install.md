@@ -36,20 +36,22 @@ from source**; a downloadable binary release remains subject to the
 
 ## Tested source channel
 
-The current numbered source release is [Omuse 0.4.0](releases/v0.4.0.md).
+The current numbered source release is [Omuse 0.5.0](releases/v0.5.0.md).
 Its Git tag identifies the tested runtime; the normal curl command follows the
 current tested channel and may advance to later qualified releases.
 
 The public installer selects commit
-[`3f5ece38ba1ee84af2d80062412bd9e11e26fbe3`](https://github.com/Sugata-Software/Omuse/commit/3f5ece38ba1ee84af2d80062412bd9e11e26fbe3).
+[`73dd0d47c99b6718f640c430f47f4ea33c8d047d`](https://github.com/Sugata-Software/Omuse/commit/73dd0d47c99b6718f640c430f47f4ea33c8d047d).
 It fetches that exact revision and checks the checkout before building.
-The [full Rust/installer workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36669607056) passed for this source.
-The [0.4.0 qualification](release-040-qualification.md) records 949 application
+The [full Rust/installer workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36682319767) passed for this source.
+The [0.5.0 qualification](release-050-qualification.md) records 970 application
 cases, editing/Create/motion journeys, all 80 template variants, production
 Wayland/XWayland and installed Wayland checks, and complete 19-file rollback.
-The release includes desktop AI discovery fixes, selectable providers, optional
-image/layout/caption sequences and refined right-hand panels.
-No new live AI request was sent for this combined release; earlier subscription
+Every new project now uses `.omuse`, including canvases and collections. Legacy
+`.comp` projects still open; the first Save offers an `.omuse` copy. Collections
+upgrade to schema v2 on save, which older releases cannot read. Use Save As to
+retain a v1 copy if you need to roll back to 0.4.0.
+No new live AI request was sent for this migration release; earlier subscription
 receipts retain their runtime identities. Start with the
 [user manual](user-guide/README.md).
 
