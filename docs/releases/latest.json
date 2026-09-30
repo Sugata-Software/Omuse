@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "version": "0.3.0",
-  "tag": "v0.3.0",
-  "title": "Omuse 0.3.0 — Crop, zoom and editable clipboard",
+  "version": "0.4.0",
+  "tag": "v0.4.0",
+  "title": "Omuse 0.4.0 — Your AI, a clearer studio",
   "date": "2026-09-30",
   "prerelease": true,
-  "sourceRevision": "ea187a900c06ecc68c8ea70635f2abb09cf933b2",
-  "notes": "docs/releases/v0.3.0.md",
-  "validationRun": 36594138936
+  "sourceRevision": "3f5ece38ba1ee84af2d80062412bd9e11e26fbe3",
+  "notes": "docs/releases/v0.4.0.md",
+  "validationRun": 36669607056
 }

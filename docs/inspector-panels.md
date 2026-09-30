@@ -1,6 +1,6 @@
 # Right-hand panels
 
-The unreleased inspector refinement uses a shared layout across the editor,
+Omuse 0.4.0 uses a shared inspector layout across the editor,
 Create and Ask Omuse. Colours, fonts, active states and focus styling follow
 the active Omarchy theme through `gpui-omarchy`.
 
@@ -28,6 +28,6 @@ the brief and reviewed result across Connections, activates review controls,
 and cancels pending preparation from the Connections footer. It also checks
 contextual action availability and theme changes without modifying artwork.
 
-This is a source candidate, separate from the published 0.3.0 release. A shared
-style and bounded local checks do not establish accessibility coverage for
-every theme, display scale or input method.
+The [0.4.0 qualification](release-040-qualification.md) records the combined
+runtime checks. A shared style and bounded local checks do not establish
+accessibility coverage for every theme, display scale or input method.

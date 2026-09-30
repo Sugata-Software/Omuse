@@ -5,6 +5,7 @@ Start with the [changelog](../../CHANGELOG.md) or
 
 | Version | Date | Scope | Notes |
 | --- | --- | --- | --- |
+| 0.4.0 | 30 September 2026 | Selectable AI providers, shared creation workflows, desktop connection fixes and refined panels; source pre-release | [Release notes](v0.4.0.md) |
 | 0.3.0 | 30 September 2026 | Interactive crop, anchored zoom, editable clipboard and safer Cut; source pre-release | [Release notes](v0.3.0.md) |
 | 0.2.1 | 29 September 2026 | Safer AI image editing, finishing Undo and practical user manual; source pre-release | [Release notes](v0.2.1.md) |
 | 0.2.0 | 29 September 2026 | Task-based Ask Omuse and editable AI photo review; Arch/Omarchy x86_64 source pre-release | [Release notes](v0.2.0.md) |
@@ -13,7 +14,7 @@ Start with the [changelog](../../CHANGELOG.md) or
 ## Version numbers
 
 Omuse has its own sequence, beginning at **0.1.0**. Each release matches its
-Rust package version; the current release is **0.3.0**. It does not inherit
+Rust package version; the current release is **0.4.0**. It does not inherit
 another editor's release numbers.
 
 - **Patch versions (for example 0.2.1):** compatible fixes and hardening within a minor version.

@@ -200,7 +200,7 @@
   "snapshotDate": "2026-09-30",
   "project": "Omuse",
   "releaseScope": "Native Rust/GPUI application for Arch/Omarchy Linux x86_64",
-  "releaseState": "Published Omuse 0.3.0 remains unchanged; the selectable AI routing candidate passed complete public CI, while broader release qualification remains open",
+  "releaseState": "Omuse 0.4.0 source pre-release: combined AI connection fixes, selectable providers, shared creation workflows and refined panels; binary and stable-release gates remain open",
   "visualizationMirror": "omuse-project-guide.html",
   "statusDefinitions": [
     {
@@ -231,21 +231,21 @@
   ],
   "releaseSnapshot": [
     {
-      "label": "Unreleased AI candidate",
-      "value": "Selectable providers and shared drafts",
-      "detail": "Public candidate f972adb passed all 945 application tests and complete GitHub run 36625728469. It adds saved per-task provider choices and optional image/edit → layout → caption sequences with one final reviewed Keep/Undo. Saved workflow reviews name generated image layers correctly. Published 0.3.0 and its installer pin are unchanged; broader release checks remain open.",
+      "label": "AI creation workflows",
+      "value": "Choose providers and finish a shared brief",
+      "detail": "Omuse 0.4.0 adds saved per-task provider choices, desktop subscription discovery fixes and optional image/edit → layout → caption sequences with one final reviewed Keep/Undo. Claude is text/layout only; Codex supports the visual/image paths. Grok and separately billed API routes remain unavailable.",
       "status": "locally-tested"
     },
     {
       "label": "Numbered source release",
-      "value": "Omuse 0.3.0",
-      "detail": "Interactive crop ratios, anchored zoom and editable layer/group Copy/Paste. Linux PNG exchange, nonblocking clipboard writes and safe pixel Cut protect artwork and the clipboard. Tested runtime ea187a9 remains the published release and source-installer pin; broader release gates remain open.",
+      "value": "Omuse 0.4.0",
+      "detail": "Tested public runtime 3f5ece3 is the numbered source release, normal installed app and curl installer pin. Includes all preceding crop, zoom, editable clipboard and photo-editing work. Source only; broader release gates remain open.",
       "status": "locally-tested"
     },
     {
-      "label": "AI routing candidate regression suite",
-      "value": "945 tests passed",
-      "detail": "Exact-source GitHub run 36625728469 passed 407 library, 263 UI and 275 integration cases, plus editing/Create/motion journeys, all 80 template variants, interruption/recovery, installer and dependency checks. Four manual benchmarks excluded. This is candidate f972adb evidence, separate from the published 0.3.0 runtime.",
+      "label": "Current release regression suite",
+      "value": "949 tests passed",
+      "detail": "Exact-source GitHub run 36669607056 and local validation passed 407 library, 267 UI and 275 integration cases, plus editing/Create/motion and 80 template variants. Remote interruption/recovery, installer and dependency checks passed. Four manual benchmarks excluded.",
       "status": "locally-tested"
     },
     {
@@ -257,7 +257,7 @@
     {
       "label": "Public-release blockers",
       "value": "Open gates",
-      "detail": "Two dependency texts, clean-machine installation and broader physical desktop/accessibility acceptance remain open. Runtime ea187a9 passed full GitHub validation, native/Cua checks and 19-file rollback; the source installer pins that revision.",
+      "detail": "Two dependency texts, clean-machine installation and broader physical desktop/accessibility acceptance remain open. Runtime 3f5ece3 passed complete CI, 24 native checks on each of production Wayland, XWayland and installed Wayland, and 19-file rollback. The source installer pins that revision.",
       "status": "blocked-deferred"
     }
   ],
@@ -853,7 +853,7 @@
       "id": "ai",
       "name": "AI",
       "icon": "sparkles",
-      "summary": "Task-based creation with review, editable photo results, captions and refinement; flexible task routing and bounded follow-on sequences are implemented in unreleased source while their qualification remains pending.",
+      "summary": "Task-based creation with per-task subscription choices, optional bounded follow-on steps and one reviewed editable result. Provider capability and live quality remain operation-specific.",
       "items": [
         {
           "id": "ai-framework",
@@ -881,9 +881,10 @@
           "id": "ai-provider-routing-workflows",
           "name": "Per-task provider routing and follow-on sequences",
           "status": "locally-tested",
-          "current": "Unreleased source lets each of the eight Ask Omuse tasks use Auto or a pinned provider, with preferred Assistant and Images roles plus per-provider Auto exclusions. Optional image/edit follow-ons can run editable Design then Caption as a frozen sequence of at most three displayed requests, one brief and one final review. Saved preferences migrate from version 1 without enabling direct API billing; saved sequence replay validates bounded plans and exact generated-layer identities before rebuilding an editable candidate.",
-          "boundary": "Candidate f972adb passed all 945 application cases and complete public CI. Tests cover routing choices, workflow preflight, cancellation, source changes and bounded saved replay. Pins never fall back and failed requests are not retried. Codex is required for visual Photo/Caption and images; Claude is text/layout only, Grok unqualified. Broader live failure/cancellation, clean-host and output acceptance remain open; published 0.3.0 is unchanged.",
+          "current": "Omuse 0.4.0 lets each of eight Ask Omuse tasks use Auto or a pinned provider, with preferred Assistant and Images roles plus Auto exclusions. Optional image/edit follow-ons run editable Design then Caption as a frozen sequence of at most three disclosed requests, one brief and one final review. Saved preferences migrate safely and replay preserves generated-layer identities.",
+          "boundary": "949 release cases cover routing, preflight, cancellation, source changes and replay. Pins never fall back and errors are not retried. Codex is required for visual Photo/Caption and images; Claude is text/layout only, Grok unqualified. Broader live failure/cancellation and output acceptance remain open.",
           "evidence": [
+            "docs/release-040-qualification.md",
             "docs/ai-provider-routing.md",
             "docs/user-guide/create-content.md",
             "docs/ai-routing-qualification.md"
@@ -900,9 +901,10 @@
           "id": "ai-desktop-runtime-discovery",
           "name": "Omarchy desktop subscription discovery",
           "status": "locally-tested",
-          "current": "The published 0.3.0 desktop launch can mistake a mise shim for the provider executable and show Unverified despite an existing login. Local public candidate 3117032 safely resolves recognized mise symlinks while retaining provider identity, account and isolation checks. Seven discovery regressions passed, Codex and Claude Code 2.1.283 reported Ready / SubscriptionAllowance, and the normal launcher no longer needs the temporary PATH workaround.",
-          "boundary": "This is bounded evidence for a local unreleased candidate. The correction is absent from the published 0.3.0 payload and installer pin; arbitrary wrappers remain rejected, and full corrected-app release qualification remains open.",
+          "current": "Omuse 0.4.0 safely resolves recognized Omarchy mise shims before checking provider identity, fixing false Unverified results after desktop launch. The earlier 3117032 discovery check reported Codex and Claude Code 2.1.283 Ready / SubscriptionAllowance; the normal launcher needs no temporary PATH workaround.",
+          "boundary": "Runtime identity, account and isolation checks remain enforced. Arbitrary wrappers stay rejected. Earlier account probes retain their candidate and operation scope; a login does not qualify every task.",
           "evidence": [
+            "docs/release-040-qualification.md",
             "docs/ai-desktop-connection-fix.md",
             "docs/ai-experience.md",
             "docs/ai-claude-qualification.md"
@@ -1018,7 +1020,7 @@
           "name": "Claude subscription route",
           "status": "experimental",
           "current": "Claude Code 2.1.283 with an existing subscription login reports Ready / SubscriptionAllowance in local public candidate 3117032. All 14 Claude cases passed within a 387-test library run, the rebuilt qualifier completed one structured request, and one installed Claude Design journey returned five editable operations with Review, Keep, Undo and Redo.",
-          "boundary": "This is bounded local evidence, not qualification of published 0.3.0. The demonstration was not saved or reopened; cancel, refine and follow-up remain untested. Claude supports Assistant Design & layout only; Codex remains required for Images and canvas-based Photo/Caption. Grok remains unavailable. No credential was copied and direct API fallback remains disabled.",
+          "boundary": "The bounded live receipt belongs to earlier candidate 3117032; no new live Claude request was sent for 0.4.0. Save/reopen, cancel, refine and follow-up remain untested with Claude. Claude supports text/layout only; Codex is required for images and canvas-based Photo/Caption. Grok is unavailable; direct API fallback stays disabled.",
           "evidence": [
             "docs/ai-claude-qualification.md",
             "docs/ai-desktop-connection-fix.md",
@@ -1202,9 +1204,10 @@
           "id": "linux-native-ui",
           "name": "Native GPUI/Omarchy interface",
           "status": "locally-tested",
-          "current": "The Studio shell, tool dock, Layers, Develop, Selection, Canvas, Create and Assistant inspectors, themes, dialogs and native canvas are implemented in Rust/GPUI. Published runtime ea187a9 passed 24 checks each on production Wayland, production XWayland and installed Wayland. Local public candidate 3117032 separately passed all 24 production native Wayland checks at 800×600 with reduced motion.",
-          "boundary": "The local candidate check does not promote or release it. This is the active native app, distinct from the historical Swift/Qt Linux port and its older parity reports.",
+          "current": "Omuse 0.4.0 uses native Rust/GPUI for the studio, tool dock, editing, Create and AI panels, dialogs and canvas. Exact runtime 3f5ece3 passed 24 checks each on production Wayland, production XWayland and installed Wayland at 800×600 with reduced motion.",
+          "boundary": "This is the active native app; historical Swift/Qt parity reports are separate. Broader physical input, DPI and accessibility acceptance remain open.",
           "evidence": [
+            "docs/release-040-qualification.md",
             "docs/rust-studio-design.md",
             "docs/rust-rewrite-status.md",
             "docs/editing-workflows-qualification.md",
@@ -1222,8 +1225,9 @@
           "name": "Right-hand panel layout and control refinement",
           "status": "locally-tested",
           "current": "A shared Omarchy-themed panel system gives editing, Create and AI consistent adaptive widths, grouped sections, clear primary and secondary actions, aligned input fields and controls that remain full-size while scrolling. Create uses equal 3×2 navigation and AI uses a two-column task grid with a compact composer in short windows. Connections has its own full-height view, preserves the brief and result, and keeps cancellation visible. Editing actions show contextual availability; mask and clipping controls display their state.",
-          "boundary": "The source candidate passes 267 UI tests, including minimum-window scrolling, contextual controls, retained AI drafts and visible cancellation. Native panel inspections cover editing, Create, Motion, Export and AI, with dark and light theme checks. This remains separate from published 0.3.0; broader display-scale, accessibility and release acceptance remains open.",
+          "boundary": "The combined 0.4.0 source passed all 267 UI cases, including minimum-window scrolling, contextual controls, retained drafts and visible cancellation. Production Wayland/XWayland and installed Wayland each passed 24 checks. Earlier panel inspections retain their 521f9f1 identity; broader display-scale and accessibility acceptance remains open.",
           "evidence": [
+            "docs/release-040-qualification.md",
             "docs/inspector-panels.md"
           ],
           "modules": [
@@ -1274,9 +1278,10 @@
           "id": "linux-wayland-xwayland",
           "name": "Wayland and XWayland journeys",
           "status": "locally-tested",
-          "current": "Historical 3dc3e46 production passed 24 native Wayland and 24 XWayland checks. Local public candidate 3117032 passed all 24 native Wayland checks at 800×600 with reduced motion; exact installed XWayland Cua separately completed one Claude Design journey through Review, Keep, Undo and Redo.",
+          "current": "The exact Omuse 0.4.0 production executable passed 24 native Wayland and 24 XWayland checks; its installed normal launcher passed 24 Wayland checks. All used the 800×600 minimum viewport and reduced motion. Historical installed 3117032 Cua separately completed one Claude Design journey through Review, Keep, Undo and Redo.",
           "boundary": "Native checks dispatch GPUI events in process; the separate Cua journey supplies bounded compositor input evidence. Broader XWayland, hardware and accessibility coverage remains open.",
           "evidence": [
+            "docs/release-040-qualification.md",
             "docs/keyboard-qualification.md",
             "docs/photo-integrity-hardening.md",
             "docs/photo-editing-hardening.md",
@@ -1293,9 +1298,10 @@
           "id": "linux-install",
           "name": "One-command install and rollback",
           "status": "locally-tested",
-          "current": "The public source installer remains pinned to ea187a9. On the development host, the normal launcher selects local unreleased generation install-hytfk9hx for public candidate 3117032; its 19 payload files are complete. Previous public generation install-o_h4lt_d remains intact with all 19 files for rollback. User work, settings and provider profiles were preserved.",
-          "boundary": "The local generation still reports 0.3.0 but is not the published release or installer pin. First install compiles source locally; no qualified prebuilt download, clean-machine acceptance or power-loss recovery is claimed.",
+          "current": "The curl installer and normal development-host launcher select public Omuse 0.4.0 runtime 3f5ece3. The complete 19-file installation retains the preceding 521f9f1 panel candidate for rollback. Both directions passed editing self-tests and every payload hash matched. User work, settings and provider profiles were preserved.",
+          "boundary": "First install compiles source locally. No qualified prebuilt download, clean-machine acceptance or power-loss recovery is claimed. Existing windows use their running version until reopened.",
           "evidence": [
+            "docs/release-040-qualification.md",
             "docs/main-install-qualification.md",
             "docs/keyboard-qualification.md",
             "docs/photo-integrity-hardening.md",
@@ -1479,9 +1485,10 @@
           "id": "release-current-suite",
           "name": "Current release regression suite",
           "status": "locally-tested",
-          "current": "Published Omuse 0.3.0 passed 901 application tests. Local unreleased public candidate 3117032 passed all 910 application tests (387 library, 248 UI, 275 integration) and complete exact-source GitHub validation 36612969908, including editing/Create/motion journeys, template variants, interrupted-save recovery, installer and dependency checks. It also passed 24 native Wayland checks and one bounded installed Claude Design journey.",
+          "current": "Omuse 0.4.0 source 3f5ece3 passed 949 local application tests (407 library, 267 UI, 275 integration) and complete exact-source GitHub run 36669607056. Editing/Create/motion, all 80 template variants, remote interrupted recovery, installer/reference and dependency checks passed. Production Wayland/XWayland and installed Wayland each passed 24 native checks.",
           "boundary": "Four manual timing benchmarks were excluded. Clean-target installation, broad hardware/accessibility acceptance and the remaining Claude cancellation/refinement/history journeys are not established by this suite.",
           "evidence": [
+            "docs/release-040-qualification.md",
             "docs/photo-integrity-hardening.md",
             "docs/desktop-history-qualification.md",
             "docs/large-photo-history-qualification.md",
@@ -1521,9 +1528,10 @@
           "id": "release-ci-github",
           "name": "Public source and remote CI",
           "status": "locally-tested",
-          "current": "Public runtime ea187a9 remains the qualified Omuse 0.3.0 source and installer pin. Draft pull request #1 carries the local Claude correction. Candidate 3117032 passed the complete GitHub Rust validation run 36612969908 and project-guide check.",
-          "boundary": "The pull request remains draft and the local correction is not a numbered release. CI does not establish clean-machine installation, full Claude workflow qualification or public-binary qualification.",
+          "current": "Public Omuse 0.4.0 runtime 3f5ece3 passed full GitHub validation 36669607056; the normal app, numbered release and curl pin select this same source. Release documentation and guide checks are maintained with the publication.",
+          "boundary": "Source pre-release only. CI does not establish clean-machine installation, complete live-provider quality or portable binary qualification.",
           "evidence": [
+            "docs/release-040-qualification.md",
             "docs/main-install-qualification.md",
             "docs/keyboard-qualification.md",
             "docs/public-release-readiness.md",
@@ -1541,9 +1549,10 @@
           "id": "release-artifact",
           "name": "Clean install and release identity",
           "status": "blocked-deferred",
-          "current": "Published Omuse 0.3.0 source install remains pinned to tested ea187a9. Local unreleased generation install-hytfk9hx contains 19 files for public candidate 3117032 and retains complete public generation install-o_h4lt_d for rollback. Its exact executable passed bounded native and Claude checks.",
-          "boundary": "The local corrective generation is not a release promotion. A downloadable binary still requires resolved notices, full candidate validation and a reproduced artifact path on a clean supported system.",
+          "current": "Omuse 0.4.0 source install pins tested runtime 3f5ece3. The development host uses the matching clean source receipt, production executable and all 19 payload files. Complete rollback to the prior 521f9f1 panel candidate and back passed.",
+          "boundary": "A downloadable binary still requires resolved notices and clean supported-machine artifact qualification. This source pre-release does not satisfy those gates.",
           "evidence": [
+            "docs/release-040-qualification.md",
             "docs/main-install-qualification.md",
             "docs/photo-integrity-hardening.md",
             "docs/desktop-history-qualification.md",

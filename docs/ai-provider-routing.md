@@ -1,9 +1,8 @@
 # Choose AI providers by task
 
-> **Unreleased source candidate:** this routing and sequence UI is implemented on
-> the feature branch. Candidate `f972adb` passed the complete public CI workflow
-> with 945 application tests. See the [validation record](ai-routing-qualification.md).
-> It is not part of the published Omuse 0.3.0 release or installer.
+Available in **Omuse 0.4.0** through the normal installer. See the
+[release qualification](release-040-qualification.md) and the earlier
+[routing validation record](ai-routing-qualification.md) for test scope.
 
 Open **Ask Omuse → Connections** to choose the subscriptions Omuse should
 prefer. **Assistant** is the starting choice for text and layout work;
@@ -69,6 +68,6 @@ open a new window after changing saved routing elsewhere.
 Malformed version 2 task pins fail closed. Ask Omuse blocks submission until
 you use **Reset unreadable choices**. The [qualification record](ai-routing-qualification.md)
 describes automated routing, cancellation and replay coverage and the
-remaining release checks. Clean-host behavior, live failure/cancellation cases and
-representative provider output still require broader qualification before
-release.
+remaining qualification work. Clean-host behavior, live failure/cancellation
+cases and representative provider output still need broader acceptance before
+a stable-release claim.

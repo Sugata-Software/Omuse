@@ -36,21 +36,22 @@ from source**; a downloadable binary release remains subject to the
 
 ## Tested source channel
 
-The current numbered source release is [Omuse 0.3.0](releases/v0.3.0.md).
+The current numbered source release is [Omuse 0.4.0](releases/v0.4.0.md).
 Its Git tag identifies the tested runtime; the normal curl command follows the
 current tested channel and may advance to later qualified releases.
 
 The public installer selects commit
-[`ea187a900c06ecc68c8ea70635f2abb09cf933b2`](https://github.com/Sugata-Software/Omuse/commit/ea187a900c06ecc68c8ea70635f2abb09cf933b2).
-It fetches that exact revision and checks the resulting checkout before building.
-The [full Rust/installer workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36594138936) passed for this application source.
-The [editing qualification](editing-workflows-qualification.md) records
-901 application cases, editing/Create/motion journeys, all 80 template variants,
-production/installed native checks, foreground crop and clipboard checks, and
-complete 19-file rollback to 0.2.1 and back. No live AI request was sent for this
-release; earlier subscription receipts retain their runtime identities.
-Earlier performance and provider receipts retain their named workload scope.
-Start using the app with the [user manual](user-guide/README.md).
+[`3f5ece38ba1ee84af2d80062412bd9e11e26fbe3`](https://github.com/Sugata-Software/Omuse/commit/3f5ece38ba1ee84af2d80062412bd9e11e26fbe3).
+It fetches that exact revision and checks the checkout before building.
+The [full Rust/installer workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36669607056) passed for this source.
+The [0.4.0 qualification](release-040-qualification.md) records 949 application
+cases, editing/Create/motion journeys, all 80 template variants, production
+Wayland/XWayland and installed Wayland checks, and complete 19-file rollback.
+The release includes desktop AI discovery fixes, selectable providers, optional
+image/layout/caption sequences and refined right-hand panels.
+No new live AI request was sent for this combined release; earlier subscription
+receipts retain their runtime identities. Start with the
+[user manual](user-guide/README.md).
 
 The curl command downloads `install.sh` from `main`, so changes to the installer
 script take effect immediately. The application checkout is pinned separately:

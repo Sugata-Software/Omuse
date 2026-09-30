@@ -6,6 +6,13 @@ for numbering, qualification and publication.
 
 ## Unreleased
 
+Planned editor work and remaining release gates are tracked in the
+[project guide](docs/project-guide.md).
+
+## [0.4.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.4.0) — 2026-09-30
+
+**Your AI, a clearer studio · Arch Linux / Omarchy · x86_64 source pre-release**
+
 - Refine the right-hand editing, Create and AI panels with consistent widths,
   grouped sections, clearer primary actions and aligned controls. Create uses
   two rows of equal tabs, while AI tasks use a two-column grid. Connections gets
@@ -35,15 +42,13 @@ for numbering, qualification and publication.
 - Recognize Claude Code's internal schema-delivery `StructuredOutput` call only
   for a requested structured assistant result. Continue rejecting every other
   tool route, require the final validated result and refuse unvalidated prose
-  JSON. Claude 2.1.283 now passes corrected subscription discovery and a bounded
-  direct protocol capture. All 14 Claude cases passed within the 387-test
-  library run, and the local corrective build completed one installed Claude
-  Design journey with five editable operations, Review, Keep, Undo and Redo.
-  Broader and release qualification remain open; these changes are not part of
-  0.3.0.
+  JSON. The preceding connection-fix candidate completed one installed Claude
+  Design journey with five editable operations, Review, Keep, Undo and Redo;
+  that historical live receipt retains its original runtime identity.
 
-Planned editor work and remaining release gates are tracked in the
-[project guide](docs/project-guide.md).
+The [0.4.0 qualification record](docs/release-040-qualification.md) identifies
+the combined runtime and test scope. See the [release notes](docs/releases/v0.4.0.md)
+for update instructions, provider limits and remaining qualification work.
 
 ## [0.3.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.3.0) — 2026-09-30
 

@@ -43,22 +43,23 @@ separate login or test button in Omuse. To make an image, choose **Generate
 image**, write the brief, select **Generate image**, review the proposal, then
 select **Keep result** to add it to the canvas.
 
-In the locally qualified corrective build, **Claude Code** can be selected as
-**Assistant** for **Design & layout** requests. Keep **ChatGPT via Codex** as the
-**Images** route. Switch the Assistant route to Codex for **Enhance photo** or
-**Caption & alt text**, because those tasks currently send a canvas image and
-Claude's assistant route does not accept it. This Claude correction is not
-included in the published 0.3.0 build or installer pin.
+In Omuse 0.4.0, each task can use **Auto** or a pinned provider. **Claude Code**
+supports text-based **Design & layout**; **ChatGPT via Codex** supports the image
+tasks, **Enhance photo** and **Caption & alt text**. Those visual tasks send
+image context that the Claude adapter currently does not accept. Preferred
+Assistant and Images roles guide Auto; task pins take precedence and never
+silently fall back. The [provider guide](ai-provider-routing.md) also explains
+optional image/edit → layout → caption sequences with one final review.
 
 **Unverified** means Omuse found a runtime entry point but could not prove its
 identity. **Sign in needed** means the runtime passed its identity checks but
 its provider account is not available. Sign in with the official provider
 runtime when needed, then use **Refresh** in Connections to check again.
 
-Known 0.3.0 issue: on Omarchy, a Codex or Claude installation managed by mise
-can be reported as **Unverified** when desktop discovery finds the mise shim
-instead of the installed provider runtime. A detection fix is in development;
-it is not part of the released 0.3.0 build.
+Omuse 0.4.0 fixes a 0.3.0 Omarchy discovery issue where recognized mise-managed
+Codex or Claude shims could appear as **Unverified** despite an existing login.
+Update through the normal installer if affected. Runtime identity and account
+checks still apply, and unrecognized wrappers remain refused.
 
 Codex can optionally report remaining allowance and reset windows through its
 [official app-server protocol](https://learn.chatgpt.com/docs/app-server).
@@ -101,6 +102,10 @@ pruning old artifacts, so another window or a failed write cannot silently
 erase alternatives. A window's list refreshes on history operations/reopen.
 
 ## Evidence boundaries
+
+The [0.4.0 release record](release-040-qualification.md) covers the combined
+connection, routing and panel runtime. The live requests below retain their
+original candidate identities; they are not new 0.4.0 provider receipts.
 
 The 0.2.0 runtime at public source
 `3dc3e46310e40dcf109b1bc695bb4e9dda6d2d24` (tree

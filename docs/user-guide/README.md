@@ -1,6 +1,6 @@
 # Omuse user manual
 
-**Make, retouch and finish images on Linux.** This manual describes Omuse 0.3.0.
+**Make, retouch and finish images on Linux.** This manual describes Omuse 0.4.0.
 Start with a photo, keep an editable project, and export a copy when it is ready.
 
 [Install Omuse](../install.md) · [Remove objects](remove-objects.md) ·
@@ -32,8 +32,8 @@ Press **Ctrl+K**, type a command such as **Content-aware fill**, and press
 keyboard shortcut. **Ctrl+Alt+K** opens the shortcut editor.
 
 The left dock selects tools. The options bar changes with the selected tool.
-The right inspector contains **Layers**, **Develop**, **Selection** and the
-assistant. **F7** hides or shows the inspector. **Create** opens the collection
+The right inspector contains **Layers**, **Develop**, **Select** and **Canvas**,
+with **Ask Omuse** available for AI tasks. **F7** hides or shows the inspector. **Create** opens the collection
 workspace for pages, templates, brand assets and content exports.
 
 ## Choose a workflow
@@ -76,22 +76,29 @@ awaiting its first explicit request; no separate login or test button is needed.
 To try image generation, choose **Generate image**, write the brief, select
 **Generate image**, review the proposal, then select **Keep result**.
 
-The locally qualified corrective build also lets you choose **Claude Code** as
-**Assistant** in Connections for **Design & layout**. Keep **ChatGPT via Codex**
-selected for **Images**. For **Enhance photo** and **Caption & alt text**, choose
-Codex as Assistant too, because those tasks currently include the canvas image.
-One bounded Claude Design journey passed Review, Keep, Undo and Redo, but this
-path is not part of the published 0.3.0 build or installer pin.
+Choose **Auto** or a named provider for each task. You can use **Claude Code**
+for **Design & layout** and **ChatGPT via Codex** for image generation, edits,
+**Enhance photo** and **Caption & alt text**. Claude currently accepts text and
+layout context, while the latter tasks require image input. Connections also
+lets you set preferred Assistant and Images roles and exclude a provider from
+Auto. A pinned task never silently changes provider after a failure.
+
+For an image or image-edit task, optional follow-on steps can add editable
+layout and a caption/alt-text draft. Check the displayed requests and providers
+before starting; the sequence uses at most three subscription requests and
+presents one final review. **Keep** is one undoable artwork change. See the
+[provider and workflow guide](../ai-provider-routing.md).
 
 **Unverified** means Omuse could not prove the discovered runtime's identity.
 **Sign in needed** means its identity passed but its provider account is not
 available. Sign in through the official provider runtime if needed, then select
-**Refresh** in Connections. Omuse 0.3.0 has a known Omarchy issue where
-mise-managed Codex or Claude shims can appear as **Unverified** even when the
-provider is signed in. A detection fix is in development and is not released.
-The corrected development discovery now recognizes an existing Claude Code
-subscription login without copying a password or API key. Omuse does not fall
-back to a separately billed Claude API. See the
+**Refresh** in Connections. Omuse 0.4.0 fixes the Omarchy issue where recognized
+mise-managed Codex or Claude shims could appear as **Unverified** despite an
+existing login. Update with the install command if you still use 0.3.0.
+Unrecognized wrappers are still refused. Discovery uses the official runtime's
+existing login without copying a password or API key. Omuse does not fall back
+to a separately billed Claude API. One bounded Claude Design journey passed
+Review, Keep, Undo and Redo on the preceding connection-fix candidate. See the
 [bounded Claude qualification](../ai-claude-qualification.md) for the exact
 local candidate and remaining limits.
 

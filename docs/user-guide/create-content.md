@@ -74,7 +74,7 @@ Choosing a task or a starting point does not send anything. Read the context
 card, then explicitly submit. [Ask Omuse](../ai-experience.md) explains provider
 connections, allowance, Before/After, history and refinement.
 
-In the unreleased source candidate, use **Connections** to set preferred
+In Omuse 0.4.0, use **Connections** to set preferred
 **Assistant** and **Images** subscriptions. The **Auto · provider ▾** control
 under the brief can choose Auto or pin a provider for the current task; a pin
 never falls back after failure. Codex is currently required for image tasks and

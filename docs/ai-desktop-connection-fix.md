@@ -1,8 +1,10 @@
 # Omarchy desktop AI connection fix
 
-30 September 2026. The source correction passed a bounded local installed
-qualification. It is not included in the published 0.3.0 executable or source
-installer pin.
+30 September 2026. This historical record describes the connection correction
+and its bounded local installed qualification. The fix is included in
+[Omuse 0.4.0](releases/v0.4.0.md); its combined runtime and installer checks are
+in the [release qualification](release-040-qualification.md). Omuse 0.3.0 did
+not include the correction.
 
 ## Cause and correction
 
@@ -36,9 +38,9 @@ deadline cover the additional call.
   on the canvas. This is live evidence for that local workaround, not a GUI
   qualification of the newly corrected application build.
 - A reversible, host-specific launcher adjustment provides the same path for
-  ordinary desktop launches. Reinstalling the unchanged 0.3.0 launcher can
+  ordinary desktop launches at that time. Reinstalling the unchanged 0.3.0 launcher could
   replace that workaround; the source correction is required in a future
-  application update. The installed application payload was not changed.
+  application update. That workaround did not change the application payload.
 - The later local corrective generation `install-hytfk9hx` resolves the
   mise-managed runtimes from the normal launcher without that PATH workaround.
   It passed the bounded [Claude qualification](ai-claude-qualification.md).
@@ -75,7 +77,7 @@ the **Images** route and the assistant required for canvas-based photo
 assessment and caption drafting. No password or API key was copied, and no
 separately billed API fallback was enabled.
 
-This is bounded local evidence, not qualification of the published 0.3.0
-application. The public installer remains pinned to `ea187a9`; see the
+This is bounded historical evidence, not qualification of the 0.3.0
+application. At the time the public installer remained pinned to `ea187a9`; see the
 [qualification record](ai-claude-qualification.md) for exact identities,
 untested behaviors and the unresolved review-thumbnail aspect check.

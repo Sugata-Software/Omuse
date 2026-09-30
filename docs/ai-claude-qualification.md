@@ -1,8 +1,10 @@
 # Claude assistant qualification — 30 September 2026
 
-This record covers one bounded **local, unreleased** Claude assistant candidate.
-It does not change or qualify the published Omuse 0.3.0 release or installer
-pin.
+This historical record covers one bounded Claude assistant candidate tested
+before Omuse 0.4.0. It does not qualify the unchanged 0.3.0 runtime. The combined
+0.4.0 release and installer are covered by the
+[release qualification](release-040-qualification.md); this live receipt keeps
+its original candidate identity.
 
 ## Exact candidate
 
@@ -16,7 +18,7 @@ pin.
   corrective build, not a numbered release.
 - Previous complete generation: `install-o_h4lt_d`, public 0.3.0 runtime
   `ea187a9`, retained with all 19 payload files for rollback.
-- The public 0.3.0 release and source-installer pin remain `ea187a9`.
+- At that qualification, the public 0.3.0 release and installer pin remained `ea187a9`.
 
 ## Automated and protocol evidence
 
@@ -62,9 +64,9 @@ are intentionally absent from this public record.
   with the correctly kept canvas. Source already requests contain fitting, so
   the cause is unproven. Treat review-thumbnail aspect as a remaining visual
   check; no UI fix is claimed here.
-- Clean-host installation, broader prompts and artwork, portability, full
-  corrected-app qualification and a numbered release remain open.
-- [Draft pull request #1](https://github.com/Sugata-Software/Omuse/pull/1)
-  contains the correction. Exact runtime `3117032` passed full Rust CI run
-  `36612969908` and its project-guide check. The PR remains draft; no new
-  numbered release or installer-pin change is claimed.
+- Clean-host installation, broader prompts and artwork, portability and the
+  untested live Claude journeys remain open.
+- [Pull request #1](https://github.com/Sugata-Software/Omuse/pull/1)
+  originally carried the correction. Exact runtime `3117032` passed full Rust
+  CI run `36612969908` and its project-guide check before the combined 0.4.0
+  release. Its 910-test result is historical.

@@ -1,7 +1,9 @@
 # AI provider routing validation — 30 September 2026
 
-This record covers unreleased source candidate `f972adb`. Published Omuse 0.3.0
-and its source installer pin remain unchanged.
+This historical record covers source candidate `f972adb`, tested before
+Omuse 0.4.0. The combined released runtime and installer are documented in the
+[0.4.0 qualification](release-040-qualification.md); the measurements below
+retain their original candidate identity.
 
 ## Public automated evidence
 

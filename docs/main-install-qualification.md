@@ -1,8 +1,31 @@
 # Main Omuse installation — 30 September 2026
 
-## Local unreleased AI connection candidate
+## Current Omuse 0.4.0 release
 
-The development host's normal launcher currently selects public candidate
+The normal launcher selects public source `3f5ece38ba1ee84af2d80062412bd9e11e26fbe3` with a clean source
+receipt. The curl installer pins the same tested runtime. Complete GitHub
+[validation](https://github.com/Sugata-Software/Omuse/actions/runs/36669607056), 949 local application cases, editing/Create/motion
+journeys and all 80 template variants passed.
+
+- Production SHA-256: `b5d58b871b1c99dd7239e4a0033df80f303683f8a54fa1befb756c04ca02cd51`.
+- Current generation: `install-fohyiqbu`, all 19 files.
+- Previous generation: `install-kf3h5ptm`, public panel
+  candidate `521f9f1`, retained with all 19 files.
+- Production Wayland, production XWayland and installed Wayland each passed
+  24 native checks at the 800×600 minimum viewport with reduced motion.
+- Rollback and the reverse switch passed, retaining every payload hash.
+- The normal command reports **Omuse 0.4.0**; desktop-file validation passed.
+
+The [qualification](release-040-qualification.md) and
+[compact receipt](release-040-receipts.json) record identities and boundaries.
+Existing windows keep their running executable until reopened. User artwork,
+settings and provider profiles were preserved. This development-host promotion
+does not establish clean-host or portable-binary qualification. All sections
+below retain historical measurements and installation states.
+
+## Historical local AI connection candidate
+
+At this earlier qualification, the development host selected public candidate
 `31170322e0241380a10c337c3cf18ab11fb41ef0`, tree
 `98351ef8e7c0a43d5c95d098e985ac20e0c7dedd`. This is a local corrective build;
 it still reports Omuse 0.3.0 but is not the published 0.3.0 release.
@@ -20,17 +43,17 @@ it still reports Omuse 0.3.0 but is not the published 0.3.0 release.
   Review, Keep, toolbar Undo and Redo. See the
   [bounded Claude qualification](ai-claude-qualification.md).
 
-The public release and curl installer remain pinned to `ea187a9`. Draft pull
-request [#1](https://github.com/Sugata-Software/Omuse/pull/1) is not merged;
+At that point the public release and curl installer remained pinned to `ea187a9`. Draft pull
+request [#1](https://github.com/Sugata-Software/Omuse/pull/1) was not yet merged;
 the exact candidate passed complete
 [GitHub validation](https://github.com/Sugata-Software/Omuse/actions/runs/36612969908)
 with 910 passing application tests and the editing, motion, recovery, installer
 and dependency checks. This local installation is not a release promotion,
 clean-host receipt or portable-binary qualification.
 
-## Public 0.3.0 release baseline
+## Historical public 0.3.0 release baseline
 
-The unchanged published application is **Omuse 0.3.0**, public runtime
+The application for that promotion was **Omuse 0.3.0**, public runtime
 `ea187a900c06ecc68c8ea70635f2abb09cf933b2`. Its complete
 [GitHub validation](https://github.com/Sugata-Software/Omuse/actions/runs/36594138936)
 passed. The [editing qualification](editing-workflows-qualification.md) records
@@ -49,9 +72,9 @@ variants, native/Cua checks and exact source-pixel clipboard exchange.
   launched and drove the exact production binary in isolated XWayland fixtures.
   Native Wayland PNG publication passed a separate exact-window input check.
 
-The curl installer continues to pin this source. The public generation remains
-available as the complete rollback target while the normal development-host
-launcher selects the local corrective candidate above. Installation did not
+At that point the curl installer pinned this source. The public generation
+remained the rollback target while the development host selected the local
+corrective candidate above. Installation did not
 terminate windows containing user work; documents, settings and provider
 profiles were preserved. Development-host qualification does not establish
 clean-target or portable binaries. The [compact receipt](editing-workflows-receipts.json)

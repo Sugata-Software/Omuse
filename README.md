@@ -12,8 +12,8 @@
 installer builds a tested source revision and adds the normal **Omuse** app.
 Downloadable binaries are still undergoing [release qualification](docs/public-release-readiness.md).
 
-**Current release: [0.3.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.3.0)**
-— interactive crop, anchored zoom and editable layer copying. Read the [release notes](docs/releases/v0.3.0.md)
+**Current release: [0.4.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.4.0)**
+— selectable AI providers, image-to-content workflows and a clearer studio. Read the [release notes](docs/releases/v0.4.0.md)
 or browse the [changelog](CHANGELOG.md) for changes and known limitations.
 
 **[Read the user manual](docs/user-guide/README.md)** ·
@@ -105,10 +105,13 @@ and troubleshooting.
 - [Ask Omuse](docs/ai-experience.md): task-based subscription AI for editable designs,
   reversible photo adjustments, captions and image drafts, with Before/After
   review and Undo; provider availability is qualified separately.
+- Choose Auto or a provider per task; optionally follow an image edit with
+  editable layout and a caption in one reviewed workflow.
 - PNG, JPEG, WebP and TIFF export, including retained 16-bit workflows.
 - Layered PSD import, Camera RAW development and local subject selection within
   their documented limits.
 - Omarchy-aware controls, colours, theme watching and native Linux file dialogs.
+- Refined editing, Create and AI panels with grouped controls and compact layouts.
 - Searchable, executable commands and customizable Photoshop-inspired shortcuts.
 
 Explore the [editing workflows](docs/rust-advanced-workflows.md),
