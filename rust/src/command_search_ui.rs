@@ -476,7 +476,7 @@ impl EditorView {
 
     // Specific missing prerequisites are visible before a command is run. The
     // normal command handler remains the authority for document validation.
-    fn command_search_unavailable(&self, id: &str) -> Option<&'static str> {
+    pub(super) fn command_search_unavailable(&self, id: &str) -> Option<&'static str> {
         if self.busy {
             return Some("Wait for the current operation to finish");
         }
@@ -494,7 +494,11 @@ impl EditorView {
             "undo" if !self.can_undo_or_collection() => Some("Nothing to undo"),
             "redo" if !self.can_redo_or_collection() => Some("Nothing to redo"),
             "commit-selection" | "cancel-selection" if !floating => Some("No floating selection"),
-            "crop" if floating => Some("Commit or cancel the floating selection first"),
+            "crop" | "dither" | "bloom-glow" | "vignette-overlay" | "local-contrast"
+                if floating =>
+            {
+                Some("Commit or cancel the floating selection first")
+            }
             "deselect"
             | "feather-selection"
             | "grow-selection"
@@ -510,7 +514,7 @@ impl EditorView {
             "previous-page" | "next-page" if self.create.session.is_none() => {
                 Some("Open or create a page collection first")
             }
-            _ => None,
+            _ => self.layer_action_unavailable(id),
         }
     }
 

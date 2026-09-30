@@ -147,7 +147,7 @@ impl RasterPatch {
             return false;
         }
         let stride = self.width as usize * CHANNELS;
-        let pixels = image.as_mut();
+        let pixels: &mut [u8] = image.as_mut();
         for tile in &mut self.tiles {
             let start_x = tile.x as usize * TILE_SIZE as usize;
             let start_y = tile.y as usize * TILE_SIZE as usize;

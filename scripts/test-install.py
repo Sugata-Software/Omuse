@@ -287,6 +287,11 @@ runpy.run_path(manager, run_name="__main__")
         self.assertIn("%%percent", desktop)
         self.assertIn("\\$dollar", desktop)
         self.assertIn("\\`tick\\`", desktop)
+        mime_types = next(line.removeprefix("MimeType=").split(";")
+                          for line in desktop.splitlines() if line.startswith("MimeType="))
+        for mime in ("image/vnd.adobe.photoshop", "image/x-photoshop",
+                     "image/svg+xml", "image/svg+xml-compressed"):
+            self.assertIn(mime, mime_types)
         if shutil.which("desktop-file-validate"):
             subprocess.run(["desktop-file-validate", str(self.prefix / "share/applications/omuse.desktop")], check=True)
 

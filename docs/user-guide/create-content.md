@@ -32,6 +32,15 @@ Press **T** and click or drag a text box. Click existing text to edit it;
 colour and alignment. **Move — V** and **Ctrl+T** position or size the active
 layer. Arrow keys nudge it by one pixel; Shift+arrow nudges by ten.
 
+While typing, the artwork preview uses the same rendering as Apply, including
+layer placement, opacity, blending and masks. Select letters in the text field
+and choose a colour to style just that range. With a caret, the picker controls
+newly typed text. Moving the caret follows the surrounding style. Closing or
+cancelling a colour preview restores its original formatting and selection.
+**Ctrl+Enter** applies the complete text draft as one Undo step; **Escape**
+cancels it. Save or Quit first finishes the text, then follows the normal
+save/unsaved-work flow. Native Undo inside the field edits its typing history.
+
 Use **Ctrl+Shift+O** to import a logo into the current document. Keep logos and
 text on separate layers. Lock finished brand elements to protect them from
 accidental edits. Use Design's alignment, distribution, live-text fitting and

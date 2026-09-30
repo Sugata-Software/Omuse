@@ -1,9 +1,9 @@
-//! Bounded Photoshop PSD (version 1, 8-bit RGB) layered import.
+//! Bounded Photoshop PSD/PSB (versions 1/2, 8-bit RGB) layered import.
 //!
 //! This is an original implementation of Adobe's PSD file format records. It
 //! retains supported Photoshop layers, while a PSD with no layer records opens
 //! as one editable raster from its documented merged composite. Unsupported
-//! live Photoshop descriptors still fail rather than silently flattening them.
+//! live Photoshop descriptors retain cached pixels and a conversion report.
 use crate::model::{Document, Layer, MAX_LAYERS, MAX_PIXELS, valid_dimensions};
 use anyhow::{Context, Result, ensure};
 use image::{Rgba, RgbaImage};
@@ -12,6 +12,26 @@ use std::{collections::HashMap, fs, io::Read, path::Path};
 
 const MAX_FILE: u64 = 512 * 1024 * 1024;
 const MAX_ADDITIONAL_INFO_BLOCKS: usize = 4096;
+
+/// PSB widens only these tagged block lengths, even with an 8BIM signature.
+fn large_block(key: &str) -> bool {
+    matches!(
+        key,
+        "LMsk"
+            | "Lr16"
+            | "Lr32"
+            | "Layr"
+            | "Mt16"
+            | "Mt32"
+            | "Mtrn"
+            | "Alph"
+            | "FMsk"
+            | "lnk2"
+            | "FEid"
+            | "FXid"
+            | "PxSD"
+    )
+}
 
 #[derive(Default)]
 struct RawLayer {
@@ -57,9 +77,16 @@ pub fn open(path: &Path) -> Result<Document> {
     let meta = fs::symlink_metadata(path)?;
     ensure!(
         meta.file_type().is_file() && meta.len() <= MAX_FILE,
-        "PSD exceeds 512 MiB"
+        "Photoshop input must be a regular file no larger than 512 MiB"
     );
-    let data = fs::read(path)?;
+    let mut data = Vec::new();
+    fs::File::open(path)?
+        .take(MAX_FILE + 1)
+        .read_to_end(&mut data)?;
+    ensure!(
+        data.len() as u64 <= MAX_FILE,
+        "Photoshop input exceeds 512 MiB"
+    );
     parse(
         &data,
         path.file_stem()
@@ -71,10 +98,12 @@ pub fn open(path: &Path) -> Result<Document> {
 fn parse(data: &[u8], name: &str) -> Result<Document> {
     let mut c = Cursor::new(data);
     ensure!(c.bytes(4)? == b"8BPS", "not a Photoshop document");
+    let version = c.u16()?;
     ensure!(
-        c.u16()? == 1,
-        "Photoshop Large Document (PSB) is unsupported"
+        matches!(version, 1 | 2),
+        "Unsupported Photoshop version {version}"
     );
+    let psb = version == 2;
     c.skip(6)?;
     let channels = c.u16()?;
     ensure!(
@@ -156,7 +185,7 @@ fn parse(data: &[u8], name: &str) -> Result<Document> {
         }
     }
     c.set(resources_end)?;
-    let layer_section_end = section_end(&mut c)?;
+    let layer_section_end = section_end_wide(&mut c, psb)?;
     if c.pos == layer_section_end {
         return flattened_document(
             width,
@@ -166,13 +195,14 @@ fn parse(data: &[u8], name: &str) -> Result<Document> {
             &c.data[layer_section_end..],
             name,
             resolution,
+            psb,
         );
     }
     ensure!(
-        layer_section_end >= c.pos + 4,
+        layer_section_end - c.pos >= if psb { 8 } else { 4 },
         "truncated PSD layer section"
     );
-    let info_len = usize::try_from(c.u32()?)?;
+    let info_len = c.length(psb)?;
     let info_start = c.pos;
     let info_end = info_start
         .checked_add(info_len)
@@ -182,7 +212,7 @@ fn parse(data: &[u8], name: &str) -> Result<Document> {
         "truncated PSD layer information"
     );
     if info_len == 0 {
-        let merged_alpha = has_merged_transparency(&c.data[info_end..layer_section_end])?;
+        let merged_alpha = has_merged_transparency(&c.data[info_end..layer_section_end], psb)?;
         return flattened_document(
             width,
             height,
@@ -191,13 +221,14 @@ fn parse(data: &[u8], name: &str) -> Result<Document> {
             &c.data[layer_section_end..],
             name,
             resolution,
+            psb,
         );
     }
     ensure!(info_len >= 2, "truncated PSD layer information");
     let mut layers = Cursor::new(&c.data[info_start..info_end]);
     let count = usize::from(layers.i16()?.unsigned_abs());
     if count == 0 {
-        let merged_alpha = has_merged_transparency(&c.data[info_end..layer_section_end])?;
+        let merged_alpha = has_merged_transparency(&c.data[info_end..layer_section_end], psb)?;
         return flattened_document(
             width,
             height,
@@ -206,16 +237,17 @@ fn parse(data: &[u8], name: &str) -> Result<Document> {
             &c.data[layer_section_end..],
             name,
             resolution,
+            psb,
         );
     }
     ensure!(count <= MAX_LAYERS, "PSD layer count exceeds limit");
     let mut raw = Vec::with_capacity(count);
     for _ in 0..count {
-        raw.push(read_record(&mut layers)?);
+        raw.push(read_record(&mut layers, psb)?);
     }
     let mut used = 0u64;
     for layer in &mut raw {
-        decode_channels(&mut layers, layer, &mut used)?;
+        decode_channels(&mut layers, layer, &mut used, psb)?;
     }
     c.set(layer_section_end)?;
     let records = assemble(raw, width, height)?;
@@ -226,14 +258,14 @@ fn parse(data: &[u8], name: &str) -> Result<Document> {
         name: name.into(),
         background: [0, 0, 0, 0],
         layers,
-        metadata: json!({"documentID": uuid::Uuid::new_v4().to_string().to_uppercase(), "resolution": resolution, "sourceFormat": "PSD"}),
+        metadata: json!({"documentID": uuid::Uuid::new_v4().to_string().to_uppercase(), "resolution": resolution, "sourceFormat": if psb { "PSB" } else { "PSD" }}),
     })
 }
 
 /// The layer-and-mask section can carry tagged blocks after the global mask.
 /// `Mtrn` is Photoshop's explicit declaration that the extra merged-image
 /// plane is transparency, rather than an arbitrary saved/spot channel.
-fn has_merged_transparency(data: &[u8]) -> Result<bool> {
+fn has_merged_transparency(data: &[u8], psb: bool) -> Result<bool> {
     if data.is_empty() {
         return Ok(false);
     }
@@ -254,11 +286,7 @@ fn has_merged_transparency(data: &[u8]) -> Result<bool> {
             "invalid PSD additional layer information signature"
         );
         let key = c.ascii(4)?;
-        let len = if signature == "8B64" {
-            usize::try_from(c.u64()?).context("PSD additional info exceeds address space")?
-        } else {
-            usize::try_from(c.u32()?)?
-        };
+        let len = c.length(signature == "8B64" || (psb && large_block(&key)))?;
         c.skip(len)?;
         if len % 2 == 1 {
             c.skip(1)?;
@@ -276,6 +304,7 @@ fn flattened_document(
     data: &[u8],
     name: &str,
     resolution: f64,
+    psb: bool,
 ) -> Result<Document> {
     let channel_count = match channels {
         3 => 3usize,
@@ -292,7 +321,7 @@ fn flattened_document(
     };
     let pixels = usize::try_from(u64::from(width) * u64::from(height))
         .context("PSD composite dimensions exceed address space")?;
-    let planes = decode_merged_data(data, width, height, channel_count)?;
+    let planes = decode_merged_data(data, width, height, channel_count, psb)?;
     let rgba_len = pixels
         .checked_mul(4)
         .context("PSD composite RGBA size overflow")?;
@@ -320,11 +349,17 @@ fn flattened_document(
         name: name.into(),
         background: [0, 0, 0, 0],
         layers: vec![layer],
-        metadata: json!({"documentID": uuid::Uuid::new_v4().to_string().to_uppercase(), "resolution": resolution, "sourceFormat": "PSD"}),
+        metadata: json!({"documentID": uuid::Uuid::new_v4().to_string().to_uppercase(), "resolution": resolution, "sourceFormat": if psb { "PSB" } else { "PSD" }}),
     })
 }
 
-fn decode_merged_data(data: &[u8], width: u32, height: u32, channels: usize) -> Result<Vec<u8>> {
+fn decode_merged_data(
+    data: &[u8],
+    width: u32,
+    height: u32,
+    channels: usize,
+    psb: bool,
+) -> Result<Vec<u8>> {
     let pixels = usize::try_from(u64::from(width) * u64::from(height))
         .context("PSD composite dimensions exceed address space")?;
     let expected = pixels
@@ -338,7 +373,7 @@ fn decode_merged_data(data: &[u8], width: u32, height: u32, channels: usize) -> 
             ensure!(payload.len() == expected, "invalid raw PSD composite size");
             payload.to_vec()
         }
-        1 => return decode_merged_rle(width, height, channels, payload),
+        1 => return decode_merged_rle(width, height, channels, payload, psb),
         2 | 3 => {
             let mut decoded =
                 decode_zip_exact(payload, expected, "invalid PSD ZIP composite size")?;
@@ -354,20 +389,35 @@ fn decode_merged_data(data: &[u8], width: u32, height: u32, channels: usize) -> 
     Ok(decoded)
 }
 
-fn decode_merged_rle(width: u32, height: u32, channels: usize, data: &[u8]) -> Result<Vec<u8>> {
+fn decode_merged_rle(
+    width: u32,
+    height: u32,
+    channels: usize,
+    data: &[u8],
+    psb: bool,
+) -> Result<Vec<u8>> {
     let width = width as usize;
     let height = height as usize;
     let rows = height
         .checked_mul(channels)
         .context("PSD RLE row count overflow")?;
-    let table_len = rows.checked_mul(2).context("PSD RLE table overflow")?;
+    let table_len = rows
+        .checked_mul(if psb { 4 } else { 2 })
+        .context("PSD RLE table overflow")?;
     ensure!(
         data.len() >= table_len,
         "truncated PSD composite RLE row table"
     );
+    let mut table = Cursor::new(&data[..table_len]);
     let counts: Vec<usize> = (0..rows)
-        .map(|row| usize::from(u16::from_be_bytes([data[row * 2], data[row * 2 + 1]])))
-        .collect();
+        .map(|_| {
+            if psb {
+                Ok(usize::try_from(table.u32()?)?)
+            } else {
+                Ok(usize::from(table.u16()?))
+            }
+        })
+        .collect::<Result<_>>()?;
     let pixels = width
         .checked_mul(height)
         .context("PSD composite dimensions overflow")?;
@@ -403,13 +453,17 @@ fn unapply_prediction(data: &mut [u8], width: usize) {
 }
 
 fn section_end(c: &mut Cursor<'_>) -> Result<usize> {
-    let len = usize::try_from(c.u32()?)?;
+    section_end_wide(c, false)
+}
+
+fn section_end_wide(c: &mut Cursor<'_>, wide: bool) -> Result<usize> {
+    let len = c.length(wide)?;
     let end = c.pos.checked_add(len).context("PSD section overflow")?;
     ensure!(end <= c.data.len(), "truncated PSD section");
     Ok(end)
 }
 
-fn read_record(c: &mut Cursor<'_>) -> Result<RawLayer> {
+fn read_record(c: &mut Cursor<'_>, psb: bool) -> Result<RawLayer> {
     let mut l = RawLayer {
         opacity: 255,
         fill: 255,
@@ -424,7 +478,12 @@ fn read_record(c: &mut Cursor<'_>) -> Result<RawLayer> {
     let channels = usize::from(c.u16()?);
     ensure!(channels <= 56, "PSD channel count exceeds limit");
     for _ in 0..channels {
-        l.channels.push((c.i16()?, usize::try_from(c.u32()?)?));
+        let id = c.i16()?;
+        ensure!(
+            !l.channels.iter().any(|(existing, _)| *existing == id),
+            "Duplicate Photoshop channel {id}"
+        );
+        l.channels.push((id, c.length(psb)?));
     }
     ensure!(c.bytes(4)? == b"8BIM", "invalid PSD layer signature");
     l.blend = c.ascii(4)?;
@@ -433,6 +492,11 @@ fn read_record(c: &mut Cursor<'_>) -> Result<RawLayer> {
     l.hidden = c.u8()? & 2 != 0;
     c.skip(1)?;
     let extra_end = section_end(c)?;
+    // Every subrecord stays within its own declared extra-data section.
+    let extra = c.bytes(extra_end - c.pos)?;
+    let mut extra_cursor = Cursor::new(extra);
+    let c = &mut extra_cursor;
+    let extra_end = extra.len();
     let mask_len = usize::try_from(c.u32()?)?;
     let mask_end = c.pos.checked_add(mask_len).context("PSD mask overflow")?;
     ensure!(mask_end <= extra_end, "truncated PSD mask record");
@@ -451,17 +515,23 @@ fn read_record(c: &mut Cursor<'_>) -> Result<RawLayer> {
     let n = usize::from(c.u8()?);
     l.name = latin1(c.bytes(n)?);
     c.skip((4 - ((n + 1) % 4)) % 4)?;
-    while c.pos + 12 <= extra_end {
-        let sig = c.ascii(4)?;
-        if sig != "8BIM" && sig != "8B64" {
+    let mut blocks = 0;
+    while c.pos < extra_end {
+        if extra_end - c.pos < 12 && c.data[c.pos..].iter().all(|b| *b == 0) {
             break;
         }
+        blocks += 1;
+        ensure!(
+            blocks <= MAX_ADDITIONAL_INFO_BLOCKS,
+            "Too many Photoshop layer descriptors"
+        );
+        let sig = c.ascii(4)?;
+        ensure!(
+            sig == "8BIM" || sig == "8B64",
+            "Invalid Photoshop layer descriptor signature"
+        );
         let key = c.ascii(4)?;
-        let len = if sig == "8B64" {
-            usize::try_from(c.u64()?).context("PSD descriptor exceeds address space")?
-        } else {
-            usize::try_from(c.u32()?)?
-        };
+        let len = c.length(sig == "8B64" || (psb && large_block(&key)))?;
         let payload = c.bytes(len)?.to_vec();
         if len % 2 == 1 {
             c.skip(1)?;
@@ -485,7 +555,7 @@ fn read_record(c: &mut Cursor<'_>) -> Result<RawLayer> {
     Ok(l)
 }
 
-fn decode_channels(c: &mut Cursor<'_>, l: &mut RawLayer, used: &mut u64) -> Result<()> {
+fn decode_channels(c: &mut Cursor<'_>, l: &mut RawLayer, used: &mut u64, psb: bool) -> Result<()> {
     let w = positive_extent(l.left, l.right)?;
     let h = positive_extent(l.top, l.bottom)?;
     let mw = positive_extent(l.mask_rect[1], l.mask_rect[3])?;
@@ -499,12 +569,16 @@ fn decode_channels(c: &mut Cursor<'_>, l: &mut RawLayer, used: &mut u64) -> Resu
         let start = c.pos;
         let end = start.checked_add(len).context("PSD channel overflow")?;
         ensure!(end <= c.data.len(), "truncated PSD channel");
+        let (cw, ch) = if id == -2 { (mw, mh) } else { (w, h) };
+        ensure!(
+            !matches!(id, -2 | -1 | 0 | 1 | 2) || cw == 0 || ch == 0 || len >= 2,
+            "Photoshop channel has no compression header"
+        );
         if matches!(id, -2 | -1 | 0 | 1 | 2) && len >= 2 {
             let compression = c.u16()?;
             let payload = c.bytes(len - 2)?;
-            let (cw, ch) = if id == -2 { (mw, mh) } else { (w, h) };
             if cw > 0 && ch > 0 {
-                planes.insert(id, decode_plane(compression, cw, ch, payload)?);
+                planes.insert(id, decode_plane_version(compression, cw, ch, payload, psb)?);
             }
         }
         c.set(end)?;
@@ -518,16 +592,23 @@ fn decode_channels(c: &mut Cursor<'_>, l: &mut RawLayer, used: &mut u64) -> Resu
         }
     }
     if w > 0 && h > 0 {
-        let n = w as usize * h as usize;
-        let black = vec![0; n];
-        let opaque = vec![255; n];
-        let r = planes.get(&0).unwrap_or(&black);
-        let g = planes.get(&1).unwrap_or(&black);
-        let b = planes.get(&2).unwrap_or(&black);
-        let a = planes.get(&-1).unwrap_or(&opaque);
+        ensure!(
+            matches!(l.section, Some(1 | 2 | 3))
+                || [0, 1, 2].iter().all(|id| planes.contains_key(id)),
+            "Photoshop raster layer is missing RGB channel data"
+        );
+        let r = planes.get(&0);
+        let g = planes.get(&1);
+        let b = planes.get(&2);
+        let a = planes.get(&-1);
         l.image = Some(RgbaImage::from_fn(w, h, |x, y| {
             let i = y as usize * w as usize + x as usize;
-            Rgba([r[i], g[i], b[i], a[i]])
+            Rgba([
+                r.map_or(0, |p| p[i]),
+                g.map_or(0, |p| p[i]),
+                b.map_or(0, |p| p[i]),
+                a.map_or(255, |p| p[i]),
+            ])
         }));
     }
     Ok(())
@@ -547,14 +628,25 @@ fn bound_surface(w: u32, h: u32, used: &mut u64) -> Result<()> {
     Ok(())
 }
 
+#[cfg(test)]
 fn decode_plane(compression: u16, w: u32, h: u32, data: &[u8]) -> Result<Vec<u8>> {
+    decode_plane_version(compression, w, h, data, false)
+}
+
+fn decode_plane_version(
+    compression: u16,
+    w: u32,
+    h: u32,
+    data: &[u8],
+    psb: bool,
+) -> Result<Vec<u8>> {
     let expected = w as usize * h as usize;
     match compression {
         0 => {
-            ensure!(data.len() >= expected, "truncated raw PSD channel");
+            ensure!(data.len() == expected, "invalid raw PSD channel size");
             Ok(data[..expected].to_vec())
         }
-        1 => unpack_packbits(w as usize, h as usize, data),
+        1 => unpack_packbits_version(w as usize, h as usize, data, psb),
         2 | 3 => {
             let mut decoded = decode_zip_exact(data, expected, "invalid PSD ZIP channel size")?;
             if compression == 3 {
@@ -582,12 +674,26 @@ fn decode_zip_exact(data: &[u8], expected: usize, error: &'static str) -> Result
     Ok(decoded)
 }
 
+#[cfg(test)]
 fn unpack_packbits(w: usize, h: usize, data: &[u8]) -> Result<Vec<u8>> {
-    ensure!(data.len() >= h * 2, "truncated PSD RLE row table");
-    let mut offset = h * 2;
+    unpack_packbits_version(w, h, data, false)
+}
+
+fn unpack_packbits_version(w: usize, h: usize, data: &[u8], psb: bool) -> Result<Vec<u8>> {
+    let mut offset = h
+        .checked_mul(if psb { 4 } else { 2 })
+        .context("PSD RLE table overflow")?;
+    ensure!(data.len() >= offset, "truncated PSD RLE row table");
+    let mut table = Cursor::new(&data[..offset]);
     let counts: Vec<usize> = (0..h)
-        .map(|y| usize::from(u16::from_be_bytes([data[y * 2], data[y * 2 + 1]])))
-        .collect();
+        .map(|_| {
+            if psb {
+                Ok(usize::try_from(table.u32()?)?)
+            } else {
+                Ok(usize::from(table.u16()?))
+            }
+        })
+        .collect::<Result<_>>()?;
     let mut out = vec![0; w * h];
     for (row, bytes) in counts.into_iter().enumerate() {
         let end = offset.checked_add(bytes).context("PSD RLE overflow")?;
@@ -595,6 +701,10 @@ fn unpack_packbits(w: usize, h: usize, data: &[u8]) -> Result<Vec<u8>> {
         out[row * w..(row + 1) * w].copy_from_slice(&unpack_packbits_row(&data[offset..end], w)?);
         offset = end;
     }
+    ensure!(
+        offset == data.len(),
+        "Unexpected trailing PSD RLE channel data"
+    );
     Ok(out)
 }
 
@@ -623,6 +733,10 @@ fn unpack_packbits_row(data: &[u8], width: usize) -> Result<Vec<u8>> {
             offset += 1;
         }
     }
+    ensure!(
+        data[offset..].iter().all(|byte| *byte == 128),
+        "Unexpected trailing PSD RLE row data"
+    );
     Ok(out)
 }
 
@@ -641,6 +755,10 @@ fn assemble(raw: Vec<RawLayer>, width: u32, height: u32) -> Result<Vec<Record>> 
             new_id()
         };
         let mut conversions = conversion_notes(&l, is_group)?;
+        let text = (!is_group)
+            .then(|| l.extra.get("TySh").or_else(|| l.extra.get("tySh")))
+            .flatten()
+            .map(|data| crate::psd_text::parse(data));
         let mut layer = if is_group {
             Layer::group(nonempty_name(&l.name))
         } else {
@@ -665,7 +783,20 @@ fn assemble(raw: Vec<RawLayer>, width: u32, height: u32) -> Result<Vec<Record>> 
         if is_group {
             layer.metadata = json!({"isGroup":true});
         }
-        if !is_group {
+        if let Some(text) = text {
+            conversions.retain(|note| !note.contains("Photoshop text"));
+            match text {
+                Ok(style) => {
+                    layer.metadata["text"] = serde_json::to_value(style)?;
+                    layer.metadata["psdTextCachedAppearance"] = json!(true);
+                    conversions.push("Photoshop text is editable. Its original cached appearance is preserved until edited; editing reflows it using Omuse's text layout and installed fonts.".into());
+                }
+                Err(error) => conversions.push(format!(
+                    "Photoshop text was kept as cached pixels: {error}."
+                )),
+            }
+        }
+        if !is_group && layer.metadata.get("text").is_none() {
             if let Some((image, left, top, shape)) = live_vector(&l.extra, width, height)? {
                 layer.image = Some(image.into());
                 layer.offset_x = left;
@@ -724,7 +855,7 @@ fn assemble(raw: Vec<RawLayer>, width: u32, height: u32) -> Result<Vec<Record>> 
     Ok(records)
 }
 
-fn conversion_notes(l: &RawLayer, is_group: bool) -> Result<Vec<&'static str>> {
+fn conversion_notes(l: &RawLayer, is_group: bool) -> Result<Vec<String>> {
     if is_group {
         return Ok(vec![]);
     }
@@ -753,7 +884,7 @@ fn conversion_notes(l: &RawLayer, is_group: bool) -> Result<Vec<&'static str>> {
                 "unsupported Photoshop descriptor without cached pixels on layer {}",
                 nonempty_name(&l.name)
             );
-            notes.push(label);
+            notes.push(label.to_owned());
         }
     }
     let known = ["levl", "curv", "hue2", "hue "];
@@ -1102,6 +1233,13 @@ impl<'a> Cursor<'a> {
     fn u64(&mut self) -> Result<u64> {
         Ok(u64::from_be_bytes(self.bytes(8)?.try_into().unwrap()))
     }
+    fn length(&mut self, wide: bool) -> Result<usize> {
+        if wide {
+            usize::try_from(self.u64()?).context("PSB length exceeds address space")
+        } else {
+            Ok(usize::try_from(self.u32()?)?)
+        }
+    }
     fn ascii(&mut self, n: usize) -> Result<String> {
         Ok(std::str::from_utf8(self.bytes(n)?)
             .context("invalid PSD ASCII")?
@@ -1118,15 +1256,20 @@ mod tests {
         assert!(decode_plane(2, 1, 1, &[]).is_err());
     }
     #[test]
-    fn truncated_and_psb_are_rejected() {
+    fn truncated_and_unknown_versions_are_rejected() {
         assert!(parse(b"8BPS", "x").is_err());
         let mut h = Vec::from(&b"8BPS"[..]);
-        h.extend_from_slice(&2u16.to_be_bytes());
+        h.extend_from_slice(&3u16.to_be_bytes());
         h.extend_from_slice(&[0; 6]);
-        assert!(parse(&h, "x").unwrap_err().to_string().contains("PSB"));
+        assert!(
+            parse(&h, "x")
+                .unwrap_err()
+                .to_string()
+                .contains("version 3")
+        );
     }
 
-    fn flattened_psd(
+    pub(super) fn flattened_psd(
         width: u32,
         height: u32,
         channels: u16,
@@ -1189,13 +1332,18 @@ mod tests {
         resource
     }
 
-    fn planar(pixels: &[[u8; 4]], channels: usize) -> Vec<u8> {
+    pub(super) fn planar(pixels: &[[u8; 4]], channels: usize) -> Vec<u8> {
         (0..channels)
             .flat_map(|channel| pixels.iter().map(move |pixel| pixel[channel]))
             .collect()
     }
 
-    fn rle_literal_planar(width: usize, height: usize, channels: usize, data: &[u8]) -> Vec<u8> {
+    pub(super) fn rle_literal_planar(
+        width: usize,
+        height: usize,
+        channels: usize,
+        data: &[u8],
+    ) -> Vec<u8> {
         let mut rows = Vec::with_capacity(channels * height);
         for plane in data.chunks_exact(width * height) {
             for row in plane.chunks_exact(width) {
@@ -1216,7 +1364,7 @@ mod tests {
         encoded
     }
 
-    fn predicted_planar(width: usize, height: usize, data: &[u8]) -> Vec<u8> {
+    pub(super) fn predicted_planar(width: usize, height: usize, data: &[u8]) -> Vec<u8> {
         let mut predicted = data.to_vec();
         for plane in predicted.chunks_exact_mut(width * height) {
             for row in plane.chunks_exact_mut(width) {
@@ -1228,7 +1376,7 @@ mod tests {
         predicted
     }
 
-    fn zip(data: &[u8]) -> Vec<u8> {
+    pub(super) fn zip(data: &[u8]) -> Vec<u8> {
         use std::io::Write;
         let mut encoder =
             flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::default());
@@ -1236,7 +1384,7 @@ mod tests {
         encoder.finish().unwrap()
     }
 
-    fn assert_flattened_pixels(psd: &[u8], expected: &[[u8; 4]]) {
+    pub(super) fn assert_flattened_pixels(psd: &[u8], expected: &[[u8; 4]]) {
         let document = parse(psd, "Flattened").unwrap();
         assert_eq!(document.layers.len(), 1);
         assert_eq!(document.layers[0].name, "Merged composite");
@@ -1614,11 +1762,32 @@ mod tests {
         };
         let document = open(Path::new(&path)).unwrap();
         assert!(document.width > 0 && document.height > 0);
+        let minimum_layers = crate::identity::env_var_os("OMUSE_PSD_MIN_LAYERS")
+            .and_then(|value| value.to_str().and_then(|s| s.parse::<usize>().ok()))
+            .unwrap_or(2);
         assert!(
-            document.layers.len() >= 2,
+            document.layers.len() >= minimum_layers,
             "fixture did not preserve layers"
         );
         assert!(document.layers.iter().all(|layer| layer.image.is_some()));
+        if let Some(expected) = crate::identity::env_var_os("OMUSE_PSD_EXPECT_TEXT") {
+            let styles = document
+                .layers
+                .iter()
+                .filter_map(|layer| crate::objects::live_text(layer).unwrap())
+                .collect::<Vec<_>>();
+            assert!(
+                !styles.is_empty(),
+                "No editable Photoshop text: {:?}",
+                crate::import_report::conversion_notes(&document)
+            );
+            assert!(
+                styles
+                    .iter()
+                    .any(|style| style.content.contains(expected.to_string_lossy().as_ref())),
+                "The expected text was not preserved"
+            );
+        }
         if let Some(reference) = crate::identity::env_var_os("OMUSE_PSD_REFERENCE") {
             let expected = image::ImageReader::open(reference)
                 .unwrap()
@@ -1658,6 +1827,9 @@ mod tests {
 
 #[cfg(test)]
 mod zip_tests {
+    use super::tests::{
+        assert_flattened_pixels, flattened_psd, planar, predicted_planar, rle_literal_planar, zip,
+    };
     use super::*;
     #[test]
     fn zip_and_prediction_preserve_each_row() {
@@ -1686,5 +1858,337 @@ mod zip_tests {
         let compressed = encoder.finish().unwrap();
         let error = decode_plane(2, 1, 1, &compressed).unwrap_err().to_string();
         assert!(error.contains("invalid PSD ZIP channel size"));
+    }
+
+    fn widen_flattened_psd(mut data: Vec<u8>) -> Vec<u8> {
+        // Generated fixtures have empty colour-mode and image-resource blocks.
+        data[4..6].copy_from_slice(&2u16.to_be_bytes());
+        let section_size = u32::from_be_bytes(data[34..38].try_into().unwrap());
+        data.splice(34..38, u64::from(section_size).to_be_bytes());
+        data
+    }
+
+    fn wide_rle(width: usize, height: usize, channels: usize, planes: &[u8]) -> Vec<u8> {
+        let narrow = rle_literal_planar(width, height, channels, planes);
+        let rows = height * channels;
+        let mut data = Vec::new();
+        for count in narrow[..rows * 2].chunks_exact(2) {
+            data.extend_from_slice(
+                &u32::from(u16::from_be_bytes(count.try_into().unwrap())).to_be_bytes(),
+            );
+        }
+        data.extend_from_slice(&narrow[rows * 2..]);
+        data
+    }
+
+    #[test]
+    fn psb_merged_pixels_support_raw_rle_zip_prediction_and_transparency() {
+        let pixels = [
+            [10, 20, 30, 255],
+            [40, 50, 60, 255],
+            [70, 80, 90, 255],
+            [100, 110, 120, 255],
+        ];
+        let planes = planar(&pixels, 3);
+        for compression in 0..=3 {
+            let payload = match compression {
+                0 => planes.clone(),
+                1 => wide_rle(2, 2, 3, &planes),
+                2 => zip(&planes),
+                _ => zip(&predicted_planar(2, 2, &planes)),
+            };
+            let psb = widen_flattened_psd(flattened_psd(2, 2, 3, &[], compression, &payload));
+            assert_flattened_pixels(&psb, &pixels);
+            assert_eq!(parse(&psb, "PSB").unwrap().metadata["sourceFormat"], "PSB");
+        }
+        let rgba = [[1, 2, 3, 0], [4, 5, 6, 127]];
+        let mut layer_section = 0u64.to_be_bytes().to_vec();
+        layer_section.extend_from_slice(&0u32.to_be_bytes());
+        layer_section.extend_from_slice(b"8BIMMtrn");
+        layer_section.extend_from_slice(&0u64.to_be_bytes());
+        let psb = widen_flattened_psd(flattened_psd(2, 1, 4, &layer_section, 0, &planar(&rgba, 4)));
+        assert_flattened_pixels(&psb, &rgba);
+    }
+
+    #[test]
+    fn independent_psb_fixture_preserves_layer_and_matches_its_photoshop_composite() {
+        let data = include_bytes!("../tests/fixtures/photoshop/psd-tools-1layer.psb");
+        let document = parse(data, "Independent PSB").unwrap();
+        assert_eq!((document.width, document.height), (101, 55));
+        assert_eq!(document.layers.len(), 1);
+        assert!(document.layers[0].image.is_some());
+        let mut cursor = Cursor::new(data);
+        cursor.skip(26).unwrap();
+        for wide in [false, false, true] {
+            let end = section_end_wide(&mut cursor, wide).unwrap();
+            cursor.set(end).unwrap();
+        }
+        let expected = flattened_document(
+            101,
+            55,
+            3,
+            false,
+            &data[cursor.pos..],
+            "Reference",
+            72.,
+            true,
+        )
+        .unwrap();
+        assert_eq!(
+            crate::raster::composite(&document),
+            crate::raster::composite(&expected)
+        );
+    }
+
+    #[test]
+    fn psb_rle_uses_full_32_bit_counts_and_rejects_truncation() {
+        let mut payload = Vec::new();
+        for _ in 0..3 {
+            payload.extend_from_slice(&70_002u32.to_be_bytes());
+        }
+        for color in [23, 45, 67] {
+            payload.extend_from_slice(&vec![128; 70_000]);
+            payload.extend_from_slice(&[0, color]);
+        }
+        let psb = widen_flattened_psd(flattened_psd(1, 1, 3, &[], 1, &payload));
+        assert_flattened_pixels(&psb, &[[23, 45, 67, 255]]);
+        payload[0..4].copy_from_slice(&u32::MAX.to_be_bytes());
+        assert!(
+            parse(
+                &widen_flattened_psd(flattened_psd(1, 1, 3, &[], 1, &payload)),
+                "Bad RLE"
+            )
+            .is_err()
+        );
+        assert!(decode_plane_version(1, 1, 2, &[0, 0, 0, 1], true).is_err());
+        assert!(unpack_packbits_row(&[0, 7, 0, 9], 1).is_err());
+    }
+
+    fn text_layer_file(psb: bool, compression: u16, type_data: Option<&[u8]>) -> Vec<u8> {
+        let mut records = Vec::new();
+        // Preserve all six pixels, including those outside the 2x2 canvas.
+        for side in [-1i32, -2, 1, 1] {
+            records.extend_from_slice(&side.to_be_bytes());
+        }
+        records.extend_from_slice(&4u16.to_be_bytes());
+        let mut channels = Vec::new();
+        for (id, values) in [
+            (0i16, [1, 2, 3, 4, 5, 6]),
+            (1, [10, 20, 30, 40, 50, 60]),
+            (2, [7, 8, 9, 10, 11, 12]),
+            (-1, [255, 128, 0, 255, 128, 255]),
+        ] {
+            let payload = match compression {
+                0 => values.to_vec(),
+                1 if psb => wide_rle(3, 2, 1, &values),
+                1 => rle_literal_planar(3, 2, 1, &values),
+                2 => zip(&values),
+                _ => zip(&predicted_planar(3, 2, &values)),
+            };
+            records.extend_from_slice(&id.to_be_bytes());
+            if psb {
+                records.extend_from_slice(&((payload.len() + 2) as u64).to_be_bytes());
+            } else {
+                records.extend_from_slice(&((payload.len() + 2) as u32).to_be_bytes());
+            }
+            channels.extend_from_slice(&compression.to_be_bytes());
+            channels.extend_from_slice(&payload);
+        }
+        records.extend_from_slice(b"8BIMnorm\xff\0\0\0");
+        let mut extra = 0u32.to_be_bytes().to_vec(); // mask
+        extra.extend_from_slice(&0u32.to_be_bytes()); // blending ranges
+        extra.extend_from_slice(b"\x05Title\0\0");
+        // PSB uses a 64-bit length for LMsk even under an 8BIM signature.
+        extra.extend_from_slice(b"8BIMLMsk");
+        if psb {
+            extra.extend_from_slice(&0u64.to_be_bytes());
+        } else {
+            extra.extend_from_slice(&0u32.to_be_bytes());
+        }
+        if let Some(data) = type_data {
+            extra.extend_from_slice(b"8BIMTySh");
+            extra.extend_from_slice(&(data.len() as u32).to_be_bytes());
+            extra.extend_from_slice(data);
+            if data.len() % 2 == 1 {
+                extra.push(0);
+            }
+        }
+        records.extend_from_slice(&(extra.len() as u32).to_be_bytes());
+        records.extend_from_slice(&extra);
+        let mut info = 1i16.to_be_bytes().to_vec();
+        info.extend_from_slice(&records);
+        info.extend_from_slice(&channels);
+        if info.len() % 2 == 1 {
+            info.push(0);
+        }
+        let mut section = Vec::new();
+        if psb {
+            section.extend_from_slice(&(info.len() as u64).to_be_bytes());
+        } else {
+            section.extend_from_slice(&(info.len() as u32).to_be_bytes());
+        }
+        section.extend_from_slice(&info);
+        section.extend_from_slice(&0u32.to_be_bytes());
+        let data = flattened_psd(2, 2, 4, &section, 0, &[]);
+        if psb { widen_flattened_psd(data) } else { data }
+    }
+
+    #[test]
+    fn psb_layered_channels_preserve_off_canvas_artwork_for_every_compression() {
+        let expected = [
+            [1, 10, 7, 255],
+            [2, 20, 8, 128],
+            [3, 30, 9, 0],
+            [4, 40, 10, 255],
+            [5, 50, 11, 128],
+            [6, 60, 12, 255],
+        ];
+        for compression in 0..=3 {
+            let doc = parse(&text_layer_file(true, compression, None), "Layers").unwrap();
+            let layer = &doc.layers[0];
+            assert_eq!((doc.width, doc.height), (2, 2));
+            assert_eq!((layer.offset_x, layer.offset_y), (-2., -1.));
+            let image = layer.image.as_ref().unwrap();
+            assert_eq!(image.dimensions(), (3, 2));
+            assert_eq!(image.pixels().map(|p| p.0).collect::<Vec<_>>(), expected);
+        }
+    }
+
+    #[test]
+    fn psb_64_bit_lengths_and_surface_budgets_reject_without_truncating() {
+        let original = text_layer_file(true, 0, None);
+        for offset in [34, 42, 72] {
+            // global length, info length, first channel length
+            let mut broken = original.clone();
+            broken[offset..offset + 8].copy_from_slice(&u64::MAX.to_be_bytes());
+            assert!(parse(&broken, "Oversize").is_err(), "offset {offset}");
+        }
+        let mut huge = original.clone();
+        huge[60..64].copy_from_slice(&30_000i32.to_be_bytes()); // layer bottom
+        huge[64..68].copy_from_slice(&30_000i32.to_be_bytes()); // layer right
+        assert!(
+            parse(&huge, "Huge off-canvas layer")
+                .unwrap_err()
+                .to_string()
+                .contains("dimensions exceed limits")
+        );
+        let mut crossing = original;
+        // Layer extra length is after rect, count, four 10-byte channels and layer header.
+        let extra_len_offset = 52 + 16 + 2 + 40 + 12;
+        crossing[extra_len_offset..extra_len_offset + 4].copy_from_slice(&4u32.to_be_bytes());
+        assert!(parse(&crossing, "Crossing descriptor").is_err());
+    }
+
+    #[test]
+    fn photoshop_text_is_editable_with_cached_pixels_and_omuse_roundtrip() {
+        let data = crate::psd_text::tests::fixture("Title 🧡", "", false);
+        for psb in [false, true] {
+            let original = text_layer_file(psb, 2, Some(&data));
+            let doc = parse(&original, "Text").unwrap();
+            let style = crate::objects::live_text(&doc.layers[0]).unwrap().unwrap();
+            assert_eq!(style.content, "Title 🧡");
+            assert_eq!(doc.layers[0].image.as_ref().unwrap().dimensions(), (3, 2));
+            assert!(
+                crate::import_report::conversion_notes(&doc)[0]
+                    .contains("original cached appearance")
+            );
+            let temp = tempfile::tempdir().unwrap();
+            let path = temp.path().join("text.omuse");
+            crate::document::save(&doc, &path).unwrap();
+            let reopened = crate::document::open(&path).unwrap();
+            assert_eq!(
+                crate::objects::live_text(&reopened.layers[0]).unwrap(),
+                Some(style.clone())
+            );
+            assert_eq!(
+                reopened.layers[0].image.as_ref().unwrap().as_raw(),
+                doc.layers[0].image.as_ref().unwrap().as_raw()
+            );
+            let mut edited = reopened.layers[0].clone();
+            let mut style = style;
+            style.content = "Changed".into();
+            crate::objects::set_live_text(&mut edited, style).unwrap();
+            assert_ne!(edited.image.as_ref().unwrap().dimensions(), (3, 2));
+        }
+    }
+
+    #[test]
+    fn cached_photoshop_text_rasterization_preserves_pixels_placement_and_undo() {
+        for psb in [false, true] {
+            let type_data = crate::psd_text::tests::fixture("Cached title", "", false);
+            let mut doc = parse(&text_layer_file(psb, 3, Some(&type_data)), "Text").unwrap();
+            doc.layers[0].rotation = 17.;
+            doc.layers[0].scale_x = -1.5;
+            doc.layers[0].scale_y = 2.;
+            let mut editor = crate::editor::Editor::new(doc);
+            let id = editor.active_layer.clone();
+            let cached = editor.document.layers[0].image.clone().unwrap();
+            let placement = editor.layer_placement(&id).unwrap();
+            let style = crate::objects::live_text(&editor.document.layers[0])
+                .unwrap()
+                .unwrap();
+            // An unchanged text Apply keeps the imported cache marker.
+            assert!(!editor.set_live_text(&id, style.clone()).unwrap());
+            assert_eq!(
+                editor.document.layers[0].metadata["psdTextCachedAppearance"],
+                true
+            );
+            assert!(editor.rasterize_layer(&id));
+            assert_eq!(editor.document.layers[0].image.as_deref(), Some(&*cached));
+            assert_eq!(editor.layer_placement(&id), Some(placement));
+            assert!(
+                crate::objects::live_text(&editor.document.layers[0])
+                    .unwrap()
+                    .is_none()
+            );
+            assert!(
+                editor.document.layers[0]
+                    .metadata
+                    .get("psdTextCachedAppearance")
+                    .is_none()
+            );
+            assert_eq!(editor.undo_depth(), 1);
+            assert!(editor.undo());
+            assert_eq!(editor.document.layers[0].image.as_deref(), Some(&*cached));
+            assert_eq!(editor.layer_placement(&id), Some(placement));
+            assert_eq!(
+                crate::objects::live_text(&editor.document.layers[0]).unwrap(),
+                Some(style.clone())
+            );
+            assert_eq!(
+                editor.document.layers[0].metadata["psdTextCachedAppearance"],
+                true
+            );
+            let mut changed = style;
+            changed.content = "Actually edited text".into();
+            assert!(editor.set_live_text(&id, changed).unwrap());
+            assert!(
+                editor.document.layers[0]
+                    .metadata
+                    .get("psdTextCachedAppearance")
+                    .is_none()
+            );
+            assert!(editor.undo());
+            assert_eq!(
+                editor.document.layers[0].metadata["psdTextCachedAppearance"],
+                true
+            );
+            assert_eq!(editor.document.layers[0].image.as_deref(), Some(&*cached));
+        }
+    }
+
+    #[test]
+    fn unsupported_warp_and_malformed_text_keep_pixels_and_report_why() {
+        for data in [
+            crate::psd_text::tests::fixture("Warp", "", true),
+            vec![0, 1, 2],
+        ] {
+            let doc = parse(&text_layer_file(false, 0, Some(&data)), "Fallback").unwrap();
+            assert!(crate::objects::live_text(&doc.layers[0]).unwrap().is_none());
+            assert_eq!(doc.layers[0].image.as_ref().unwrap().dimensions(), (3, 2));
+            assert!(
+                crate::import_report::conversion_notes(&doc)[0].contains("kept as cached pixels")
+            );
+        }
     }
 }

@@ -29,11 +29,24 @@ pub struct CropFrame {
     drag: Option<Drag>,
 }
 
-pub const PRESETS: &[&str] = &["Free", "Original", "1:1", "4:5", "3:2", "16:9"];
+pub const PRESETS: &[&str] = &["Free", "Original", "1:1", "4:5", "3:2", "16:9", "3:4"];
 
 impl CropFrame {
     pub fn canvas_size(&self) -> (f32, f32) {
         (self.width, self.height)
+    }
+    pub fn preset_label(&self, index: usize) -> &'static str {
+        let label = PRESETS.get(index).copied().unwrap_or("Free");
+        if !self.swapped {
+            return label;
+        }
+        match index {
+            3 => "5:4",
+            4 => "2:3",
+            5 => "9:16",
+            6 => "4:3",
+            _ => label,
+        }
     }
     pub fn new(width: u32, height: u32, selection: Option<(u32, u32, u32, u32)>) -> Self {
         let (x, y, w, h) = selection
@@ -68,6 +81,7 @@ impl CropFrame {
             3 => Some(4. / 5.),
             4 => Some(3. / 2.),
             5 => Some(16. / 9.),
+            6 => Some(3. / 4.),
             _ => None,
         };
         self.ratio = ratio.map(|r| if self.swapped { 1. / r } else { r });
@@ -188,6 +202,20 @@ impl CropFrame {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn portrait_three_four_crop_and_swapped_label_match_the_geometry() {
+        let mut crop = CropFrame::new(1200, 1200, None);
+        crop.set_preset(6);
+        assert_eq!(crop.preset_label(6), "3:4");
+        assert_eq!(crop.ratio, Some(0.75));
+        assert_eq!((crop.pixels().2, crop.pixels().3), (900, 1200));
+        crop.swap();
+        assert_eq!(crop.preset_label(6), "4:3");
+        assert!((crop.ratio.unwrap() - 4. / 3.).abs() < 0.0001);
+        assert!(crop.pixels().2 > crop.pixels().3);
+        crop.swap();
+        assert_eq!(crop.preset_label(6), "3:4");
+    }
     #[test]
     fn ratios_and_swapping_stay_inside_canvas() {
         for (w, h) in [

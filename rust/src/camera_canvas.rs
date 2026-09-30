@@ -16,12 +16,23 @@ const HEIGHT: f32 = 200.;
 pub enum CameraCanvasMode {
     PointColor,
     Geometry,
+    WhiteBalance,
+    Defringe,
+    TargetCurve,
+    TargetHue,
+    TargetSaturation,
+    TargetLuminance,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum CameraCanvasEvent {
     Picked(PointColor),
     Guide(GeometryGuide),
+    Sampled([u8; 4]),
+    TargetStarted([u8; 4]),
+    TargetMoved(f32),
+    TargetFinished,
+    TargetCancelled,
 }
 
 pub struct CameraCanvas {
@@ -31,6 +42,7 @@ pub struct CameraCanvas {
     guides: Vec<GeometryGuide>,
     drag_start: Option<(f32, f32)>,
     drag_current: Option<(f32, f32)>,
+    target_start: Option<f32>,
     bounds: Rc<Cell<Bounds<Pixels>>>,
 }
 
@@ -50,6 +62,7 @@ impl CameraCanvas {
             guides: Vec::new(),
             drag_start: None,
             drag_current: None,
+            target_start: None,
             bounds: Rc::new(Cell::new(Bounds::default())),
         })
     }
@@ -63,24 +76,45 @@ impl CameraCanvas {
             source.width() > 0 && source.height() > 0,
             "preview image is empty"
         );
+        cx.drop_image(self.preview.clone(), None);
         self.preview = render_image(&source);
         self.source = source;
         self.drag_start = None;
         self.drag_current = None;
+        self.target_start = None;
         cx.notify();
         Ok(())
     }
 
     pub fn set_mode(&mut self, mode: CameraCanvasMode, cx: &mut Context<Self>) {
+        if self.mode == mode {
+            return;
+        }
         self.mode = mode;
         self.drag_start = None;
         self.drag_current = None;
+        self.target_start = None;
         cx.notify();
     }
 
     pub fn set_guides(&mut self, guides: Vec<GeometryGuide>, cx: &mut Context<Self>) {
         self.guides = guides.into_iter().take(16).collect();
         cx.notify();
+    }
+
+    pub fn cancel_target(&mut self, cx: &mut Context<Self>) {
+        self.target_start = None;
+        cx.notify();
+    }
+
+    fn sample(&self, normalized: (f32, f32)) -> [u8; 4] {
+        let x = (normalized.0 * self.source.width() as f32)
+            .floor()
+            .min(self.source.width() as f32 - 1.) as u32;
+        let y = (normalized.1 * self.source.height() as f32)
+            .floor()
+            .min(self.source.height() as f32 - 1.) as u32;
+        self.source.get_pixel(x, y).0
     }
 
     fn image_rect(&self) -> Bounds<Pixels> {
@@ -118,6 +152,9 @@ impl CameraCanvas {
                     .floor()
                     .min(self.source.height() as f32 - 1.) as u32;
                 let pixel = self.source.get_pixel(x, y).0;
+                if pixel[3] == 0 {
+                    return;
+                }
                 let (hue, saturation, luminance) = rgb_to_hsl(pixel[0], pixel[1], pixel[2]);
                 cx.emit(CameraCanvasEvent::Picked(PointColor {
                     hue,
@@ -131,10 +168,35 @@ impl CameraCanvas {
                 self.drag_current = Some(normalized);
                 cx.notify();
             }
+            CameraCanvasMode::WhiteBalance | CameraCanvasMode::Defringe => {
+                let pixel = self.sample(normalized);
+                if pixel[3] != 0 {
+                    cx.emit(CameraCanvasEvent::Sampled(pixel));
+                }
+            }
+            _ => {
+                let pixel = self.sample(normalized);
+                if pixel[3] == 0 {
+                    return;
+                }
+                self.target_start = Some(f32::from(event.position.y));
+                cx.emit(CameraCanvasEvent::TargetStarted(pixel));
+            }
         }
     }
 
     fn moved(&mut self, event: &MouseMoveEvent, cx: &mut Context<Self>) {
+        if let Some(start) = self.target_start {
+            if !event.dragging() {
+                self.target_start = None;
+                cx.emit(CameraCanvasEvent::TargetCancelled);
+            } else {
+                let delta = (start - f32::from(event.position.y))
+                    / f32::from(self.image_rect().size.height).max(1.);
+                cx.emit(CameraCanvasEvent::TargetMoved(delta.clamp(-1., 1.)));
+            }
+            return;
+        }
         if event.dragging() && self.drag_start.is_some() {
             self.drag_current = self.normalized(event.position);
             cx.notify();
@@ -142,6 +204,13 @@ impl CameraCanvas {
     }
 
     fn up(&mut self, event: &MouseUpEvent, cx: &mut Context<Self>) {
+        if let Some(start) = self.target_start.take() {
+            let delta = (start - f32::from(event.position.y))
+                / f32::from(self.image_rect().size.height).max(1.);
+            cx.emit(CameraCanvasEvent::TargetMoved(delta.clamp(-1., 1.)));
+            cx.emit(CameraCanvasEvent::TargetFinished);
+            return;
+        }
         let Some(start) = self.drag_start.take() else {
             return;
         };
@@ -280,8 +349,52 @@ fn rgb_to_hsl(red: u8, green: u8, blue: u8) -> (f32, f32, f32) {
     (sector * 60., saturation, luminance)
 }
 
+/// A 2x-density reference texture with bounded sampling work. Keep the original
+/// Arc for exact eyedropper pixels; never allocate a full-size display copy.
+fn preview_pixels(source: &RgbaImage) -> RgbaImage {
+    let scale = (700. / source.width() as f64)
+        .min(400. / source.height() as f64)
+        .min(1.);
+    let width = (source.width() as f64 * scale).round().max(1.) as u32;
+    let height = (source.height() as f64 * scale).round().max(1.) as u32;
+    RgbaImage::from_fn(width, height, |x, y| {
+        let sx = ((x as f64 + 0.5) * source.width() as f64 / width as f64 - 0.5)
+            .clamp(0., source.width() as f64 - 1.);
+        let sy = ((y as f64 + 0.5) * source.height() as f64 / height as f64 - 0.5)
+            .clamp(0., source.height() as f64 - 1.);
+        let (left, top) = (sx.floor() as u32, sy.floor() as u32);
+        let (fx, fy) = (sx.fract(), sy.fract());
+        let mut sums = [0.; 4];
+        for (dx, dy, weight) in [
+            (0, 0, (1. - fx) * (1. - fy)),
+            (1, 0, fx * (1. - fy)),
+            (0, 1, (1. - fx) * fy),
+            (1, 1, fx * fy),
+        ] {
+            let pixel = source.get_pixel(
+                (left + dx).min(source.width() - 1),
+                (top + dy).min(source.height() - 1),
+            );
+            let coverage = pixel[3] as f64 * weight;
+            sums[3] += coverage;
+            for channel in 0..3 {
+                sums[channel] += pixel[channel] as f64 * coverage;
+            }
+        }
+        if sums[3] <= 0. {
+            return image::Rgba([0; 4]);
+        }
+        image::Rgba([
+            (sums[0] / sums[3]).round() as u8,
+            (sums[1] / sums[3]).round() as u8,
+            (sums[2] / sums[3]).round() as u8,
+            sums[3].round() as u8,
+        ])
+    })
+}
+
 fn render_image(source: &RgbaImage) -> Arc<RenderImage> {
-    let mut bgra = source.clone();
+    let mut bgra = preview_pixels(source);
     for pixel in bgra.pixels_mut() {
         pixel.0.swap(0, 2);
     }
@@ -298,6 +411,54 @@ mod tests {
         assert_eq!(rgb_to_hsl(255, 0, 0), (0., 1., 0.5));
         assert_eq!(rgb_to_hsl(0, 255, 0), (120., 1., 0.5));
         assert_eq!(rgb_to_hsl(128, 128, 128), (0., 0., 128. / 255.));
+    }
+
+    #[test]
+    fn camera_reference_texture_is_bounded_and_alpha_correct() {
+        let source = RgbaImage::from_fn(1400, 800, |x, _| {
+            if x % 2 == 0 {
+                image::Rgba([240, 20, 0, 128])
+            } else {
+                image::Rgba([0, 0, 255, 0])
+            }
+        });
+        let preview = preview_pixels(&source);
+        assert_eq!(preview.dimensions(), (700, 400));
+        assert!(preview.pixels().all(|p| p.0 == [240, 20, 0, 64]));
+        let small = RgbaImage::from_pixel(3, 5, image::Rgba([91, 22, 17, 137]));
+        assert_eq!(preview_pixels(&small), small);
+    }
+
+    #[gpui_kit::test]
+    fn camera_picker_rejects_transparent_hidden_rgb(cx: &mut TestAppContext) {
+        cx.update(crate::init_test_theme);
+        let source = Arc::new(RgbaImage::from_fn(2, 1, |x, _| {
+            image::Rgba([0, 255, 0, if x == 0 { 0 } else { 128 }])
+        }));
+        let (view, cx) = cx.add_window_view(|_, _| {
+            CameraCanvas::new(source, CameraCanvasMode::PointColor).unwrap()
+        });
+        let emitted = Rc::new(Cell::new(0));
+        let capture = emitted.clone();
+        cx.update(|_, cx| {
+            cx.subscribe(&view, move |_, event: &CameraCanvasEvent, _| {
+                if let CameraCanvasEvent::Picked(color) = event {
+                    assert_eq!(color.hue, 120.);
+                    capture.set(capture.get() + 1);
+                }
+            })
+            .detach();
+        });
+        cx.simulate_resize(size(px(700.), px(400.)));
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        let bounds = cx.debug_bounds("camera-canvas").unwrap();
+        let left = bounds.center() - point(px(80.), px(0.));
+        let right = bounds.center() + point(px(80.), px(0.));
+        cx.simulate_mouse_down(left, MouseButton::Left, Modifiers::default());
+        assert_eq!(emitted.get(), 0);
+        cx.simulate_mouse_up(left, MouseButton::Left, Modifiers::default());
+        cx.simulate_mouse_down(right, MouseButton::Left, Modifiers::default());
+        assert_eq!(emitted.get(), 1);
     }
 
     #[gpui_kit::test]

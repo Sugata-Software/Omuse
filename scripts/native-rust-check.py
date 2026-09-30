@@ -26,7 +26,7 @@ parser.add_argument('--ai-resume-history', type=Path, metavar='EVIDENCE_DIRECTOR
 parser.add_argument('--ai-image-intent', choices=('generate','replace','remove','background','expand'), help='Explicit live subscription check for exactly one image intent; keeps, saves, reopens, undoes and redoes the reviewed result')
 parser.add_argument('--small-window', action='store_true')
 parser.add_argument('--require-usable-startup', action='store_true')
-parser.add_argument('--panel', choices=('crop','curves','mixer','geometry','text','layers','develop','selection','canvas','luminosity-range','color-range','filter-stack','blend-if','advanced-retouch','controlled-removal','editable-warp','refine-workspace','brush-studio','smart-source','colour-management','automation','multi-image','vector-path','vector-mask','create','templates','assistant','content-export','motion','commands','shortcuts'))
+parser.add_argument('--panel', choices=('dither','bloom-glow','vignette-overlay','local-contrast','crop','curves','mixer','geometry','text','layers','develop','selection','canvas','luminosity-range','color-range','filter-stack','blend-if','advanced-retouch','controlled-removal','editable-warp','refine-workspace','brush-studio','smart-source','colour-management','automation','multi-image','vector-path','vector-mask','create','templates','assistant','content-export','motion','commands','shortcuts'))
 parser.add_argument('--theme', choices=('system','dark','light'), default='system')
 parser.add_argument('--minimum-window', action='store_true', help='Run the interaction journey at 800x600')
 parser.add_argument('--x11', action='store_true', help='Run only the owned app through the desktop XWayland connection')

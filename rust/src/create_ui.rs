@@ -507,6 +507,7 @@ impl EditorView {
                 .await;
             let _ = view.update_in(cx, |this, window, cx| {
                 this.create.saving = false;
+                let save_again = std::mem::take(&mut this.save_again);
                 match result {
                     Ok((project, path, stamp)) => {
                         if this
@@ -530,6 +531,7 @@ impl EditorView {
                                 == identity.1;
                         this.path = Some(path.clone());
                         this.live_stamp = stamp;
+                        this.note_recent(path.clone(), cx);
                         if unchanged {
                             if let (Some(session), Some(project)) =
                                 (this.create.session.as_mut(), project)
@@ -551,17 +553,31 @@ impl EditorView {
                             }
                             this.editor.mark_saved();
                             this.recovery.clear();
-                            if this.dialog != Dialog::None
+                            if matches!(this.dialog, Dialog::Save | Dialog::Unsaved)
                                 && (this.dialog, this.dialog_generation) == dialog_identity
                             {
                                 this.dialog = Dialog::None;
                                 this.focus.focus(window, cx);
                             }
                             this.status = format!("Saved {}", path.display());
-                            if let Some(pending) = this.pending.take() {
+                            if this.dialog == Dialog::None
+                                && let Some(pending) = this.pending.take()
+                            {
                                 this.perform(pending, window, cx);
                             }
                         } else {
+                            if save_again {
+                                if let Err(error) =
+                                    this.save_content_background(path, stamp, window, cx)
+                                {
+                                    this.status = format!("Queued save failed: {error:#}");
+                                    if this.pending.is_some() {
+                                        this.dialog = Dialog::Unsaved;
+                                    }
+                                }
+                                cx.notify();
+                                return;
+                            }
                             this.status =
                                 "Saved a snapshot. Your newer edits still need saving.".into();
                             this.schedule_content_recovery();
@@ -587,6 +603,16 @@ impl EditorView {
         Ok(())
     }
     pub(super) fn install_opened_content(&mut self, doc: Document, project: Option<Project>) {
+        self.cancel_camera_raw();
+        self.external = external_change_ui::ExternalState::default();
+        self.crop = None;
+        self.drag_start = None;
+        self.selection_box = None;
+        self.transform_drag = None;
+        self.transform_original_box = None;
+        self.transform_draft = None;
+        self.distort_draft = None;
+        self.guide_drag = None;
         self.create.session = project.map(CreateSession::new);
         self.create.epoch = self.create.epoch.wrapping_add(1);
         self.editor = Editor::new(doc);

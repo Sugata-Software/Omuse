@@ -16,11 +16,48 @@ For RAW or 16-bit work, keep the retained source. Rasterizing a copy permits
 ordinary pixel painting but gives up that copy's original precision/editing
 model. [Advanced workflows](../rust-advanced-workflows.md) explains these limits.
 
+## Import Photoshop or SVG artwork
+
+**Open** (**Ctrl+O**) accepts Photoshop `.psd` and `.psb` files. Supported files
+use **8-bit RGB** colour. Omuse imports layers, supported groups, opacity,
+blend modes and masks, and shows an **Import report** for conversions. Save the
+result as `.omuse`; the Photoshop original stays unchanged. PSB support uses
+the same practical limits as PSD: **512 MiB per file**, **30,000 pixels per
+side**, and **100 million decoded pixels across layer and mask surfaces**.
+Layers partly outside the canvas keep their original pixels and placement.
+Oversized artwork is refused with an explanation instead of being cropped.
+
+Simple horizontal Photoshop text with a uniform style becomes editable.
+Its original cached appearance stays visible until you edit it. Select the
+text layer and use **Layer actions → Edit text** or search **Edit text or shape**
+with **Ctrl+K**. After editing, Omuse lays out the text with its own font engine;
+install the original font for the closest result. Warped, rotated, mixed-style,
+paragraph-box or otherwise unsupported Photoshop text stays as its cached
+pixel layer, with the reason in the report. Imported Photoshop effects may also
+be baked into cached pixels. CMYK, 16/32-bit Photoshop files and embedded ICC
+profiles are currently refused; export an untagged 8-bit RGB copy from the
+source application when appropriate, keeping the original.
+
+**Open** or **Import image** also accepts `.svg` and compressed `.svgz` artwork.
+Choose a width in the **Import SVG** dialog; height follows the aspect ratio.
+Use **Original**, **2×**, **4×** or **2048 px**, then check the displayed output
+dimensions before **Apply**. Large originals receive a visible size suggestion
+that you can change. The vector drawing is rendered directly at the chosen
+size, so use a larger output when you need more detail. The result is one raster
+layer; paths and text are not editable vectors. Save a `.omuse` copy and retain
+the SVG original for future resizing.
+
+SVG input is limited to **16 MiB** before and after decompression, and its
+output to **25 megapixels** and **30,000 pixels per side**. External images,
+fonts, scripts and animations are not fetched or executed. Embed bitmap images
+as data or export a self-contained SVG first. Unsupported links or excessive
+complexity produce an import error instead of silently omitting artwork.
+
 ## Crop and resize
 
 **Crop:** press **C** to preview a crop. An existing pixel selection supplies
 the starting bounds; otherwise the frame starts at the full canvas. Choose
-**Free**, **Original**, **1:1**, **4:5**, **3:2** or **16:9** in the top bar.
+**Free**, **Original**, **1:1**, **4:5**, **3:4**, **3:2** or **16:9** in the top bar.
 **Swap** changes portrait/landscape orientation, including **9:16** for stories.
 Drag a corner to resize or inside the frame to move it. Arrow keys move one
 pixel; **Shift+Arrow** moves ten. Space-drag and middle-drag still pan the view.
@@ -40,6 +77,41 @@ use **Ask Omuse → Expand canvas**, set the extra pixels for each edge, describ
 what should continue, and review before keeping it. Expand can refuse a document
 whose live blur/noise adjustment would change the original pixels after growth;
 it does not flatten those adjustments automatically.
+
+## Precise values without extra clicks
+
+Drag a numeric label left/right to adjust its value. Hold **Shift** during the
+drag for finer movement; press **Escape** to restore its starting value.
+Double-click the label to reset. You can also type an exact value, press Enter,
+or use Up/Down inside the field. Layer opacity previews while dragging and
+adds one Undo step when released. Tool settings change the tool, not artwork.
+
+## Dither and finishing effects
+
+Select an unlocked raster layer, then use **Ctrl+K** to find **Dither & halftone**,
+**Bloom into transparency**, **Vignette overlay** or **Local tonal contrast**. Dither includes
+Atkinson and Floyd–Steinberg diffusion, Bayer 2/4/8, halftone dots/lines/diamonds,
+patterns and ASCII. Choose a style, pixel size and colours, then inspect the
+preview. **Apply** uses the computed full-resolution result and is one Undo;
+**Cancel** leaves the artwork intact. A selection limits the effect. Dither
+preserves the existing alpha channel.
+
+Bloom Glow spreads highlights into existing transparent layer margins without
+resizing the layer, and shapes their colour.
+Vignette Overlay can
+also create a vignette on an empty layer. Local Contrast adjusts spatial detail.
+These finishing tools support 8-bit copies with canvases/layers up to 16 MP.
+For retained RAW/16-bit work, duplicate and convert a copy to ordinary pixels
+first. Keep the original source layer.
+
+## Extend a painted mask
+
+Select the layer's mask and paint, fill or draw a gradient beyond its original
+bitmap bounds. Omuse grows coverage while preserving the image and mask
+placement. White reveals and black hides; the previous reveal/hide background
+stays stable when border pixels change. Brush strokes and applied gradients are
+one Undo step. Expansion beyond the 16 MP interactive mask budget is refused
+with the pre-edit artwork restored.
 
 ## Copy editable artwork between documents
 
@@ -91,6 +163,32 @@ Preview the settings before Apply. The ordinary Levels, Curves, Hue/Saturation
 and Colour Balance commands change pixels; Undo restores them. For a retained
 source and reorderable effects, search **Filter stack** with **Ctrl+K**, add the
 needed effects, preview, and Apply. Reopen the stack to adjust its recipe.
+
+### Sample and adjust in Camera Raw
+
+Open **Camera Raw** with **Ctrl+Shift+A** on an unlocked ordinary pixel layer.
+The settings remain a draft until **Apply**; **Cancel** keeps the original.
+
+- In **Light & color**, choose **Pick neutral white balance**, wait for the sampling
+  preview, then click a neutral midtone. Avoid clipped highlights, deep shadows
+  and transparent areas. Temperature and tint update together; the app reports
+  when the correction reaches their supported limits.
+- In **Curves**, choose **Target curve on image**, select the RGB or individual
+  channel, and drag a tone vertically to adjust its curve. The graph remains
+  available for precise point editing.
+- In **Color mixer**, choose **Target hue**, **Target saturation** or **Target
+  luminance**, then drag a coloured area vertically. **Pick point colour**
+  remains available for a more isolated colour adjustment.
+- In **Optics**, choose **Pick green or purple fringe** and click that fringe.
+  Refine its hue range and amount with the numeric controls.
+
+Release a targeted drag to update the preview. **Escape** during the drag
+restores its starting settings; **Cancel** closes the entire draft. Sampling
+uses the relevant stage of the current grade, so earlier corrections remain
+accounted for. Transparent samples are rejected. Apply commits one Undo step.
+Preview work is limited to one active job and the newest queued request, with
+cancellation and checks against changed artwork. Grading still runs at full
+resolution within the 16 MP limit; it is not a sensor-RAW or HDR sampling tool.
 
 For an assisted edit, select an ordinary photo layer, open **Ask Omuse → Enhance
 photo**, and describe the tonal result. For example: “Lift the exposure slightly,

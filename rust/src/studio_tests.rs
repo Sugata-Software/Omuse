@@ -100,6 +100,7 @@ fn studio_minimum_window_keeps_every_workspace_component_usable(cx: &mut TestApp
         "inspector",
         "studio-footer",
         "inspector-toggle",
+        "open-recent",
         "inspector-tab-layers",
         "inspector-tab-develop",
         "inspector-tab-selection",

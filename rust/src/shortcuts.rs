@@ -54,6 +54,7 @@ define_commands! {
 
     command!("new", "New canvas", "ctrl-n", "File", "document project create", "Create a new canvas.");
     command!("open", "Open", "ctrl-o", "File", "document project load", "Open an image or Omuse project.");
+    command!("open-recent", "Open recent project", "ctrl-alt-o", "File", "history recent reopen canvas collection", "Search recently opened or saved projects; Enter opens the selection.");
     command!("save", "Save", "ctrl-s", "File", "document project write", "Save to the current project location.");
     command!("save-as", "Save as", "ctrl-shift-s", "File", "document project copy", "Save the project to a new location.");
     command!("import", "Import", "ctrl-shift-o", "File", "place add image photo", "Import an image into the current document.");
@@ -215,6 +216,10 @@ define_commands! {
     command!("effects", "Layer effects", "", "Adjustments", "shadow glow stroke overlay", "Edit nondestructive effects on the active layer.");
     command!("clear-effects", "Delete layer effects", "", "Adjustments", "remove styles", "Remove every effect from the active layer.");
     command!("filter-stack", "Editable filter stack", "", "Adjustments", "nondestructive blur sharpen nodes", "Build a reorderable filter stack.");
+    command!("dither", "Dither and halftone", "", "Adjustments", "retro print pixel atkinson floyd steinberg bayer dots lines diamonds patterns ascii", "Preview ten retro finishes with pixel, cell and palette controls; Apply is one undo step.");
+    command!("bloom-glow", "Bloom into transparency", "", "Adjustments", "highlight glow bloom margin transparent", "Preview highlight glow that can spread into existing transparent layer margins.");
+    command!("vignette-overlay", "Vignette overlay", "", "Adjustments", "vignette blank empty layer frame edge colour", "Preview a coloured edge overlay, including on an empty paint layer.");
+    command!("local-contrast", "Local tonal contrast", "", "Adjustments", "clarity detail spatial radius shadow midtone highlight", "Preview radius-based detail contrast with independent tonal-zone strength.");
     command!("blend-if", "Blend If", "", "Adjustments", "tonal blend range", "Control layer visibility using tonal ranges.");
     command!("colour-management", "Precision and colour", "", "Adjustments", "color colour profile bit depth working space", "Open precision and colour-management controls.");
 

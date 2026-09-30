@@ -21,6 +21,80 @@ pub struct Field {
     pub default: f64,
     pub boolean: bool,
 }
+impl Field {
+    /// The track explains the affected colour family; the thumb and typed
+    /// value share the same persisted adjustment field.
+    pub fn track_colors(&self) -> Option<&'static [u32]> {
+        match self.path.as_str() {
+            "/hue" => Some(&[
+                0x39cbd7, 0x4169e1, 0xc65cce, 0xe3655b, 0xe8ce58, 0x6fc372, 0x39cbd7,
+            ]),
+            "/saturation" => Some(&[0x8c8c8c, 0xed7050]),
+            "/lightness" => Some(&[0x151515, 0x808080, 0xf5f5f5]),
+            "/blackWhiteSettings/reds" => Some(&[0x211616, 0xc55252, 0xffdddd]),
+            "/blackWhiteSettings/yellows" => Some(&[0x242116, 0xc8b853, 0xfff5cc]),
+            "/blackWhiteSettings/greens" => Some(&[0x162118, 0x54ad6b, 0xd9ffe1]),
+            "/blackWhiteSettings/cyans" => Some(&[0x162122, 0x51b3bc, 0xd3faff]),
+            "/blackWhiteSettings/blues" => Some(&[0x171a28, 0x566cc8, 0xdce2ff]),
+            "/blackWhiteSettings/magentas" => Some(&[0x231622, 0xbd5cab, 0xffdbf6]),
+            "/blackWhiteSettings/tintHue" => Some(&[
+                0xe3655b, 0xe8ce58, 0x6fc372, 0x39cbd7, 0x4169e1, 0xc65cce, 0xe3655b,
+            ]),
+            "/blackWhiteSettings/tintSaturation" => Some(&[0x8c8c8c, 0xe8a55b]),
+            path if path.starts_with("/colorBalanceSettings/") => {
+                if path.ends_with("CyanRed") {
+                    Some(&[0x43c7d0, 0x808080, 0xe2675b])
+                } else if path.ends_with("MagentaGreen") {
+                    Some(&[0xca60c8, 0x808080, 0x6ac477])
+                } else if path.ends_with("YellowBlue") {
+                    Some(&[0xe2cd58, 0x808080, 0x586dd7])
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+
+    /// Bounds and increments match the numeric adjustment records. Exact text
+    /// input still uses the adjustment validator when the draft is applied.
+    pub fn numeric_bounds(&self) -> (f64, f64, f64, usize) {
+        let path = self.path.as_str();
+        if path.ends_with("Seed") || path.ends_with("/seed") {
+            (0., u32::MAX as f64, 1., 0)
+        } else if path.ends_with("/gamma") {
+            (0.01, 9.99, 0.01, 3)
+        } else if path == "/exposureSettings/exposure" {
+            (-20., 20., 0.1, 3)
+        } else if path == "/exposureSettings/offset" {
+            (-0.5, 0.5, 0.01, 4)
+        } else if path.starts_with("/gradientMapSettings/") {
+            (0., 1., 0.01, 3)
+        } else if path.starts_with("/levels/") {
+            (0., 255., 1., 2)
+        } else if path == "/hue" {
+            (-180., 180., 1., 2)
+        } else if path == "/motionAngle" {
+            (-90., 90., 1., 2)
+        } else if matches!(path, "/saturation" | "/lightness")
+            || path.starts_with("/colorBalanceSettings/")
+        {
+            (-100., 100., 1., 2)
+        } else if path == "/grainSettings/size" {
+            (0.5, 20., 0.1, 2)
+        } else if path == "/blurRadius" {
+            (0., 128., 0.5, 2)
+        } else if path == "/motionDistance" {
+            (1., 2000., 1., 2)
+        } else if path == "/blackWhiteSettings/tintHue" {
+            (0., 360., 1., 2)
+        } else if path.starts_with("/blackWhiteSettings/") && !path.ends_with("/tintSaturation") {
+            (-200., 300., 1., 2)
+        } else {
+            (0., 100., 1., 2)
+        }
+    }
+}
 pub fn fields(kind: usize) -> Vec<Field> {
     let mut out = Vec::new();
     let mut add = |path: &str, label: &str, default: f64| {

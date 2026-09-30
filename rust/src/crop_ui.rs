@@ -54,17 +54,8 @@ impl EditorView {
             .min_w_0()
             .flex_1()
             .overflow_x_scroll();
-        for (index, &label) in PRESETS.iter().enumerate() {
-            let label = if crop.swapped {
-                match index {
-                    3 => "5:4",
-                    4 => "2:3",
-                    5 => "9:16",
-                    _ => label,
-                }
-            } else {
-                label
-            };
+        for index in 0..PRESETS.len() {
+            let label = crop.preset_label(index);
             presets = presets.child(
                 button(
                     ("crop-ratio", index),

@@ -369,6 +369,12 @@ impl TiledRgba16 {
                 midtones,
                 highlights,
             } => self.tonal_contrast(*shadows, *midtones, *highlights),
+            crate::filters::Filter::Dither(_)
+            | crate::filters::Filter::BloomGlow { .. }
+            | crate::filters::Filter::VignetteOverlay { .. }
+            | crate::filters::Filter::LocalContrast { .. } => anyhow::bail!(
+                "This finishing effect requires an 8-bit paint layer; rasterize a copy to preserve the 16-bit source"
+            ),
         }
     }
 

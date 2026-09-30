@@ -6,7 +6,7 @@ whole directory. Readers identify the contents, not just the filename suffix.
 
 | Package | Manifest | Current write version |
 | --- | --- | --- |
-| Single canvas | `manifest.json`, `com.compositor.project` | 9 |
+| Single canvas | `manifest.json`, `com.compositor.project` | 10 |
 | Create collection | `project.json`, `com.omuse.create-project` | 2 |
 
 The save dialog adds `.omuse` automatically. An entered `.comp` suffix becomes
@@ -37,14 +37,14 @@ CLI export and batch recipes use a collection's saved active page. Use Create's
 content-pack export for multiple pages. The document manifest identifier remains
 unchanged for compatibility; the public product and filename are Omuse.
 
-## Single-canvas document schema, versions 1–9
+## Single-canvas document schema, versions 1–10
 
 A canvas package contains `manifest.json` and an `images/` directory of
 `<layer UUID>.png` assets. Omuse reads and writes the JSON manifest and asset
 layout through its native Rust document layer.
 
 The manifest retains the legacy `com.compositor.project` identifier for wire
-compatibility. Omuse writes version `9` for new saves (versions `1`–`8` remain
+compatibility. Omuse writes version `10` for new saves (versions `1`–`9` remain
 readable) and records the sRGB working space. It stores document UUID, pixel
 dimensions, active layer UUID, and layers in bottom-to-top order. Each layer
 stores its UUID, name, visibility, transform (origin, size, clockwise rotation,
@@ -52,9 +52,27 @@ flips, sampling), and optional image filename. Blank layers have no image
 asset. The identifier is format metadata, not the active product name; see the
 [rename compatibility contract](omuse-rename.md).
 
-Readers supporting only older format versions cannot open a new version-9
-save. A shared format number is not proof of complete cross-app
-interchange; independently authored fixtures remain a qualification gap.
+Omuse 0.5.0 and earlier cannot open a new version-10 save, including canvas
+pages saved inside a collection. Use **Save As** before editing if you need a
+copy for an older release; application rollback does not downgrade project data.
+A shared format number is not proof of complete cross-app interchange; a full
+independently authored cross-app corpus remains a qualification gap.
+
+Version 10 stores optional `maskOutsideCoverage` (integer `0` or `255`) so a
+mask's reveal/hide background does not change when painting alters its border.
+For newly grown folder masks this also selects their explicit placement, rather
+than legacy edge-clamped folder sampling. Older records retain their previous
+inference rule. Saving this new behaviour as version 9 would let old readers
+silently change the artwork, so current saves require version 10.
+
+The reader also accepts version-10 `text.colorRuns` from upstream packages:
+`location` and `length` count UTF-16 code units; RGB components lie in `[0,1]`.
+Runs must be ordered, non-overlapping and end at complete character boundaries.
+They are converted to native UTF-8 byte ranges without rerendering the cached
+text artwork. Conflicting native/upstream run encodings, oversized arrays and
+malformed ranges are rejected. Native saves retain Omuse's richer `text.runs`.
+Reading never changes the source package; `.comp` inputs still save to a new
+`.omuse` copy.
 
 Embedded PNGs preserve source pixels and transparency; transforms remain
 separate. Projects survive moving or deleting imported source photos. Omuse

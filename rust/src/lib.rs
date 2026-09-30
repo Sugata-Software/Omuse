@@ -9,20 +9,25 @@ pub mod model;
 )]
 mod onnx_bindings;
 pub mod psd;
+mod psd_text;
 pub mod raster;
 pub mod raw_import;
 pub mod segmentation;
+pub mod svg_import;
 
 pub mod canvas_navigation;
 pub mod color_management;
 pub mod crop;
+pub mod dither;
 pub mod effects;
 pub mod filters;
 pub mod objects;
+mod project_text;
 
 pub mod retouch;
 
 pub mod adjustment_kernels;
+pub mod camera_gestures;
 pub mod camera_raw;
 pub mod photo_scopes;
 pub mod retouch_brush;
@@ -33,6 +38,7 @@ pub mod matte;
 pub mod gradient_tools;
 pub mod import_report;
 pub mod range_mask;
+pub mod selection_outline;
 pub mod selection_tools;
 
 pub mod advanced;
@@ -54,6 +60,7 @@ pub mod motion;
 pub mod multiframe;
 pub mod precision;
 pub mod proofing;
+pub mod recent_projects;
 pub mod recipes;
 pub mod refinement;
 pub mod restoration;

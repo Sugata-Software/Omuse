@@ -5,7 +5,7 @@ use crate::model::{Layer, valid_dimensions};
 use anyhow::{Context, Result, ensure};
 use image::Rgba;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{Value, json};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ObjectPoint {
@@ -267,6 +267,92 @@ pub fn set_text_content(style: &mut LiveTextStyle, content: impl Into<String>) {
     }
 }
 
+/// Map a native typing edit through rich ranges. The common prefix/suffix are
+/// measured at Unicode scalar boundaries, so an IME replacement or emoji cannot
+/// leave a range pointing into a UTF-8 sequence. Insertions inherit the preceding
+/// character's style; a replacement inherits the first replaced character.
+pub fn edit_text_content(
+    style: &mut LiveTextStyle,
+    content: String,
+) -> Result<std::ops::Range<usize>> {
+    validate_text_style(style)?;
+    if style.content == content {
+        return Ok(content.len()..content.len());
+    }
+    let start: usize = style
+        .content
+        .chars()
+        .zip(content.chars())
+        .take_while(|(a, b)| a == b)
+        .map(|(ch, _)| ch.len_utf8())
+        .sum();
+    let suffix: usize = style.content[start..]
+        .chars()
+        .rev()
+        .zip(content[start..].chars().rev())
+        .take_while(|(a, b)| a == b)
+        .map(|(ch, _)| ch.len_utf8())
+        .sum();
+    let old_end = style.content.len() - suffix;
+    let new_end = content.len() - suffix;
+    let inherited = style
+        .runs
+        .iter()
+        .find(|run| {
+            if start == old_end && start > 0 {
+                run.start < start && run.end >= start
+            } else {
+                run.start <= start && run.end > start
+            }
+        })
+        .cloned();
+    let mut runs = Vec::new();
+    for original in &style.runs {
+        if original.start < start {
+            let mut run = original.clone();
+            run.end = run.end.min(start);
+            if run.start < run.end {
+                runs.push(run);
+            }
+        }
+        if original.end > old_end {
+            let mut run = original.clone();
+            run.start = run.start.max(old_end) - old_end + new_end;
+            run.end = run.end - old_end + new_end;
+            if run.start < run.end {
+                runs.push(run);
+            }
+        }
+    }
+    if start < new_end
+        && let Some(mut run) = inherited
+    {
+        run.start = start;
+        run.end = new_end;
+        runs.push(run);
+    }
+    runs.sort_by_key(|run| run.start);
+    let mut merged: Vec<RichTextRun> = Vec::new();
+    for run in runs {
+        if let Some(previous) = merged.last_mut()
+            && previous.end == run.start
+            && same_rich_style(previous, &run)
+        {
+            previous.end = run.end;
+        } else {
+            merged.push(run);
+        }
+    }
+    let candidate = LiveTextStyle {
+        content,
+        runs: merged,
+        ..style.clone()
+    };
+    validate_text_style(&candidate)?;
+    *style = candidate;
+    Ok(start..new_end)
+}
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct RichTextPatch {
     pub font_name: Option<String>,
@@ -489,6 +575,10 @@ pub fn live_text(layer: &Layer) -> Result<Option<LiveTextStyle>> {
         layer.image.is_some() && !layer.is_group(),
         "Live text requires cached pixels on a non-group layer"
     );
+    ensure!(
+        value.get("colorRuns").is_none_or(Value::is_null),
+        "Legacy text colour runs must be converted by the project importer"
+    );
     let style = serde_json::from_value(value.clone()).context("Invalid live text metadata")?;
     validate_text_style(&style)?;
     Ok(Some(style))
@@ -519,6 +609,7 @@ pub fn detach_live_object(layer: &mut Layer) {
     if let Some(m) = layer.metadata.as_object_mut() {
         m.remove("text");
         m.remove("shape");
+        m.remove("psdTextCachedAppearance");
     }
 }
 
@@ -1325,6 +1416,11 @@ pub fn set_live_text(layer: &mut Layer, style: LiveTextStyle) -> Result<()> {
     }
     layer.metadata["text"] = serde_json::to_value(&style)?;
     layer.metadata.as_object_mut().unwrap().remove("shape");
+    layer
+        .metadata
+        .as_object_mut()
+        .unwrap()
+        .remove("psdTextCachedAppearance");
     layer
         .metadata
         .as_object_mut()

@@ -16,6 +16,8 @@ mod editor_clipboard;
 mod editor_dynamics;
 #[path = "editor_history.rs"]
 mod editor_history;
+#[path = "editor_mask_growth.rs"]
+mod mask_growth;
 pub use editor_clipboard::LayerClipboard;
 #[path = "raster_patch.rs"]
 mod raster_patch;
@@ -244,6 +246,8 @@ struct Stroke {
     clone: Option<CloneStroke>,
     clone_canvas: Option<RgbaImage>,
     mask_target: bool,
+    mask_growth: Option<mask_growth::Source>,
+    mask_paint_bounds: Option<mask_growth::Bounds>,
     coverage: std::cell::RefCell<std::collections::HashMap<usize, f32>>,
     overflow: std::cell::Cell<bool>,
     smoothing_anchor: (f32, f32),
@@ -273,6 +277,7 @@ struct FloatingSelection {
 }
 
 pub struct Editor {
+    instance_id: u64,
     /// Prefer mutation methods so undo and dirty tracking remain accurate.
     pub document: Document,
     pub active_layer: String,
@@ -290,12 +295,15 @@ pub struct Editor {
     saved_revision: u64,
     stroke: Option<Stroke>,
     floating: Option<FloatingSelection>,
+    mask_paint_error: Option<String>,
 }
 
 impl Editor {
     pub fn new(document: Document) -> Self {
+        static NEXT_INSTANCE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
         let active_layer = first_paint(&document.layers).unwrap_or_default();
         Self {
+            instance_id: NEXT_INSTANCE.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             document,
             active_layer,
             brush: Brush::default(),
@@ -312,6 +320,7 @@ impl Editor {
             saved_revision: 0,
             stroke: None,
             floating: None,
+            mask_paint_error: None,
         }
     }
     /// Drain the exact bounding rectangle of pixels actually changed by stamps.
@@ -326,6 +335,11 @@ impl Editor {
 
     pub fn selection_revision(&self) -> u64 {
         self.selection_revision
+    }
+    /// Stable for this editor lifetime, including Undo/Redo; document workers
+    /// must not confuse a replacement editor with a matching revision number.
+    pub fn instance_id(&self) -> u64 {
+        self.instance_id
     }
     pub fn is_dirty(&self) -> bool {
         self.revision != self.saved_revision
@@ -602,6 +616,8 @@ impl Editor {
             clone: None,
             clone_canvas: None,
             mask_target: false,
+            mask_growth: None,
+            mask_paint_bounds: None,
             coverage: Default::default(),
             overflow: Default::default(),
             smoothing_anchor: (input.x, input.y),
@@ -645,6 +661,7 @@ impl Editor {
         )
     }
     pub fn begin_stylus_mask_stroke(&mut self, input: InputPoint, tool: PaintTool) -> bool {
+        self.mask_paint_error = None;
         if !self.valid_dynamics() || !self.valid_input(input) {
             return false;
         }
@@ -671,6 +688,14 @@ impl Editor {
         {
             return false;
         }
+        let mask_paint_bounds = match mask_growth::canvas_bounds(&self.document, &self.selection) {
+            Ok(Some(bounds)) => bounds,
+            Ok(None) => return false,
+            Err(error) => {
+                self.mask_paint_error = Some(error.to_string());
+                return false;
+            }
+        };
         let dynamics = self.new_dynamics(input);
         self.stroke = Some(Stroke {
             before: HistoryEntry::Snapshot(self.snapshot()),
@@ -683,6 +708,8 @@ impl Editor {
             clone: None,
             clone_canvas: None,
             mask_target: true,
+            mask_growth: None,
+            mask_paint_bounds: Some(mask_paint_bounds),
             coverage: Default::default(),
             overflow: Default::default(),
             smoothing_anchor: (x, y),
@@ -773,6 +800,8 @@ impl Editor {
             clone: Some(CloneStroke { offset, heal }),
             clone_canvas,
             mask_target: false,
+            mask_growth: None,
+            mask_paint_bounds: None,
             coverage: Default::default(),
             overflow: Default::default(),
             smoothing_anchor: destination,
@@ -918,10 +947,10 @@ impl Editor {
         let Some(stroke) = &self.stroke else {
             return;
         };
-        if pressure <= 0.0 {
+        if pressure <= 0.0 || stroke.overflow.get() {
             return;
         }
-        let brush = &stroke.brush;
+        let brush = stroke.brush.clone();
         let dynamic_settings = stroke
             .dynamics
             .as_ref()
@@ -937,6 +966,23 @@ impl Editor {
         } else {
             dynamic_dab.map_or(brush.hardness.clamp(0.0, 1.0), |dab| dab.hardness)
         };
+        if opacity <= 0.0 || brush.color[3] == 0 {
+            return;
+        }
+        if stroke.mask_target
+            && let Err(error) = self.ensure_mask_dab_grid(x, y, radius)
+        {
+            self.mask_paint_error = Some(error.to_string());
+            // Retain the stroke shell until mouse-up, but immediately restore
+            // its complete pre-stroke document if expansion cannot be admitted.
+            let stroke = self.stroke.as_mut().unwrap();
+            self.document = stroke.before.state().document.clone();
+            stroke.changed = false;
+            stroke.damage = None;
+            stroke.overflow.set(true);
+            return;
+        }
+        let stroke = self.stroke.as_ref().unwrap();
         let Some(transform) = (if stroke.mask_target {
             Transform::for_mask(&self.document, &stroke.layer_id)
         } else {
@@ -1044,6 +1090,12 @@ impl Editor {
         for py in top..bottom {
             for px in left..right {
                 let (wx, wy) = transform.world(px as f32 + 0.5, py as f32 + 0.5);
+                if stroke
+                    .mask_paint_bounds
+                    .is_some_and(|(x0, y0, x1, y1)| wx < x0 || wy < y0 || wx >= x1 || wy >= y1)
+                {
+                    continue;
+                }
                 if !selected(&self.selection, wx, wy) {
                     continue;
                 }
@@ -1072,7 +1124,12 @@ impl Editor {
                 // SharedImage detaches on mutable access, so compute first.
                 // A transparent/no-op stamp must keep the snapshot allocation.
                 let old = *image.get_pixel(px, py);
-                let Some(base) = stroke.before.original_pixel(original, image, px, py) else {
+                let base = if let Some(source) = &stroke.mask_growth {
+                    original.map(|original| source.pixel(original, px, py))
+                } else {
+                    stroke.before.original_pixel(original, image, px, py)
+                };
+                let Some(base) = base else {
                     stroke.overflow.set(true);
                     continue;
                 };
@@ -1205,11 +1262,18 @@ impl Editor {
             return false;
         };
         if stroke.overflow.get() {
-            self.apply_history_entry(&mut stroke.before);
+            if stroke.mask_target {
+                self.document = stroke.before.state().document.clone();
+            } else {
+                self.apply_history_entry(&mut stroke.before);
+            }
             return false;
         }
         if stroke.changed {
             self.commit_history(stroke.before);
+        } else if stroke.mask_target {
+            // Grid/background preparation is not a user edit by itself.
+            self.document = stroke.before.state().document.clone();
         }
         stroke.changed
     }
@@ -1766,11 +1830,14 @@ impl Editor {
                 .metadata
                 .get("adjustment")
                 .is_some_and(|value| !value.is_null());
-        let explicit = (!folder_mask)
+        let explicit = (!folder_mask || from.metadata.get("maskOutsideCoverage").is_some())
             .then(|| from.metadata.get("maskPlacement"))
             .flatten()
             .filter(|value| !value.is_null());
-        let placement = if folder_mask {
+        let placement = if explicit.is_some() {
+            self.mask_placement(source)
+                .ok_or_else(|| anyhow::anyhow!("Invalid source mask placement"))?
+        } else if folder_mask {
             // Folder/adjustment masks follow their transform extent, which may
             // differ from both document and mask bitmap dimensions.
             let size = from
@@ -1816,7 +1883,7 @@ impl Editor {
         } else {
             serde_json::json!({})
         };
-        for key in ["maskEnabled", "maskLinked"] {
+        for key in ["maskEnabled", "maskLinked", "maskOutsideCoverage"] {
             if let Some(value) = from.metadata.get(key) {
                 metadata[key] = value.clone();
             } else {
@@ -1887,7 +1954,12 @@ impl Editor {
         if !copy {
             let from = self.document.find_layer_mut(source).unwrap();
             from.mask = None;
-            for key in ["maskEnabled", "maskLinked", "maskPlacement"] {
+            for key in [
+                "maskEnabled",
+                "maskLinked",
+                "maskPlacement",
+                "maskOutsideCoverage",
+            ] {
                 remove_metadata(from, key);
             }
         }
@@ -2046,11 +2118,13 @@ impl Editor {
         }
         let independent = mask
             && self.document.find_layer(id).is_some_and(|layer| {
-                !layer.is_group()
-                    && !layer
-                        .metadata
-                        .get("adjustment")
-                        .is_some_and(|v| !v.is_null())
+                (layer.metadata.get("maskOutsideCoverage").is_some()
+                    && metadata_placement(layer, "maskPlacement").is_some())
+                    || (!layer.is_group()
+                        && !layer
+                            .metadata
+                            .get("adjustment")
+                            .is_some_and(|v| !v.is_null()))
             });
         let placement = if independent {
             self.mask_placement(id)
@@ -2427,7 +2501,7 @@ impl Editor {
         if layer.mask.is_none() {
             return None;
         }
-        metadata_placement(layer, "maskPlacement").or_else(|| self.layer_placement(id))
+        mask_growth::placement(layer, self.document.width, self.document.height)
     }
     pub fn set_mask_placement(&mut self, id: &str, value: LayerPlacement) -> bool {
         if !value.is_valid() || locked_in_tree(&self.document.layers, id, false) {
@@ -2561,6 +2635,20 @@ impl Editor {
                     );
                 }
             }
+            self.commit(before);
+            return true;
+        }
+        if layer
+            .metadata
+            .get("psdTextCachedAppearance")
+            .and_then(serde_json::Value::as_bool)
+            == Some(true)
+            && crate::objects::live_text(layer).ok().flatten().is_some()
+        {
+            // Photoshop already supplied the displayed raster. Converting it
+            // to ordinary pixels must not substitute fonts, change layout, or
+            // resize that cache merely to discard text editability.
+            crate::objects::detach_live_object(layer);
             self.commit(before);
             return true;
         }
@@ -2771,7 +2859,9 @@ impl Editor {
     }
     pub fn clear_selection(&mut self) {
         self.finish_stroke();
-        self.selection = None;
+        if self.selection.take().is_some() {
+            self.selection_revision = self.selection_revision.wrapping_add(1);
+        }
     }
     pub fn select_all(&mut self) {
         self.finish_stroke();
@@ -2780,6 +2870,7 @@ impl Editor {
             height: self.document.height,
             mask: vec![255; self.document.width as usize * self.document.height as usize],
         });
+        self.selection_revision = self.selection_revision.wrapping_add(1);
     }
     pub fn select_rectangle(&mut self, x: f32, y: f32, width: f32, height: f32) {
         self.select_shape(x, y, width, height, false);
@@ -2820,6 +2911,7 @@ impl Editor {
             }
         }
         self.selection = Some(selection);
+        self.selection_revision = self.selection_revision.wrapping_add(1);
     }
     pub fn invert_selection(&mut self) {
         self.finish_stroke();
@@ -2827,6 +2919,7 @@ impl Editor {
             for v in &mut selection.mask {
                 *v = 255 - *v;
             }
+            self.selection_revision = self.selection_revision.wrapping_add(1);
         } else {
             self.select_all();
         }
@@ -2852,6 +2945,7 @@ impl Editor {
             return false;
         }
         selection.mask = next;
+        self.selection_revision = self.selection_revision.wrapping_add(1);
         true
     }
     /// Positive pixels grow a selection, negative pixels contract it. Uses a
@@ -2903,6 +2997,7 @@ impl Editor {
             return false;
         }
         selection.mask = output;
+        self.selection_revision = self.selection_revision.wrapping_add(1);
         true
     }
     /// Wand selects contiguous similar source pixels on the active paint layer.
@@ -2956,6 +3051,7 @@ impl Editor {
             height: self.document.height,
             mask,
         });
+        self.selection_revision = self.selection_revision.wrapping_add(1);
         true
     }
     pub fn combine_selection(
@@ -2969,6 +3065,7 @@ impl Editor {
                 incoming,
                 mode,
             ));
+            self.selection_revision = self.selection_revision.wrapping_add(1);
         }
     }
     /// Source-compatible canvas sample: the visible composite or active raw asset
@@ -3037,6 +3134,9 @@ impl Editor {
             })
             .unwrap_or(true);
         self.selection = Some(next);
+        if changed {
+            self.selection_revision = self.selection_revision.wrapping_add(1);
+        }
         Ok(changed)
     }
     pub fn gradient_with(
@@ -3075,7 +3175,7 @@ impl Editor {
         settings: &crate::gradient_tools::GradientSettings,
     ) -> anyhow::Result<bool> {
         let before = self.snapshot();
-        let mut work = self.mask_work_editor(id)?;
+        let mut work = self.growing_mask_work_editor(id)?;
         let changed = work.gradient_with(
             start,
             end,
@@ -3660,6 +3760,7 @@ impl Editor {
             height: self.document.height,
             mask,
         });
+        self.selection_revision = self.selection_revision.wrapping_add(1);
         true
     }
     /// Move a folder as a transaction; pass-through group transforms never move children.
@@ -4140,6 +4241,7 @@ impl Editor {
                 height: self.document.height,
                 mask,
             });
+            self.selection_revision = self.selection_revision.wrapping_add(1);
             return Ok(true);
         }
         if locked_in_tree(&self.document.layers, id, false) {
@@ -4173,6 +4275,7 @@ impl Editor {
         metadata_bool(layer, "maskEnabled", true);
         metadata_bool(layer, "maskLinked", true);
         remove_metadata(layer, "maskPlacement");
+        remove_metadata(layer, "maskOutsideCoverage");
         self.commit(before);
         Ok(true)
     }
@@ -4207,6 +4310,7 @@ impl Editor {
         let layer = self.document.find_layer_mut(id).unwrap();
         layer.mask = Some(mask.into());
         metadata_bool(layer, "maskEnabled", true);
+        remove_metadata(layer, "maskOutsideCoverage");
         self.commit(before);
         true
     }
@@ -4356,6 +4460,7 @@ impl Editor {
         metadata_bool(layer, "maskLinked", true);
         remove_metadata(layer, "maskPlacement");
         remove_metadata(layer, "maskSourceID");
+        remove_metadata(layer, "maskOutsideCoverage");
         self.commit(before);
         Ok(true)
     }
@@ -4372,6 +4477,14 @@ impl Editor {
                 for c in 0..3 {
                     pixel[c] = 255 - pixel[c];
                 }
+            }
+            if let Some(outside) = layer
+                .metadata
+                .get("maskOutsideCoverage")
+                .and_then(serde_json::Value::as_u64)
+            {
+                layer.metadata["maskOutsideCoverage"] =
+                    serde_json::json!(255u64.saturating_sub(outside));
             }
             true
         })
@@ -4414,11 +4527,10 @@ impl Editor {
         Ok(editor)
     }
     fn commit_mask_work(&mut self, id: &str, work: Editor, before: Snapshot) -> bool {
-        let Some(image) = work
-            .document
-            .find_layer(&work.active_layer)
-            .and_then(|l| l.image.as_ref())
-        else {
+        let Some(work_layer) = work.document.find_layer(&work.active_layer) else {
+            return false;
+        };
+        let Some(image) = work_layer.image.as_ref() else {
             return false;
         };
         let normalized = RgbaImage::from_fn(image.width(), image.height(), |x, y| {
@@ -4436,12 +4548,18 @@ impl Editor {
             return false;
         }
         layer.mask = Some(normalized.into());
+        if metadata_placement(work_layer, "maskEditGrownPlacement").is_some() {
+            layer.metadata["maskPlacement"] = work_layer.metadata["maskEditGrownPlacement"].clone();
+        }
+        if let Some(outside) = work_layer.metadata.get("maskOutsideCoverage") {
+            layer.metadata["maskOutsideCoverage"] = outside.clone();
+        }
         self.commit(before);
         true
     }
     pub fn fill_mask_selection(&mut self, id: &str, value: u8) -> anyhow::Result<bool> {
         let before = self.snapshot();
-        let mut work = self.mask_work_editor(id)?;
+        let mut work = self.growing_mask_work_editor(id)?;
         let changed = work.fill_selection([value, value, value, 255]);
         Ok(changed && self.commit_mask_work(id, work, before))
     }
@@ -4510,7 +4628,7 @@ impl Editor {
         to: u8,
     ) -> anyhow::Result<bool> {
         let before = self.snapshot();
-        let mut work = self.mask_work_editor(id)?;
+        let mut work = self.growing_mask_work_editor(id)?;
         let changed = work.gradient(start, end, [from, from, from, 255], [to, to, to, 255]);
         Ok(changed && self.commit_mask_work(id, work, before))
     }
@@ -4586,32 +4704,139 @@ impl Editor {
                 return false;
             };
             if apply {
-                let Some(image) = &mut layer.image else {
+                let Some(image) = &layer.image else {
                     return false;
                 };
                 if mask.width() == 0 || mask.height() == 0 {
                     return false;
                 }
                 let (width, height) = image.dimensions();
+                let transform = Transform::of(layer, width, height);
+                let sampler = crate::effects::MaskSampler::new(&layer.metadata, mask);
+                let image = layer.image.as_mut().unwrap();
                 for (x, y, pixel) in image.enumerate_pixels_mut() {
-                    let mx = (u64::from(x) * u64::from(mask.width()) / u64::from(width)) as u32;
-                    let my = (u64::from(y) * u64::from(mask.height()) / u64::from(height)) as u32;
-                    let m = mask.get_pixel(mx, my);
-                    let coverage =
-                        (0.2126 * m[0] as f32 + 0.7152 * m[1] as f32 + 0.0722 * m[2] as f32)
-                            / 255.0
-                            * m[3] as f32
-                            / 255.0;
+                    let (wx, wy) = transform.world(x as f32 + 0.5, y as f32 + 0.5);
+                    let coverage = sampler.coverage(
+                        f64::from(wx),
+                        f64::from(wy),
+                        f64::from(x) + 0.5,
+                        f64::from(y) + 0.5,
+                        f64::from(width),
+                        f64::from(height),
+                    );
                     pixel[3] = (pixel[3] as f32 * coverage).round() as u8;
                 }
             }
             layer.mask = None;
-            metadata_bool(layer, "maskEnabled", true);
+            for key in [
+                "maskEnabled",
+                "maskLinked",
+                "maskPlacement",
+                "maskOutsideCoverage",
+            ] {
+                remove_metadata(layer, key);
+            }
             true
         })
     }
+    /// Merging currently produces a canvas-sized raster. Refuse a merge that
+    /// would discard retained source artwork beyond the canvas, before touching
+    /// pixels or history. Menus use the same check to explain the restriction.
+    pub fn merge_down_preservation_reason(&self) -> Option<&'static str> {
+        fn pair<'a>(layers: &'a [Layer], id: &str) -> Option<(&'a Layer, &'a Layer)> {
+            if let Some(index) = layers.iter().position(|layer| layer.id == id) {
+                return index
+                    .checked_sub(1)
+                    .map(|below| (&layers[below], &layers[index]));
+            }
+            layers.iter().find_map(|layer| pair(&layer.children, id))
+        }
+        let (below, above) = pair(&self.document.layers, &self.active_layer)?;
+        // Both layer identities disappear during a merge. The isolated-pair
+        // render cannot detect masks elsewhere that still reference either
+        // source, so reject before creating a dangling document dependency.
+        fn external_mask_dependency(layers: &[Layer], below: &str, above: &str) -> bool {
+            layers.iter().any(|layer| {
+                (layer.id != below
+                    && layer.id != above
+                    && layer
+                        .metadata
+                        .get("maskSourceID")
+                        .and_then(serde_json::Value::as_str)
+                        .is_some_and(|source| source == below || source == above))
+                    || external_mask_dependency(&layer.children, below, above)
+            })
+        }
+        if external_mask_dependency(&self.document.layers, &below.id, &above.id) {
+            return Some(
+                "Another layer uses this pair as a live-mask source; unlink that mask source before merging",
+            );
+        }
+        for layer in [below, above] {
+            let Some(image) = &layer.image else {
+                continue;
+            };
+            let transform = Transform::of(layer, image.width(), image.height());
+            // External styles may extend the artwork past the source bitmap.
+            // Use the renderer's conservative padding, without allocating an
+            // effect raster merely to decide whether an action is available.
+            let mut margin = 0f32;
+            if let Some(effects) = layer
+                .metadata
+                .get("effects")
+                .and_then(|value| crate::effects::LayerEffects::parse(value).ok())
+            {
+                if let Some(stroke) = effects
+                    .stroke
+                    .filter(|effect| effect.enabled != Some(false) && !effect.inside)
+                {
+                    margin = margin.max(stroke.size);
+                }
+                if let Some(shadow) = effects
+                    .shadow
+                    .filter(|effect| effect.enabled != Some(false))
+                {
+                    margin = margin.max(shadow.distance + shadow.blur * 3.);
+                }
+                if let Some(glow) = effects
+                    .outer_glow
+                    .filter(|effect| effect.enabled != Some(false))
+                {
+                    margin = margin.max(glow.size * 3.);
+                }
+                if margin > 0. {
+                    margin = margin.ceil() + 2.;
+                }
+            }
+            let width = image.width() as f32;
+            let height = image.height() as f32;
+            for (x, y) in [
+                (-margin, -margin),
+                (width + margin, -margin),
+                (width + margin, height + margin),
+                (-margin, height + margin),
+            ] {
+                let (x, y) = transform.world(x, y);
+                if !x.is_finite()
+                    || !y.is_finite()
+                    || x < -0.0001
+                    || y < -0.0001
+                    || x > self.document.width as f32 + 0.0001
+                    || y > self.document.height as f32 + 0.0001
+                {
+                    return Some(
+                        "Merge would discard artwork outside the canvas; enlarge the canvas or move both layers fully inside first",
+                    );
+                }
+            }
+        }
+        None
+    }
     /// Merge adjacent normal paint layers; unsupported blend interactions are rejected.
     pub fn merge_down(&mut self) -> bool {
+        if self.merge_down_preservation_reason().is_some() {
+            return false;
+        }
         self.finish_stroke();
         if locked_in_tree(&self.document.layers, &self.active_layer, false) {
             return false;
@@ -5026,6 +5251,7 @@ impl Editor {
                 self.document.width,
                 self.document.height,
             ));
+            self.selection_revision = self.selection_revision.wrapping_add(1);
             Ok(())
         })();
         if let Err(error) = result {
@@ -5597,28 +5823,12 @@ impl Transform {
     fn for_mask(document: &Document, id: &str) -> Option<Self> {
         let layer = document.find_layer(id)?;
         let mask = layer.mask.as_ref()?;
-        if let Some(p) = metadata_placement(layer, "maskPlacement") {
-            let mut placed = Layer::group("");
-            placed.offset_x = p.x;
-            placed.offset_y = p.y;
-            placed.scale_x = p.width / mask.width() as f32 * if p.flip_x { -1. } else { 1. };
-            placed.scale_y = p.height / mask.height() as f32 * if p.flip_y { -1. } else { 1. };
-            placed.rotation = p.rotation;
-            return Some(Self::of(&placed, mask.width(), mask.height()));
-        }
-        let mut t = Self::for_layer(document, id)?;
-        let (w, h) = layer
-            .image
-            .as_ref()
-            .map(|i| i.dimensions())
-            .unwrap_or((document.width, document.height));
-        let sx = w as f32 / mask.width() as f32;
-        let sy = h as f32 / mask.height() as f32;
-        t.a *= sx;
-        t.b *= sx;
-        t.c *= sy;
-        t.d *= sy;
-        Some(t)
+        let placement = mask_growth::placement(layer, document.width, document.height)?;
+        Some(mask_growth::transform(
+            placement,
+            mask.width(),
+            mask.height(),
+        ))
     }
     fn world(self, x: f32, y: f32) -> (f32, f32) {
         (

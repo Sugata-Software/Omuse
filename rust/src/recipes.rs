@@ -267,7 +267,18 @@ pub fn batch(
             || (kind.is_file()
                 && (matches!(
                     ext.as_str(),
-                    "png" | "jpg" | "jpeg" | "tif" | "tiff" | "webp" | "bmp" | "gif" | "psd"
+                    "png"
+                        | "jpg"
+                        | "jpeg"
+                        | "tif"
+                        | "tiff"
+                        | "webp"
+                        | "bmp"
+                        | "gif"
+                        | "psd"
+                        | "psb"
+                        | "svg"
+                        | "svgz"
                 ) || crate::raw_import::matches(&path)))
         {
             paths.push(path);

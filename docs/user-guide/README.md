@@ -1,6 +1,6 @@
 # Omuse user manual
 
-**Make, retouch and finish images on Linux.** This manual describes Omuse 0.5.0.
+**Make, retouch and finish images on Linux.** This manual describes the Omuse 0.6 editing update.
 Start with a photo, keep an editable project, and export a copy when it is ready.
 
 [Install Omuse](../install.md) · [Remove objects](remove-objects.md) ·
@@ -71,6 +71,23 @@ Use PNG for transparency and sharp graphics; JPEG for opaque photographs;
 WebP when your destination accepts it. Create's **Export content pack…** can
 produce ordered pages, a multi-page PDF, captions, alt text and a manifest.
 Keep a project copy even after export. Recovery is a fallback, not a backup.
+
+## Recent projects and changed files
+
+Click the **Open recent projects** clock icon, or press **Ctrl+Alt+O**, to search the last ten saved/opened
+canvases and collections. Type part of a name or folder, use the arrow keys,
+then **Enter**. Missing entries disappear when history refreshes. **Clear
+history** removes the list, not your projects.
+
+When another program changes an open project, an idle clean document reloads
+after two matching checks. Unsaved work stays in place with a **Review** notice:
+choose **Keep editing**, **Save a copy**, or explicitly discard local edits and
+reload. A conflicting ordinary Save never overwrites the other version.
+Repeated **Ctrl+S** queues the newest edits behind a save already in progress.
+
+New saves use single-canvas **format 10**, including pages inside a collection.
+**Omuse 0.5.0 and earlier cannot read these new saves.** Use Save As to retain
+an older copy when needed; reinstalling an older app does not convert the file.
 
 ## AI is optional
 

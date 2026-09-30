@@ -885,6 +885,47 @@ pub struct MaskSampler<'a> {
     outside: f32,
     sampling: String,
 }
+
+/// Legacy masks infer their infinite white/black ground from edge coverage.
+/// Once painted beyond their bitmap, retain that ground explicitly so editing
+/// an edge cannot unexpectedly reveal or hide distant artwork.
+pub fn mask_outside_coverage(metadata: &Value, mask: &RgbaImage) -> u8 {
+    if let Some(value) = metadata.get("maskOutsideCoverage").and_then(Value::as_u64)
+        && matches!(value, 0 | 255)
+    {
+        return value as u8;
+    }
+    let mut total = 0f64;
+    let mut count = 0u64;
+    let mut add = |p: &Rgba<u8>| {
+        total += (0.2126 * f64::from(p[0]) + 0.7152 * f64::from(p[1]) + 0.0722 * f64::from(p[2]))
+            * f64::from(p[3])
+            / (255. * 255.);
+        count += 1;
+    };
+    if mask.height() > 0 {
+        for x in 0..mask.width() {
+            add(mask.get_pixel(x, 0));
+            if mask.height() > 1 {
+                add(mask.get_pixel(x, mask.height() - 1));
+            }
+        }
+    }
+    if mask.width() > 0 {
+        for y in 1..mask.height().saturating_sub(1) {
+            add(mask.get_pixel(0, y));
+            if mask.width() > 1 {
+                add(mask.get_pixel(mask.width() - 1, y));
+            }
+        }
+    }
+    if count == 0 || total * 2. >= count as f64 {
+        255
+    } else {
+        0
+    }
+}
+
 impl<'a> MaskSampler<'a> {
     /// Parse placement and compute the edge-majority background once per render
     /// pass. Metadata validation reports malformed placements before rendering.
@@ -894,7 +935,13 @@ impl<'a> MaskSampler<'a> {
     /// Folder masks are placed by the folder transform in the source renderer;
     /// an image-layer-only mask placement must not move them independently.
     pub fn new_folder(metadata: &Value, mask: &'a RgbaImage) -> Self {
-        Self::make(metadata, mask, false)
+        // Legacy folders use their own transform; grown masks have an explicit
+        // independent grid while the folder and its children stay in place.
+        Self::make(
+            metadata,
+            mask,
+            metadata.get("maskOutsideCoverage").is_some(),
+        )
     }
     fn make(metadata: &Value, mask: &'a RgbaImage, allow_placement: bool) -> Self {
         let placed = metadata
@@ -902,33 +949,6 @@ impl<'a> MaskSampler<'a> {
             .filter(|v| !v.is_null())
             .and_then(|v| serde_json::from_value::<MaskPlacement>(v.clone()).ok());
         let placed = allow_placement.then_some(placed).flatten();
-        let mut total = 0f32;
-        let mut count = 0u32;
-        if placed.is_some() {
-            let mut add = |p: &Rgba<u8>| {
-                total += (0.2126 * p[0] as f32 + 0.7152 * p[1] as f32 + 0.0722 * p[2] as f32)
-                    / 255.
-                    * p[3] as f32
-                    / 255.;
-                count += 1;
-            };
-            if mask.height() > 0 {
-                for x in 0..mask.width() {
-                    add(mask.get_pixel(x, 0));
-                    if mask.height() > 1 {
-                        add(mask.get_pixel(x, mask.height() - 1));
-                    }
-                }
-            }
-            if mask.width() > 0 {
-                for y in 1..mask.height().saturating_sub(1) {
-                    add(mask.get_pixel(0, y));
-                    if mask.width() > 1 {
-                        add(mask.get_pixel(mask.width() - 1, y));
-                    }
-                }
-            }
-        }
         let sampling = placed
             .as_ref()
             .and_then(|p| p.sampling.as_deref())
@@ -944,11 +964,7 @@ impl<'a> MaskSampler<'a> {
             mask,
             placed,
             sampling,
-            outside: if count == 0 || total * 2. >= count as f32 {
-                1.
-            } else {
-                0.
-            },
+            outside: f32::from(mask_outside_coverage(metadata, mask)) / 255.,
         }
     }
     pub fn coverage(
@@ -1064,6 +1080,12 @@ pub fn mask_coverage(
         .coverage(canvas_x, canvas_y, local_u, local_v, source_w, source_h)
 }
 pub fn validate_mask_metadata(v: &Value) -> Result<()> {
+    if let Some(value) = v.get("maskOutsideCoverage") {
+        ensure!(
+            matches!(value.as_u64(), Some(0 | 255)),
+            "maskOutsideCoverage must be 0 (black) or 255 (white)"
+        );
+    }
     if let Some(raw) = v.get("maskPlacement").filter(|v| !v.is_null()) {
         let p: MaskPlacement =
             serde_json::from_value(raw.clone()).context("invalid maskPlacement")?;

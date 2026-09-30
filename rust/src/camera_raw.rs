@@ -2,6 +2,13 @@
 use anyhow::{Result, ensure};
 use image::RgbaImage;
 use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicBool, Ordering};
+
+fn check_cancel(cancel: &AtomicBool) -> Result<()> {
+    ensure!(!cancel.load(Ordering::Relaxed), "Camera Raw cancelled");
+    Ok(())
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CurvePoint {
@@ -607,7 +614,7 @@ fn validate_geometry(s: &GeometrySettings) -> Result<()> {
 fn c(v: f64) -> f64 {
     v.clamp(0., 1.)
 }
-fn li(v: f64) -> f64 {
+pub(crate) fn li(v: f64) -> f64 {
     if v <= 0.04045 {
         v / 12.92
     } else {
@@ -636,7 +643,7 @@ fn sl(a: &mut [f64; 3], t: f64) {
         }
     }
 }
-fn rgb_hsl(rgb: [f64; 3]) -> (f64, f64, f64) {
+pub(crate) fn rgb_hsl(rgb: [f64; 3]) -> (f64, f64, f64) {
     let (mx, mn) = (
         rgb.iter().copied().fold(f64::NEG_INFINITY, f64::max),
         rgb.iter().copied().fold(f64::INFINITY, f64::min),
@@ -720,7 +727,7 @@ fn calibrate(mut rgb: [f64; 3], s: &CalibrationSettings) -> [f64; 3] {
     rgb = hsl(h, sat, l);
     rgb
 }
-fn curve_value(x: f64, points: &[CurvePoint]) -> f64 {
+pub(crate) fn curve_value(x: f64, points: &[CurvePoint]) -> f64 {
     let i = points
         .windows(2)
         .position(|p| x < f64::from(p[1].x))
@@ -748,7 +755,7 @@ fn curve_value(x: f64, points: &[CurvePoint]) -> f64 {
         + (t.powi(3) - t.powi(2)) * h * slope(i + 1);
     c(value)
 }
-fn parametric(tone: f64, s: &CurveSettings) -> f64 {
+pub(crate) fn parametric(tone: f64, s: &CurveSettings) -> f64 {
     let shadow = f64::from(s.shadow_split) / 100.;
     let dark = f64::from(s.dark_split) / 100.;
     let light = f64::from(s.light_split) / 100.;
@@ -766,7 +773,9 @@ fn parametric(tone: f64, s: &CurveSettings) -> f64 {
     c(tone + f64::from(amount) / 100. * weight * 0.22)
 }
 fn circular_distance(a: f64, b: f64) -> f64 {
-    let distance = (a - b).abs();
+    // Earlier point-colour shifts can cross the hue seam more than once.
+    // The distance must stay circular, never become a negative weight input.
+    let distance = (a - b).abs().rem_euclid(1.);
     if distance > 0.5 {
         1. - distance
     } else {
@@ -786,12 +795,22 @@ fn point_weight(h: f64, s: f64, l: f64, point: &PointColor) -> f64 {
         hue_weight * sat_weight * lum_weight
     }
 }
-fn box_blur_f32(source: &[f32], width: usize, height: usize, radius: usize) -> Vec<f32> {
+fn box_blur_f32(
+    source: &[f32],
+    width: usize,
+    height: usize,
+    radius: usize,
+    cancel: &AtomicBool,
+) -> Result<Vec<f32>> {
     let mut temp = vec![0.; source.len()];
     let mut output = vec![0.; source.len()];
     let window = (radius * 2 + 1) as f64;
     for row in 0..height {
+        check_cancel(cancel)?;
         for column in 0..width {
+            if column % 1024 == 0 {
+                check_cancel(cancel)?;
+            }
             let mut sum = 0.;
             for k in 0..=radius * 2 {
                 let x = (column + k).saturating_sub(radius).min(width - 1);
@@ -801,7 +820,11 @@ fn box_blur_f32(source: &[f32], width: usize, height: usize, radius: usize) -> V
         }
     }
     for column in 0..width {
+        check_cancel(cancel)?;
         for row in 0..height {
+            if row % 1024 == 0 {
+                check_cancel(cancel)?;
+            }
             let mut sum = 0.;
             for k in 0..=radius * 2 {
                 let y = (row + k).saturating_sub(radius).min(height - 1);
@@ -810,12 +833,12 @@ fn box_blur_f32(source: &[f32], width: usize, height: usize, radius: usize) -> V
             output[row * width + column] = (sum / window) as f32;
         }
     }
-    output
+    Ok(output)
 }
 // Reconstruct the preserved C stage's exact premultiplied byte boundary.
 // Every legal premultiplied byte <= alpha round-trips through straight RGBA8,
 // but p/255 is not the same normalized color as round(p*alpha/255)/alpha.
-fn stage_rgb(pixel: &image::Rgba<u8>) -> [f64; 3] {
+pub(crate) fn stage_rgb(pixel: &image::Rgba<u8>) -> [f64; 3] {
     let alpha = u32::from(pixel[3]);
     if alpha == 0 {
         return [0.; 3];
@@ -832,14 +855,14 @@ fn write_stage_rgb(pixel: &mut image::Rgba<u8>, rgb: [f64; 3]) {
         pixel[channel] = ((q * 255 + alpha / 2) / alpha).min(255) as u8;
     }
 }
-fn apply_effects(image: &mut RgbaImage, s: &Settings) {
+fn apply_effects(image: &mut RgbaImage, s: &Settings, cancel: &AtomicBool) -> Result<()> {
     if s.texture == 0.
         && s.clarity == 0.
         && s.dehaze == 0.
         && s.glow == 0.
         && s.vignette_amount == 0.
     {
-        return;
+        return Ok(());
     }
     let (width, height) = (image.width() as usize, image.height() as usize);
     let luma: Vec<f32> = image
@@ -853,12 +876,12 @@ fn apply_effects(image: &mut RgbaImage, s: &Settings) {
         })
         .collect();
     let fine = if s.texture != 0. {
-        Some(box_blur_f32(&luma, width, height, 1))
+        Some(box_blur_f32(&luma, width, height, 1, cancel)?)
     } else {
         None
     };
     let coarse = if s.clarity != 0. {
-        Some(box_blur_f32(&luma, width, height, 4))
+        Some(box_blur_f32(&luma, width, height, 4, cancel)?)
     } else {
         None
     };
@@ -880,11 +903,15 @@ fn apply_effects(image: &mut RgbaImage, s: &Settings) {
             (base * (1. + f64::from(s.glow_spread) / 100.))
                 .round()
                 .clamp(1., 64.) as usize,
-        ))
+            cancel,
+        )?)
     } else {
         None
     };
     for (index, p) in image.pixels_mut().enumerate() {
+        if index % 1024 == 0 {
+            check_cancel(cancel)?;
+        }
         if p[3] == 0 {
             continue;
         }
@@ -977,6 +1004,8 @@ fn apply_effects(image: &mut RgbaImage, s: &Settings) {
         }
         write_stage_rgb(p, rgb);
     }
+    check_cancel(cancel)?;
+    Ok(())
 }
 fn mix32(mut value: u32) -> u32 {
     value ^= value >> 16;
@@ -1003,9 +1032,9 @@ fn grain_field(u: f64, v: f64, scale: f64, seed: u32) -> f64 {
         + (lattice(ix + 1, iy + 1, seed) - lattice(ix, iy + 1, seed)) * tx;
     (top + (bottom - top) * ty) * 1.6
 }
-fn apply_grain(image: &mut RgbaImage, s: &Settings) {
+fn apply_grain(image: &mut RgbaImage, s: &Settings, cancel: &AtomicBool) -> Result<()> {
     if s.grain_amount <= 0. {
-        return;
+        return Ok(());
     }
     let size = 0.5 + f64::from(s.grain_size) / 100. * 19.5;
     let detail = (size * 0.35).max(0.5);
@@ -1013,6 +1042,9 @@ fn apply_grain(image: &mut RgbaImage, s: &Settings) {
     let fine_seed = mix32(0xA511E9B3);
     let strength = f64::from(s.grain_amount) / 100. * 0.35 * 255.;
     for (x, y0, p) in image.enumerate_pixels_mut() {
+        if x % 1024 == 0 {
+            check_cancel(cancel)?;
+        }
         if p[3] == 0 {
             continue;
         }
@@ -1031,6 +1063,8 @@ fn apply_grain(image: &mut RgbaImage, s: &Settings) {
             p[channel] = (f64::from(p[channel]) + delta).clamp(0., 255.).round() as u8;
         }
     }
+    check_cancel(cancel)?;
+    Ok(())
 }
 fn edge_at_f32(
     luma: &[f32],
@@ -1073,11 +1107,14 @@ fn write_premultiplied_pixel(pixel: &mut image::Rgba<u8>, rgb: [f64; 3]) {
     }
 }
 
-fn apply_detail(image: &mut RgbaImage, s: &DetailSettings) {
+fn apply_detail(image: &mut RgbaImage, s: &DetailSettings, cancel: &AtomicBool) -> Result<()> {
     if s.sharpen_amount == 0. && s.noise_luminance == 0. && s.noise_color == 0. {
-        return;
+        return Ok(());
     }
-    for pixel in image.pixels_mut() {
+    for (index, pixel) in image.pixels_mut().enumerate() {
+        if index % 1024 == 0 {
+            check_cancel(cancel)?;
+        }
         let alpha = u32::from(pixel[3]);
         for channel in 0..3 {
             pixel[channel] = ((u32::from(pixel[channel]) * alpha + 127) / 255) as u8;
@@ -1103,9 +1140,12 @@ fn apply_detail(image: &mut RgbaImage, s: &DetailSettings) {
         let radius = (1. + f64::from(s.noise_luminance) / 50.)
             .round()
             .clamp(1., 64.) as usize;
-        let blurred = box_blur_f32(&luma, width, height, radius);
+        let blurred = box_blur_f32(&luma, width, height, radius, cancel)?;
         let original = luma.clone();
         for (index, p) in image.pixels_mut().enumerate() {
+            if index % 1024 == 0 {
+                check_cancel(cancel)?;
+            }
             if p[3] == 0 {
                 continue;
             }
@@ -1151,8 +1191,11 @@ fn apply_detail(image: &mut RgbaImage, s: &DetailSettings) {
                 }
             })
             .collect();
-        let blurred = box_blur_f32(&chroma, width, height, radius);
+        let blurred = box_blur_f32(&chroma, width, height, radius, cancel)?;
         for (index, p) in image.pixels_mut().enumerate() {
+            if index % 1024 == 0 {
+                check_cancel(cancel)?;
+            }
             if p[3] == 0 {
                 continue;
             }
@@ -1188,10 +1231,13 @@ fn apply_detail(image: &mut RgbaImage, s: &DetailSettings) {
         let radius = (0.5 + f64::from(s.sharpen_radius) / 100. * 2.5)
             .round()
             .clamp(1., 64.) as usize;
-        let blurred = box_blur_f32(&luma, width, height, radius);
+        let blurred = box_blur_f32(&luma, width, height, radius, cancel)?;
         let detail = f64::from(s.sharpen_detail) / 100.;
         let threshold = f64::from(s.sharpen_masking) / 100. * 0.35;
         for (index, p) in image.pixels_mut().enumerate() {
+            if index % 1024 == 0 {
+                check_cancel(cancel)?;
+            }
             if p[3] == 0 {
                 continue;
             }
@@ -1218,7 +1264,10 @@ fn apply_detail(image: &mut RgbaImage, s: &DetailSettings) {
             write_premultiplied_pixel(p, rgb);
         }
     }
-    for pixel in image.pixels_mut() {
+    for (index, pixel) in image.pixels_mut().enumerate() {
+        if index % 1024 == 0 {
+            check_cancel(cancel)?;
+        }
         let alpha = u32::from(pixel[3]);
         if alpha != 0 {
             for channel in 0..3 {
@@ -1227,13 +1276,16 @@ fn apply_detail(image: &mut RgbaImage, s: &DetailSettings) {
             }
         }
     }
+    check_cancel(cancel)?;
+    Ok(())
 }
-fn lens_distort(image: &RgbaImage, k: f64) -> RgbaImage {
+fn lens_distort(image: &RgbaImage, k: f64, cancel: &AtomicBool) -> Result<RgbaImage> {
     let (width, height) = (image.width(), image.height());
     let (cx, cy) = (f64::from(width) * 0.5, f64::from(height) * 0.5);
     let diagonal = cx * cx + cy * cy;
     let mut output = RgbaImage::new(width, height);
     for y0 in 0..height {
+        check_cancel(cancel)?;
         for x0 in 0..width {
             let dx = f64::from(x0) + 0.5 - cx;
             let dy = f64::from(y0) + 0.5 - cy;
@@ -1280,9 +1332,9 @@ fn lens_distort(image: &RgbaImage, k: f64) -> RgbaImage {
             output.put_pixel(x0, y0, image::Rgba(straight));
         }
     }
-    output
+    Ok(output)
 }
-fn hue_degrees(rgb: [f64; 3]) -> f64 {
+pub(crate) fn hue_degrees(rgb: [f64; 3]) -> f64 {
     rgb_hsl(rgb).0 * 360.
 }
 fn hue_in_range(hue: f64, low: f64, high: f64) -> bool {
@@ -1292,9 +1344,17 @@ fn hue_in_range(hue: f64, low: f64, high: f64) -> bool {
         hue >= low || hue <= high
     }
 }
-fn apply_optics(image: &mut RgbaImage, s: &OpticsSettings) {
+fn apply_optics(
+    image: &mut RgbaImage,
+    s: &OpticsSettings,
+    cancel: &AtomicBool,
+    sample: Option<&mut Option<RgbaImage>>,
+) -> Result<()> {
     if *s == OpticsSettings::default() {
-        return;
+        if let Some(sample) = sample {
+            *sample = Some(image.clone());
+        }
+        return Ok(());
     }
     let distortion = f64::from(s.distortion) / 100. * 0.35
         + if s.enable_lens_profile {
@@ -1303,7 +1363,7 @@ fn apply_optics(image: &mut RgbaImage, s: &OpticsSettings) {
             0.
         };
     if distortion != 0. {
-        *image = lens_distort(image, distortion)
+        *image = lens_distort(image, distortion, cancel)?
     }
     let (width, height) = (image.width(), image.height());
     if s.remove_chromatic_aberration {
@@ -1311,6 +1371,7 @@ fn apply_optics(image: &mut RgbaImage, s: &OpticsSettings) {
         let (cx, cy) = (f64::from(width) * 0.5, f64::from(height) * 0.5);
         let max_radius = cx.hypot(cy);
         for y0 in 0..height {
+            check_cancel(cancel)?;
             for x0 in 0..width {
                 let alpha = image.get_pixel(x0, y0)[3];
                 if alpha == 0 {
@@ -1337,6 +1398,12 @@ fn apply_optics(image: &mut RgbaImage, s: &OpticsSettings) {
             }
         }
     }
+    // Defringe sees pixels after distortion and chromatic-aberration correction.
+    // Capture exactly that input, before hue reduction or optical vignetting.
+    if let Some(sample) = sample {
+        check_cancel(cancel)?;
+        *sample = Some(image.clone());
+    }
     let vignette = f64::from(s.vignette_amount)
         + if s.enable_lens_profile {
             f64::from(s.profile_vignetting) / 100. * 35.
@@ -1344,6 +1411,7 @@ fn apply_optics(image: &mut RgbaImage, s: &OpticsSettings) {
             0.
         };
     for y0 in 0..height {
+        check_cancel(cancel)?;
         for x0 in 0..width {
             let p = image.get_pixel_mut(x0, y0);
             if p[3] == 0 {
@@ -1399,6 +1467,8 @@ fn apply_optics(image: &mut RgbaImage, s: &OpticsSettings) {
             write_stage_rgb(p, rgb);
         }
     }
+    check_cancel(cancel)?;
+    Ok(())
 }
 fn solve_homography(from: [[f64; 2]; 4], to: [[f64; 2]; 4]) -> Option<[f64; 8]> {
     let mut a = [[0.; 9]; 8];
@@ -1468,7 +1538,16 @@ fn sample_bilinear(image: &RgbaImage, x: f64, y0: f64) -> image::Rgba<u8> {
         alpha,
     ])
 }
+#[cfg(test)]
 fn apply_geometry(image: &RgbaImage, s: &GeometrySettings) -> RgbaImage {
+    apply_geometry_cancellable(image, s, &AtomicBool::new(false)).unwrap()
+}
+fn apply_geometry_cancellable(
+    image: &RgbaImage,
+    s: &GeometrySettings,
+    cancel: &AtomicBool,
+) -> Result<RgbaImage> {
+    check_cancel(cancel)?;
     let guides: Vec<_> = s
         .guides
         .iter()
@@ -1485,7 +1564,7 @@ fn apply_geometry(image: &RgbaImage, s: &GeometrySettings) -> RgbaImage {
         && s.offset_x == 0.
         && s.offset_y == 0.
     {
-        return image.clone();
+        return Ok(image.clone());
     }
     let (mut vertical, mut horizontal, mut rotate) = (
         f64::from(s.vertical),
@@ -1544,10 +1623,11 @@ fn apply_geometry(image: &RgbaImage, s: &GeometrySettings) -> RgbaImage {
     }
     let source = [[0., 0.], [w, 0.], [w, h], [0., h]];
     let Some(map) = solve_homography(corners, source) else {
-        return image.clone();
+        return Ok(image.clone());
     };
     let mut output = RgbaImage::new(image.width(), image.height());
     for y0 in 0..image.height() {
+        check_cancel(cancel)?;
         for x0 in 0..image.width() {
             let x = f64::from(x0) + 0.5;
             let y = f64::from(y0) + 0.5;
@@ -1558,13 +1638,16 @@ fn apply_geometry(image: &RgbaImage, s: &GeometrySettings) -> RgbaImage {
         }
     }
     if !s.constrain_crop {
-        return output;
+        return Ok(output);
     }
     let mut min_x = image.width();
     let mut min_y = image.height();
     let mut max_x = 0;
     let mut max_y = 0;
     for (x, y0, p) in output.enumerate_pixels() {
+        if x % 1024 == 0 {
+            check_cancel(cancel)?;
+        }
         if p[3] > 0 {
             min_x = min_x.min(x);
             min_y = min_y.min(y0);
@@ -1573,7 +1656,7 @@ fn apply_geometry(image: &RgbaImage, s: &GeometrySettings) -> RgbaImage {
         }
     }
     if min_x >= max_x || min_y >= max_y {
-        return output;
+        return Ok(output);
     }
     let crop =
         image::imageops::crop_imm(&output, min_x, min_y, max_x - min_x, max_y - min_y).to_image();
@@ -1590,9 +1673,10 @@ fn apply_geometry(image: &RgbaImage, s: &GeometrySettings) -> RgbaImage {
         i64::from((image.width() - nw) / 2),
         i64::from((image.height() - nh) / 2),
     );
-    fitted
+    check_cancel(cancel)?;
+    Ok(fitted)
 }
-fn apply_curve_color(mut rgb: [f64; 3], s: &Settings) -> [f64; 3] {
+pub(crate) fn apply_master_curve(mut rgb: [f64; 3], s: &Settings) -> [f64; 3] {
     let tone = y(rgb);
     let mapped = curve_value(parametric(tone, &s.curve), &s.curve.rgb);
     sl(&mut rgb, mapped);
@@ -1603,9 +1687,22 @@ fn apply_curve_color(mut rgb: [f64; 3], s: &Settings) -> [f64; 3] {
             *channel = c(lum + (*channel - lum) * factor);
         }
     }
+    rgb
+}
+fn apply_curves(rgb: [f64; 3], s: &Settings) -> [f64; 3] {
+    let mut rgb = apply_master_curve(rgb, s);
     rgb[0] = curve_value(rgb[0], &s.curve.red);
     rgb[1] = curve_value(rgb[1], &s.curve.green);
     rgb[2] = curve_value(rgb[2], &s.curve.blue);
+    rgb
+}
+fn apply_curve_color(rgb: [f64; 3], s: &Settings) -> [f64; 3] {
+    apply_mixer_grading(apply_curves(rgb, s), s)
+}
+fn apply_mixer_grading(rgb: [f64; 3], s: &Settings) -> [f64; 3] {
+    apply_grading(apply_mixer(rgb, s), s)
+}
+fn apply_mixer(mut rgb: [f64; 3], s: &Settings) -> [f64; 3] {
     let (mut h, mut saturation, mut luminance) = rgb_hsl(rgb);
     const CENTERS: [f64; 8] = [
         0.,
@@ -1649,6 +1746,9 @@ fn apply_curve_color(mut rgb: [f64; 3], s: &Settings) -> [f64; 3] {
         luminance = c(luminance + f64::from(point.luminance_shift) / 100. * weight * 0.25);
     }
     rgb = hsl(h.rem_euclid(1.), saturation, luminance);
+    rgb
+}
+fn apply_grading(mut rgb: [f64; 3], s: &Settings) -> [f64; 3] {
     let split = 0.5 - f64::from(s.grading.balance) / 100. * 0.2;
     let reach = 0.12 + f64::from(s.grading.blending) / 100. * 0.38;
     let lum = y(rgb);
@@ -1691,6 +1791,52 @@ fn apply_curve_color(mut rgb: [f64; 3], s: &Settings) -> [f64; 3] {
     rgb
 }
 pub fn apply(i: &RgbaImage, s: &Settings) -> Result<RgbaImage> {
+    apply_cancellable(i, s, &AtomicBool::new(false))
+}
+
+/// Same exact full-resolution grade as `apply`, with cooperative cancellation.
+/// An interrupted operation never publishes a partially graded image.
+pub fn apply_cancellable(i: &RgbaImage, s: &Settings, cancel: &AtomicBool) -> Result<RgbaImage> {
+    Ok(develop(i, s, cancel, None)?.0)
+}
+
+/// Stage-aligned references for canvas samplers. Samples share source coordinates
+/// after geometry and precede the controls they target, never clipping overlays.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SampleStage {
+    WhiteBalance,
+    Curve,
+    Mixer,
+    PointColor,
+    Optics,
+}
+
+pub fn apply_with_sample(
+    i: &RgbaImage,
+    s: &Settings,
+    cancel: &AtomicBool,
+    stage: SampleStage,
+) -> Result<(RgbaImage, RgbaImage)> {
+    let (image, sample) = develop(i, s, cancel, Some(stage))?;
+    Ok((image, sample.expect("requested sampling stage")))
+}
+
+fn capture_sample(sample: &mut Option<RgbaImage>, index: usize, rgb: [f64; 3], alpha: u8) {
+    if let Some(sample) = sample {
+        let width = sample.width() as usize;
+        let pixel = sample.get_pixel_mut((index % width) as u32, (index / width) as u32);
+        pixel[3] = alpha;
+        write_stage_rgb(pixel, rgb);
+    }
+}
+
+fn develop(
+    i: &RgbaImage,
+    s: &Settings,
+    cancel: &AtomicBool,
+    capture: Option<SampleStage>,
+) -> Result<(RgbaImage, Option<RgbaImage>)> {
+    check_cancel(cancel)?;
     ensure!(
         crate::model::valid_dimensions(i.width(), i.height())
             && u64::from(i.width()) * u64::from(i.height()) <= 16_777_216,
@@ -1698,16 +1844,22 @@ pub fn apply(i: &RgbaImage, s: &Settings) -> Result<RgbaImage> {
     );
     validate(s)?;
     if *s == Settings::default() {
-        return Ok(i.clone());
+        return Ok((i.clone(), capture.map(|_| i.clone())));
     }
-    let mut o = apply_geometry(i, &s.geometry);
+    let mut sample = capture
+        .filter(|stage| *stage != SampleStage::Optics)
+        .map(|_| RgbaImage::new(i.width(), i.height()));
+    let mut o = apply_geometry_cancellable(i, &s.geometry, cancel)?;
     let (w, m) = (f64::from(s.temperature) / 100., f64::from(s.tint) / 100.);
     let g = [
         1. + 0.35 * w + 0.15 * m,
         1. - 0.3 * m,
         1. - 0.35 * w + 0.15 * m,
     ];
-    for p in o.pixels_mut() {
+    for (index, p) in o.pixels_mut().enumerate() {
+        if index % 1024 == 0 {
+            check_cancel(cancel)?;
+        }
         if p[3] == 0 {
             p.0 = [0; 4];
             continue;
@@ -1734,6 +1886,9 @@ pub fn apply(i: &RgbaImage, s: &Settings) -> Result<RgbaImage> {
                 .round()
                 .clamp(0., f64::from(alpha)) as u8;
             a[channel] = f64::from(premultiplied[channel]) / f64::from(alpha);
+        }
+        if capture == Some(SampleStage::WhiteBalance) {
+            capture_sample(&mut sample, index, a, p[3]);
         }
         for k in 0..3 {
             a[k] = c(li(a[k]) * g[k] * 2f64.powf(f64::from(s.exposure)));
@@ -1815,7 +1970,20 @@ pub fn apply(i: &RgbaImage, s: &Settings) -> Result<RgbaImage> {
                 .clamp(0., f64::from(alpha)) as u8;
             a[channel] = f64::from(premultiplied[channel]) / f64::from(alpha);
         }
-        a = apply_curve_color(a, s);
+        if capture == Some(SampleStage::Curve) {
+            capture_sample(&mut sample, index, a, p[3]);
+        }
+        if capture == Some(SampleStage::Mixer) {
+            let curved = apply_curves(a, s);
+            capture_sample(&mut sample, index, curved, p[3]);
+            a = apply_mixer_grading(curved, s);
+        } else if capture == Some(SampleStage::PointColor) {
+            let mixed = apply_mixer(apply_curves(a, s), s);
+            capture_sample(&mut sample, index, mixed, p[3]);
+            a = apply_grading(mixed, s);
+        } else {
+            a = apply_curve_color(a, s);
+        }
         for k in 0..3 {
             let q = (a[k] * f64::from(alpha))
                 .round()
@@ -1823,11 +1991,17 @@ pub fn apply(i: &RgbaImage, s: &Settings) -> Result<RgbaImage> {
             p[k] = ((q * 255 + alpha / 2) / alpha).min(255) as u8
         }
     }
-    apply_effects(&mut o, s);
-    apply_grain(&mut o, s);
-    apply_optics(&mut o, &s.optics);
-    apply_detail(&mut o, &s.detail);
-    Ok(o)
+    apply_effects(&mut o, s, cancel)?;
+    apply_grain(&mut o, s, cancel)?;
+    apply_optics(
+        &mut o,
+        &s.optics,
+        cancel,
+        (capture == Some(SampleStage::Optics)).then_some(&mut sample),
+    )?;
+    apply_detail(&mut o, &s.detail, cancel)?;
+    check_cancel(cancel)?;
+    Ok((o, sample))
 }
 /// Preview-only clipping overlay. Never write this result into artwork.
 /// Uses the preserved C kernel's premultiplied thresholds and shadow-first order.
@@ -1867,6 +2041,58 @@ pub fn clipping_preview(image: &RgbaImage, shadows: bool, highlights: bool) -> R
 mod tests {
     use super::*;
     use image::Rgba;
+    #[test]
+    fn point_colour_weights_are_periodic_after_repeated_hue_shifts() {
+        let point = PointColor {
+            hue: 4.,
+            saturation: 0.5,
+            luminance: 0.5,
+            ..Default::default()
+        };
+        let reference = point_weight(0.012, 0.5, 0.5, &point);
+        for turns in -4..=4 {
+            let weight = point_weight(0.012 + f64::from(turns), 0.5, 0.5, &point);
+            assert!((0. ..=1.).contains(&weight));
+            assert!((reference - weight).abs() < 1e-12);
+        }
+        assert_eq!(circular_distance(2.25, 0.75), 0.5);
+    }
+    #[test]
+    fn cancellation_rejects_every_expensive_stage_without_publishing_pixels() {
+        let image = RgbaImage::from_pixel(24, 16, Rgba([120, 64, 33, 192]));
+        let original = image.clone();
+        let cancelled = AtomicBool::new(true);
+        assert!(apply_cancellable(&image, &Settings::default(), &cancelled).is_err());
+        let settings = Settings {
+            exposure: 1.,
+            texture: 20.,
+            clarity: 30.,
+            glow: 40.,
+            grain_amount: 25.,
+            geometry: GeometrySettings {
+                rotate: 3.,
+                ..Default::default()
+            },
+            optics: OpticsSettings {
+                distortion: 5.,
+                ..Default::default()
+            },
+            detail: DetailSettings {
+                sharpen_amount: 30.,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        assert!(apply_cancellable(&image, &settings, &cancelled).is_err());
+        assert!(box_blur_f32(&vec![0.; 24 * 16], 24, 16, 4, &cancelled).is_err());
+        assert!(lens_distort(&image, 0.3, &cancelled).is_err());
+        assert!(apply_geometry_cancellable(&image, &settings.geometry, &cancelled).is_err());
+        assert_eq!(image, original);
+        assert_eq!(
+            apply(&image, &settings).unwrap(),
+            apply_cancellable(&image, &settings, &AtomicBool::new(false)).unwrap()
+        );
+    }
     #[test]
     fn clipping_preview_preserves_source_and_alpha() {
         let source =

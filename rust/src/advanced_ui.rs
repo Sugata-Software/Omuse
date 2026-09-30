@@ -711,9 +711,13 @@ impl EditorView {
                             child.opacity = 1.;
                             child.mask = None;
                             if let Some(m) = child.metadata.as_object_mut() {
-                                for key in
-                                    ["maskEnabled", "maskLinked", "maskPlacement", "maskSourceID"]
-                                {
+                                for key in [
+                                    "maskEnabled",
+                                    "maskLinked",
+                                    "maskPlacement",
+                                    "maskSourceID",
+                                    "maskOutsideCoverage",
+                                ] {
                                     m.remove(key);
                                 }
                             }
@@ -1053,6 +1057,7 @@ impl EditorView {
                                         for key in [
                                             "maskSourceID",
                                             "maskPlacement",
+                                            "maskOutsideCoverage",
                                             "maskEnabled",
                                             "maskLinked",
                                             "rustEditableAsset",

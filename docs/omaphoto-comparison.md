@@ -1,19 +1,22 @@
 # OmaPhoto comparison and improvement plan
 
-Reviewed 30 September 2026 against [OmaPhoto v1.2.3](https://github.com/ZacharyZhang-NY/OmaPhoto/releases/tag/v1.2.3),
-published 28 September. The reference source is the exact tag commit
-[`96ce546508a920e10f2747ad3907da6eb87f4700`](https://github.com/ZacharyZhang-NY/OmaPhoto/tree/96ce546508a920e10f2747ad3907da6eb87f4700).
-Release notes and tests in that source establish their intended behavior; we
-have not run their application on this host. This comparison does not establish
-that either application is faster, more reliable or visually superior.
+Reviewed 1 October 2026 against [OmaPhoto v1.3.3](https://github.com/ZacharyZhang-NY/OmaPhoto/releases/tag/v1.3.3),
+published 30 September at exact tag commit
+[`190414451148d9627e902ded53082dc3b3019913`](https://github.com/ZacharyZhang-NY/OmaPhoto/tree/190414451148d9627e902ded53082dc3b3019913).
+The local source comparison uses Omuse 0.5.0, canonical `479ae31` and public
+runtime `73dd0d4`; the installed launcher reports 0.5.0 with that public source
+receipt. Source and regression tests establish intended behavior. OmaPhoto was
+not installed or executed for this review, and neither application's tests were
+rerun. This is not evidence that either editor is faster or more reliable.
 
-The watch now covers the **whole repository**. The additional development
-snapshot below reviews fourteen commits through `838d5b1` on `main`, including
-nine new commits since `ffba175`, along with current pull requests, issues,
-branches, tags and relevant build results. All three release-note hashes and
-their asset metadata/digests are unchanged; v1.2.3 remains the latest release.
-The machine-readable [watch baseline](omaphoto-watch.json) separates reviewed
-development from the published v1.2.3 baseline.
+The **whole-repository** watch includes the three post-tag commits through
+[`e94fd73`](https://github.com/ZacharyZhang-NY/OmaPhoto/tree/e94fd73573aee5eefd8e955e72cda5b379d4120f).
+Since the previous `838d5b1` review, 12 commits change 150 distinct paths: nine
+commits enter 1.3.3 and three follow it. Four releases/tags, one branch, eight
+issues, two pull requests and nine workflow results were checked. The three
+older releases retain their notes and asset metadata. The
+[watch baseline](omaphoto-watch.json) separates the release, updated packaging
+and later application changes.
 
 Omuse's strengths are its native Omarchy integration, searchable and executable
 command reference, editable content collections, templates and reversible
@@ -21,7 +24,86 @@ in-app AI workflows. OmaPhoto has a more complete Camera Raw interaction surface
 and a substantially broader downloadable Linux release. Both matter to a
 credible public editor.
 
-## Editing and interaction
+## Omuse 0.6 implementation following this review
+
+The tables below retain the **0.5.0 review baseline**. The subsequent
+`feature/omaphoto-133-editing` work implements the recommended editing backlog:
+format-10 colour-run import, direct live text/colour previews, Open Recent,
+numeric scrubbing, ten Dither styles and richer finishing effects, bounded
+PSB/SVG imports and supported Photoshop text, growing masks, 3:4 crop,
+capability-aware layer actions, background selection outlines, queued saves
+and external-change decisions. Camera Raw gains stage-aware sampling and
+targeted drags with coalesced, cancellable work.
+
+See the [implementation and qualification record](omaphoto-133-implementation.md)
+for current evidence. These implementations do not establish interchangeable
+project semantics, cross-app performance superiority, a larger safe document
+budget or a portable binary release. Historical gaps in the tables should be
+read with this newer implementation record.
+
+## OmaPhoto 1.3.3 against Omuse 0.5.0
+
+This release includes the previously reviewed finishing filters, crop and
+clipboard work, plus PSB/SVG imports, editable Photoshop text, live text/effects,
+growing masks, numeric scrubbing, selection-outline work and external reload.
+They are now shipped features, rather than just development to watch. The
+historical tables below retain the original review scope and limitations.
+
+| Area | Source evidence and Omuse comparison | Priority |
+| --- | --- | --- |
+| Project format 10 | OmaPhoto now writes 10 and reads 1–10. Its optional `text.colorRuns` use UTF-16 offsets; Omuse's reader rejects versions above 9 and its rich runs use UTF-8 byte offsets. Renaming a project to `.omuse` cannot bridge this difference. | Highest interoperability priority: a bounded importer with Unicode range conversion, cached-pixel preservation, malformed-input tests and actual upstream fixtures. Do not simply increase the accepted version. Omuse collection schema v2 is a separate format. |
+| Dither | Ten styles span Atkinson/Floyd–Steinberg, three Bayer sizes, halftone dots/lines/diamonds, patterns and ASCII, with pixel/cell sizes and colour choices. Source tests cover alpha, previews, committed output, picker cancel and worker rendering. Omuse has no equivalent Dither command or filter. | Strong creative addition for retro posters and social artwork. Start with deterministic diffusion/Bayer/halftone, reversible preview, selection/alpha correctness, bounded workers and Undo before expanding to ASCII. |
+| Live text and selected-letter colour | Upstream renders draft artwork through the committed path and colours an actual text selection, with caret-linked swatches and picker cancel/focus restoration. Omuse supports mixed font/colour runs through its typography editor, but its inline textarea is an overlay and lacks this direct selection/picker integration. | High everyday usability value: the same render path for preview and Apply, plus native selection-aware colour editing. Preserve IME, Unicode, masks/effects and Undo. |
+| Open Recent | A persisted ten-item menu deduplicates canonical paths, drops missing projects, supports Clear and only promotes successful opens/saves. Tests cover cancelled/failed actions and files disappearing while listed. Omuse has no shared recent-project list or command. | Add a keyboard-searchable recent list covering canvases and collections, with clear history, safe dirty-document navigation and missing-file handling. |
+| Numeric and slider polish | Numeric scrubbing is now released. Black & White, Color Balance and Hue/Saturation also gain coloured slider tracks and double-click reset. Omuse's refined panels retain typed/button controls without shared label scrubbing. | High daily editing value. Combine visible drag affordances with exact typing, keyboard access, reset, Escape rollback and one Undo entry per drag. |
+| Save, close and focus safety | Upstream adds snapshot saves while editing and queues save/reload/open/close operations behind one writer. Its new tests cover repeated saves, quit, failed writes, disappearing controllers and exporting beside a save. Omuse already has background snapshots, destination locks, conflict detection and publication checks; this is not a wholly missing feature. | Extend lifecycle stress coverage and external-change choices while preserving Omuse's existing save guard. Do not substitute the upstream manifest/image-size fingerprint for Omuse's metadata/inode checks. |
+| Imports and masks | PSB, bounded SVG/SVGZ raster import, simple editable PSD text and paint-driven mask growth from the previous review are included in 1.3.3. Those remain concrete Omuse gaps, with upstream's own conversion limitations. | Keep the planned bounded import and mask work. Existing PSD support, rich typography and fixed-size mask painting are not equivalent. |
+| Smaller parity details | Omuse already has anchored keyboard zoom, session layer Copy/Paste, context menus and selection-started crop with portrait 9:16 via orientation swap. It lacks a 3:4 preset, empty-layer Vignette and the richer spatial finishing-filter semantics described below. | Avoid rebuilding existing workflows; add the missing behaviours with explicit modes and visual references. |
+
+Primary source references: [format specification](https://github.com/ZacharyZhang-NY/OmaPhoto/blob/190414451148d9627e902ded53082dc3b3019913/docs/project-format.md),
+[Dither implementation](https://github.com/ZacharyZhang-NY/OmaPhoto/blob/190414451148d9627e902ded53082dc3b3019913/src/Document/Dither.cpp),
+[Dither UI tests](https://github.com/ZacharyZhang-NY/OmaPhoto/blob/190414451148d9627e902ded53082dc3b3019913/tests/DitherSheetTests.cpp),
+[selected text tests](https://github.com/ZacharyZhang-NY/OmaPhoto/blob/190414451148d9627e902ded53082dc3b3019913/tests/TextColorRunsTests.cpp),
+[recent-project tests](https://github.com/ZacharyZhang-NY/OmaPhoto/blob/190414451148d9627e902ded53082dc3b3019913/tests/OpenRecentTests.cpp)
+and [save queue tests](https://github.com/ZacharyZhang-NY/OmaPhoto/blob/190414451148d9627e902ded53082dc3b3019913/tests/ProjectSaveQueueTests.cpp).
+Corresponding Omuse paths include `rust/src/document.rs`, `objects.rs`,
+`rich_text_ui.rs`, `ui.rs`, `crop.rs`, `filters.rs` and `save_guard.rs`.
+
+### Release evidence and changes after the tag
+
+The [1.3.3 release workflow](https://github.com/ZacharyZhang-NY/OmaPhoto/actions/runs/36737522836)
+passed all six jobs at `1904144`. The inspected workflow and Arch recipe build
+and package the application; they do not run the full test suite. Upstream's
+`TASKS.md` reports 291 passing test programs across distro checks and fresh
+container install/start checks. These are upstream-reported results, not our
+independent rerun or directly demonstrated by that release workflow.
+
+The release currently has six application packages plus `SHA256SUMS`. Fedora
+43 and 44 packages were added separately to handle their different LibRaw ABI;
+upstream reports building the new Fedora 44 package from the unchanged tag.
+The updated asset metadata is captured in the watch baseline. No AppImage or
+Flatpak is published, and PR #8 remains unmerged.
+
+The final post-tag [acceptance commit](https://github.com/ZacharyZhang-NY/OmaPhoto/commit/e94fd73573aee5eefd8e955e72cda5b379d4120f)
+adds three application-driven test programs, sixteen screenshots and a
+[feature acceptance table](https://github.com/ZacharyZhang-NY/OmaPhoto/blob/e94fd73573aee5eefd8e955e72cda5b379d4120f/docs/acceptance.md).
+Those screenshots use Qt's offscreen platform. The same commit fixes window
+teardown reaching already-destroyed menus/toolbars when panels retain focus
+or pending field edits. That application fix is **after the 1.3.3 tag**, even
+though the acceptance document is titled 1.3.3; it must not be attributed to
+the tagged release binaries. Upstream reports 295 test programs at this later
+head. Raw counts are not comparable with Omuse's individually counted cases.
+
+Recommended order: address format-10 import and save/focus lifecycle coverage;
+then recent projects, numeric controls and accurate live text; then Dither,
+mask growth and richer imports. Omuse's current
+[0.5.0 qualification](release-050-qualification.md) records 970 passing cases,
+all 80 template variants, exact-source CI and installed update/rollback checks.
+Those receipts remain separate from this source-only competitor review. A
+same-machine photo corpus and timing run is still required for any competitive
+speed, quality or stability claim.
+
+## Historical v1.2.3 editing and interaction review
 
 | Area in OmaPhoto v1.2.3 | Omuse implementation and evidence | Remaining work |
 | --- | --- | --- |
@@ -57,8 +139,8 @@ Omuse's corresponding code lives in `rust/src/camera_raw.rs`,
 
 The first development review inspected source through
 [`ffba175`](https://github.com/ZacharyZhang-NY/OmaPhoto/tree/ffba1753c62f5ad82a48248a598366c951faac8d),
-five commits after the release. These changes are merged on upstream `main`
-but **unreleased** in the reviewed snapshot. Source and tests were inspected;
+five commits after the release. These changes were merged on upstream `main`
+but **unreleased at that review**; they are included in 1.3.3. Source and tests were inspected;
 neither editor was executed for this additional comparison.
 
 | Upstream development | Omuse comparison and useful next work |
@@ -84,9 +166,10 @@ empty-layer Vignette, live colour preview and low-memory qualification. Relevant
 
 The exact [nine-commit range](https://github.com/ZacharyZhang-NY/OmaPhoto/compare/ffba1753c62f5ad82a48248a598366c951faac8d...838d5b1459965e83f1693ff480fe60d14cff3377)
 changes 201 paths. Relevant implementation, regression fixtures, test registration,
-dependency and packaging changes were inspected. These changes are **merged but
-unreleased**. Upstream's references to Compositor versions 1.2.8–1.3 do not name
-new OmaPhoto releases. Neither application's tests or runtime were executed for
+dependency and packaging changes were inspected. These changes were **merged but
+unreleased on 30 September at that snapshot**; they are included in 1.3.3.
+Upstream's references to Compositor versions 1.2.8–1.3 were not then new
+OmaPhoto releases. Neither application's tests or runtime were executed for
 this scheduled source review. The Omuse source comparison uses `488cf34` on
 `feature/inspector-refinement`; earlier runtime evidence remains separately scoped.
 
@@ -115,7 +198,7 @@ planned improvements in the guide, not implemented Unreleased features.
 
 ## Distribution
 
-OmaPhoto's release publishes Ubuntu 24.04/26.04 DEBs, a Fedora RPM, an Arch
+OmaPhoto 1.3.3 publishes Ubuntu 24.04/26.04 DEBs, Fedora 43/44 RPMs, an Arch
 package and checksums. Its source also provides a Nix flake. The Arch artifact
 is about 174 MB; that download size alone says nothing about startup speed,
 installed footprint or runtime memory.
@@ -144,10 +227,10 @@ The broader watch also found these public proposals and reports:
   workflow. The [run](https://github.com/ZacharyZhang-NY/OmaPhoto/actions/runs/36642096544)
   reports failure with no jobs returned; this is not evidence that a produced
   application failed a runtime test. No AppImage was added to the releases.
-- Merged development adds Qt SVG to CMake, Arch/Nix and distro build inputs,
-  plus PSB/SVG desktop MIME entries. `flake.lock` and the default branch's
-  release workflow are unchanged in the reviewed range. Release packages still
-  belong to v1.2.3; source packaging edits do not qualify new binaries.
+- The 1.3.3 source includes Qt SVG in CMake, Arch/Nix and distro build inputs,
+  plus PSB/SVG desktop MIME entries. Post-tag packaging updates split Fedora
+  releases by ABI; published package metadata and upstream-reported install
+  checks are distinguished from independent runtime qualification above.
 - [AUR concern #7](https://github.com/ZacharyZhang-NY/OmaPhoto/issues/7) and
   [Flatpak request #4](https://github.com/ZacharyZhang-NY/OmaPhoto/issues/4)
   reinforce demand for a simple installation path. Omuse's source installer
@@ -243,8 +326,10 @@ matching canonical source `fd4b47c` by tree
   main executable; the previous complete generation remains available.
 - The exact public runtime passed its [full GitHub Rust/installer validation](https://github.com/Sugata-Software/Omuse/actions/runs/36492555743).
   The installer selected that runtime at qualification time. The current
-  numbered release and installer pin are Omuse 0.3.0; see its separate
-  [editing-workflow qualification](editing-workflows-qualification.md).
+  numbered release and installer pin are now Omuse 0.5.0; see its separate
+  [release qualification](release-050-qualification.md). The 0.3.0
+  [editing-workflow qualification](editing-workflows-qualification.md) remains
+  historical evidence for its own runtime.
 
 The initial test pass exposed a clipped curve graph and a selected-group drag
 that did not move descendants. Both were fixed and the final suite rerun.

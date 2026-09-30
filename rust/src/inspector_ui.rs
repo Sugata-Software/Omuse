@@ -91,6 +91,13 @@ pub(super) fn panel_note(text: impl Into<SharedString>, cx: &App) -> Div {
         .child(text.into())
 }
 
+pub(super) fn numeric_hint(cx: &App) -> Div {
+    panel_note(
+        "Drag labels · Shift for precision · Double-click to reset · ↑ ↓ to nudge",
+        cx,
+    )
+}
+
 pub(super) fn panel_section(title: impl Into<SharedString>, cx: &App) -> Div {
     let t = cx.omarchy();
     div()

@@ -99,6 +99,8 @@ def desktop_entry(launcher: Path) -> bytes:
             "Comment=Native image editor and content studio\n"
             f'Exec="{escaped}" %f\nIcon=omuse\nTerminal=false\n'
             "Categories=Graphics;2DGraphics;RasterGraphics;\n"
+            "MimeType=image/png;image/jpeg;image/webp;image/tiff;image/bmp;image/gif;"
+            "image/vnd.adobe.photoshop;image/x-photoshop;image/svg+xml;image/svg+xml-compressed;\n"
             "StartupNotify=true\nStartupWMClass=omuse\n").encode()
 
 

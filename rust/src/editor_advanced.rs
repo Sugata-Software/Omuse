@@ -198,6 +198,7 @@ impl Editor {
                 if let Some(metadata) = layer.metadata.as_object_mut() {
                     metadata.remove("maskSourceID");
                     metadata.remove("maskPlacement");
+                    metadata.remove("maskOutsideCoverage");
                 }
             }
             layer.image = Some(proxy.into());

@@ -6,8 +6,41 @@ for numbering, qualification and publication.
 
 ## Unreleased
 
-Planned editor work and remaining release gates are tracked in the
-[project guide](docs/project-guide.md).
+- Preview text on the artwork through the committed rendering path, colour
+  selected letters, and preserve Unicode formatting while typing. Cancel keeps
+  the original; applying a text draft is one Undo step.
+- Search ten recent canvases and collections with **Ctrl+Alt+O** or the clock icon.
+  Successful opens/saves persist across launches; Clear history leaves files
+  intact. Import retains its existing **Ctrl+Shift+O** shortcut.
+- Adjust brush, layer and transform values by dragging their labels, typing,
+  or using arrow keys. Shift gives finer control, double-click resets, and
+  Escape cancels a drag. Layer-opacity previews commit as one Undo step.
+- Add ten Dither styles, explicit Bloom Glow, Vignette Overlay and Local
+  Contrast with reversible previews, selection-aware Apply and Undo. These
+  finishing tools target 8-bit raster copies and preserve retained masters.
+- Import bounded PSB and SVG/SVGZ, choose SVG raster dimensions in Open/Import,
+  and recover supported editable Photoshop text while retaining cached artwork
+  for unsupported records. Import reports describe conversion limits.
+- Grow painted, filled and gradient masks while preserving their placement,
+  source artwork and outside coverage. New saves use **canvas format 10**;
+  older Omuse versions cannot read them. Save As retains an older project copy.
+  Read versions 1–10 and validate upstream UTF-16 colour runs before converting
+  them into Omuse's native rich text. New files continue to use `.omuse`.
+- Review changes made to a saved project by another process. Clean, idle
+  projects can reload; local edits offer Keep editing, Save a copy or explicit
+  discard/reload. Repeated saves coalesce the latest snapshot, and delayed
+  saves/reloads preserve newer edits and unrelated dialog drafts.
+- Generate selection outlines in background work with zoom-aware detail and
+  bounded point counts. Exact selection masks remain unchanged. Add a 3:4 crop
+  preset and explain unavailable layer actions before execution; Merge Down
+  refuses source/effect bounds that would be lost outside the canvas.
+- Pick neutral white balance and green/purple fringes in Camera Raw, and drag
+  sampled tones or colours to adjust curves and the colour mixer. Stage-aware
+  samples account for earlier grading, while cancellation restores the draft.
+  Coalesced preview work retains only one active job and the newest request.
+
+The [implementation record](docs/omaphoto-133-implementation.md) tracks the
+combined qualification. This section is not a published release receipt.
 
 ## [0.5.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.5.0) — 2026-09-30
 

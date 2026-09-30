@@ -21,6 +21,11 @@ use std::{
 const MAX_MANIFEST: u64 = 4 * 1024 * 1024;
 const MAX_FILE: u64 = 512 * 1024 * 1024;
 const MAX_DEPTH: usize = 64;
+/// Current single-canvas format. Earlier formats remain readable.
+// Explicit mask outside coverage cannot be represented losslessly by v9's
+// inferred border rule. Old readers must reject rather than change artwork.
+pub const PROJECT_WRITE_VERSION: u64 = 10;
+pub const PROJECT_MAX_READ_VERSION: u64 = 10;
 // Imports become RGBA8 before they enter the ordinary document model. Keep the
 // decoder's own allocation at that model boundary rather than relying on a
 // codec-specific default for a high-bit-depth or malformed source.
@@ -364,6 +369,9 @@ pub fn import_image(path: &Path) -> Result<Layer> {
         group.children = doc.layers;
         return Ok(group);
     }
+    if crate::svg_import::matches(path) {
+        return crate::svg_import::import(path);
+    }
     if crate::raw_import::matches(path) {
         let state = crate::smart_source::import(
             path,
@@ -449,7 +457,7 @@ pub fn open(path: &Path) -> Result<Document> {
         .as_u64()
         .context("Invalid project version")?;
     ensure!(
-        (1..=9).contains(&version),
+        (1..=PROJECT_MAX_READ_VERSION).contains(&version),
         "Unsupported project version {version}"
     );
     ensure!(
@@ -626,7 +634,15 @@ pub fn open(path: &Path) -> Result<Document> {
                     None
                 },
                 children: vec![],
-                metadata: record.clone(),
+                metadata: {
+                    let mut normalized = record.clone();
+                    crate::project_text::normalize_record(&mut normalized, version)?;
+                    ensure!(
+                        version >= 10 || normalized.get("maskOutsideCoverage").is_none(),
+                        "Explicit mask outside coverage requires project format 10"
+                    );
+                    normalized
+                },
             },
         );
     }
@@ -990,7 +1006,7 @@ where
         object(&doc.metadata)?
     };
     manifest.insert("format".into(), json!("com.compositor.project"));
-    manifest.insert("version".into(), json!(9));
+    manifest.insert("version".into(), json!(PROJECT_WRITE_VERSION));
     manifest.insert("colorSpace".into(), json!("sRGB"));
     manifest.insert("width".into(), json!(doc.width));
     manifest.insert("height".into(), json!(doc.height));
@@ -1581,8 +1597,14 @@ mod tests {
         let path = dir.path().join("Corrupt.omuse");
         let doc = patterned();
         save(&doc, &path).unwrap();
-        edit_manifest(&path, |v| v["version"] = json!(10));
-        assert!(open(&path).unwrap_err().to_string().contains("version 10"));
+        let future_version = PROJECT_MAX_READ_VERSION + 1;
+        edit_manifest(&path, |v| v["version"] = json!(future_version));
+        assert!(
+            open(&path)
+                .unwrap_err()
+                .to_string()
+                .contains(&format!("version {future_version}"))
+        );
         save(&doc, &path).unwrap();
         fs::write(
             path.join("images")

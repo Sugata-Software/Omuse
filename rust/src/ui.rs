@@ -5,6 +5,10 @@ mod advanced_ui;
 mod ai_ui;
 #[path = "asset_ui.rs"]
 mod asset_ui;
+#[path = "camera_gesture_ui.rs"]
+mod camera_gesture_ui;
+#[path = "camera_preview_ui.rs"]
+mod camera_preview_ui;
 #[path = "clipboard_ui.rs"]
 mod clipboard_ui;
 #[path = "command_search_ui.rs"]
@@ -20,12 +24,22 @@ mod crop_ui;
 #[cfg(all(test, feature = "ui-test"))]
 #[path = "editing_workflow_ui_tests.rs"]
 mod editing_workflow_ui_tests;
+#[path = "external_change_ui.rs"]
+mod external_change_ui;
+#[path = "finishing_ui.rs"]
+mod finishing_ui;
+#[path = "inline_text_ui.rs"]
+mod inline_text_ui;
 #[path = "inspector_ui.rs"]
 mod inspector_ui;
 #[path = "keyboard_ui.rs"]
 mod keyboard_ui;
+#[path = "layer_actions_ui.rs"]
+mod layer_actions_ui;
 #[path = "motion_ui.rs"]
 mod motion_ui;
+#[path = "numeric_ui.rs"]
+mod numeric_ui;
 #[path = "photo_io_ui.rs"]
 mod photo_io_ui;
 #[path = "product_ui.rs"]
@@ -35,10 +49,17 @@ mod product_ui;
 mod project_extension_ui_tests;
 #[path = "range_ui.rs"]
 mod range_ui;
+#[path = "recent_ui.rs"]
+mod recent_ui;
 #[path = "restore_ui.rs"]
 mod restore_ui;
 #[path = "rich_text_ui.rs"]
 mod rich_text_ui;
+#[path = "selection_outline_ui.rs"]
+mod selection_outline_ui;
+#[path = "svg_import_ui.rs"]
+mod svg_import_ui;
+use selection_outline_ui::SelectionContourCache;
 #[cfg(test)]
 #[path = "startup_preparation_tests.rs"]
 mod startup_preparation_tests;
@@ -195,11 +216,12 @@ impl Tool {
         }
     }
 }
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 enum Pending {
     New,
     Open,
     Quit,
+    OpenPath(PathBuf),
 }
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum Dialog {
@@ -214,12 +236,15 @@ enum Dialog {
     Import,
     Recover,
     Filter,
+    Finishing,
     Text,
     LayerMenu,
     Nest,
     Trim,
     Shortcuts,
     CommandSearch,
+    Recent,
+    ExternalChange,
     Transform,
     ResizeImage,
     Shape,
@@ -232,6 +257,7 @@ enum Dialog {
     Selection,
     CameraRaw,
     RawImport,
+    SvgImport,
     SubjectRefine,
     RangeMask,
     VectorPath,
@@ -248,25 +274,17 @@ struct SaveConfirmation {
     dialog_generation: u64,
 }
 
-enum CameraRawResult {
-    Preview {
-        pixels: image::RgbaImage,
-        scopes: Arc<omuse::photo_scopes::PhotoScopes>,
-    },
-    Apply(image::RgbaImage),
-}
-
 struct InlineTextDraft {
     layer: Option<String>,
     style: objects::LiveTextStyle,
     origin: (f32, f32),
     input: Entity<TextareaState>,
-}
-
-#[derive(Default)]
-struct SelectionContourCache {
-    key: (usize, u64, u32, u32),
-    points: Arc<Vec<(u32, u32)>>,
+    color: Entity<ColorPickerState>,
+    color_edit: Option<inline_text_ui::TextColorEdit>,
+    typing_color: Option<[f32; 4]>,
+    last_selection: std::ops::Range<usize>,
+    history: std::collections::VecDeque<objects::LiveTextStyle>,
+    restore_text_history: bool,
 }
 
 /// Own the images actually submitted to this canvas. Keeping one displayed
@@ -336,6 +354,7 @@ pub struct EditorView {
     fill_tolerance: u8,
     text_origin: Option<(f32, f32)>,
     inline_text: Option<InlineTextDraft>,
+    inline_preview: inline_text_ui::InlinePreview,
     text_hit_pending: Option<String>,
     font_names: Option<Vec<String>>,
     shape_corner_radius: f32,
@@ -365,6 +384,7 @@ pub struct EditorView {
     clone_all_layers_draft: bool,
     dialog_generation: u64,
     save_confirmation: Option<SaveConfirmation>,
+    save_again: bool,
     jpeg_preview: Option<(Arc<RenderImage>, usize, u32, u32)>,
     // Preview work has its own lifecycle.  It must never invalidate a submitted
     // file operation, whose completion is guarded by `dialog_generation`.
@@ -378,6 +398,9 @@ pub struct EditorView {
     shortcut_draft: Shortcuts,
     recording: Option<String>,
     command_search: command_search_ui::CommandSearchState,
+    recent: recent_ui::RecentState,
+    external: external_change_ui::ExternalState,
+    numeric: RefCell<numeric_ui::NumericState>,
     show_grid: bool,
     effect_kind: usize,
     live_filter: bool,
@@ -400,6 +423,8 @@ pub struct EditorView {
     camera_clip_shadows: bool,
     camera_clip_highlights: bool,
     camera_draft: serde_json::Value,
+    camera_preview: camera_preview_ui::CameraPreviewState,
+    camera_gestures: camera_gesture_ui::CameraGestureState,
     adjustment_draft: serde_json::Value,
     show_guides: bool,
     editing_object: Option<String>,
@@ -413,6 +438,8 @@ pub struct EditorView {
     vector_draft: Option<vector_ui::VectorDraft>,
     workflow_draft: Option<workflow_ui::WorkflowDraft>,
     pro_draft: Option<advanced_ui::ProDraft>,
+    finishing_draft: Option<finishing_ui::FinishingDraft>,
+    svg_import_draft: Option<svg_import_ui::SvgImportDraft>,
     proof_settings: omuse::proofing::Settings,
     macro_recording: bool,
     tablet_painting: bool,
@@ -578,11 +605,15 @@ impl EditorView {
                     || this.vector_draft.is_some()
                     || this.workflow_draft.is_some()
                     || this.pro_draft.is_some()
+                    || this.finishing_draft.is_some()
+                    || this.dialog == Dialog::CameraRaw
                 {
                     this.cancel_range(cx);
                     this.clear_vector(cx);
                     this.clear_workflow(cx);
                     this.clear_pro(cx);
+                    this.cancel_finishing(cx);
+                    this.cancel_camera_raw();
                     this.dialog_generation = this.dialog_generation.wrapping_add(1);
                     this.dialog = Dialog::None;
                 }
@@ -609,7 +640,9 @@ impl EditorView {
         let weak = cx.entity().downgrade();
         cx.intercept_keystrokes(move |event, window, cx| {
             let _ = weak.update(cx, |this, cx| {
-                if this.command_search_key(&event.keystroke, window, cx) {
+                if this.recent_key(&event.keystroke, window, cx)
+                    || this.command_search_key(&event.keystroke, window, cx)
+                {
                     cx.stop_propagation();
                     return;
                 }
@@ -627,13 +660,18 @@ impl EditorView {
                     let chord = event.keystroke.unparse();
                     let save = this.shortcuts.chord("save") == chord;
                     let save_as = this.shortcuts.chord("save-as") == chord;
+                    let quit = this.shortcuts.chord("quit") == chord;
                     if (key == "escape" && unmodified)
                         || (key == "enter" && control_only)
                         || save
                         || save_as
+                        || quit
                     {
                         cx.stop_propagation();
                         let cancel = key == "escape" && unmodified;
+                        if cancel && this.cancel_inline_color(window, cx) {
+                            return;
+                        }
                         let committed = this.finish_inline_text(!cancel, window, cx);
                         if committed && (save || save_as) {
                             if save_as {
@@ -641,6 +679,9 @@ impl EditorView {
                             } else {
                                 this.save(window, cx);
                             }
+                        }
+                        if committed && quit {
+                            this.request(Pending::Quit, window, cx);
                         }
                         return;
                     }
@@ -702,49 +743,7 @@ impl EditorView {
             &camera_canvas,
             window,
             |this, _, event: &crate::camera_canvas::CameraCanvasEvent, window, cx| {
-                if this.dialog != Dialog::CameraRaw || this.busy {
-                    return;
-                }
-                if let Err(error) = this.read_camera_form(cx) {
-                    this.status = error.to_string();
-                    cx.notify();
-                    return;
-                }
-                let section = crate::camera_controls::SECTIONS[this.camera_section].0;
-                match event {
-                    crate::camera_canvas::CameraCanvasEvent::Picked(color)
-                        if section == "mixer" =>
-                    {
-                        let points = this.camera_draft["mixer"]["points"]
-                            .as_array_mut()
-                            .expect("typed camera draft");
-                        if points.len() >= 8 {
-                            this.status =
-                                "Remove a point color before sampling another (maximum 8)".into();
-                        } else {
-                            points.push(serde_json::to_value(color).unwrap());
-                            this.status = "Point color sampled".into();
-                        }
-                    }
-                    crate::camera_canvas::CameraCanvasEvent::Guide(guide)
-                        if section == "geometry" =>
-                    {
-                        let guides = this.camera_draft["geometry"]["guides"]
-                            .as_array_mut()
-                            .expect("typed camera draft");
-                        if guides.len() >= 16 {
-                            this.status =
-                                "Remove a guide before drawing another (maximum 16)".into();
-                        } else {
-                            guides.push(serde_json::to_value(guide).unwrap());
-                            this.camera_draft["geometry"]["upright"] = "Guided".into();
-                            this.status = "Geometry guide added".into();
-                        }
-                    }
-                    _ => return,
-                }
-                this.load_camera_form(window, cx);
-                cx.notify();
+                this.handle_camera_canvas(event, window, cx);
             },
         )
         .detach();
@@ -840,6 +839,7 @@ impl EditorView {
             fill_tolerance: 24,
             text_origin: None,
             inline_text: None,
+            inline_preview: inline_text_ui::InlinePreview::default(),
             text_hit_pending: None,
             font_names: None,
             shape_corner_radius: 0.,
@@ -873,6 +873,7 @@ impl EditorView {
             clone_all_layers_draft: false,
             dialog_generation: 0,
             save_confirmation: None,
+            save_again: false,
             jpeg_preview: None,
             jpeg_preview_generation: 0,
             jpeg_preview_task: None,
@@ -884,6 +885,9 @@ impl EditorView {
             shortcut_draft: Shortcuts::default(),
             recording: None,
             command_search: command_search_ui::CommandSearchState::new(window, cx),
+            recent: recent_ui::RecentState::new(window, cx),
+            external: external_change_ui::ExternalState::default(),
+            numeric: RefCell::new(numeric_ui::NumericState::default()),
             show_grid: preferences.grid,
             effect_kind: 0,
             live_filter: false,
@@ -906,6 +910,8 @@ impl EditorView {
             camera_clip_shadows: false,
             camera_clip_highlights: false,
             camera_draft: serde_json::Value::Null,
+            camera_preview: camera_preview_ui::CameraPreviewState::default(),
+            camera_gestures: camera_gesture_ui::CameraGestureState::default(),
             adjustment_draft: serde_json::Value::Null,
             show_guides: preferences.guides,
             editing_object: None,
@@ -922,6 +928,8 @@ impl EditorView {
             vector_draft: None,
             workflow_draft: None,
             pro_draft: None,
+            finishing_draft: None,
+            svg_import_draft: None,
             proof_settings: Default::default(),
             macro_recording: false,
             tablet_painting: false,
@@ -946,11 +954,19 @@ impl EditorView {
             view.editor.brush.hardness = settings.hardness;
             let _ = view.editor.set_brush_dynamics(Some(settings));
         }
+        if let Some(path) = view.path.clone() {
+            view.note_recent(path, cx);
+        } else if !cfg!(test) {
+            view.refresh_recent(cx);
+        }
+        view.start_external_watch(window, cx);
         cx.on_release(|view, cx| {
             view.clear_range(cx);
             view.clear_vector(cx);
             view.clear_workflow(cx);
             view.clear_pro(cx);
+            view.clear_finishing(cx);
+            view.cancel_camera_raw();
             view.canvas_textures.borrow_mut().release(cx);
             view.layer_thumbnails.borrow_mut().release(cx);
             view.asset_ui.release(cx);
@@ -970,8 +986,14 @@ impl EditorView {
                 if entity
                     .update(cx, |view, cx| {
                         if view.editor.selection.is_some() {
-                            view.selection_ant_phase = view.selection_ant_phase.wrapping_add(1) % 8;
-                            cx.notify();
+                            // Scheduling reads only cache keys. Mask traversal
+                            // stays in the cancellable outline worker.
+                            let outline = view.contour_for_canvas(cx);
+                            if !outline.points.is_empty() {
+                                view.selection_ant_phase =
+                                    view.selection_ant_phase.wrapping_add(1) % 8;
+                                cx.notify();
+                            }
                         }
                     })
                     .is_err()
@@ -984,6 +1006,7 @@ impl EditorView {
         view
     }
     fn finish_interaction(&mut self, cx: &mut Context<Self>) {
+        self.finish_numeric_scrub(cx);
         self.tablet_painting = false;
         self.pan_pointer = None;
         self.middle_pan_pointer = None;
@@ -1011,7 +1034,6 @@ impl EditorView {
         // stroke that ended, was cancelled, or belonged to a replaced document.
         self.pending_stroke_frame = None;
         self.editor.take_stroke_damage();
-        *self.selection_contour.borrow_mut() = SelectionContourCache::default();
         let errors = raster::validate(&self.editor.document);
         if !errors.is_empty() {
             self.status = format!(
@@ -1022,7 +1044,8 @@ impl EditorView {
             return;
         }
 
-        self.pixels = raster::composite(&self.editor.document);
+        let numeric_preview = self.numeric_preview_document();
+        self.pixels = raster::composite(numeric_preview.as_ref().unwrap_or(&self.editor.document));
         self.present_pixels(cx);
     }
     fn present_pixels(&mut self, cx: &mut Context<Self>) {
@@ -1596,6 +1619,9 @@ impl EditorView {
         cx.notify();
     }
     fn moved(&mut self, event: &MouseMoveEvent, window: &mut Window, cx: &mut Context<Self>) {
+        if self.numeric_scrubbing() {
+            return;
+        }
         if self.dialog != Dialog::None || self.busy {
             return;
         }
@@ -1722,6 +1748,9 @@ impl EditorView {
         }
     }
     fn up(&mut self, event: &MouseUpEvent, window: &mut Window, cx: &mut Context<Self>) {
+        if self.numeric_scrubbing() {
+            return;
+        }
         if self.dialog != Dialog::None || self.busy {
             return;
         }
@@ -2041,6 +2070,9 @@ impl EditorView {
         }
     }
     fn request(&mut self, what: Pending, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.finish_inline_text(true, window, cx) {
+            return;
+        }
         self.crop = None;
         if self.dialog != Dialog::None {
             return;
@@ -2070,6 +2102,11 @@ impl EditorView {
     fn perform(&mut self, what: Pending, window: &mut Window, cx: &mut Context<Self>) {
         self.pending = None;
         match what {
+            Pending::OpenPath(path) => {
+                self.dialog = Dialog::Open;
+                self.dialog_generation += 1;
+                self.open_photo_background(path, false, window, cx);
+            }
             Pending::New => {
                 self.dialog = Dialog::New;
                 self.modal_focus.focus(window, cx);
@@ -2237,6 +2274,12 @@ impl EditorView {
         cx.notify();
     }
     fn save(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.create.saving {
+            self.save_again = true;
+            self.status = "The latest edits will save after the current snapshot finishes.".into();
+            cx.notify();
+            return;
+        }
         if self.crop.is_some() {
             self.status = "Apply or cancel the crop before saving".into();
             cx.notify();
@@ -2359,6 +2402,7 @@ impl EditorView {
             return;
         }
         match self.dialog {
+            Dialog::SvgImport => self.apply_svg_import(window, cx),
             Dialog::RawImport => {
                 let values: Option<Vec<f32>> = self.detail_inputs[..4]
                     .iter()
@@ -2488,6 +2532,7 @@ impl EditorView {
             Dialog::VectorPath => self.apply_vector(cx),
             Dialog::Workflow => self.run_workflow(true, window, cx),
             Dialog::Pro => self.run_pro(true, cx),
+            Dialog::Finishing => self.run_finishing(true, cx),
             Dialog::Gradient => {
                 let opacity = self.detail_inputs[0].read(cx).value().parse::<f32>();
                 if let Ok(opacity) = opacity
@@ -3108,6 +3153,11 @@ impl EditorView {
         if self.handle_keyboard_command(name, window, cx) {
             return;
         }
+        if let Some(reason) = self.layer_action_unavailable(name) {
+            self.status = reason.into();
+            cx.notify();
+            return;
+        }
         match name {
             "command-search" => self.open_command_search(window, cx),
             "ask-omuse" => {
@@ -3254,33 +3304,7 @@ impl EditorView {
                 self.dialog = Dialog::Effects;
                 self.open_effect(0, window, cx);
             }
-            "camera-raw" => {
-                let Some(source) = self
-                    .editor
-                    .document
-                    .find_layer(&self.editor.active_layer)
-                    .and_then(|layer| layer.image.as_ref())
-                else {
-                    self.status = "Select a pixel layer for Camera Raw".into();
-                    cx.notify();
-                    return;
-                };
-                if u64::from(source.width()) * u64::from(source.height()) > 16_777_216 {
-                    self.status = "Camera Raw supports images up to 16 million pixels".into();
-                    cx.notify();
-                    return;
-                }
-                let source = source.as_arc();
-                let _ = self
-                    .camera_canvas
-                    .update(cx, |canvas, cx| canvas.set_source(source.clone(), cx));
-                self.dialog = Dialog::CameraRaw;
-                self.camera_draft =
-                    serde_json::to_value(omuse::camera_raw::Settings::default()).unwrap();
-                self.camera_section = 0;
-                self.load_camera_form(window, cx);
-                self.start_camera_scopes(source, cx);
-            }
+            "camera-raw" => self.open_camera_raw(window, cx),
             "select-subject" | "remove-background" => {
                 self.start_subject(name == "select-subject", window, cx)
             }
@@ -3541,6 +3565,7 @@ impl EditorView {
             }
             "new" => self.request(Pending::New, window, cx),
             "open" => self.request(Pending::Open, window, cx),
+            "open-recent" => self.open_recent(window, cx),
             "save" => self.save(window, cx),
             "save-as" => self.save_dialog(false, window, cx),
             "export" => self.save_dialog(true, window, cx),
@@ -3681,6 +3706,10 @@ impl EditorView {
                 self.editing_object = None;
                 self.open_filter(0, window, cx);
             }
+            "dither" => self.open_finishing(0, window, cx),
+            "bloom-glow" => self.open_finishing(1, window, cx),
+            "vignette-overlay" => self.open_finishing(2, window, cx),
+            "local-contrast" => self.open_finishing(3, window, cx),
             "blend" => {
                 let modes = [
                     "Normal",
@@ -4365,17 +4394,7 @@ impl EditorView {
         .detach();
     }
     fn load_camera_form(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let mode = if crate::camera_controls::SECTIONS[self.camera_section].0 == "geometry" {
-            crate::camera_canvas::CameraCanvasMode::Geometry
-        } else {
-            crate::camera_canvas::CameraCanvasMode::PointColor
-        };
-        let guides = serde_json::from_value(self.camera_draft["geometry"]["guides"].clone())
-            .unwrap_or_default();
-        self.camera_canvas.update(cx, |canvas, cx| {
-            canvas.set_mode(mode, cx);
-            canvas.set_guides(guides, cx);
-        });
+        self.configure_camera_canvas(cx);
         let channel = ["rgb", "red", "green", "blue"][self.camera_curve_channel];
         if let Ok(points) = serde_json::from_value(self.camera_draft["curve"][channel].clone()) {
             let _ = self
@@ -4413,6 +4432,9 @@ impl EditorView {
         Ok(())
     }
     fn edit_camera_array(&mut self, add: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if self.busy {
+            return;
+        }
         if let Err(e) = self.read_camera_form(cx) {
             self.status = e.to_string();
             cx.notify();
@@ -4459,120 +4481,6 @@ impl EditorView {
         self.load_camera_form(window, cx);
         self.status = format!("{} {label}", if add { "Added" } else { "Removed last" });
         cx.notify();
-    }
-    fn start_camera_scopes(&mut self, source: Arc<image::RgbaImage>, cx: &mut Context<Self>) {
-        self.camera_scopes = None;
-        self.camera_scopes_preview = false;
-        self.camera_scopes_generation += 1;
-        let scope_generation = self.camera_scopes_generation;
-        let dialog_generation = self.dialog_generation;
-        let task = cx
-            .background_executor()
-            .spawn(async move { Arc::new(omuse::photo_scopes::PhotoScopes::analyze(&source)) });
-        cx.spawn(async move |view, cx| {
-            let scopes = task.await;
-            let _ = view.update(cx, |this, cx| {
-                if this.dialog == Dialog::CameraRaw
-                    && this.dialog_generation == dialog_generation
-                    && this.camera_scopes_generation == scope_generation
-                {
-                    this.camera_scopes = Some(scopes);
-                    cx.notify();
-                }
-            });
-        })
-        .detach();
-    }
-    fn start_camera_raw(
-        &mut self,
-        settings: omuse::camera_raw::Settings,
-        preview: bool,
-        cx: &mut Context<Self>,
-    ) {
-        let id = self.editor.active_layer.clone();
-        let Some(source) = self
-            .editor
-            .document
-            .find_layer(&id)
-            .and_then(|l| l.image.clone())
-        else {
-            self.status = "Select a pixel layer first".into();
-            return;
-        };
-        let generation = self.dialog_generation;
-        // A late initial-source analysis must not overwrite a graded preview.
-        self.camera_scopes_generation += 1;
-        let preview_editor = preview.then(|| {
-            let mut editor = Editor::new(self.editor.document.clone());
-            editor.active_layer = id.clone();
-            editor.selection = self.editor.selection.clone();
-            editor
-        });
-        let clip_shadows = self.camera_clip_shadows;
-        let clip_highlights = self.camera_clip_highlights;
-        self.busy = true;
-        self.status = "Developing preview…".into();
-        cx.notify();
-        let task = cx.background_executor().spawn(async move {
-            let image = omuse::camera_raw::apply(&source, &settings)?;
-            if let Some(mut editor) = preview_editor {
-                editor.apply_image_operation(|_| Ok(image))?;
-                let layer = editor
-                    .document
-                    .find_layer_mut(&id)
-                    .ok_or_else(|| anyhow::anyhow!("Preview layer is unavailable"))?;
-                let image = layer
-                    .image
-                    .as_ref()
-                    .ok_or_else(|| anyhow::anyhow!("Preview pixels are unavailable"))?;
-                // Analyze the selected-area result, before the false-colour
-                // clipping overlay. Composite the temporary document on the
-                // worker too, so the editor can still process Cancel.
-                let scopes = Arc::new(omuse::photo_scopes::PhotoScopes::analyze(image));
-                if clip_shadows || clip_highlights {
-                    layer.image = Some(
-                        omuse::camera_raw::clipping_preview(image, clip_shadows, clip_highlights)
-                            .into(),
-                    );
-                }
-                Ok::<_, anyhow::Error>(CameraRawResult::Preview {
-                    pixels: raster::composite(&editor.document),
-                    scopes,
-                })
-            } else {
-                Ok(CameraRawResult::Apply(image))
-            }
-        });
-        cx.spawn(async move |view, cx| {
-            let result = task.await;
-            let _ = view.update(cx, |this, cx| {
-                if !this.finish_background_job(generation, Dialog::CameraRaw) {
-                    cx.notify();
-                    return;
-                }
-                match result {
-                    Ok(CameraRawResult::Preview { pixels, scopes }) => {
-                        this.display.replace(&pixels);
-                        this.camera_scopes = Some(scopes);
-                        this.camera_scopes_preview = true;
-                        this.status = "Preview — original pixels are unchanged".into();
-                    }
-                    Ok(CameraRawResult::Apply(result)) => {
-                        match this.editor.apply_image_operation(|_| Ok(result)) {
-                            Ok(_) => {
-                                this.dialog = Dialog::None;
-                                this.status = "Camera Raw applied".into();
-                                this.changed(cx);
-                            }
-                            Err(e) => this.status = e.to_string(),
-                        }
-                    }
-                    Err(e) => this.status = format!("Development failed: {e:#}"),
-                }
-                cx.notify();
-            });
-        })
-        .detach();
     }
     fn start_raw_import(
         &mut self,
@@ -5697,6 +5605,46 @@ impl EditorView {
             )
         };
         let input = cx.new(|cx| TextareaState::new(window, cx).rows(4));
+        let color = cx.new(|cx| {
+            ColorPickerState::new(window, cx).default_value(Rgba {
+                r: style.red,
+                g: style.green,
+                b: style.blue,
+                a: 1.,
+            })
+        });
+        cx.observe_in(&input, window, |this, _, window, cx| {
+            this.inline_input_changed(window, cx)
+        })
+        .detach();
+        cx.observe_in(&color, window, |this, _, window, cx| {
+            this.inline_color_changed(window, cx)
+        })
+        .detach();
+        cx.subscribe_in(
+            &color,
+            window,
+            |this, picker, _: &gpui_kit::base::ColorPickerEvent, window, cx| {
+                if this
+                    .inline_text
+                    .as_ref()
+                    .is_none_or(|draft| draft.color.entity_id() != picker.entity_id())
+                {
+                    return;
+                }
+                if !picker.read(cx).is_open() {
+                    if let Some(edit) = this
+                        .inline_text
+                        .as_mut()
+                        .and_then(|draft| draft.color_edit.as_mut())
+                    {
+                        edit.committed = true;
+                    }
+                    this.inline_color_changed(window, cx);
+                }
+            },
+        )
+        .detach();
         input.update(cx, |input, cx| {
             input.set_value(style.content.clone(), window, cx);
             input.set_text_align(
@@ -5714,8 +5662,15 @@ impl EditorView {
             style,
             origin,
             input,
+            color,
+            color_edit: None,
+            typing_color: None,
+            last_selection: 0..0,
+            history: std::collections::VecDeque::new(),
+            restore_text_history: false,
         });
         self.tool = Tool::Text;
+        self.schedule_inline_preview(cx);
         self.status =
             "Editing text on canvas · Enter: new line · Ctrl+Enter: finish · Escape: cancel".into();
         cx.notify();
@@ -5729,12 +5684,16 @@ impl EditorView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> bool {
+        if apply && let Err(error) = self.sync_inline_text(cx) {
+            self.status = format!("Text: {error:#}");
+            cx.notify();
+            return false;
+        }
         let Some(draft) = self.inline_text.as_ref() else {
             return true;
         };
         if apply {
-            let mut style = draft.style.clone();
-            objects::set_text_content(&mut style, draft.input.read(cx).value().to_string());
+            let style = draft.style.clone();
             let result = if let Some(id) = draft.layer.as_ref() {
                 if !editable_text(&self.editor.document.layers, id, true, false) {
                     Err(anyhow::anyhow!(
@@ -5777,6 +5736,7 @@ impl EditorView {
             }
         }
         self.inline_text = None;
+        self.end_inline_preview(cx);
         self.drag_start = None;
         self.selection_box = None;
         self.status = if apply {
@@ -5811,11 +5771,9 @@ impl EditorView {
                 + self.pan.0
                 + draft.origin.0 * self.zoom)
                 .clamp(4., (width - editor_width - 4.).max(4.));
-        let top = f32::from(bounds.origin.y)
-            + ((height - self.editor.document.height as f32 * self.zoom) / 2.
-                + self.pan.1
-                + draft.origin.1 * self.zoom)
-                .clamp(4., (height - 240.).max(4.));
+        // Keep the typing controls below the artwork instead of covering the
+        // exact text/effects preview with a second, differently rendered font.
+        let top = f32::from(bounds.origin.y) + (height - 218.).max(4.);
         let input = gpui_omarchy::textarea("inline-text-input", &draft.input, window, cx)
             .debug_selector(|| "inline-text-input".into())
             .min_h(px(56.))
@@ -5826,6 +5784,18 @@ impl EditorView {
         // it never also activates the control beneath the click.
         div()
             .id("inline-text-surface")
+            .capture_action(
+                cx.listener(|this, _: &gpui_kit::base::input::Undo, window, cx| {
+                    this.arm_inline_history(window, cx);
+                    cx.propagate();
+                }),
+            )
+            .capture_action(
+                cx.listener(|this, _: &gpui_kit::base::input::Redo, window, cx| {
+                    this.arm_inline_history(window, cx);
+                    cx.propagate();
+                }),
+            )
             .absolute()
             .inset_0()
             .occlude()
@@ -5851,7 +5821,29 @@ impl EditorView {
                     .p_1()
                     .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                     .on_scroll_wheel(|_, _, cx| cx.stop_propagation())
+                    .child(
+                        div()
+                            .text_sm()
+                            .text_color(t.secondary)
+                            .child("LIVE TEXT · select letters to colour them"),
+                    )
                     .child(input)
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .justify_between()
+                            .gap_2()
+                            .pt_1()
+                            .child(color_picker("inline-text-colour", &draft.color, window, cx))
+                            .child(div().text_sm().text_color(t.secondary).child(
+                                if draft.input.read(cx).selected_range().is_empty() {
+                                    "Typing colour"
+                                } else {
+                                    "Selection colour"
+                                },
+                            )),
+                    )
                     .child(
                         div()
                             .flex()
@@ -5900,25 +5892,7 @@ impl EditorView {
         let active_tool = self.tool;
         let shape_corner_radius = self.shape_corner_radius;
         let shape_line_width = self.shape_line_width;
-        let selection_contour = if let Some(selection) = self.editor.selection.as_ref() {
-            // The monotonic selection revision also changes on undo/redo and when
-            // bounded history evicts entries, so allocator reuse cannot leave stale contours.
-            let key = (
-                selection.mask.as_ptr() as usize,
-                self.editor.selection_revision(),
-                selection.width,
-                selection.height,
-            );
-            let mut cache = self.selection_contour.borrow_mut();
-            if cache.key != key {
-                cache.key = key;
-                cache.points = Arc::new(selection_contour_points(selection, 200_000));
-            }
-            cache.points.clone()
-        } else {
-            *self.selection_contour.borrow_mut() = SelectionContourCache::default();
-            Arc::new(Vec::new())
-        };
+        let selection_contour = self.contour_for_canvas(cx);
         let interaction_dragging = self.drag_start.is_some();
         let selection_ant_phase = self.selection_ant_phase as u32;
         let transform =
@@ -6197,8 +6171,9 @@ impl EditorView {
                                 accent,
                             ));
                         }
-                        for &(x, y) in selection_contour.iter() {
-                            let color = if ((x + y + selection_ant_phase) / 4) % 2 == 0 {
+                        for &(x, y) in &selection_contour.points {
+                            let screen_phase = ((x + y) as f32 * zoom).round() as u32;
+                            let color = if ((screen_phase + selection_ant_phase) / 4) % 2 == 0 {
                                 rgb(0xffffff)
                             } else {
                                 rgb(0x000000)
@@ -6209,8 +6184,16 @@ impl EditorView {
                                         rect.origin.x + px(x as f32 * zoom),
                                         rect.origin.y + px(y as f32 * zoom),
                                     ),
-                                    size(px(zoom.max(1.)), px(zoom.max(1.))),
-                                ),
+                                    size(
+                                        px((selection_contour.cell_size as f32 * zoom)
+                                            .min(zoom.max(2.))
+                                            .max(1.)),
+                                        px((selection_contour.cell_size as f32 * zoom)
+                                            .min(zoom.max(2.))
+                                            .max(1.)),
+                                    ),
+                                )
+                                .intersect(&clipped),
                                 color,
                             ));
                         }
@@ -6244,6 +6227,12 @@ impl EditorView {
             .into_any_element()
     }
     fn dialog_view(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        if self.dialog == Dialog::Recent {
+            return self.recent_view(window, cx);
+        }
+        if self.dialog == Dialog::ExternalChange {
+            return self.external_view(window, cx);
+        }
         if self.dialog == Dialog::CommandSearch {
             return self.command_search_view(window, cx);
         }
@@ -6268,6 +6257,8 @@ impl EditorView {
             Dialog::Trim => "Trim canvas",
             Dialog::Shortcuts => "Keyboard shortcuts",
             Dialog::CommandSearch => "Commands & shortcuts",
+            Dialog::Recent => "Recent projects",
+            Dialog::ExternalChange => "Project changed on disk",
             Dialog::Transform => "Transform layer",
             Dialog::ResizeImage => "Resize image",
             Dialog::Shape => "Edit shape",
@@ -6279,6 +6270,7 @@ impl EditorView {
             Dialog::Adjustment => "Live adjustment layer",
             Dialog::Selection => "Modify selection",
             Dialog::RawImport => "Develop camera RAW",
+            Dialog::SvgImport => "Import SVG artwork",
             Dialog::CameraRaw => "Camera Raw",
             Dialog::SubjectRefine => "Refine subject matte",
             Dialog::RangeMask => {
@@ -6291,6 +6283,7 @@ impl EditorView {
             Dialog::VectorPath => "Vector paths & masks",
             Dialog::Workflow => self.workflow_title(),
             Dialog::Pro => self.pro_title(),
+            Dialog::Finishing => "Finishing effects",
             Dialog::ImportReport => "Import conversion report",
             Dialog::ToolSettings => "Tool settings",
             Dialog::Gradient => "Gradient preview",
@@ -6347,7 +6340,10 @@ impl EditorView {
                 body = body.child("Create a group first.");
             }
             for (id, name) in choices {
-                body = body.child(button(SharedString::from(format!("nest-target-{id}")),name,ButtonVariant::Outline,cx).on_click(cx.listener(move |this,_,window,cx| {
+                let reason = self.layer_nest_target_unavailable(&id);
+                let label = reason.map_or(name.clone(), |reason| format!("{name} — {reason}"));
+                body = body.child(button(SharedString::from(format!("nest-target-{id}")),label,ButtonVariant::Outline,cx).disabled(reason.is_some()).on_click(cx.listener(move |this,_,window,cx| {
+                    if let Some(reason) = this.layer_nest_target_unavailable(&id) { this.status=reason.into(); cx.notify(); return; }
                     let ids = this.selected_layer_ids();
                     let moved = this.editor.drop_layers(&ids,Some(&id),0,false);
                     if !moved.is_empty() { this.select_layer_ids(moved); this.dialog=Dialog::None; this.focus.focus(window,cx); this.changed(cx); }
@@ -6364,40 +6360,7 @@ impl EditorView {
                 )),
             );
         } else if self.dialog == Dialog::LayerMenu {
-            for (id, label) in [
-                ("edit-object", "Edit text / shape"),
-                ("rasterize", "Convert to pixels"),
-                ("transform", "Transform…"),
-                ("rename", "Rename"),
-                ("group", "Group selected layers"),
-                ("duplicate", "Duplicate selected layers"),
-                ("delete", "Delete"),
-                ("lock", "Toggle lock"),
-                ("visibility", "Toggle visibility"),
-                ("clipping", "Toggle clipping mask"),
-                ("remove-mask", "Delete mask"),
-                ("clear-effects", "Delete all effects"),
-                ("nest", "Move into group"),
-                ("unnest", "Move to top level"),
-                ("merge", "Merge down"),
-                ("add-mask", "Add mask"),
-            ] {
-                body = body.child(button(id, label, ButtonVariant::Outline, cx).on_click(
-                    cx.listener(move |this, _, window, cx| {
-                        this.dialog = Dialog::None;
-                        this.command(id, window, cx);
-                    }),
-                ))
-            }
-            body = body.child(
-                button("dismiss-layer-menu", "Close", ButtonVariant::Outline, cx).on_click(
-                    cx.listener(|this, _, window, cx| {
-                        this.dialog = Dialog::None;
-                        this.focus.focus(window, cx);
-                        cx.notify();
-                    }),
-                ),
-            );
+            body = body.child(self.layer_actions_body(cx));
         } else if self.dialog == Dialog::Unsaved {
             let saving = self.create.saving;
             body = body.child("This document has changes that have not been saved.");
@@ -6466,7 +6429,9 @@ impl EditorView {
                     .child(button("skip-recovery","Keep for later",ButtonVariant::Outline,cx).on_click(cx.listener(|this,_,_,cx|{this.dialog=Dialog::None;cx.notify();})))
                     .child(button("recover","Recover",ButtonVariant::Primary,cx).on_click(cx.listener(|this,_,_,cx|{if let Some(path)=this.recovery.available(){match Self::open_content(&path){Ok((doc,project))=>{this.install_opened_content(doc,project);this.editor.mark_unsaved();this.path=None;this.dialog=Dialog::None;this.status="Recovered a copy. Use Save to choose a project location.".into();this.refresh(cx);},Err(e)=>this.status=format!("Recovery failed: {e:#}")}}cx.notify();}))));
         } else {
-            if self.dialog == Dialog::RawImport {
+            if self.dialog == Dialog::SvgImport {
+                body = body.child(self.svg_import_body(window, cx));
+            } else if self.dialog == Dialog::RawImport {
                 body = body.child(self.path_input.read(cx).value().to_string());
                 for (i, label) in [
                     "Exposure (−3 to 3 stops)",
@@ -6511,6 +6476,7 @@ impl EditorView {
                             },
                             cx,
                         )
+                        .disabled(self.busy)
                         .on_click(cx.listener(move |this, _, w, cx| {
                             if this.busy {
                                 return;
@@ -6544,6 +6510,7 @@ impl EditorView {
                                 },
                                 cx,
                             )
+                            .disabled(self.busy)
                             .on_click(cx.listener(
                                 move |this, _, window, cx| {
                                     if this.busy {
@@ -6574,6 +6541,7 @@ impl EditorView {
                     .get(self.camera_section)
                     .map(|section| section.0)
                     .unwrap_or("");
+                body = body.child(self.camera_gesture_controls(cx));
                 if matches!(section_key, "mixer" | "geometry") {
                     if !self.busy {
                         body = body.child(self.camera_canvas.clone()).child(
@@ -6600,6 +6568,7 @@ impl EditorView {
                                     ButtonVariant::Outline,
                                     cx,
                                 )
+                                .disabled(self.busy)
                                 .on_click(cx.listener(
                                     |this, _, window, cx| this.edit_camera_array(true, window, cx),
                                 )),
@@ -6611,6 +6580,7 @@ impl EditorView {
                                     ButtonVariant::Outline,
                                     cx,
                                 )
+                                .disabled(self.busy)
                                 .on_click(cx.listener(
                                     |this, _, window, cx| this.edit_camera_array(false, window, cx),
                                 )),
@@ -6625,13 +6595,25 @@ impl EditorView {
                     if curve_section && f.value.is_array() {
                         continue;
                     }
-                    body = body.child(div().child(f.label.clone()).child(input(
-                        SharedString::from(format!("camera-field-{i}")),
-                        &self.detail_inputs[i],
-                        window,
-                        cx,
-                    )));
+                    if let Some(spec) = Self::camera_numeric_spec(f) {
+                        body = body.child(self.numeric_row(
+                            format!("camera-field-{i}"),
+                            f.label.clone(),
+                            numeric_ui::Target::Detail(i),
+                            spec,
+                            window,
+                            cx,
+                        ));
+                    } else {
+                        body = body.child(div().child(f.label.clone()).child(input(
+                            SharedString::from(format!("camera-field-{i}")),
+                            &self.detail_inputs[i],
+                            window,
+                            cx,
+                        )));
+                    }
                 }
+                body = body.child(inspector_ui::numeric_hint(cx));
                 for (id, label, enabled, shadow) in [
                     (
                         "camera-clip-shadows",
@@ -6653,6 +6635,7 @@ impl EditorView {
                             ButtonVariant::Outline,
                             cx,
                         )
+                        .disabled(self.busy)
                         .on_click(cx.listener(move |this, _, _, cx| {
                             if this.busy {
                                 return;
@@ -6676,8 +6659,9 @@ impl EditorView {
                     );
                 }
                 body = body.child(
-                    button("camera-preview", "Preview", ButtonVariant::Outline, cx).on_click(
-                        cx.listener(|this, _, _, cx| {
+                    button("camera-preview", "Preview", ButtonVariant::Outline, cx)
+                        .disabled(self.busy)
+                        .on_click(cx.listener(|this, _, _, cx| {
                             if this.busy {
                                 return;
                             }
@@ -6691,12 +6675,13 @@ impl EditorView {
                                     cx.notify();
                                 }
                             }
-                        }),
-                    ),
+                        })),
                 );
                 body=body.child("Preview keeps the original intact. Apply commits one undo step; Cancel restores the original view.");
             } else if self.dialog == Dialog::Pro {
                 body = body.child(self.pro_controls(window, cx));
+            } else if self.dialog == Dialog::Finishing {
+                body = body.child(self.finishing_controls(window, cx));
             } else if self.dialog == Dialog::Workflow {
                 body = body.child(self.workflow_controls(window, cx));
             } else if self.dialog == Dialog::VectorPath {
@@ -6804,13 +6789,26 @@ impl EditorView {
                 .into_iter()
                 .enumerate()
                 {
-                    body = body.child(div().child(label).child(input(
-                        SharedString::from(format!("tool-setting-{index}")),
-                        &self.detail_inputs[index],
+                    let spec = match index {
+                        0 => numeric_ui::SIZE,
+                        1 => numeric_ui::HARDNESS,
+                        2 => numeric_ui::OPACITY,
+                        3 => numeric_ui::SMOOTHING,
+                        4 | 5 => numeric_ui::Spec::new(0., 255., 1., 32., 0),
+                        6 => numeric_ui::Spec::new(0., 2., 1., 0., 0),
+                        7 => numeric_ui::Spec::new(0., 5000., 1., 0., 2),
+                        _ => numeric_ui::Spec::new(1., 5000., 1., 4., 2),
+                    };
+                    body = body.child(self.numeric_row(
+                        format!("tool-setting-{index}"),
+                        label,
+                        numeric_ui::Target::Detail(index),
+                        spec,
                         window,
                         cx,
-                    )));
+                    ));
                 }
+                body = body.child(inspector_ui::numeric_hint(cx));
                 for (id, label, field) in [
                     (
                         "wand-contiguous",
@@ -6944,14 +6942,10 @@ impl EditorView {
                             )),
                         );
                     } else {
-                        body = body.child(div().child(f.label.clone()).child(input(
-                            SharedString::from(format!("adjustment-value-{i}")),
-                            &self.detail_inputs[i],
-                            window,
-                            cx,
-                        )));
+                        body = body.child(self.adjustment_numeric_row(f, i, window, cx));
                     }
                 }
+                body = body.child(inspector_ui::numeric_hint(cx));
                 if self.adjustment_kind == 3 {
                     body = body.child("Curve control points: x,y; x,y (0–255)");
                     for (i, label) in ["RGB", "Red", "Green", "Blue"].iter().enumerate() {
@@ -7056,13 +7050,31 @@ impl EditorView {
                 }
             } else if self.dialog == Dialog::MaskTransform {
                 for (i, label) in ["X", "Y", "Width", "Height", "Rotation"].iter().enumerate() {
-                    body = body.child(div().child(*label).child(input(
-                        SharedString::from(format!("mask-place-{i}")),
-                        &self.detail_inputs[i],
+                    let spec = match i {
+                        0 | 1 => numeric_ui::Spec::new(-1_000_000., 1_000_000., 1., 0., 3),
+                        2 | 3 => numeric_ui::Spec::new(
+                            1.,
+                            300_000.,
+                            1.,
+                            f64::from(if i == 2 {
+                                self.editor.document.width
+                            } else {
+                                self.editor.document.height
+                            }),
+                            3,
+                        ),
+                        _ => numeric_ui::Spec::new(-360., 360., 1., 0., 3),
+                    };
+                    body = body.child(self.numeric_row(
+                        format!("mask-place-{i}"),
+                        *label,
+                        numeric_ui::Target::Detail(i),
+                        spec,
                         window,
                         cx,
-                    )));
+                    ));
                 }
+                body = body.child(inspector_ui::numeric_hint(cx));
             } else if self.dialog == Dialog::Effects {
                 let mut choices = div().flex().flex_wrap().gap_1();
                 for (i, label) in [
@@ -7166,14 +7178,23 @@ impl EditorView {
                 .iter()
                 .enumerate()
                 {
-                    body = body.child(div().child(*label).child(input(
-                        SharedString::from(format!("transform-{i}")),
-                        &self.detail_inputs[i],
+                    let spec = match i {
+                        0 | 1 => numeric_ui::Spec::new(-1_000_000., 1_000_000., 1., 0., 3),
+                        2 => numeric_ui::Spec::new(-360., 360., 1., 0., 3),
+                        _ => numeric_ui::Spec::new(-100_000., 100_000., 1., 100., 3),
+                    };
+                    body = body.child(self.numeric_row(
+                        format!("transform-{i}"),
+                        *label,
+                        numeric_ui::Target::Detail(i),
+                        spec,
                         window,
                         cx,
-                    )));
+                    ));
                 }
-                body = body.child("Negative scale flips an axis. Applying creates one undo step.");
+                body = body
+                    .child(inspector_ui::numeric_hint(cx))
+                    .child("Negative scale flips an axis. Applying creates one undo step.");
             } else if self.dialog == Dialog::Shortcuts {
                 body = body.child("Record a key combination, or Clear to leave a command unbound. Escape cancels recording. Apply saves changes; Cancel discards them.");
                 body = body.child("Super belongs to Omarchy. Search also matches categories and your current shortcuts.");
@@ -7860,6 +7881,9 @@ impl EditorView {
                                         this.clear_vector(cx);
                                         this.clear_workflow(cx);
                                         this.clear_pro(cx);
+                                        this.cancel_finishing(cx);
+                                        this.cancel_camera_raw();
+                                        this.svg_import_draft = None;
                                         if !this.cancel_photo_io() {
                                             this.refresh(cx);
                                         }
@@ -7895,6 +7919,7 @@ impl EditorView {
                                     cx,
                                 )
                                 .debug_selector(|| "confirm-dialog".into())
+                                .disabled(self.dialog == Dialog::CameraRaw && self.busy)
                                 .on_click(cx.listener(
                                     |this, _, window, cx| this.confirm_dialog(window, cx),
                                 )),
@@ -7904,7 +7929,11 @@ impl EditorView {
         }
         let advanced_workspace = matches!(
             self.dialog,
-            Dialog::Pro | Dialog::Workflow | Dialog::VectorPath | Dialog::Shortcuts
+            Dialog::Pro
+                | Dialog::Finishing
+                | Dialog::Workflow
+                | Dialog::VectorPath
+                | Dialog::Shortcuts
         );
         let dialog_width = if advanced_workspace {
             (f32::from(window.viewport_size().width) - 32.).clamp(560., 960.)
@@ -7949,6 +7978,12 @@ impl EditorView {
 
 impl Render for EditorView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.validate_numeric_context(window, cx);
+        self.validate_camera_gesture_context(window, cx);
+        if let Some(error) = self.editor.take_mask_paint_error() {
+            self.refresh(cx);
+            self.status = format!("Mask edit left your work unchanged: {error}");
+        }
         self.sync_create_fields(window, cx);
         self.sync_motion_fields(window, cx);
         if let Some(error) = self.recovery.error() {
@@ -7977,6 +8012,9 @@ impl Render for EditorView {
             .track_focus(&self.focus)
             .on_tablet(cx.listener(Self::tablet))
             .on_tablet_out(cx.listener(Self::tablet))
+            .on_mouse_move(cx.listener(Self::numeric_moved))
+            .on_mouse_up(MouseButton::Left, cx.listener(Self::numeric_up))
+            .on_mouse_up_out(MouseButton::Left, cx.listener(Self::numeric_up))
             .key_context(if input_modal { "OmuseInput" } else { "Omuse" })
             .size_full()
             .relative()
@@ -8080,6 +8118,14 @@ impl Render for EditorView {
                 }
             }))
             .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
+                if event.keystroke.key == "escape" && this.cancel_camera_gesture(window, cx) {
+                    cx.stop_propagation();
+                    return;
+                }
+                if event.keystroke.key == "escape" && this.cancel_numeric_scrub(window, cx) {
+                    cx.stop_propagation();
+                    return;
+                }
                 if this.create.phone_preview {
                     if event.keystroke.key == "escape" {
                         this.create.phone_preview = false;
@@ -8094,6 +8140,9 @@ impl Render for EditorView {
                             return;
                         }
                         this.cancel_photo_io();
+                        if this.dialog == Dialog::ExternalChange {
+                            this.dismiss_external_notice();
+                        }
                         let preview_dialog = matches!(
                             this.dialog,
                             Dialog::CameraRaw | Dialog::SubjectRefine | Dialog::Gradient
@@ -8107,6 +8156,9 @@ impl Render for EditorView {
                         this.clear_vector(cx);
                         this.clear_workflow(cx);
                         this.clear_pro(cx);
+                        this.cancel_finishing(cx);
+                        this.cancel_camera_raw();
+                        this.svg_import_draft = None;
                         if preview_dialog {
                             this.busy = false;
                             this.status = if camera_preview {
@@ -8200,6 +8252,7 @@ impl Render for EditorView {
             }))
             .child(header)
             .child(context_bar)
+            .child(self.external_banner(cx))
             .child(
                 div()
                     .flex()
@@ -8255,46 +8308,22 @@ fn text_at(editor: &Editor, x: f32, y: f32) -> Option<String> {
     find(editor, &editor.document.layers, x, y)
 }
 
+#[cfg(test)]
 fn selection_contour_points(selection: &Selection, limit: usize) -> Vec<(u32, u32)> {
-    if limit == 0 || selection.width == 0 || selection.height == 0 {
-        return Vec::new();
-    }
-    let inside = |x: i32, y: i32| {
-        x >= 0
-            && y >= 0
-            && x < selection.width as i32
-            && y < selection.height as i32
-            && selection.mask[y as usize * selection.width as usize + x as usize] >= 128
-    };
-    let mut points = Vec::with_capacity(limit.min(4096));
-    let mut seen = 0usize;
-    for y in 0..selection.height {
-        for x in 0..selection.width {
-            if inside(x as i32, y as i32)
-                && (!inside(x as i32 - 1, y as i32)
-                    || !inside(x as i32 + 1, y as i32)
-                    || !inside(x as i32, y as i32 - 1)
-                    || !inside(x as i32, y as i32 + 1))
-            {
-                seen += 1;
-                if points.len() < limit {
-                    points.push((x, y));
-                } else {
-                    let mut mixed = seen as u64;
-                    mixed ^= mixed >> 30;
-                    mixed = mixed.wrapping_mul(0xBF58_476D_1CE4_E5B9);
-                    mixed ^= mixed >> 27;
-                    mixed = mixed.wrapping_mul(0x94D0_49BB_1331_11EB);
-                    mixed ^= mixed >> 31;
-                    let slot = mixed as usize % seen;
-                    if slot < limit {
-                        points[slot] = (x, y);
-                    }
-                }
-            }
-        }
-    }
-    points
+    omuse::selection_outline::generate(
+        selection,
+        1,
+        omuse::model::PixelRect {
+            x: 0,
+            y: 0,
+            width: selection.width,
+            height: selection.height,
+        },
+        limit,
+        &std::sync::atomic::AtomicBool::new(false),
+    )
+    .map(|outline| outline.points)
+    .unwrap_or_default()
 }
 
 fn snap_canvas_point(
@@ -11730,6 +11759,13 @@ impl EditorView {
                         } else if matches!(panel.as_str(), "create" | "templates" | "assistant" | "content-export" | "motion") {
                             this.prepare_create_inspection(&panel,cx)?;
                             this.command("fit",window,cx);
+                        } else if matches!(panel.as_str(), "dither" | "bloom-glow" | "vignette-overlay" | "local-contrast") {
+                            let pixels=this.pixels.clone();
+                            let mut doc=Document::new(pixels.width(),pixels.height());
+                            doc.layers[0].image=Some(pixels.into());
+                            this.editor=Editor::new(doc);
+                            this.command(&panel,window,cx);
+                            this.run_finishing(false,cx);
                         } else if matches!(panel.as_str(), "filter-stack" | "blend-if" | "advanced-retouch" | "controlled-removal" | "editable-warp" | "refine-workspace" | "brush-studio" | "smart-source" | "colour-management" | "automation" | "multi-image" | "vector-path" | "vector-mask") {
                             let pixels=this.pixels.clone();
                             let mut doc=Document::new(pixels.width(),pixels.height());doc.layers[0].image=Some(pixels.into());

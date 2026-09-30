@@ -1,6 +1,6 @@
 # Omuse keyboard shortcuts
 
-This reference is generated from Omuse's command catalog. Press **Ctrl+K** in the editor to search and run any of the 171 commands. 101 commands have a default shortcut; every unbound command remains searchable and executable.
+This reference is generated from Omuse's command catalog. Press **Ctrl+K** in the editor to search and run any of the 176 commands. 102 commands have a default shortcut; every unbound command remains searchable and executable.
 
 Open **Keyboard shortcuts** with **Ctrl+Alt+K** to assign, clear, or reset a binding. Custom bindings are stored per user. Omuse reserves **Super** for Omarchy and other Linux desktop shortcuts, and rejects Linux virtual-terminal chords such as Ctrl+Alt+F3.
 
@@ -35,6 +35,7 @@ Legacy default changes: Export moved from Ctrl+E to **Ctrl+Alt+Shift+S**, Create
 |---|---:|---|
 | New canvas | Ctrl+N | Create a new canvas. |
 | Open | Ctrl+O | Open an image or Omuse project. |
+| Open recent project | Ctrl+Alt+O | Search recently opened or saved projects; Enter opens the selection. |
 | Save | Ctrl+S | Save to the current project location. |
 | Save as | Ctrl+Shift+S | Save the project to a new location. |
 | Import | Ctrl+Shift+O | Import an image into the current document. |
@@ -232,6 +233,10 @@ Legacy default changes: Export moved from Ctrl+E to **Ctrl+Alt+Shift+S**, Create
 | Layer effects | Unbound | Edit nondestructive effects on the active layer. |
 | Delete layer effects | Unbound | Remove every effect from the active layer. |
 | Editable filter stack | Unbound | Build a reorderable filter stack. |
+| Dither and halftone | Unbound | Preview ten retro finishes with pixel, cell and palette controls; Apply is one undo step. |
+| Bloom into transparency | Unbound | Preview highlight glow that can spread into existing transparent layer margins. |
+| Vignette overlay | Unbound | Preview a coloured edge overlay, including on an empty paint layer. |
+| Local tonal contrast | Unbound | Preview radius-based detail contrast with independent tonal-zone strength. |
 | Blend If | Unbound | Control layer visibility using tonal ranges. |
 | Precision and colour | Unbound | Open precision and colour-management controls. |
 

@@ -64,7 +64,7 @@ impl EditorView {
         Ok((doc, project, pixels, stamp))
     }
 
-    fn begin_photo_io(&mut self, cx: &mut Context<Self>) -> Option<Arc<AtomicBool>> {
+    pub(super) fn begin_photo_io(&mut self, cx: &mut Context<Self>) -> Option<Arc<AtomicBool>> {
         if self.photo_io.is_some() {
             self.status = "The previous image operation is finishing. Try again shortly.".into();
             cx.notify();
@@ -104,7 +104,7 @@ impl EditorView {
         false
     }
 
-    fn finish_photo_io(
+    pub(super) fn finish_photo_io(
         &mut self,
         cancel: &Arc<AtomicBool>,
         identity: (Dialog, u64, u64, u64),
@@ -144,6 +144,21 @@ impl EditorView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if omuse::svg_import::matches(&path) {
+            self.begin_svg_import(path, import, window, cx);
+            return;
+        }
+        self.open_photo_background_sized(path, import, None, window, cx);
+    }
+
+    pub(super) fn open_photo_background_sized(
+        &mut self,
+        path: PathBuf,
+        import: bool,
+        svg_size: Option<((u32, u32), u64)>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let Some(cancel) = self.begin_photo_io(cx) else {
             return;
         };
@@ -166,7 +181,25 @@ impl EditorView {
                 .spawn(async move {
                     let result = (|| -> anyhow::Result<_> {
                         anyhow::ensure!(!worker_cancel.load(Ordering::Relaxed), "Open cancelled");
-                        let content = if import {
+                        let content = if let Some((size, stamp)) = svg_size {
+                            anyhow::ensure!(Self::svg_source_stamp(&path)? == stamp,
+                                "The SVG source changed. Reload dimensions to review it again; the current artwork is unchanged.");
+                            let layer = omuse::svg_import::import_with_size(&path, Some(size))?;
+                            anyhow::ensure!(Self::svg_source_stamp(&path)? == stamp,
+                                "The SVG source changed while rendering. Reload dimensions to review it again; the current artwork is unchanged.");
+                            anyhow::ensure!(!worker_cancel.load(Ordering::Relaxed), "SVG import cancelled");
+                            if import {
+                                (None, Some(layer))
+                            } else {
+                                let image = layer.image.as_ref().expect("SVG import has cached pixels");
+                                let pixels = image.to_image();
+                                let doc = Document {
+                                    width: image.width(), height: image.height(), name: layer.name.clone(),
+                                    background: [0; 4], layers: vec![layer], metadata: serde_json::json!({}),
+                                };
+                                (Some((doc, None, pixels, None)), None)
+                            }
+                        } else if import {
                             let layer = document::import_image(&path)?;
                             (None, Some(layer))
                         } else {
@@ -188,6 +221,7 @@ impl EditorView {
                         this.install_opened_content(doc, project);
                         this.live_stamp = stamp;
                         this.path = stamp.map(|_| path.components().collect());
+                        if let Some(path)=this.path.clone() {this.note_recent(path,cx);}
                         this.selection_box = None;
                         this.pan = (0., 0.);
                         this.paint_mask = false;
@@ -222,6 +256,7 @@ impl EditorView {
                         return;
                     }
                 }
+                this.svg_import_draft = None;
                 this.dialog = if this.import_notes.is_empty() {
                     Dialog::None
                 } else {
@@ -313,6 +348,10 @@ impl EditorView {
             }
             .into();
             cx.notify();
+            return;
+        }
+        if paths.len() == 1 && omuse::svg_import::matches(&paths[0]) {
+            self.begin_svg_import(paths[0].clone(), true, window, cx);
             return;
         }
         let Some(cancel) = self.begin_photo_io(cx) else {

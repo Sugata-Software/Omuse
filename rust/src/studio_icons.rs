@@ -74,6 +74,7 @@ studio_icons!(
     ("save", "save"),
     ("upload", "upload"),
     ("folder-open", "folder-open"),
+    ("clock", "clock"),
     ("file-plus-2", "file-plus-2"),
     ("keyboard", "keyboard"),
     ("search", "search"),

@@ -433,6 +433,7 @@ impl EditorView {
             .child(rule(cx))
             .child(self.studio_icon_action("new", "New document", "file-plus-2", cx))
             .child(self.studio_icon_action("open", "Open document", "folder-open", cx))
+            .child(self.studio_icon_action("open-recent", "Open recent projects", "clock", cx))
             .child(self.studio_icon_action("import", "Import image", "image", cx))
             .child(self.studio_icon_action(
                 "command-search",
@@ -699,7 +700,14 @@ impl EditorView {
             .child(rule(cx));
         if self.tool == Tool::SpotHeal {
             bar = bar
-                .child(note(format!("Size {:.0} px", self.editor.brush.size), cx))
+                .child(self.numeric_row(
+                    "spot-size",
+                    "Size px",
+                    numeric_ui::Target::BrushSize,
+                    numeric_ui::SIZE,
+                    window,
+                    cx,
+                ))
                 .child(
                     button(
                         "spot-healing-mode",
@@ -733,81 +741,42 @@ impl EditorView {
                 );
         } else if self.tool.uses_brush() {
             bar = bar
-                .child(
-                    div()
-                        .flex()
-                        .items_center()
-                        .gap_1()
-                        .flex_shrink_0()
-                        .child(note("Size", cx))
-                        .child(
-                            button("smaller", "−", ButtonVariant::Secondary, cx)
-                                .size(px(26.))
-                                .p_0()
-                                .accessibility_label("Decrease brush size")
-                                .on_click(cx.listener(|this, _, window, cx| {
-                                    this.command("brush-smaller", window, cx);
-                                })),
-                        )
-                        .child(
-                            div()
-                                .min_w(px(42.))
-                                .text_center()
-                                .text_size(px(11.))
-                                .font_family(t.mono_font.clone())
-                                .child(format!("{:.0} px", self.editor.brush.size)),
-                        )
-                        .child(
-                            button("larger", "+", ButtonVariant::Secondary, cx)
-                                .size(px(26.))
-                                .p_0()
-                                .accessibility_label("Increase brush size")
-                                .on_click(cx.listener(|this, _, window, cx| {
-                                    this.command("brush-larger", window, cx);
-                                })),
-                        ),
-                )
+                .child(self.numeric_row(
+                    "brush-size",
+                    "Size px",
+                    numeric_ui::Target::BrushSize,
+                    numeric_ui::SIZE,
+                    window,
+                    cx,
+                ))
                 .child(rule(cx))
-                .child(
-                    div()
-                        .flex()
-                        .items_center()
-                        .gap_1()
-                        .flex_shrink_0()
-                        .child(note("Opacity", cx))
-                        .child(
-                            button("less-opacity", "−", ButtonVariant::Secondary, cx)
-                                .size(px(26.))
-                                .p_0()
-                                .accessibility_label("Decrease brush opacity")
-                                .on_click(cx.listener(|this, _, window, cx| {
-                                    this.editor.brush.opacity =
-                                        (this.editor.brush.opacity - 0.1).max(0.05);
-                                    this.focus.focus(window, cx);
-                                    cx.notify();
-                                })),
-                        )
-                        .child(
-                            div()
-                                .min_w(px(34.))
-                                .text_center()
-                                .text_size(px(11.))
-                                .font_family(t.mono_font)
-                                .child(format!("{:.0}%", self.editor.brush.opacity * 100.)),
-                        )
-                        .child(
-                            button("more-opacity", "+", ButtonVariant::Secondary, cx)
-                                .size(px(26.))
-                                .p_0()
-                                .accessibility_label("Increase brush opacity")
-                                .on_click(cx.listener(|this, _, window, cx| {
-                                    this.editor.brush.opacity =
-                                        (this.editor.brush.opacity + 0.1).min(1.);
-                                    this.focus.focus(window, cx);
-                                    cx.notify();
-                                })),
-                        ),
-                );
+                .child(self.numeric_row(
+                    "brush-opacity",
+                    "Opacity %",
+                    numeric_ui::Target::BrushOpacity,
+                    numeric_ui::OPACITY,
+                    window,
+                    cx,
+                ))
+                .child(rule(cx))
+                .child(self.numeric_row(
+                    "brush-hardness",
+                    "Hardness %",
+                    numeric_ui::Target::BrushHardness,
+                    numeric_ui::HARDNESS,
+                    window,
+                    cx,
+                ));
+            if matches!(self.tool, Tool::Brush | Tool::Eraser) {
+                bar = bar.child(rule(cx)).child(self.numeric_row(
+                    "brush-smoothing",
+                    "Smoothing %",
+                    numeric_ui::Target::BrushSmoothing,
+                    numeric_ui::SMOOTHING,
+                    window,
+                    cx,
+                ));
+            }
         } else if self.tool == Tool::Move {
             bar = bar
                 .child(
@@ -994,7 +963,6 @@ impl EditorView {
                     layers = layers.child(self.layer_row(layer, depth, window, cx));
                 }
                 let selected = self.editor.document.find_layer(&self.editor.active_layer);
-                let opacity = selected.map_or(1., |l| l.opacity);
                 let blend = selected.map(|l| l.blend_mode.as_str()).unwrap_or("Normal");
                 body = body
                     .child(
@@ -1090,64 +1058,14 @@ impl EditorView {
                                     .bg(t.normal_fill())
                                     .rounded(px(6.)),
                             )
-                            .child(
-                                div()
-                                    .flex()
-                                    .items_center()
-                                    .gap_1()
-                                    .child(panel_note("Opacity", cx))
-                                    .child(div().flex_1())
-                                    .child(
-                                        panel_button(
-                                            "layer-opacity-less",
-                                            "−",
-                                            ButtonVariant::Secondary,
-                                            cx,
-                                        )
-                                        .accessibility_label("Decrease layer opacity")
-                                        .disabled(self.studio_controls_blocked())
-                                        .size(px(26.))
-                                        .p_0()
-                                        .on_click(
-                                            cx.listener(move |this, _, window, cx| {
-                                                let id = this.editor.active_layer.clone();
-                                                this.editor
-                                                    .set_opacity(&id, (opacity - 0.1).max(0.));
-                                                this.focus.focus(window, cx);
-                                                this.changed(cx);
-                                            }),
-                                        ),
-                                    )
-                                    .child(
-                                        div()
-                                            .min_w(px(40.))
-                                            .text_center()
-                                            .font_family(t.mono_font.clone())
-                                            .text_size(px(11.))
-                                            .child(format!("{:.0}%", opacity * 100.)),
-                                    )
-                                    .child(
-                                        panel_button(
-                                            "layer-opacity-more",
-                                            "+",
-                                            ButtonVariant::Secondary,
-                                            cx,
-                                        )
-                                        .accessibility_label("Increase layer opacity")
-                                        .disabled(self.studio_controls_blocked())
-                                        .size(px(26.))
-                                        .p_0()
-                                        .on_click(
-                                            cx.listener(move |this, _, window, cx| {
-                                                let id = this.editor.active_layer.clone();
-                                                this.editor
-                                                    .set_opacity(&id, (opacity + 0.1).min(1.));
-                                                this.focus.focus(window, cx);
-                                                this.changed(cx);
-                                            }),
-                                        ),
-                                    ),
-                            ),
+                            .child(self.numeric_row(
+                                "layer-opacity",
+                                "Opacity %",
+                                numeric_ui::Target::LayerOpacity,
+                                numeric_ui::OPACITY,
+                                window,
+                                cx,
+                            )),
                     )
                     .child(panel_section("Layer", cx).child(self.studio_action_grid(
                         &[
@@ -1238,6 +1156,17 @@ impl EditorView {
                             &[
                                 ("effects", "Live effects"),
                                 ("clear-effects", "Clear effects"),
+                            ],
+                            cx,
+                        )),
+                    )
+                    .child(
+                        panel_section("Finishing effects", cx).child(self.studio_action_grid(
+                            &[
+                                ("dither", "Dither & halftone"),
+                                ("bloom-glow", "Bloom glow"),
+                                ("vignette-overlay", "Vignette overlay"),
+                                ("local-contrast", "Local contrast"),
                             ],
                             cx,
                         )),

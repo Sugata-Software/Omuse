@@ -1,5 +1,6 @@
 //! Native, deterministic RGBA image adjustments. Parameters use normalized
-//! sRGB values unless named otherwise. Alpha bytes are preserved exactly.
+//! sRGB values unless named otherwise. Existing adjustment variants preserve
+//! alpha exactly. BloomGlow and VignetteOverlay explicitly composite new alpha.
 //! Gaussian blur uses three box passes (a linear-time Gaussian approximation).
 use anyhow::{Result, ensure};
 use image::RgbaImage;
@@ -55,6 +56,29 @@ pub enum Filter {
         threshold: f32,
     },
     TonalContrast {
+        shadows: f32,
+        midtones: f32,
+        highlights: f32,
+    },
+    /// Retro print / pixel finishes. Source alpha is preserved exactly.
+    Dither(crate::dither::Settings),
+    /// Screened bloom that can appear in transparent margins of the layer.
+    /// The existing Bloom variant continues to preserve source alpha.
+    BloomGlow {
+        sigma: f32,
+        amount: f32,
+        threshold: f32,
+    },
+    /// Composite a coloured vignette, including on a blank transparent layer.
+    VignetteOverlay {
+        opacity: f32,
+        midpoint: f32,
+        feather: f32,
+        color: [u8; 3],
+    },
+    /// Radius-based local contrast, weighted by the source luminance zones.
+    LocalContrast {
+        sigma: f32,
         shadows: f32,
         midtones: f32,
         highlights: f32,
@@ -129,6 +153,11 @@ pub fn validate(filter: &Filter) -> Result<()> {
             sigma,
             amount,
             threshold,
+        }
+        | Filter::BloomGlow {
+            sigma,
+            amount,
+            threshold,
         } => {
             range(*sigma, 0.0, 128.0, "Blur sigma")?;
             range(*amount, 0.0, 10.0, "Amount")?;
@@ -149,6 +178,28 @@ pub fn validate(filter: &Filter) -> Result<()> {
             midtones,
             highlights,
         } => {
+            range(*shadows, -1.0, 1.0, "Shadows")?;
+            range(*midtones, -1.0, 1.0, "Midtones")?;
+            range(*highlights, -1.0, 1.0, "Highlights")?;
+        }
+        Filter::Dither(settings) => settings.validate()?,
+        Filter::VignetteOverlay {
+            opacity,
+            midpoint,
+            feather,
+            ..
+        } => {
+            range(*opacity, 0.0, 1.0, "Vignette opacity")?;
+            range(*midpoint, 0.0, 1.0, "Midpoint")?;
+            range(*feather, 0.001, 1.0, "Feather")?;
+        }
+        Filter::LocalContrast {
+            sigma,
+            shadows,
+            midtones,
+            highlights,
+        } => {
+            range(*sigma, 0.0, 128.0, "Local contrast radius")?;
             range(*shadows, -1.0, 1.0, "Shadows")?;
             range(*midtones, -1.0, 1.0, "Midtones")?;
             range(*highlights, -1.0, 1.0, "Highlights")?;
@@ -181,7 +232,11 @@ pub fn apply_cancellable(
     );
     if matches!(
         filter,
-        Filter::GaussianBlur { .. } | Filter::UnsharpMask { .. } | Filter::Bloom { .. }
+        Filter::GaussianBlur { .. }
+            | Filter::UnsharpMask { .. }
+            | Filter::Bloom { .. }
+            | Filter::BloomGlow { .. }
+            | Filter::LocalContrast { .. }
     ) {
         ensure!(
             u64::from(image.width()) * u64::from(image.height()) <= MAX_BLUR_PIXELS,
@@ -189,6 +244,9 @@ pub fn apply_cancellable(
         );
     }
     ensure!(!cancelled.load(Ordering::Relaxed), "filter cancelled");
+    if let Filter::Dither(settings) = filter {
+        return crate::dither::apply(image, settings, cancelled);
+    }
     let mut working = image.clone();
     apply_in_place(&mut working, filter, cancelled)?;
     *image = working;
@@ -197,6 +255,117 @@ pub fn apply_cancellable(
 
 fn apply_in_place(image: &mut RgbaImage, filter: &Filter, cancelled: &AtomicBool) -> Result<()> {
     match filter {
+        Filter::BloomGlow {
+            sigma,
+            amount,
+            threshold,
+        } => {
+            if *amount == 0. {
+                return Ok(());
+            }
+            let mut bright = image.clone();
+            for (index, p) in bright.pixels_mut().enumerate() {
+                if index & 4095 == 0 {
+                    ensure!(!cancelled.load(Ordering::Relaxed), "filter cancelled");
+                }
+                let weight = if *threshold >= 1. {
+                    0.
+                } else {
+                    ((lum(rgb(p.0)) - threshold) / (1. - threshold)).clamp(0., 1.)
+                };
+                // Weight alpha, not straight RGB: otherwise the blur would
+                // amplify low-coverage fringes when unpremultiplying its result.
+                p[3] = byte(f32::from(p[3]) / 255. * weight);
+            }
+            let glow = blurred_cancellable(&bright, *sigma, cancelled)?;
+            for (index, (p, g)) in image.pixels_mut().zip(glow.pixels()).enumerate() {
+                if index & 4095 == 0 {
+                    ensure!(!cancelled.load(Ordering::Relaxed), "filter cancelled");
+                }
+                let alpha = (f32::from(g[3]) / 255. * amount).clamp(0., 1.);
+                if alpha == 0. {
+                    continue;
+                }
+                let original_alpha = f32::from(p[3]) / 255.;
+                let combined = original_alpha + alpha * (1. - original_alpha);
+                for c in 0..3 {
+                    let source = f32::from(p[c]) / 255.;
+                    let light = f32::from(g[c]) / 255.;
+                    // Screen where artwork exists, and use the glow's colour
+                    // where it introduces new coverage into a transparent gap.
+                    let screened = 1. - (1. - source) * (1. - light * alpha);
+                    p[c] = byte(
+                        (screened * original_alpha + light * alpha * (1. - original_alpha))
+                            / combined,
+                    );
+                }
+                p[3] = byte(combined);
+            }
+        }
+        Filter::VignetteOverlay {
+            opacity,
+            midpoint,
+            feather,
+            color,
+        } => {
+            if *opacity == 0. {
+                return Ok(());
+            }
+            let (w, h) = (image.width() as f32, image.height() as f32);
+            for (index, (x, y, p)) in image.enumerate_pixels_mut().enumerate() {
+                if index & 4095 == 0 {
+                    ensure!(!cancelled.load(Ordering::Relaxed), "filter cancelled");
+                }
+                let dx = (x as f32 + 0.5 - w / 2.) / (w / 2.);
+                let dy = (y as f32 + 0.5 - h / 2.) / (h / 2.);
+                let distance = (dx * dx + dy * dy).sqrt() / std::f32::consts::SQRT_2;
+                let t = ((distance - midpoint) / feather).clamp(0., 1.);
+                let alpha = opacity * t * t * (3. - 2. * t);
+                if alpha == 0. {
+                    continue;
+                }
+                let original_alpha = f32::from(p[3]) / 255.;
+                let combined = alpha + original_alpha * (1. - alpha);
+                for c in 0..3 {
+                    p[c] = byte(
+                        (f32::from(color[c]) / 255. * alpha
+                            + f32::from(p[c]) / 255. * original_alpha * (1. - alpha))
+                            / combined,
+                    );
+                }
+                p[3] = byte(combined);
+            }
+        }
+        Filter::LocalContrast {
+            sigma,
+            shadows,
+            midtones,
+            highlights,
+        } => {
+            if *sigma == 0. || (*shadows == 0. && *midtones == 0. && *highlights == 0.) {
+                return Ok(());
+            }
+            let local = blurred_cancellable(image, *sigma, cancelled)?;
+            for (index, (p, b)) in image.pixels_mut().zip(local.pixels()).enumerate() {
+                if index & 4095 == 0 {
+                    ensure!(!cancelled.load(Ordering::Relaxed), "filter cancelled");
+                }
+                if p[3] == 0 {
+                    continue;
+                }
+                let color = rgb(p.0);
+                let l = lum(color);
+                let shadow = (1. - 2. * l).max(0.);
+                let highlight = (2. * l - 1.).max(0.);
+                let strength = shadow * shadows
+                    + (1. - shadow - highlight) * midtones
+                    + highlight * highlights;
+                let detail = (l - lum(rgb(b.0))) * strength * 2.;
+                for c in 0..3 {
+                    p[c] = byte(color[c] + detail);
+                }
+            }
+        }
         Filter::GaussianBlur { sigma } => {
             let blurred = blurred_cancellable(image, *sigma, cancelled)?;
             for (index, (p, b)) in image.pixels_mut().zip(blurred.pixels()).enumerate() {
