@@ -295,7 +295,13 @@ impl LayerState {
                             .round()
                             .clamp(0., 65535.) as u16
                     } else {
-                        0
+                        // Fully transparent pixels still carry straight RGB.
+                        // Preserve/interpolate those hidden channels so a
+                        // zero-coverage node is exact and later alpha or mask
+                        // edits cannot reveal an artificial black fringe.
+                        (dst[c] as f64 * (1. - t) + src[c] as f64 * t)
+                            .round()
+                            .clamp(0., 65535.) as u16
                     };
                 }
                 dst[3] = (alpha * 65535.).round() as u16;

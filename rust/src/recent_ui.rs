@@ -232,7 +232,7 @@ impl EditorView {
                     .flex_col()
                     .gap_1()
                     .p_3()
-                    .rounded(px(6.))
+                    .rounded(control_radius())
                     .cursor_pointer()
                     .bg(if selected {
                         t.selected_fill()

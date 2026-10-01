@@ -237,6 +237,12 @@
       "status": "locally-tested"
     },
     {
+      "label": "Photo/vector development",
+      "value": "Editable curves and image tracing — locally tested",
+      "detail": "Unreleased on feature/photo-vector-studio: shared main canvas, precise Pen/Nodes gestures and local image tracing with detail, smoothing, palette and noise controls, source comparison, retained original and retracing. Source 3fbca66 passed 1,206 regressions, editing/media and 80 templates; four native journeys passed 27 checks each across Wayland/dark and XWayland/light, including 800×600 layouts. Installed/public 0.6.0 is unchanged.",
+      "status": "locally-tested"
+    },
+    {
       "label": "One project extension",
       "value": ".omuse for every project",
       "detail": ".omuse for canvases, collections, pages/components and recovery. Legacy projects open without rewriting. Canvas formats 1–10 are readable; new format 10 saves require 0.6.0 or later. Save As retains older artwork; application rollback does not downgrade files.",
@@ -491,6 +497,135 @@
             "rust/src/finishing_ui.rs",
             "rust/tests/raster_finishing.rs"
           ]
+        },
+        {
+          "id": "photo-retouch-fidelity",
+          "name": "Smudge trail and Liquify sharpness follow-up",
+          "status": "planned",
+          "current": "Source review found the older carried-colour Smudge algorithm and repeated per-dab Liquify resampling in the current release. Recommended next work: reproduce fading-dot trails and forward/back line-art/photo cases, then evaluate revised Smudge spacing/carry and a bounded CPU displacement-field Liquify.",
+          "boundary": "No quality regression has been independently measured in this watch and no fix is shipped. Preserve soft selections, alpha, placement, cancellation and exact Undo. Denser dabs and offset fields need explicit work/memory budgets and timings. Upstream GPU measurements are not Omuse results.",
+          "evidence": [
+            "docs/omaphoto-comparison.md"
+          ],
+          "modules": [
+            "rust/src/retouch_brush.rs",
+            "rust/tests/stroke_damage.rs"
+          ]
+        },
+        {
+          "id": "photo-camera-curve-semantics",
+          "name": "Camera Raw curve semantics and graph refinement",
+          "status": "planned",
+          "current": "Compare smoother parametric bends and an RGB master curve against the existing luminance-first recipe. Point dragging already preserves its captured point and order; region/divider gestures and a selected-point readout are proposed refinements.",
+          "boundary": "Changing curve or Refine Saturation meaning needs explicit recipe/version compatibility so existing saved grades keep their appearance. Add independent reference pixels and gesture regressions first; this is not Photoshop colour certification or a shipped 0.6.0 change.",
+          "evidence": [
+            "docs/omaphoto-comparison.md"
+          ],
+          "modules": [
+            "rust/src/camera_raw.rs",
+            "rust/src/curve_editor.rs",
+            "rust/src/camera_gestures.rs",
+            "rust/tests/camera_reference.rs"
+          ]
+        },
+        {
+          "id": "photo-crt-finishing",
+          "name": "Scanlines and CRT finishing",
+          "status": "planned",
+          "current": "A distinct Scanlines/CRT finish is a candidate addition identified in the new upstream roadmap. Current Omuse Dither exposes ten existing styles, including halftone lines and ASCII.",
+          "boundary": "Halftone lines are not a separate CRT mode. No new effect was implemented or qualified in this review; preview/Apply, selection, transparency, cancellation and Undo would need coverage.",
+          "evidence": [
+            "docs/omaphoto-comparison.md"
+          ],
+          "modules": [
+            "rust/src/dither.rs",
+            "rust/src/finishing_ui.rs"
+          ]
+        },
+        {
+          "id": "photo-precision-foundation",
+          "name": "Complete photo precision and export fidelity",
+          "status": "planned",
+          "current": "Approved P01/P02: the development branch passed bounded sampling, alpha/mask and cancellation checks for the new 16-bit renderer. Removing the Camera Raw 8-bit bottleneck and extending full-precision effects remain planned.",
+          "boundary": "Installed/public 0.6.0 is unchanged. Reduced masked detail can still differ between the 8-bit canvas and 16-bit export. Complete high-precision editing and independent photographic quality remain unqualified.",
+          "evidence": [
+            "docs/photo-vector-roadmap.md",
+            "docs/photo-vector-foundations-qualification.md"
+          ],
+          "modules": []
+        },
+        {
+          "id": "photo-camera-lens-profiles",
+          "name": "Measured camera and lens profiles",
+          "status": "planned",
+          "current": "Approved P03: camera/lens identification, compatible calibrated profiles, manual overrides and independently reviewed colour-chart/correction cases.",
+          "boundary": "Current generic correction controls are not a measured camera/lens profile database. Camera support, profile licensing and real-input quality remain work.",
+          "evidence": [
+            "docs/photo-vector-roadmap.md"
+          ],
+          "modules": []
+        },
+        {
+          "id": "photo-colour-uniformity-matching",
+          "name": "Reference-look matching and campaign colour",
+          "status": "planned",
+          "current": "Approved P06/P12: editable reference-look matching and consistent product/campaign recipes, building on the new development target-colour node.",
+          "boundary": "Preserve texture, alpha and high-bit-depth data. Reference matching must return reviewable adjustments; no quality or cross-photo consistency is yet qualified.",
+          "evidence": [
+            "docs/photo-vector-roadmap.md"
+          ],
+          "modules": []
+        },
+        {
+          "id": "photo-learned-restoration",
+          "name": "Detail-preserving restoration and enlargement",
+          "status": "planned",
+          "current": "Approved P08: learned denoise, deblur, enlargement and optional scratch/face/text recovery, with detail comparison and retained originals.",
+          "boundary": "Current local restoration uses conventional filtering/resizing. Model availability, licence, Linux execution, generated-detail behaviour and resource cost require evidence before integration.",
+          "evidence": [
+            "docs/photo-vector-roadmap.md"
+          ],
+          "modules": []
+        },
+        {
+          "id": "photo-depth-relighting",
+          "name": "Depth masks and editable relighting",
+          "status": "planned",
+          "current": "Approved P09/P12: editable depth masks, separate near/far brightness and warmth, portrait/product relighting and edge/halo correction.",
+          "boundary": "No current depth-based relighting implementation. Depth estimates and difficult hair/transparency need correction controls and independent image review.",
+          "evidence": [
+            "docs/photo-vector-roadmap.md"
+          ],
+          "modules": []
+        },
+        {
+          "id": "photo-multi-image-expansion",
+          "name": "Robust, re-editable multi-image merges",
+          "status": "planned",
+          "current": "Approved P10: rotation/perspective registration, panorama projection, focus-blend improvements, HDR moving-subject handling and retained merge recipes.",
+          "boundary": "Current merges are translation-only, bounded to 16 MP output and normalize HDR into 16-bit linear sRGB; no persistent 32-bit radiance or editable merge history.",
+          "evidence": [
+            "docs/photo-vector-roadmap.md",
+            "docs/rust-advanced-workflows.md"
+          ],
+          "modules": []
+        },
+        {
+          "id": "photo-target-colour-uniformity",
+          "name": "Target colour uniformity — development",
+          "status": "locally-tested",
+          "current": "Unreleased: an editable Filter stack node with a reference colour, circular hue range/falloff and independent hue/saturation/lightness strengths. Native 16-bit evaluation, alpha, node opacity and selection masks are retained.",
+          "boundary": "Encoded-sRGB HSL, not semantic skin selection or reference-look matching. Selected P3 colours use bounded sRGB semantics. Unaffected native samples are preserved. A project containing this new node requires the development reader; retain a copy for 0.6.0.",
+          "evidence": [
+            "docs/photo-vector-foundations-qualification.md",
+            "docs/user-guide/photo-vector.md",
+            "rust/tests/target_colour_uniformity.rs"
+          ],
+          "modules": [
+            "rust/src/advanced_ops.rs",
+            "rust/src/advanced16.rs",
+            "rust/src/advanced_ui.rs"
+          ]
         }
       ]
     },
@@ -523,7 +658,7 @@
           "name": "Raster, linked and folder masks",
           "status": "locally-tested",
           "current": "Per-layer masks, detached placement, link/unlink behavior, live alpha links and folder masks persist through project save/reopen.",
-          "boundary": "Brush dabs stay within the existing mask raster; automatic growth beyond its bounds is planned. Mask rasterization and document limits remain bounded; older project versions cannot represent every newer mask feature.",
+          "boundary": "Mask growth is implemented in the separate 0.6.0 growing-masks card. Rasterization and document limits remain bounded; older project versions cannot represent every newer mask feature.",
           "evidence": [
             "docs/project-format.md",
             "docs/photo-editing-hardening.md",
@@ -629,6 +764,17 @@
             "rust/src/effects.rs",
             "rust/tests/mask_growth.rs"
           ]
+        },
+        {
+          "id": "layers-semantic-persistent-masks",
+          "name": "Persistent range, refinement and semantic masks",
+          "status": "planned",
+          "current": "Approved P04: retain mask recipes/correction strokes; select person, hair, clothing and face regions, then add/subtract/intersect and refine manually.",
+          "boundary": "Existing selection/refinement results do not establish complete semantic masking or retained correction histories. Qualify varied real subjects and preserve source pixels.",
+          "evidence": [
+            "docs/photo-vector-roadmap.md"
+          ],
+          "modules": []
         }
       ]
     },
@@ -642,9 +788,10 @@
           "id": "design-live-type",
           "name": "Live text and rich typography",
           "status": "locally-tested",
-          "current": "Editable text supports rich runs, alignment, fitting, minimum sizes, reusable styles, text backgrounds and overflow reports.",
-          "boundary": "The current inline editor is a textarea overlay, not a matching live canvas preview of masks/effects. Unusual fallback fonts, long copy, manual rich-run editing and assistive workflows remain manual release checks.",
+          "current": "Editable text supports rich runs, alignment, fitting, reusable styles and overflow reports. Omuse 0.6.0 renders drafts through the artwork pipeline with masks/effects and selected-letter colour edits; Rich Typography supplies per-range font and size overrides.",
+          "boundary": "Direct inline font changes for a highlighted selection with mixed-style feedback remain a proposed improvement. Unusual fonts, native IME and assistive workflows retain their separate qualification limits.",
           "evidence": [
+            "docs/release-060-qualification.md",
             "docs/omuse-create-and-ai-plan.md",
             "docs/omuse-create-guide.md",
             "docs/omaphoto-comparison.md"
@@ -659,11 +806,13 @@
           "id": "design-shapes-paths",
           "name": "Live shapes and paths",
           "status": "locally-tested",
-          "current": "Rectangles, rounded rectangles, ellipses, lines and editable cubic paths retain style/geometry until deliberately rasterized.",
-          "boundary": "Boolean operations, compound paths and variable-width strokes are not implemented as a general illustration suite.",
+          "current": "Rectangles, rounded rectangles, ellipses, lines and editable cubic paths retain style/geometry. The native path editor adds/moves anchors and handles, smooths nodes and creates vector masks, with Apply/Undo, styling and persistence regressions.",
+          "boundary": "This is a bounded path editor, not full Photoshop-style direct canvas pen-tool parity. Boolean operations and variable-width strokes remain outside the general illustration feature set.",
           "evidence": [
             "docs/project-format.md",
-            "docs/rust-advanced-workflows.md"
+            "docs/rust-advanced-workflows.md",
+            "rust/src/vector_tests.rs",
+            "docs/omaphoto-comparison.md"
           ],
           "modules": [
             "rust/src/objects.rs",
@@ -761,6 +910,139 @@
             "rust/src/inline_text_ui.rs",
             "rust/src/objects.rs",
             "rust/src/inline_text_upgrade_tests.rs"
+          ]
+        },
+        {
+          "id": "design-canvas-pen-nodes",
+          "name": "Direct canvas Pen and Node workflow",
+          "status": "planned",
+          "current": "Approved V01: canvas path editing, node insertion/split/join, corner/smooth controls and snapping/nudging. First improve the current draft editor alongside SVG path exchange.",
+          "boundary": "The existing bounded dialog is not a complete direct-canvas tool. Every gesture needs one reversible transaction, cancellation and keyboard coverage.",
+          "evidence": [
+            "docs/photo-vector-roadmap.md"
+          ],
+          "modules": []
+        },
+        {
+          "id": "design-shape-builder",
+          "name": "Shape Builder and compound geometry",
+          "status": "planned",
+          "current": "Approved V02: union, subtraction, intersection, exclusion/division and compound-path authoring with a visual construction tool.",
+          "boundary": "Not implemented. Holes, tangencies, self-intersections, fill rules and degenerate geometry require independent correctness and workload tests.",
+          "evidence": [
+            "docs/photo-vector-roadmap.md"
+          ],
+          "modules": []
+        },
+        {
+          "id": "design-vector-styling",
+          "name": "Advanced editable vector strokes and fills",
+          "status": "planned",
+          "current": "Approved V03/V08: gradients, caps/joins/dashes, variable-width strokes, stroke expansion, offsets, corners and later mesh/pattern fills, repeats and blends.",
+          "boundary": "Retained paths currently expose solid fill and uniform stroke. Broader illustration operations require versioned persistence and explicit complexity budgets.",
+          "evidence": [
+            "docs/photo-vector-roadmap.md"
+          ],
+          "modules": []
+        },
+        {
+          "id": "design-path-type-outlines",
+          "name": "Path typography and text outlines",
+          "status": "planned",
+          "current": "Approved V04: text on a path, outline copies retaining original text, improved per-selection inline styling and clear font fallback reporting.",
+          "boundary": "Unusual fonts, non-Latin shaping, native IME and exported font fidelity require qualification. Current editable text is not outlined/path typography.",
+          "evidence": [
+            "docs/photo-vector-roadmap.md"
+          ],
+          "modules": []
+        },
+        {
+          "id": "design-image-tracing",
+          "name": "Editable logo and sketch tracing",
+          "status": "planned",
+          "current": "Approved V05: preview bitmap-to-vector results with palette, detail and smoothing controls, node counts and retained original artwork.",
+          "boundary": "Not implemented. Bound tracing complexity and do not promise lossless photographic reconstruction; independently review logo and line-art fixtures.",
+          "evidence": [
+            "docs/photo-vector-roadmap.md"
+          ],
+          "modules": []
+        },
+        {
+          "id": "design-path-draft-tools",
+          "name": "Compound-path and node controls — development",
+          "status": "locally-tested",
+          "current": "Unreleased: corner/smooth nodes, exact curve midpoint insertion, reverse/new subpaths, open/close and even-odd/non-zero fills. Preview compound holes correctly; Apply is one Undo step.",
+          "boundary": "Legacy retained-path/mask dialogs remain available for compatibility. Modern scene paths use the main canvas. Split/join, snapping, booleans and variable-width strokes remain on the roadmap.",
+          "evidence": [
+            "docs/photo-vector-foundations-qualification.md",
+            "docs/user-guide/photo-vector.md",
+            "rust/src/vector_tests.rs"
+          ],
+          "modules": [
+            "rust/src/vector_ui.rs",
+            "rust/src/vector_path.rs"
+          ]
+        },
+        {
+          "id": "design-vector-scene",
+          "name": "Multiple editable objects in one artwork layer — development",
+          "status": "locally-tested",
+          "current": "The procedural engine checkpoint at source 4e1da33 passed optimized regressions, both native backends, 4K save/reopen/export and old-reader refusal. Several objects share one retained geometry scene and derived RGBA8 cache. The new unified canvas interaction layer is tracked separately below.",
+          "boundary": "Format 11 requires the development reader; ordinary canvases stay format 10. Geometry/cache digests and cumulative expansion budgets are enforced. Pixel edits require explicit Rasterize. Persistent visible-tile caches, multi-object SVG and 16-bit procedural rendering remain open. Historical storage accounting is not process RSS or rendering speed.",
+          "evidence": [
+            "docs/vector-scene-qualification.md",
+            "docs/user-guide/photo-vector.md",
+            "rust/tests/vector_scene_integration.rs",
+            "rust/src/vector_tests.rs"
+          ],
+          "modules": [
+            "rust/src/vector_scene.rs",
+            "rust/src/vector_scene_ui.rs",
+            "rust/src/document.rs",
+            "rust/src/editor.rs",
+            "rust/src/editor_advanced.rs"
+          ]
+        },
+        {
+          "id": "design-vector-canvas",
+          "name": "Photo and vector editing on one canvas — development",
+          "status": "locally-tested",
+          "current": "Source 63048e4: shared main canvas, compact Layers inspector, on-canvas object picking, transformed node/handle dragging, P/A/V tools, double-click node editing in Move mode, live styles, bounded local Undo/Redo, and one document transaction when finished. Tool/layer/save changes retain valid edits automatically. Space, middle-drag, scroll zoom, command search and shortcut help stay integrated.",
+          "boundary": "Local evidence: 1,177 regressions, editing/media and 80 templates at 061602d; 27 native checks per backend repeated after label-only polish 63048e4. Wayland/dark and XWayland/light layouts were inspected at 800×600. Previews use a coalesced full-document compositor; instant full-resolution recomposition and broad hardware/latency claims remain unqualified. Format-11 requirements and public 0.6.0 are unchanged.",
+          "evidence": [
+            "docs/unified-vector-canvas-qualification.md",
+            "docs/user-guide/photo-vector.md",
+            "rust/src/vector_tests.rs",
+            "rust/src/vector_scene_preview.rs",
+            "rust/src/vector_scene_hit.rs"
+          ],
+          "modules": [
+            "rust/src/vector_canvas_ui.rs",
+            "rust/src/vector_scene_ui.rs",
+            "rust/src/vector_io_ui.rs",
+            "rust/src/studio_ui.rs"
+          ]
+        },
+        {
+          "id": "design-image-trace",
+          "name": "Image tracing and precise curve gestures — development",
+          "status": "locally-tested",
+          "current": "Source 3fbca66: local bitmap-to-vector tracing in the main canvas/inspector: Logo, Illustration and Photo art presets, Colour/Gray/B&W, detail/smoothing/corners/noise/resolution/point budgets, Source/Trace comparison, retained bitmap, saved settings/retrace and one Undo transaction. Pen click-drag creates smooth curves; A moves points/handles; Alt frees handles, Shift constrains angles, and segment insertion preserves the curve.",
+          "boundary": "Unreleased development branch. 1,206 regressions, editing/media, 80 templates and four native journeys passed; four independent synthetic fixtures measured geometry/render quality. One logo fixture reduced 476 linear anchors to 20 curved anchors (95.8%); this is not an arbitrary-photo guarantee. 16 MP source, 4 MP working and explicit work/geometry budgets. RGBA8 solid-colour approximation with a source-resolution display cache. Complete SVG export, broad photo fidelity, pathological topology, large-document latency and Illustrator parity remain unqualified.",
+          "evidence": [
+            "docs/image-trace-qualification.md",
+            "docs/user-guide/photo-vector.md",
+            "rust/examples/image_trace_acceptance.rs",
+            "rust/tests/image_trace_integration.rs",
+            "rust/src/image_trace_ui_tests.rs",
+            "rust/src/vector_tests.rs"
+          ],
+          "modules": [
+            "rust/src/image_trace.rs",
+            "rust/src/image_trace_layer.rs",
+            "rust/src/editor_image_trace.rs",
+            "rust/src/image_trace_ui.rs",
+            "rust/src/vector_canvas_ui.rs"
           ]
         }
       ]
@@ -1166,9 +1448,10 @@
           "id": "formats-psd",
           "name": "PSD subset",
           "status": "locally-tested",
-          "current": "Layered 8-bit PSD import retains supported groups, opacity/fill, masks, clipping and blend/adjustment mappings, with an import report. New always-on generated fixtures exercise nested group opacity, masks, clipping and Vivid/Linear/Pin Light/Hard Mix pixels; all passed as part of the 808-test candidate.",
-          "boundary": "A supported 8-bit RGB PSD subset. PSB is rejected; editable Photoshop text imports as cached pixels with a notice; embedded ICC profiles are rejected. Layerless raw/RLE/ZIP/prediction fixtures exist, but real application corpus, layered compressed-channel combinations and bidirectional .comp v9 interchange remain separate qualification work.",
+          "current": "Omuse 0.6.0 imports bounded 8-bit RGB PSD and PSB with supported groups, opacity/fill, masks, clipping and blend/adjustment mappings. Supported simple horizontal Photoshop text is editable with cached appearance retained until an actual text edit; unsupported text uses a reported raster fallback.",
+          "boundary": "CMYK, 16/32-bit Photoshop documents and embedded ICC profiles are refused. Independent small Photoshop fixtures and constructed regressions passed in the 0.6.0 suite; full Photoshop/Affinity interchange and a broad image-quality corpus remain separate qualification work.",
           "evidence": [
+            "docs/release-060-qualification.md",
             "docs/photo-editing-hardening.md",
             "docs/omaphoto-comparison.md"
           ],
@@ -1198,7 +1481,7 @@
           "name": "Retained 16-bit precision and export",
           "status": "locally-tested",
           "current": "High-bit-depth PNG/TIFF and RAW sources retain non-quantized 16-bit masters for editable processing and explicit 16-bit PNG/TIFF export. Clipping stacks preserve base transparency, masks and Blend If; live-mask chains resolve independently of layer order and include source parent opacity.",
-          "boundary": "Both RAW references and retained/explicit PNG/TIFF samples pass exact 16-bit comparison; high-precision sources remain capped at 16,777,216 pixels. Standard export is 8-bit, while explicit PNG/TIFF export is 16-bit. Ordinary destructive painting requires an explicit conversion to 8-bit pixels. A confirmed remaining difference is High quality downsampling: the 16-bit renderer uses bilinear sampling while the canvas uses scale-aware Lanczos, so reduced fine patterns can alias.",
+          "boundary": "Both RAW references and retained/explicit PNG/TIFF samples pass exact 16-bit comparison; high-precision sources remain capped at 16,777,216 pixels. Standard export is 8-bit, while explicit PNG/TIFF export is 16-bit. Ordinary destructive painting requires an explicit conversion to 8-bit pixels. Released 0.6.0 uses bilinear high-quality downsampling; the separate development sampling entry tracks its Lanczos replacement and remaining masked-preview differences.",
           "evidence": [
             "docs/photo-integrity-hardening.md",
             "docs/photo-release-qualification.md",
@@ -1214,10 +1497,11 @@
           "id": "formats-hdr",
           "name": "Persistent 32-bit HDR workflow",
           "status": "blocked-deferred",
-          "current": "Not implemented as a persistent document or export mode.",
+          "current": "Approved P11: persistent 32-bit radiance, explicit tone mapping and complete wide-gamut compositing/export remain planned; existing retained 16-bit sources and working-space conversions are foundations.",
           "boundary": "Existing HDR merge and P3 working-space features must not be described as a 32-bit floating-point HDR pipeline.",
           "evidence": [
-            "docs/rust-advanced-workflows.md"
+            "docs/rust-advanced-workflows.md",
+            "docs/photo-vector-roadmap.md"
           ],
           "modules": []
         },
@@ -1243,10 +1527,11 @@
         {
           "id": "formats-project-v10",
           "name": "OmaPhoto / Compositor format-10 import",
-          "status": "implemented-needs-qualification",
+          "status": "locally-tested",
           "current": "Reads formats 1–10 and maps upstream UTF-16 colour runs to validated native UTF-8 rich text without rerendering cached artwork. New saves are .omuse canvas format 10.",
-          "boundary": "New format tests await combined qualification. Omuse 0.5 and earlier reject new saves; use Save As to preserve an older copy. Constructed format 10 regressions do not establish a complete independently authored cross-app corpus.",
+          "boundary": "Format-10 conversion, malformed range/version rejection, encoding ambiguity and mask-coverage regressions passed within the recorded 0.6.0 suite. Older readers reject new saves; use Save As to retain an older copy. These checks do not establish complete independently authored cross-app interchange.",
           "evidence": [
+            "docs/release-060-qualification.md",
             "docs/omaphoto-comparison.md",
             "docs/omaphoto-watch.json",
             "docs/omaphoto-133-implementation.md"
@@ -1255,6 +1540,71 @@
             "rust/src/document.rs",
             "rust/src/project_text.rs",
             "rust/tests/project_v10.rs"
+          ]
+        },
+        {
+          "id": "formats-editable-svg",
+          "name": "Multi-object editable SVG documents",
+          "status": "planned",
+          "current": "Approved V06 expansion beyond the new single-path route: multiple objects, hierarchy, transforms, text, gradients and supported clipping.",
+          "boundary": "Requires the versioned procedural vector scene and bounded tile-cache checkpoint in Q01/Q02 before expansion. The development single-path importer is a separate bounded feature; general Open/Import rasterizes SVG. Full document round-trip is not implemented.",
+          "evidence": [
+            "docs/photo-vector-roadmap.md"
+          ],
+          "modules": []
+        },
+        {
+          "id": "formats-vector-pdf-ai",
+          "name": "Vector PDF and bounded Illustrator interchange",
+          "status": "planned",
+          "current": "Approved V07/V09: retain supported geometry/text in PDF, declare raster-effect fallbacks and font handling, then investigate PDF-compatible AI import.",
+          "boundary": "Current multipage raster PDF is not vector-preserving PDF. Full proprietary Illustrator document round-trip remains a separate research item.",
+          "evidence": [
+            "docs/photo-vector-roadmap.md"
+          ],
+          "modules": []
+        },
+        {
+          "id": "formats-professional-print",
+          "name": "Qualified print colour and output",
+          "status": "planned",
+          "current": "Approved Q05: separately develop and qualify CMYK, spot colours, overprint and print-proofing with suitable fixtures.",
+          "boundary": "No press-readiness claim follows from adding vectors or PDF output. Monitor/compositor and print validation are independent of file parsing.",
+          "evidence": [
+            "docs/photo-vector-roadmap.md"
+          ],
+          "modules": []
+        },
+        {
+          "id": "formats-editable-svg-path",
+          "name": "Editable SVG path exchange — development",
+          "status": "locally-tested",
+          "current": "Unreleased: explicitly import one styled path/basic shape, fit its viewport into a layer, edit its curves and export editable SVG to a new file. Compound holes, fill/stroke opacity and supported transforms are retained.",
+          "boundary": "4 MiB and 100,000 anchors; single painted object only. Round uniform strokes; no text, photos, gradients, effects, resources or multiple objects. Export uses source coordinates, excluding composition effects and layer placement.",
+          "evidence": [
+            "docs/photo-vector-foundations-qualification.md",
+            "docs/user-guide/photo-vector.md",
+            "rust/tests/vector_svg.rs",
+            "rust/src/vector_tests.rs"
+          ],
+          "modules": [
+            "rust/src/vector_svg.rs",
+            "rust/src/vector_io_ui.rs"
+          ]
+        },
+        {
+          "id": "formats-precision-sampling",
+          "name": "High-quality 16-bit sampling — development",
+          "status": "locally-tested",
+          "current": "Unreleased: scale-aware premultiplied Lanczos for transformed retained 16-bit sources, with local/folder masks integrated in source taps. Identity samples remain exact, Smooth and Nearest stay explicit, and source promotion, conversion and sampling check cancellation.",
+          "boundary": "A 66×66 footprint and 3/32 scale floor bound extreme reductions. Non-aligned nested masks can be expensive. The 8-bit canvas filters masks independently and may differ on reduced masked detail. No speed or complete colour-management claim.",
+          "evidence": [
+            "docs/photo-vector-foundations-qualification.md",
+            "rust/tests/raster16_export.rs"
+          ],
+          "modules": [
+            "rust/src/raster16.rs",
+            "rust/src/precision.rs"
           ]
         }
       ]
@@ -1301,6 +1651,41 @@
             "rust/src/create_ui.rs",
             "rust/src/ai_ui.rs",
             "rust/src/ai_experience.rs"
+          ]
+        },
+        {
+          "id": "inspector-colour-swatch-polish",
+          "name": "Colour swatches and vector inspector polish — development",
+          "status": "locally-tested",
+          "current": "Source 466f7ab: live swatches beside vector Fill/Stroke, Brand Paper/Ink/Accent, finishing colours and Target colour uniformity. Transparency checkerboards, no-stroke marks, invalid-hex feedback, consistent field sizing and contextual path controls. Swatches remain inside native inputs and follow the Omarchy theme.",
+          "boundary": "Unreleased on feature/photo-vector-studio. Source 466f7ab passed all 351 existing UI regressions (two ignored benchmarks), compiler/format/shortcut-reference checks and 27 native checks each in Wayland/dark and XWayland/light at 800×600 logical size. Screenshots inspected for hex fit, alignment and disabled-stroke visibility. Swatch clicks focus the hex field; they do not open a colour picker. Installed/public 0.6.0 is unchanged.",
+          "evidence": [
+            "docs/inspector-panels.md",
+            "docs/user-guide/photo-vector.md"
+          ],
+          "modules": [
+            "rust/src/inspector_ui.rs",
+            "rust/src/vector_ui.rs",
+            "rust/src/create_design_ui.rs",
+            "rust/src/finishing_ui.rs",
+            "rust/src/advanced_ui.rs"
+          ]
+        },
+        {
+          "id": "shared-control-geometry",
+          "name": "Consistent control corners across the application — development",
+          "status": "locally-tested",
+          "current": "Source e525124: one shared 3-logical-pixel radius for toolbar, inspector, Create, AI, dialogs, command-search and colour-picker buttons and text controls. Reviewed custom rows and removed local overrides. Compact toolbar names and long command/provider labels no longer clip into neighbouring controls. Colours, fonts, focus and disabled states remain Omarchy-driven.",
+          "boundary": "Unreleased on feature/photo-vector-studio. Source e525124 passed all 351 UI regressions (two ignored benchmarks), compiler/format/shortcut-reference checks and eight native journeys at 800×600 logical size: editor in both themes, Create, Ask Omuse, command search, open colour picker, Camera Raw and motion. Captures were inspected; a second source audit found no remaining constructor bypasses. Representative visual validation, not every possible state or live AI qualification. Installed/public 0.6.0 is unchanged.",
+          "evidence": [
+            "docs/inspector-panels.md"
+          ],
+          "modules": [
+            "rust/src/control_style.rs",
+            "rust/src/inspector_ui.rs",
+            "rust/src/studio_ui.rs",
+            "rust/src/command_search_ui.rs",
+            "rust/src/recent_ui.rs"
           ]
         },
         {
@@ -1429,7 +1814,7 @@
           "name": "Displays, DPI and accessibility",
           "status": "implemented-needs-qualification",
           "current": "Minimum-window layouts, themes, reduced motion and bounded scale behavior have automated/native coverage.",
-          "boundary": "Real mixed-DPI/multi-monitor behavior, physical trackpad input and AT-SPI exact-window coverage remain unqualified. The new upstream NVIDIA/fractional-scale cursor report adds a desktop acceptance case; it has not been reproduced in GPUI Omuse.",
+          "boundary": "Real mixed-DPI/multi-monitor behavior, physical trackpad input and AT-SPI exact-window coverage remain unqualified. The new upstream NVIDIA/fractional-scale cursor report adds a desktop acceptance case; it has not been reproduced in GPUI Omuse. OmaPhoto issue 9 was closed with a documented software-cursor workaround, not an app-side fallback; this does not qualify Omuse on NVIDIA at fractional scale.",
           "evidence": [
             "docs/rust-studio-design.md",
             "docs/public-release-readiness.md",
@@ -1507,6 +1892,32 @@
             "rust/src/recent_ui.rs",
             "rust/src/recent_upgrade_tests.rs"
           ]
+        },
+        {
+          "id": "linux-omastore-discovery",
+          "name": "OmaStore discovery channel",
+          "status": "planned",
+          "current": "An open OmaPhoto PR proposes an app-store manifest targeting its x86_64 package asset. Track this as a possible discovery channel for Omuse after a qualified downloadable package exists.",
+          "boundary": "Omuse publishes source pre-releases today. Dependency notices, clean-machine package checks and the store installation contract need verification before listing. No store metadata, repository topics or third-party submission was published.",
+          "evidence": [
+            "docs/omaphoto-comparison.md",
+            "docs/public-release-readiness.md"
+          ],
+          "modules": [
+            "scripts/package-rust.sh",
+            "scripts/install-rust.sh"
+          ]
+        },
+        {
+          "id": "linux-photo-vector-workspaces",
+          "name": "Shared Photo, Vector and Create workspaces",
+          "status": "planned",
+          "current": "Approved Q03: shared layers, Undo, files and command search; clear node/paint/object modes with compact Omarchy-themed layouts and complete keyboard paths.",
+          "boundary": "Implement incrementally in the existing Rust/GPUI app. No separate app, desktop configuration change or tablet work is required for the first batch.",
+          "evidence": [
+            "docs/photo-vector-roadmap.md"
+          ],
+          "modules": []
         }
       ]
     },
@@ -1694,8 +2105,8 @@
           "id": "release-competitor-comparison",
           "name": "OmaPhoto whole-repository comparison",
           "status": "locally-tested",
-          "current": "The 1 October review covers OmaPhoto 1.3.3 at 1904144 and three later commits through e94fd73: 12 new commits, 150 changed paths, four releases/tags, eight issues, two PRs and nine workflow results. Omuse 0.6.0 completes the resulting editing backlog, including format-10 import, Dither, Open Recent, selected-text colour and save/focus lifecycle coverage.",
-          "boundary": "Focused upstream source and tests were inspected, not executed. The historical comparison uses Omuse 0.5.0 source 479ae31/public runtime 73dd0d4. Omuse 0.6.0 has separate exact-source CI and local qualification. Upstream release CI proves packaging, not a full test run; its post-tag teardown fix and offscreen acceptance screenshots are not tagged 1.3.3 application code. No comparative speed or stability result.",
+          "current": "The 1 October 01:12 UTC review advances e94fd73 to 802ae82: two documentation-only commits plan Compositor 1.4.5 and document an NVIDIA/Hyprland software-cursor workaround. Issue 9 closes; PR 12 proposes an OmaStore manifest and issue 11 requests Bezier editing. Four tags/releases and nine workflow results are unchanged. Linked Compositor retouch and curve source/tests were inspected.",
+          "boundary": "OmaPhoto 1.4.5 is a roadmap, PR 12 is unmerged and the cursor workaround is not an app-side fix. Omuse 0.6.0 already provides Bezier paths and colour-range selection. Retouch quality and changed curve semantics need independent regressions/references. No upstream program or application suite ran; no comparative quality/speed/stability claim.",
           "evidence": [
             "docs/release-060-qualification.md",
             "docs/omaphoto-comparison.md",
@@ -1762,6 +2173,18 @@
             "rust/src/external_upgrade_tests.rs",
             "rust/src/inline_text_upgrade_tests.rs"
           ]
+        },
+        {
+          "id": "release-photo-vector-quality",
+          "name": "Photo/vector quality, performance and compatibility",
+          "status": "planned",
+          "current": "Approved Q01/Q02/Q04/Q06/Q07: versioned .omuse data, a procedural vector scene and capped visible-tile caches before multi-object illustration, bounded jobs, font/export comparisons, independent images and long-session/resource tests.",
+          "boundary": "Partial Q01/Q02 slice locally tested at source 4e1da33: bounded procedural scenes and temporary tile rendering remove per-object full-canvas buffers; one full RGBA8 compatibility cache remains per scene. The five-object 4K allocation example accounts for 64.002 MiB versus 320.125 MiB for independent raster-backed source/result/proxy buffers. Persistent visible/damaged-tile caches, high-precision scene rendering and latency/peak-memory qualification are still planned.",
+          "evidence": [
+            "docs/photo-vector-roadmap.md",
+            "docs/vector-scene-qualification.md"
+          ],
+          "modules": []
         }
       ]
     }

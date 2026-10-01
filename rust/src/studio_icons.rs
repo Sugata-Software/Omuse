@@ -55,6 +55,7 @@ studio_icons!(
     ("scan", "scan"),
     ("brush", "brush"),
     ("pencil", "pencil"),
+    ("pen-tool", "pen-tool"),
     ("eraser", "eraser"),
     ("paint-bucket", "paint-bucket"),
     ("blend", "blend"),

@@ -166,6 +166,11 @@ impl VectorPath {
     }
     /// Split a cubic segment exactly with De Casteljau and insert its on-curve node.
     pub fn insert_on_segment(&mut self, sub: usize, segment: usize, t: f32) -> Result<usize> {
+        self.validate()?;
+        ensure!(
+            self.subpaths.iter().map(|s| s.anchors.len()).sum::<usize>() < MAX_ANCHORS,
+            "too many vector anchors"
+        );
         ensure!(
             t.is_finite() && (0.0..=1.0).contains(&t),
             "invalid split parameter"
@@ -576,6 +581,12 @@ mod tests {
     }
     #[test]
     fn cubic_split_preserves_curve() {
+        fn cubic(points: [Point; 4], t: f32) -> Point {
+            let a = points[0].lerp(points[1], t);
+            let b = points[1].lerp(points[2], t);
+            let c = points[2].lerp(points[3], t);
+            a.lerp(b, t).lerp(b.lerp(c, t), t)
+        }
         let mut p = VectorPath {
             subpaths: vec![Subpath {
                 anchors: vec![
@@ -594,12 +605,48 @@ mod tests {
             }],
             fill_rule: FillRule::NonZero,
         };
+        let original = [
+            p.subpaths[0].anchors[0].position,
+            p.subpaths[0].anchors[0].outgoing.unwrap(),
+            p.subpaths[0].anchors[1].incoming.unwrap(),
+            p.subpaths[0].anchors[1].position,
+        ];
         let before = p.flatten(0.05, || false).unwrap();
-        assert_eq!(p.insert_on_segment(0, 0, 0.5).unwrap(), 1);
+        let split = 0.37;
+        assert_eq!(p.insert_on_segment(0, 0, split).unwrap(), 1);
         let after = p.flatten(0.05, || false).unwrap();
         assert_eq!(before[0].points.first(), after[0].points.first());
         assert_eq!(before[0].points.last(), after[0].points.last());
-        assert!((p.subpaths[0].anchors[1].position.y - 7.5).abs() < 1e-5)
+        let anchors = &p.subpaths[0].anchors;
+        let left = [
+            anchors[0].position,
+            anchors[0].outgoing.unwrap(),
+            anchors[1].incoming.unwrap(),
+            anchors[1].position,
+        ];
+        let right = [
+            anchors[1].position,
+            anchors[1].outgoing.unwrap(),
+            anchors[2].incoming.unwrap(),
+            anchors[2].position,
+        ];
+        for step in 0..=100 {
+            let t = step as f32 / 100.;
+            let expected = cubic(original, t);
+            let actual = if t <= split {
+                cubic(left, t / split)
+            } else {
+                cubic(right, (t - split) / (1. - split))
+            };
+            assert!(
+                (expected.x - actual.x).abs() < 1e-4,
+                "{t}: {expected:?} {actual:?}"
+            );
+            assert!(
+                (expected.y - actual.y).abs() < 1e-4,
+                "{t}: {expected:?} {actual:?}"
+            );
+        }
     }
     #[test]
     fn cancellation_and_validation() {

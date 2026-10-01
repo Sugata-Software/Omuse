@@ -234,10 +234,11 @@ pub fn prepare(
         eligible(&source.layers, layer_id, false)?.context("Select an image to restore")?;
     ensure!(
         !original.is_group()
+            && original.vector_scene.is_none()
             && objects::live_text(original)?.is_none()
             && objects::live_shape(original)?.is_none()
             && create::frame_spec(original)?.is_none(),
-        "Restore a photo layer; native text, shapes and frames keep their own editing controls"
+        "Restore a photo layer; native text, shapes, vector artwork and frames keep their own editing controls"
     );
     ensure!(
         original
@@ -471,6 +472,38 @@ mod tests {
         group.children = source.layers;
         source.layers = vec![group];
         assert!(prepare(&source, &id, Settings::default(), &AtomicBool::new(false)).is_err());
+    }
+
+    #[test]
+    fn vector_scene_is_not_restored_from_its_derived_cache() {
+        let mut source = Document::new(8, 8);
+        let id = source.layers[0].id.clone();
+        let scene = crate::vector_scene::VectorScene {
+            version: crate::vector_scene::VECTOR_SCENE_VERSION,
+            width: 8,
+            height: 8,
+            objects: vec![
+                crate::vector_scene::VectorObject::rectangle(
+                    "Card",
+                    1.,
+                    1.,
+                    6.,
+                    6.,
+                    Some([20, 40, 60, 255]),
+                    None,
+                )
+                .unwrap(),
+            ],
+        };
+        source.layers[0].image = Some(scene.render(&AtomicBool::new(false)).unwrap().into());
+        source.layers[0].vector_scene = Some(Arc::new(scene));
+        let before = source.clone();
+        let error = prepare(&source, &id, Settings::default(), &AtomicBool::new(false))
+            .err()
+            .unwrap()
+            .to_string();
+        assert!(error.contains("vector artwork"));
+        assert!(crate::create_history::documents_match(&source, &before));
     }
 
     #[test]

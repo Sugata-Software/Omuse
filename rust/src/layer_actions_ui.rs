@@ -3,7 +3,7 @@ use super::*;
 use std::collections::HashSet;
 
 const ACTIONS: &[(&str, &str)] = &[
-    ("edit-object", "Edit text / shape"),
+    ("edit-object", "Edit text / shape / artwork"),
     ("rasterize", "Convert to pixels"),
     ("transform", "Transform…"),
     ("rename", "Rename"),
@@ -51,7 +51,12 @@ fn descendants<'a>(layer: &'a Layer, ids: &mut HashSet<&'a str>) {
 }
 
 fn has_live_object(layer: &Layer) -> bool {
-    objects::live_text(layer).ok().flatten().is_some()
+    layer.vector_scene.is_some()
+        || layer
+            .advanced
+            .as_ref()
+            .is_some_and(|state| state.recipe.vector.is_some())
+        || objects::live_text(layer).ok().flatten().is_some()
         || objects::live_shape(layer).ok().flatten().is_some()
 }
 
@@ -127,7 +132,7 @@ impl EditorView {
         match id {
             "edit-object" => {
                 if !has_live_object(layer) {
-                    Some("Select an editable text or shape layer")
+                    Some("Select editable text, a shape, or vector artwork")
                 } else if path.iter().any(|layer| !layer.visible) {
                     Some("Show this layer and its parent groups before editing")
                 } else {
@@ -288,6 +293,7 @@ impl EditorView {
             }
             "edit-object" if objects::live_text(layer).ok().flatten().is_some() => "Edit text…",
             "edit-object" if objects::live_shape(layer).ok().flatten().is_some() => "Edit shape…",
+            "edit-object" if layer.vector_scene.is_some() => "Edit vector artwork…",
             _ => fallback,
         }
     }

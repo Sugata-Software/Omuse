@@ -343,6 +343,11 @@ pub fn validate(doc: &Document) -> Vec<String> {
             return;
         }
         for l in layers {
+            if l.vector_scene.is_some()
+                && let Err(error) = crate::objects::validate_live_object(l)
+            {
+                errors.push(format!("{}: {error}", l.name));
+            }
             if let Err(error) = crate::advanced::layer_blend_if(l) {
                 errors.push(format!("{}: {error}", l.name));
             }

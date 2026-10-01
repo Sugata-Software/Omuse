@@ -5,6 +5,10 @@ into eight categories. It distinguishes local test evidence from implemented
 but unqualified routes, experiments, plans and release blockers. It never
 calculates an invented percentage of release readiness.
 
+The approved [photo and vector studio roadmap](photo-vector-roadmap.md) records
+the next development phases, feature dependencies and acceptance criteria.
+Its planned work is included in the same categories as current functionality.
+
 [`project-status.json`](project-status.json) is the reviewed content catalogue.
 [`project-guide.fragment.html`](project-guide.fragment.html) is the self-contained
 conversation fragment. It uses local category selection and evidence

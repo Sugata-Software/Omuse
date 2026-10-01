@@ -18,13 +18,28 @@ use crate::{
 use anyhow::{Context, Result, bail, ensure};
 use image::{ImageBuffer, Rgba};
 use serde_json::Value;
-use std::{collections::HashMap, path::Path};
+use std::{
+    collections::HashMap,
+    path::Path,
+    sync::atomic::{AtomicBool, Ordering},
+};
 
 const MAX_DEPTH: usize = 64;
+const MAX_LANCZOS_TAPS: usize = 66;
+
+fn check_cancel(cancel: &AtomicBool) -> Result<()> {
+    ensure!(!cancel.load(Ordering::Relaxed), "Export cancelled");
+    Ok(())
+}
 
 /// Composite a document without passing advanced sources through 8-bit
 /// storage. Ordinary raster layers are promoted exactly (`byte * 257`).
 pub fn composite16(doc: &Document) -> Result<Rgba16Image> {
+    composite16_cancellable(doc, &AtomicBool::new(false))
+}
+
+fn composite16_cancellable(doc: &Document, cancel: &AtomicBool) -> Result<Rgba16Image> {
+    check_cancel(cancel)?;
     ensure!(
         crate::model::valid_dimensions(doc.width, doc.height),
         "Invalid document dimensions"
@@ -34,9 +49,11 @@ pub fn composite16(doc: &Document) -> Result<Rgba16Image> {
         "16-bit compositing is limited to 16 megapixels"
     );
     validate_document(doc)?;
-    let live = build_live_masks(doc)?;
+    check_cancel(cancel)?;
+    let live = build_live_masks(doc, cancel)?;
     let mut output = ImageBuffer::from_pixel(doc.width, doc.height, Rgba(to_u16(doc.background)));
-    render_layers(&mut output, &doc.layers, 0, 1.0, &[], &live)?;
+    render_layers(&mut output, &doc.layers, 0, 1.0, &[], &live, cancel)?;
+    check_cancel(cancel)?;
     Ok(output)
 }
 
@@ -53,16 +70,9 @@ pub fn export16_cancellable(
     path: &Path,
     cancel: &std::sync::atomic::AtomicBool,
 ) -> Result<()> {
-    let check = || -> Result<()> {
-        ensure!(
-            !cancel.load(std::sync::atomic::Ordering::Relaxed),
-            "Export cancelled"
-        );
-        Ok(())
-    };
-    check()?;
-    let image = composite16(doc)?;
-    check()?;
+    check_cancel(cancel)?;
+    let image = composite16_cancellable(doc, cancel)?;
+    check_cancel(cancel)?;
     let extension = path
         .extension()
         .and_then(|x| x.to_str())
@@ -107,7 +117,7 @@ pub fn export16_cancellable(
             // image crate's `u16` backing storage is native-endian.
             let mut bytes = Vec::with_capacity(image.as_raw().len() * 2);
             for row in image.as_raw().chunks(image.width() as usize * 4) {
-                check()?;
+                check_cancel(cancel)?;
                 for value in row {
                     bytes.extend_from_slice(&value.to_be_bytes());
                 }
@@ -133,7 +143,7 @@ pub fn export16_cancellable(
             encoded.write_data(image.as_raw())?;
         }
         output.sync_all()?;
-        check()?;
+        check_cancel(cancel)?;
         std::fs::rename(&temporary, path).context("Publishing 16-bit export")?;
         std::fs::File::open(parent)?
             .sync_all()
@@ -317,6 +327,13 @@ impl<'a> FolderMask<'a> {
         let v = (-dx * self.sin + dy * self.cos) / self.sy + self.height / 2.;
         self.sampler.coverage(x, y, u, v, self.width, self.height)
     }
+    fn coverage_at_filter_tap(&self, x: f64, y: f64) -> f32 {
+        let (dx, dy) = (x - self.cx, y - self.cy);
+        let u = (dx * self.cos + dy * self.sin) / self.sx + self.width / 2.;
+        let v = (-dx * self.sin + dy * self.cos) / self.sy + self.height / 2.;
+        self.sampler
+            .coverage_at_filter_tap(x, y, u, v, self.width, self.height)
+    }
 }
 
 fn render_layers<'a>(
@@ -326,10 +343,12 @@ fn render_layers<'a>(
     inherited_opacity: f32,
     inherited_masks: &[FolderMask<'a>],
     live: &HashMap<String, Rgba16Image>,
+    cancel: &AtomicBool,
 ) -> Result<()> {
     ensure!(depth < MAX_DEPTH, "Layer nesting exceeds 64 levels");
     let mut skip_until = 0;
     for (index, layer) in layers.iter().enumerate() {
+        check_cancel(cancel)?;
         if index < skip_until {
             continue;
         }
@@ -376,25 +395,39 @@ fn render_layers<'a>(
                     inherited_opacity,
                     inherited_masks,
                     live,
+                    cancel,
                 )?;
-                let alpha: Vec<u16> = plane.pixels().map(|pixel| pixel[3]).collect();
+                let mut alpha =
+                    Vec::with_capacity(plane.width() as usize * plane.height() as usize);
+                for y in 0..plane.height() {
+                    check_cancel(cancel)?;
+                    alpha.extend((0..plane.width()).map(|x| plane.get_pixel(x, y)[3]));
+                }
                 // Evaluate the base's tonal cutout against its original colour
                 // and the real backdrop, before the clipped colours replace it.
-                let tonal_alpha: Option<Vec<f32>> = blend_if.as_ref().map(|settings| {
-                    plane
-                        .pixels()
-                        .zip(target.pixels())
-                        .map(|(source, backdrop)| {
+                let tonal_alpha: Option<Vec<f32>> = if let Some(settings) = blend_if.as_ref() {
+                    let mut values = Vec::with_capacity(alpha.len());
+                    for y in 0..plane.height() {
+                        check_cancel(cancel)?;
+                        values.extend((0..plane.width()).map(|x| {
+                            let source = plane.get_pixel(x, y);
+                            let backdrop = target.get_pixel(x, y);
                             crate::advanced_ops::blend_if_coverage_normalized(
                                 source.0.map(|value| f32::from(value) / 65_535.),
                                 backdrop.0.map(|value| f32::from(value) / 65_535.),
                                 settings,
                             )
-                        })
-                        .collect()
-                });
-                for pixel in plane.pixels_mut() {
-                    pixel[3] = 65_535;
+                        }));
+                    }
+                    Some(values)
+                } else {
+                    None
+                };
+                for y in 0..plane.height() {
+                    check_cancel(cancel)?;
+                    for x in 0..plane.width() {
+                        plane.get_pixel_mut(x, y)[3] = 65_535;
+                    }
                 }
                 for child in &layers[index + 1..end] {
                     let mut child = child.clone();
@@ -408,21 +441,22 @@ fn render_layers<'a>(
                         inherited_opacity,
                         &[],
                         live,
+                        cancel,
                     )?;
                 }
                 let blend = mode(&layer.blend_mode).unwrap_or(Mode::Normal);
-                for (index, ((destination, source), alpha)) in target
-                    .pixels_mut()
-                    .zip(plane.pixels())
-                    .zip(alpha)
-                    .enumerate()
-                {
-                    let mut pixel = source.0;
-                    pixel[3] = (f32::from(alpha)
-                        * tonal_alpha.as_ref().map_or(1., |values| values[index]))
-                    .round() as u16;
-                    destination.0 =
-                        from_linear(over(to_linear(destination.0), to_linear(pixel), blend));
+                for y in 0..target.height() {
+                    check_cancel(cancel)?;
+                    for x in 0..target.width() {
+                        let index = y as usize * target.width() as usize + x as usize;
+                        let mut pixel = plane.get_pixel(x, y).0;
+                        pixel[3] = (f32::from(alpha[index])
+                            * tonal_alpha.as_ref().map_or(1., |values| values[index]))
+                        .round() as u16;
+                        let destination = target.get_pixel_mut(x, y);
+                        destination.0 =
+                            from_linear(over(to_linear(destination.0), to_linear(pixel), blend));
+                    }
                 }
                 skip_until = end;
                 continue;
@@ -447,8 +481,9 @@ fn render_layers<'a>(
                 inherited_opacity * layer.opacity.clamp(0., 1.),
                 &masks,
                 live,
+                cancel,
             )?;
-        } else if let Some(image) = source_image(layer)? {
+        } else if let Some(image) = source_image(layer, cancel)? {
             // A clipped group can contain separately linked descendants. Keep
             // their surfaces available, but only apply a link when it remains
             // declared on this layer (the clipping stack clears its own link).
@@ -464,32 +499,48 @@ fn render_layers<'a>(
                 inherited_opacity,
                 inherited_masks,
                 live_mask,
-            );
+                cancel,
+            )?;
         }
     }
     Ok(())
 }
 
-fn source_image(layer: &Layer) -> Result<Option<Rgba16Image>> {
+fn source_image(layer: &Layer, cancel: &AtomicBool) -> Result<Option<Rgba16Image>> {
     if let Some(state) = &layer.advanced {
-        if state.recipe.working_space == WorkingSpace::Srgb {
-            return Ok(Some(state.result.to_rgba16()));
+        check_cancel(cancel)?;
+        let converted;
+        let source = if state.recipe.working_space == WorkingSpace::Srgb {
+            state.result.as_ref()
+        } else {
+            converted = state
+                .result
+                .converted_working_space_with_cancel(WorkingSpace::Srgb, || {
+                    cancel.load(Ordering::Relaxed)
+                })?;
+            &converted
+        };
+        let (width, height) = source.dimensions();
+        let mut image = Rgba16Image::new(width, height);
+        for y in 0..height {
+            check_cancel(cancel)?;
+            for x in 0..width {
+                image.put_pixel(x, y, Rgba(source.get_pixel(x, y).0));
+            }
         }
-        let mut converted = (*state.result).clone();
-        converted.convert_working_space(WorkingSpace::Srgb)?;
-        return Ok(Some(converted.to_rgba16()));
+        return Ok(Some(image));
     }
-    Ok(layer.image.as_ref().map(|image| {
-        ImageBuffer::from_fn(image.width(), image.height(), |x, y| {
-            let p = image.get_pixel(x, y).0;
-            Rgba([
-                u16::from(p[0]) * 257,
-                u16::from(p[1]) * 257,
-                u16::from(p[2]) * 257,
-                u16::from(p[3]) * 257,
-            ])
-        })
-    }))
+    let Some(source) = layer.image.as_ref() else {
+        return Ok(None);
+    };
+    let mut image = Rgba16Image::new(source.width(), source.height());
+    for y in 0..source.height() {
+        check_cancel(cancel)?;
+        for x in 0..source.width() {
+            image.put_pixel(x, y, Rgba(to_u16(source.get_pixel(x, y).0)));
+        }
+    }
+    Ok(Some(image))
 }
 
 fn draw_image(
@@ -499,7 +550,8 @@ fn draw_image(
     inherited: f32,
     folders: &[FolderMask<'_>],
     live: Option<&Rgba16Image>,
-) {
+    cancel: &AtomicBool,
+) -> Result<()> {
     let w = f64::from(source.width());
     let h = f64::from(source.height());
     let sx = f64::from(layer.scale_x);
@@ -514,40 +566,79 @@ fn draw_image(
     let y0 = (cy - ey).floor().max(0.).min(f64::from(target.height())) as u32;
     let x1 = (cx + ex).ceil().max(0.).min(f64::from(target.width())) as u32;
     let y1 = (cy + ey).ceil().max(0.).min(f64::from(target.height())) as u32;
-    let nearest = layer
+    let sampling = layer
         .metadata
         .pointer("/transform/sampling")
-        .and_then(Value::as_str)
-        == Some("Nearest");
+        .and_then(Value::as_str);
+    let smooth = !(sx == 1.0
+        && sy == 1.0
+        && angle == 0.0
+        && layer.offset_x.fract() == 0.0
+        && layer.offset_y.fract() == 0.0)
+        && sampling != Some("Nearest");
+    let high_quality = smooth && sampling.unwrap_or("High quality") == "High quality";
     let mask = mask_enabled(layer)
         .then(|| layer.mask.as_ref())
         .flatten()
         .map(|m| MaskSampler::new(&layer.metadata, m));
+    // For a reduced layer, filtering colour and mask independently and then
+    // multiplying their averages loses their correlation. Apply local and
+    // inherited masks to each premultiplied source tap instead. Identity,
+    // Nearest, and Smooth retain their established canvas semantics.
+    let masks_in_filter = high_quality && (mask.is_some() || !folders.is_empty());
     let mode = mode(&layer.blend_mode).unwrap_or(Mode::Normal);
     let blend_if = crate::advanced::layer_blend_if(layer).ok().flatten();
     for y in y0..y1 {
+        check_cancel(cancel)?;
         for x in x0..x1 {
+            check_cancel(cancel)?;
             let dx = f64::from(x) + 0.5 - cx;
             let dy = f64::from(y) + 0.5 - cy;
             let u = (dx * cos + dy * sin) / sx + w * 0.5;
             let v = (-dx * sin + dy * cos) / sy + h * 0.5;
-            if u < 0. || v < 0. || u >= w || v >= h {
+            if u < -1e-9 || v < -1e-9 || u >= w || v >= h {
                 continue;
             }
-            let mut pixel = if nearest {
-                sample_nearest(source, u, v)
-            } else {
+            let u = u.max(0.);
+            let v = v.max(0.);
+            let mut pixel = if masks_in_filter {
+                sample_lanczos_masked(source, u, v, sx, sy, |tap_x, tap_y| {
+                    let local_u = f64::from(tap_x) + 0.5;
+                    let local_v = f64::from(tap_y) + 0.5;
+                    let local_dx = (local_u - w * 0.5) * sx;
+                    let local_dy = (local_v - h * 0.5) * sy;
+                    let canvas_x = cx + local_dx * cos - local_dy * sin;
+                    let canvas_y = cy + local_dx * sin + local_dy * cos;
+                    let mut coverage = 1.;
+                    if let Some(sampler) = &mask {
+                        coverage *= f64::from(
+                            sampler
+                                .coverage_at_filter_tap(canvas_x, canvas_y, local_u, local_v, w, h),
+                        );
+                    }
+                    for folder in folders {
+                        coverage *= f64::from(folder.coverage_at_filter_tap(canvas_x, canvas_y));
+                    }
+                    coverage
+                })
+            } else if high_quality {
+                sample_lanczos(source, u, v, sx, sy)
+            } else if smooth {
                 sample_linear(source, u, v)
+            } else {
+                sample_nearest(source, u, v)
             };
             let mut opacity = layer.opacity.clamp(0., 1.) * inherited;
-            if let Some(sampler) = &mask {
-                opacity *= sampler.coverage(f64::from(x) + 0.5, f64::from(y) + 0.5, u, v, w, h);
+            if !masks_in_filter {
+                if let Some(sampler) = &mask {
+                    opacity *= sampler.coverage(f64::from(x) + 0.5, f64::from(y) + 0.5, u, v, w, h);
+                }
+                for folder in folders {
+                    opacity *= folder.coverage(f64::from(x) + 0.5, f64::from(y) + 0.5);
+                }
             }
             if let Some(clip) = live {
                 opacity *= f32::from(clip.get_pixel(x, y)[3]) / 65535.;
-            }
-            for folder in folders {
-                opacity *= folder.coverage(f64::from(x) + 0.5, f64::from(y) + 0.5);
             }
             let dst = target.get_pixel(x, y).0;
             if let Some(settings) = blend_if.as_ref() {
@@ -572,6 +663,7 @@ fn draw_image(
             }
         }
     }
+    Ok(())
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -642,6 +734,80 @@ fn sample_linear(image: &Rgba16Image, u: f64, v: f64) -> LinearPixel {
         }
     }
     LinearPixel { rgb, a }
+}
+
+fn sample_lanczos(image: &Rgba16Image, u: f64, v: f64, sx: f64, sy: f64) -> LinearPixel {
+    sample_lanczos_masked(image, u, v, sx, sy, |_, _| 1.)
+}
+
+fn sample_lanczos_masked(
+    image: &Rgba16Image,
+    u: f64,
+    v: f64,
+    sx: f64,
+    sy: f64,
+    mut coverage: impl FnMut(u32, u32) -> f64,
+) -> LinearPixel {
+    fn sinc(x: f64) -> f64 {
+        if x.abs() < 1e-9 {
+            1.
+        } else {
+            let p = std::f64::consts::PI * x;
+            p.sin() / p
+        }
+    }
+    fn taps(position: f64, scale: f64, limit: u32) -> ([(u32, f64); MAX_LANCZOS_TAPS], usize) {
+        // Match the canvas's scale-aware Lanczos-3 footprint. The scale floor
+        // caps each axis at 66 candidates, so extreme reductions remain
+        // bounded while still integrating up to a 32-pixel radius.
+        let factor = scale.abs().min(1.).max(3. / 32.);
+        let radius = 3. / factor;
+        let first = (position - radius).floor() as i64;
+        let last = (position + radius).ceil() as i64;
+        let mut result = [(0, 0.); MAX_LANCZOS_TAPS];
+        let mut count = 0;
+        for index in first..=last {
+            let distance = (position - (index as f64 + 0.5)) * factor;
+            if distance.abs() >= 3. {
+                continue;
+            }
+            debug_assert!(count < MAX_LANCZOS_TAPS);
+            result[count] = (
+                index.clamp(0, i64::from(limit) - 1) as u32,
+                sinc(distance) * sinc(distance / 3.),
+            );
+            count += 1;
+        }
+        (result, count)
+    }
+
+    let (xs, x_count) = taps(u, sx, image.width());
+    let (ys, y_count) = taps(v, sy, image.height());
+    let mut premultiplied = [0.; 3];
+    let mut alpha_sum = 0.;
+    let mut weight_sum = 0.;
+    for &(y, wy) in &ys[..y_count] {
+        for &(x, wx) in &xs[..x_count] {
+            let weight = wx * wy;
+            let pixel = to_linear(image.get_pixel(x, y).0);
+            let mask = coverage(x, y).clamp(0., 1.);
+            for (sum, channel) in premultiplied.iter_mut().zip(pixel.rgb) {
+                *sum += channel * pixel.a * mask * weight;
+            }
+            alpha_sum += pixel.a * mask * weight;
+            weight_sum += weight;
+        }
+    }
+    if weight_sum.abs() < 1e-9 || alpha_sum <= 0. {
+        return LinearPixel {
+            rgb: [0.; 3],
+            a: 0.,
+        };
+    }
+    LinearPixel {
+        rgb: premultiplied.map(|channel| (channel / alpha_sum).clamp(0., 1.)),
+        a: (alpha_sum / weight_sum).clamp(0., 1.),
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -866,7 +1032,7 @@ fn mask_enabled(layer: &Layer) -> bool {
     layer.metadata.get("maskEnabled").and_then(Value::as_bool) != Some(false)
 }
 
-fn build_live_masks(doc: &Document) -> Result<HashMap<String, Rgba16Image>> {
+fn build_live_masks(doc: &Document, cancel: &AtomicBool) -> Result<HashMap<String, Rgba16Image>> {
     fn parent_opacity(layers: &[Layer], id: &str, opacity: f32) -> Option<f32> {
         for layer in layers {
             if layer.id == id {
@@ -894,8 +1060,10 @@ fn build_live_masks(doc: &Document) -> Result<HashMap<String, Rgba16Image>> {
     // Layer order is a painting order, not a dependency order: a linked mask
     // may refer to a source (or another linked source) later in the document.
     for _ in 0..=links.len() {
+        check_cancel(cancel)?;
         let mut changed = false;
         for (target, source) in &links {
+            check_cancel(cancel)?;
             if result.contains_key(target) {
                 continue;
             }
@@ -921,6 +1089,7 @@ fn build_live_masks(doc: &Document) -> Result<HashMap<String, Rgba16Image>> {
                 parent_opacity(&doc.layers, source, 1.).unwrap_or(1.),
                 &[],
                 &result,
+                cancel,
             )?;
             result.insert(target.clone(), plane);
             changed = true;

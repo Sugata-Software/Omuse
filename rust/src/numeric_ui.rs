@@ -817,6 +817,8 @@ impl EditorView {
         if self.busy
             || self.crop.is_some()
             || self.inline_text.is_some()
+            || self.vector_scene_active()
+            || self.image_trace_active()
             || self.editor.floating_selection_layer().is_some()
         {
             return false;
@@ -1137,7 +1139,7 @@ impl EditorView {
                         }
                     }))
                     .child(if enabled {
-                        gpui_omarchy::input(
+                        input(
                             SharedString::from(format!("numeric-value-{id}")),
                             &field,
                             window,
@@ -1146,7 +1148,6 @@ impl EditorView {
                         .debug_selector(move || format!("numeric-value-{id}"))
                         .h(px(28.))
                         .py_0()
-                        .rounded(px(4.))
                         .into_any_element()
                     } else {
                         div()

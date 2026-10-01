@@ -1,7 +1,6 @@
 //! Native design controls for the Create inspector.
 use super::create_ui::{note, section};
-use super::inspector_ui::panel_button as button;
-use super::inspector_ui::panel_input as input;
+use super::inspector_ui::{colour_swatch, panel_button as button, panel_input as input};
 use super::*;
 use anyhow::Context as _;
 use gpui_kit::FontWeight;
@@ -228,11 +227,35 @@ impl EditorView {
             .child(note("Brand name", cx))
             .child(input("create-brand-name", &self.create.fields[4], window, cx))
             .child(note("Paper", cx))
-            .child(input("create-brand-paper", &self.create.fields[5], window, cx))
+            .child(
+                input("create-brand-paper", &self.create.fields[5], window, cx).prefix(
+                    colour_swatch(
+                        parse_hex_color(self.create.fields[5].read(cx).value().as_ref()).ok(),
+                        false,
+                        cx,
+                    ),
+                ),
+            )
             .child(note("Ink", cx))
-            .child(input("create-brand-ink", &self.create.fields[6], window, cx))
+            .child(
+                input("create-brand-ink", &self.create.fields[6], window, cx).prefix(
+                    colour_swatch(
+                        parse_hex_color(self.create.fields[6].read(cx).value().as_ref()).ok(),
+                        false,
+                        cx,
+                    ),
+                ),
+            )
             .child(note("Accent", cx))
-            .child(input("create-brand-accent", &self.create.fields[7], window, cx))
+            .child(
+                input("create-brand-accent", &self.create.fields[7], window, cx).prefix(
+                    colour_swatch(
+                        parse_hex_color(self.create.fields[7].read(cx).value().as_ref()).ok(),
+                        false,
+                        cx,
+                    ),
+                ),
+            )
             .child(note("Heading font", cx))
             .child(input(
                 "create-brand-heading-font",

@@ -1841,6 +1841,7 @@ fn disk_semantic_layers_match(expected: &[Layer], reopened: &[Layer]) -> Result<
             || !disk_semantic_images_match(&expected_layer.image, &reopened_layer.image)
             || !disk_semantic_images_match(&expected_layer.mask, &reopened_layer.mask)
             || !disk_semantic_advanced_matches(expected_layer, reopened_layer)?
+            || !disk_semantic_vector_scene_matches(expected_layer, reopened_layer)?
             || omuse::objects::live_text(expected_layer)?
                 != omuse::objects::live_text(reopened_layer)?
             || omuse::objects::live_shape(expected_layer)?
@@ -1876,6 +1877,16 @@ fn disk_semantic_advanced_matches(expected: &Layer, reopened: &Layer) -> Result<
         (Some(expected), Some(reopened)) => Ok(serde_json::to_value(&expected.recipe)?
             == serde_json::to_value(&reopened.recipe)?
             && expected.raw_bytes.as_deref() == reopened.raw_bytes.as_deref()),
+        _ => Ok(false),
+    }
+}
+
+fn disk_semantic_vector_scene_matches(expected: &Layer, reopened: &Layer) -> Result<bool> {
+    match (&expected.vector_scene, &reopened.vector_scene) {
+        (None, None) => Ok(true),
+        (Some(expected), Some(reopened)) => Ok(
+            serde_json::to_value(expected.as_ref())? == serde_json::to_value(reopened.as_ref())?
+        ),
         _ => Ok(false),
     }
 }
@@ -1922,6 +1933,7 @@ fn normalized_layer_metadata(metadata: &serde_json::Value) -> serde_json::Value 
         "parentID",
         "isGroup",
         "rustEditableAsset",
+        "rustVectorScene",
         "imageFile",
         "maskFile",
     ] {
@@ -2152,7 +2164,29 @@ mod tests {
     -> Result<()> {
         let directory = tempfile::tempdir()?;
         let brand = create::sugata_brand_kit();
-        let document = create::instantiate_template("customer-voice", Some(&brand))?;
+        let mut document = create::instantiate_template("customer-voice", Some(&brand))?;
+        let scene = omuse::vector_scene::VectorScene {
+            version: omuse::vector_scene::VECTOR_SCENE_VERSION,
+            width: 16,
+            height: 12,
+            objects: vec![omuse::vector_scene::VectorObject::rectangle(
+                "Comparator object",
+                2.,
+                2.,
+                10.,
+                8.,
+                Some([20, 80, 140, 255]),
+                None,
+            )?],
+        };
+        let mut scene_layer = Layer::paint("Scene comparator", scene.width, scene.height);
+        scene_layer.image = Some(
+            scene
+                .render(&std::sync::atomic::AtomicBool::new(false))?
+                .into(),
+        );
+        scene_layer.vector_scene = Some(std::sync::Arc::new(scene));
+        document.layers.push(scene_layer);
         let mut expected = Project::new("Native template round trip", document);
         let page_id = expected.active_page_id().to_owned();
         expected.set_page_template(&page_id, Some("customer-voice"))?;
@@ -2192,6 +2226,20 @@ mod tests {
         assert!(!disk_semantic_project_matches(
             &mut expected,
             &mut geometry_loss
+        )?);
+
+        let mut scene_loss = reopened.clone();
+        let scene = scene_loss
+            .active_document_mut()?
+            .layers
+            .iter_mut()
+            .find(|layer| layer.name == "Scene comparator")
+            .and_then(|layer| layer.vector_scene.as_mut())
+            .context("Missing vector scene after reopen")?;
+        std::sync::Arc::make_mut(scene).objects[0].name = "Lost object identity".into();
+        assert!(!disk_semantic_project_matches(
+            &mut expected,
+            &mut scene_loss
         )?);
         Ok(())
     }

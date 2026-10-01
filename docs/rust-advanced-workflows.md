@@ -22,6 +22,8 @@ Most advanced operations and 16-bit compositing are limited to **16,777,216 pixe
 
 The implemented menu includes exposure, Gaussian blur, unsharp mask, denoise, levels, hue/saturation, colour balance, noise, vignette, bloom, tonal contrast, invert, grayscale and curves. The original source, node order, enabled state, opacity and masks persist; reopening the workspace edits the retained stack. Editable layers accept at most 128 nodes; stack-mask storage is additionally bounded to 256 MiB.
 
+The unreleased photo/vector branch adds **Target colour uniformity** with a reference colour, hue range/falloff and independent hue, saturation and lightness strengths. It retains native 16-bit evaluation, alpha and node masks. See the [step-by-step development guide](user-guide/photo-vector.md#make-a-product-colour-more-consistent), including older-reader and colour-space limits.
+
 Filters, denoise, retouch and deformation have high-precision evaluation paths. The **Camera Raw compatibility node still evaluates through 8-bit pixels** before conversion back into the working space. It must not be described as a fully 16-bit Camera Raw filter stack.
 
 ## 2. Blend If
@@ -34,7 +36,9 @@ Independent source and backdrop channel buttons choose Luminance, Red, Green or 
 
 **Develop → Precision & colour.** Convert the selected editable source between **sRGB**, **Linear sRGB** and **Display P3**. Enter a destination path and choose **Export 16-bit PNG/TIFF** for document export. Ordinary Open/import and Smart source import retain supported 16-bit PNG/TIFF inputs and RAW masters; the canvas displays an 8-bit proxy. Destructive painting requires an explicit conversion to 8-bit pixels. The 16-bit compositor uses retained masters where present; promoting an existing 8-bit source does not create new captured detail. Imported ICC profiles are normalized into sRGB, and document compositing/16-bit exports currently target sRGB with an embedded profile. P3 working-space conversion is available, but end-to-end wide-gamut import/compositing/export is not implemented.
 
-Clipping stacks retain their base coverage during 16-bit export; nested clipped groups retain independent child-mask links. The [photo integrity hardening record](photo-integrity-hardening.md) covers these regressions. One known precision-export difference remains: transformed layers use bilinear sampling in the 16-bit renderer while the canvas's **High quality** mode uses scale-aware Lanczos. Fine patterns can alias when reduced; exact preview/export sampling parity is not established.
+Clipping stacks retain their base coverage during 16-bit export; nested clipped groups retain independent child-mask links. The [photo integrity hardening record](photo-integrity-hardening.md) covers these regressions. The released **0.6.0** renderer uses bilinear sampling for transformed high-precision layers, while the canvas's **High quality** mode uses scale-aware Lanczos.
+
+The unreleased photo/vector branch adds scale-aware, premultiplied Lanczos to high-quality 16-bit export. Reduced local/folder masks participate in the source tap accumulation, avoiding colour leakage from masked-out detail. That correction is not yet shared by the 8-bit canvas's independently filtered masks, so exact masked preview/export parity is still not established. Identity, Smooth and Nearest retain their existing behavior. The footprint is capped at 66 samples per axis with a 3/32 scale floor; extreme reductions remain approximate and masked high-quality transforms cost more CPU time.
 
 Traditional live adjustment layers and traditional layer-effect records are **explicitly rejected by 16-bit export**. Supported editable-stack nodes are a different representation. Keep an editable project and use the ordinary export path, or deliberately rasterize a copy with the resulting precision tradeoff; do not claim those traditional effects export at full precision.
 
@@ -50,7 +54,9 @@ Monitor/proof ICC paths, rendering intent (0 Perceptual, 1 Relative colorimetric
 
 **Develop → Vector paths / Vector mask.** Click to add cubic-path anchors; drag an anchor or its handle dots. **Delete node**, **Smooth node** and **Open/Close path** edit the draft; Apply commits one undo step. Vector geometry, fill/stroke fields and mask intent persist in the editable recipe. A vector mask is rasterized into layer-mask coverage while retaining its path for subsequent edits. Ordinary stack/source changes preserve later raster mask corrections or an explicitly removed mask; only path Apply rebuilds that coverage.
 
-Fill and stroke colour fields accept #RRGGBB or #RRGGBBAA, with stroke width in source pixels (zero disables stroke). Preview style updates the path overlay. Applying reevaluates retained filters on the new geometry in a cancellable worker. Rasterization is bounded to 16 MP with additional curve-flattening and fill/stroke work limits. No Illustrator-style boolean-path, compound-path authoring or variable-width stroke toolset is implied.
+Fill and stroke colour fields accept #RRGGBB or #RRGGBBAA, with stroke width in source pixels (zero disables stroke). Preview style updates the path overlay. Applying reevaluates retained filters on the new geometry in a cancellable worker. Rasterization is bounded to 16 MP with additional curve-flattening and fill/stroke work limits.
+
+The unreleased photo/vector branch adds corner nodes, exact curve-midpoint insertion, reverse/new subpaths, fill-rule switching and compound-hole previews. It also provides explicit **single-path editable SVG** exchange. The [development guide](user-guide/photo-vector.md#draw-and-refine-an-editable-path) explains these controls and the interchange limits. Direct-canvas editing, booleans, multi-object SVG, gradients and variable-width strokes remain planned.
 
 ## 6. Selection refinement
 

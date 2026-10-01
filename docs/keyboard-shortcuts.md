@@ -1,6 +1,6 @@
 # Omuse keyboard shortcuts
 
-This reference is generated from Omuse's command catalog. Press **Ctrl+K** in the editor to search and run any of the 176 commands. 102 commands have a default shortcut; every unbound command remains searchable and executable.
+This reference is generated from Omuse's command catalog. Press **Ctrl+K** in the editor to search and run any of the 179 commands. 104 commands have a default shortcut; every unbound command remains searchable and executable.
 
 Open **Keyboard shortcuts** with **Ctrl+Alt+K** to assign, clear, or reset a binding. Custom bindings are stored per user. Omuse reserves **Super** for Omarchy and other Linux desktop shortcuts, and rejects Linux virtual-terminal chords such as Ctrl+Alt+F3.
 
@@ -122,10 +122,13 @@ Legacy default changes: Export moved from Ctrl+E to **Ctrl+Alt+Shift+S**, Create
 | Transform layer | Ctrl+T | Transform the active layer numerically. |
 | Distort corners | Unbound | Move the active layer's four corners. |
 | Cycle sampling quality | Unbound | Cycle transform resampling quality. |
-| Edit text or shape | Unbound | Edit the selected live text or shape. |
+| Edit text, shape or vector artwork | Unbound | Edit the selected live text, shape or vector artwork. |
 | Create text object | Unbound | Create editable text with detailed settings. |
 | Rasterize object | Unbound | Convert an editable object to pixels; Undo restores it. |
-| Vector path workspace | P | Open the editable vector-path workspace. |
+| Image trace / retrace | Unbound | Convert an image into editable vector artwork on the main canvas. Compare Source/Trace, adjust detail and point limits, then Keep vectors. The original image is retained. |
+| Vector pen tool | P | Click to place corners; drag to draw smooth curves. Click the first anchor to close. Click a segment to add a point. A edits nodes; V moves objects. |
+| Vector artwork on canvas | Shift+P | Draw and edit objects on the main canvas with the shared layer stack. Enter keeps edits; Escape discards them. |
+| Vector node tool | A | Drag anchors or handles on the main canvas. Double-click a segment to add a point; Alt frees a handle, Shift constrains to 45 degrees. Delete removes points. |
 | Rotate layer 90 degrees | Unbound | Rotate the active layer clockwise by 90 degrees. |
 | Flip layer horizontally | Unbound | Flip the active layer horizontally. |
 | Nudge left | Left | Move selected layers left by one pixel. |
@@ -232,7 +235,7 @@ Legacy default changes: Export moved from Ctrl+E to **Ctrl+Alt+Shift+S**, Create
 | Edit adjustment | Unbound | Edit the selected adjustment layer. |
 | Layer effects | Unbound | Edit nondestructive effects on the active layer. |
 | Delete layer effects | Unbound | Remove every effect from the active layer. |
-| Editable filter stack | Unbound | Build a reorderable filter stack. |
+| Editable filter stack | Unbound | Build a reorderable stack, including target-colour uniformity. |
 | Dither and halftone | Unbound | Preview ten retro finishes with pixel, cell and palette controls; Apply is one undo step. |
 | Bloom into transparency | Unbound | Preview highlight glow that can spread into existing transparent layer margins. |
 | Vignette overlay | Unbound | Preview a coloured edge overlay, including on an empty paint layer. |
@@ -275,6 +278,12 @@ These temporary gestures are fixed so they remain available while other shortcut
 | Extend a canvas layer selection | Move tool + Auto-select: Shift+Click a layer on the canvas |
 | Copy layers while dropping | Alt+Drop layers in the Layers panel |
 | Copy a mask or effect | Drag it onto another layer |
+| Draw vector corners and curves | P: click a corner, or drag to create smooth handles |
+| Add a vector point without changing its curve | P: click a segment; A: double-click a segment |
+| Close a vector contour | P: click its first anchor |
+| Break vector handle alignment | A: Alt+Drag a handle |
+| Constrain vector points and handles | A: Shift+Drag for 45-degree increments |
+| Keep or cancel an image trace | Enter keeps a ready trace; Escape cancels (canvas focused) |
 
 ## Maintenance
 

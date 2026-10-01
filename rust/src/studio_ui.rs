@@ -120,6 +120,8 @@ pub(super) fn layer_identity(layer: &Layer, thumbnail: Option<Arc<RenderImage>>,
     let t = cx.omarchy();
     let (icon, kind) = if layer.is_group() {
         ("folder-open", "Group")
+    } else if layer.vector_scene.is_some() {
+        ("pen-tool", "Vector artwork")
     } else if layer.metadata.get("text").is_some_and(|v| !v.is_null()) {
         ("type", "Live text")
     } else if layer.metadata.get("shape").is_some_and(|v| !v.is_null()) {
@@ -179,7 +181,10 @@ pub(super) fn layer_identity(layer: &Layer, thumbnail: Option<Arc<RenderImage>>,
 
 impl EditorView {
     fn studio_controls_blocked(&self) -> bool {
-        self.busy || self.inline_text.is_some()
+        self.busy
+            || self.inline_text.is_some()
+            || self.vector_scene_active()
+            || self.image_trace_active()
     }
 
     pub(super) fn studio_action_disabled(&self, id: &str) -> bool {
@@ -196,6 +201,7 @@ impl EditorView {
             .and_then(Selection::bounds)
             .is_some();
         match id {
+            "image-trace" => self.trace_unavailable().is_some(),
             "camera-raw" => layer
                 .and_then(|layer| layer.image.as_ref())
                 .is_none_or(|image| {
@@ -313,7 +319,6 @@ impl EditorView {
                 .accessibility_label(label)
                 .size(px(30.))
                 .p_0()
-                .rounded(px(3.))
                 .child(glyph(name)),
             tooltip,
         )
@@ -389,14 +394,23 @@ impl EditorView {
             )
     }
 
-    pub(super) fn studio_header(&self, cx: &mut Context<Self>) -> AnyElement {
+    pub(super) fn studio_header(&self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
         let t = cx.omarchy().clone();
+        let compact = f32::from(window.viewport_size().width) < 1000.;
         let document = self
             .path
             .as_ref()
             .and_then(|p| p.file_name())
             .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_else(|| "Untitled".into());
+        let document_status = format!(
+            "{document} · {}",
+            if self.has_unsaved_work() {
+                "Unsaved changes"
+            } else {
+                "No unsaved changes"
+            },
+        );
         div()
             .id("studio-header")
             .debug_selector(|| "studio-header".into())
@@ -447,11 +461,8 @@ impl EditorView {
                     .selected(self.inspector_tab == InspectorTab::Create)
                     .h(px(30.))
                     .px_2()
-                    .on_click(cx.listener(|this, _, _, cx| {
-                        this.finish_interaction(cx);
-                        this.inspector_tab = InspectorTab::Create;
-                        this.inspector_visible = true;
-                        cx.notify();
+                    .on_click(cx.listener(|this, _, window, cx| {
+                        this.command("create-workspace", window, cx)
                     })),
             )
             .child(
@@ -465,50 +476,48 @@ impl EditorView {
                 .selected(self.inspector_tab == InspectorTab::Assistant)
                 .h(px(30.))
                 .px_2()
-                .on_click(cx.listener(|this, _, window, cx| {
-                    this.finish_interaction(cx);
-                    this.inspector_tab = InspectorTab::Assistant;
-                    this.inspector_visible = true;
-                    this.discover_ai_connections(cx);
-                    this.focus_ai_prompt(window, cx);
-                    cx.notify();
-                })),
+                .on_click(cx.listener(|this, _, window, cx| this.command("ask-omuse", window, cx))),
             )
             .child(rule(cx))
-            .child(
+            .child(with_tooltip(
                 div()
+                    .id("studio-document-status")
+                    .debug_selector(|| "studio-document-status".into())
                     .flex_1()
-                    .min_w_0()
+                    .min_w(px(22.))
                     .flex()
                     .items_center()
                     .gap_2()
                     .px_2()
-                    .child(
-                        div()
-                            .size(px(5.))
-                            .rounded_full()
-                            .bg(if self.has_unsaved_work() {
-                                t.warning
-                            } else {
-                                t.success
-                            }),
-                    )
-                    .child(
-                        div()
-                            .min_w_0()
-                            .overflow_hidden()
-                            .whitespace_nowrap()
-                            .text_size(px(12.))
-                            .child(document),
-                    ),
-            )
+                    .child(div().size(px(5.)).flex_shrink_0().rounded_full().bg(
+                        if self.has_unsaved_work() {
+                            t.warning
+                        } else {
+                            t.success
+                        },
+                    ))
+                    .when(!compact, |view| {
+                        view.child(
+                            div()
+                                .min_w_0()
+                                .text_ellipsis()
+                                .text_size(px(12.))
+                                .child(document),
+                        )
+                    }),
+                document_status,
+            ))
             .child(
                 self.studio_icon_action("undo", "Undo", "undo-2", cx)
-                    .disabled(!self.can_undo_or_collection()),
+                    .disabled(!self.vector_scene_active() && !self.can_undo_or_collection()),
             )
             .child(
                 self.studio_icon_action("redo", "Redo", "redo-2", cx)
-                    .disabled(!self.can_redo_or_collection()),
+                    .disabled(if self.vector_scene_active() {
+                        !self.vector_has_redo()
+                    } else {
+                        !self.can_redo_or_collection()
+                    }),
             )
             .child(rule(cx))
             .child(self.studio_icon_action("save", "Save project", "save", cx))
@@ -520,7 +529,6 @@ impl EditorView {
                     .h(px(30.))
                     .px_3()
                     .py_0()
-                    .rounded(px(3.))
                     .bg(t.accent)
                     .text_color(t.on_accent)
                     .hover(|s| {
@@ -550,7 +558,6 @@ impl EditorView {
                     })
                     .size(px(30.))
                     .p_0()
-                    .rounded(px(3.))
                     .child(glyph(if self.inspector_visible {
                         "panel-right-close"
                     } else {
@@ -643,13 +650,15 @@ impl EditorView {
                         button(tool.studio_id(), "", ButtonVariant::Secondary, cx)
                             .debug_selector(move || tool.studio_id().into())
                             .accessibility_label(tool.studio_label()).selected(selected)
-                            .size(px(32.)).p_0().rounded(px(3.))
+                            .size(px(32.)).p_0()
                             .border_color(if selected { t.accent } else { t.foreground.opacity(0.) })
                             .bg(if selected { t.accent.opacity(0.12) } else { t.surface })
                             .text_color(if selected { t.accent } else { t.foreground })
                             .child(glyph(tool.studio_icon()))
-                            .disabled(self.busy || self.inline_text.is_some())
+                            .disabled(self.busy || self.inline_text.is_some() || (self.image_trace_active() && tool != Tool::Hand))
                             .on_click(cx.listener(move |this, _, window, cx| {
+                                if tool != Tool::Hand && this.guard_image_trace(cx) { return; }
+                                if this.vector_before_tool(tool, window, cx) { return; }
                                 if this.editor.floating_selection_layer().is_some() {
                                     this.status = "Commit Selection or Cancel Selection before changing tools".into();
                                 } else {
@@ -664,10 +673,30 @@ impl EditorView {
             }
             dock = dock.child(grid);
         }
+        dock = dock.child(with_tooltip(
+            button("vector-canvas-tool", "", ButtonVariant::Secondary, cx)
+                .debug_selector(|| "vector-canvas-tool".into())
+                .accessibility_label("Vector artwork")
+                .size(px(32.))
+                .p_0()
+                .child(glyph("pen-tool"))
+                .selected(self.vector_scene_active())
+                .disabled(self.busy || self.inline_text.is_some() || self.image_trace_active())
+                .on_click(
+                    cx.listener(|this, _, window, cx| this.command("vector-scene", window, cx)),
+                ),
+            "Vector artwork · Shift+P",
+        ));
         dock.into_any_element()
     }
 
     pub(super) fn studio_context(&self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        if self.image_trace_active() {
+            return self.image_trace_context(cx);
+        }
+        if self.vector_scene_active() {
+            return self.vector_canvas_context(cx);
+        }
         if self.crop.is_some() {
             return self.crop_context(cx);
         }
@@ -722,7 +751,6 @@ impl EditorView {
                     .debug_selector(|| "spot-healing-mode".into())
                     .h(px(28.))
                     .py_0()
-                    .rounded(px(3.))
                     .on_click(cx.listener(|this, _, window, cx| {
                         use omuse::spot_heal::SpotHealingMode::*;
                         this.spot_healing_mode = match this.spot_healing_mode {
@@ -861,6 +889,9 @@ impl EditorView {
         if !self.inspector_visible {
             return div().into_any_element();
         }
+        if self.image_trace_active() {
+            return self.image_trace_inspector(window, cx);
+        }
         if self.inspector_tab == InspectorTab::Create {
             return self.create_inspector(window, cx);
         }
@@ -901,6 +932,9 @@ impl EditorView {
                     })
                     .text_color(if active { t.bright } else { t.secondary })
                     .on_click(cx.listener(move |this, _, window, cx| {
+                        if this.vector_before_inspector(tab, window, cx) {
+                            return;
+                        }
                         this.finish_interaction(cx);
                         this.inspector_tab = tab;
                         this.focus.focus(window, cx);
@@ -959,10 +993,16 @@ impl EditorView {
                 let mut layers = div()
                     .id("layers")
                     .debug_selector(|| "layers".into())
-                    .h(px(
+                    .h(px(if self.vector_scene_active() {
+                        (count as f32 * 46. + 8.).clamp(54., 100.)
+                    } else {
                         (f32::from(window.viewport_size().height) * 0.25).clamp(112., 240.)
-                    ))
-                    .min_h(px(112.))
+                    }))
+                    .min_h(px(if self.vector_scene_active() {
+                        54.
+                    } else {
+                        112.
+                    }))
                     .flex_shrink_0()
                     .overflow_y_scroll()
                     .flex()
@@ -975,8 +1015,57 @@ impl EditorView {
                 for (layer, depth) in list {
                     layers = layers.child(self.layer_row(layer, depth, window, cx));
                 }
+                if self.vector_scene_active() {
+                    body = body
+                        .child(
+                            div()
+                                .flex()
+                                .items_center()
+                                .gap_2()
+                                .text_size(px(11.))
+                                .text_color(t.secondary)
+                                .child(glyph("layers").size(px(14.)))
+                                .child(format!("Layers · {count}")),
+                        )
+                        .child(layers)
+                        .child(self.vector_canvas_inspector(window, cx));
+                    return div()
+                        .id("inspector")
+                        .debug_selector(|| "inspector".into())
+                        .w(panel_width(window))
+                        .flex_shrink_0()
+                        .h_full()
+                        .flex()
+                        .flex_col()
+                        .border_l_1()
+                        .border_color(t.divider())
+                        .bg(t.surface)
+                        .child(tabs)
+                        .child(body)
+                        .into_any_element();
+                }
                 let selected = self.editor.document.find_layer(&self.editor.active_layer);
                 let blend = selected.map(|l| l.blend_mode.as_str()).unwrap_or("Normal");
+                if self.trace_unavailable().is_none() {
+                    body = body.child(
+                        panel_button(
+                            "image-trace",
+                            if selected.is_some_and(|l| l.vector_scene.is_some()) {
+                                "Retrace original image"
+                            } else {
+                                "Image trace · make editable vectors"
+                            },
+                            ButtonVariant::Secondary,
+                            cx,
+                        )
+                        .debug_selector(|| "image-trace".into())
+                        .w_full()
+                        .disabled(self.studio_controls_blocked())
+                        .on_click(cx.listener(|this, _, window, cx| {
+                            this.command("image-trace", window, cx)
+                        })),
+                    );
+                }
                 body = body
                     .child(
                         panel_header("Layers", "Arrange your artwork", "layers", cx).child(
@@ -1068,8 +1157,7 @@ impl EditorView {
                                     .disabled(self.studio_controls_blocked())
                                     .w_full()
                                     .justify_between()
-                                    .bg(t.normal_fill())
-                                    .rounded(px(6.)),
+                                    .bg(t.normal_fill()),
                             )
                             .child(self.numeric_row(
                                 "layer-opacity",
@@ -1202,7 +1290,9 @@ impl EditorView {
                     .child(
                         panel_section("Paths & automation", cx).child(self.studio_action_grid(
                             &[
+                                ("image-trace", "Image trace"),
                                 ("vector-path", "Vector paths"),
+                                ("vector-scene", "Vector artwork"),
                                 ("vector-mask", "Vector mask"),
                                 ("automation", "Recipes & batch"),
                                 ("multi-image", "Multi-image merge"),

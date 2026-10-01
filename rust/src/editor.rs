@@ -16,6 +16,8 @@ mod editor_clipboard;
 mod editor_dynamics;
 #[path = "editor_history.rs"]
 mod editor_history;
+#[path = "editor_image_trace.rs"]
+mod image_trace;
 #[path = "editor_mask_growth.rs"]
 mod mask_growth;
 pub use editor_clipboard::LayerClipboard;
@@ -363,6 +365,11 @@ impl Editor {
         );
         let errors = crate::raster::validate(&document);
         anyhow::ensure!(errors.is_empty(), "Invalid document: {}", errors.join("; "));
+        anyhow::ensure!(
+            valid_vector_scene_sources(&document.layers),
+            "Invalid vector scene source or cache"
+        );
+        crate::document::validate_vector_scene_budget(&document.layers)?;
         self.finish_stroke();
         let before = self.snapshot();
         let resized =
@@ -1340,7 +1347,9 @@ impl Editor {
         // taking an undo snapshot. This keeps a rejected import fully inert.
         let mut proposed = self.document.clone();
         proposed.layers.push(layer.clone());
-        if !crate::raster::validate(&proposed).is_empty() {
+        if crate::document::validate_vector_scene_budget(&proposed.layers).is_err()
+            || !crate::raster::validate(&proposed).is_empty()
+        {
             return String::new();
         }
         self.finish_stroke();
@@ -1350,6 +1359,119 @@ impl Editor {
         self.active_layer = id.clone();
         self.commit(before);
         id
+    }
+    /// Insert a fully rendered editable vector scene as one history step.
+    /// The revision fence keeps off-thread rendering from publishing over a
+    /// newer document state.
+    pub fn insert_vector_scene(
+        &mut self,
+        name: &str,
+        expected_revision: u64,
+        scene: crate::vector_scene::VectorScene,
+        cache: RgbaImage,
+    ) -> anyhow::Result<String> {
+        anyhow::ensure!(self.stroke.is_none(), "Finish the active stroke first");
+        anyhow::ensure!(
+            self.revision == expected_revision,
+            "Document changed while vector scene rendered"
+        );
+        anyhow::ensure!(
+            self.floating.is_none(),
+            "Commit the floating selection first"
+        );
+        scene.validate()?;
+        anyhow::ensure!(
+            cache.dimensions() == (scene.width, scene.height),
+            "Vector scene cache dimensions differ from its geometry"
+        );
+        anyhow::ensure!(
+            !name.trim().is_empty() && name.len() <= 16_384,
+            "Invalid vector scene layer name"
+        );
+        let mut layer = Layer::group(name);
+        layer.metadata = serde_json::json!({});
+        layer.image = Some(cache.into());
+        layer.vector_scene = Some(std::sync::Arc::new(scene));
+        let id = self.insert_layer(layer);
+        anyhow::ensure!(
+            !id.is_empty(),
+            "Cannot insert vector scene into this document"
+        );
+        Ok(id)
+    }
+
+    /// Atomically replace editable vector geometry and its prepared display
+    /// cache. No live layer state changes unless every admission check passes.
+    pub fn replace_vector_scene(
+        &mut self,
+        id: &str,
+        expected_revision: u64,
+        scene: crate::vector_scene::VectorScene,
+        cache: RgbaImage,
+    ) -> anyhow::Result<bool> {
+        anyhow::ensure!(self.stroke.is_none(), "Finish the active stroke first");
+        anyhow::ensure!(
+            self.revision == expected_revision,
+            "Document changed while vector scene rendered"
+        );
+        anyhow::ensure!(
+            self.floating.is_none(),
+            "Commit the floating selection first"
+        );
+        anyhow::ensure!(
+            !locked_in_tree(&self.document.layers, id, false),
+            "Vector scene layer is locked"
+        );
+        scene.validate()?;
+        anyhow::ensure!(
+            cache.dimensions() == (scene.width, scene.height),
+            "Vector scene cache dimensions differ from its geometry"
+        );
+        let layer = self
+            .document
+            .find_layer(id)
+            .ok_or_else(|| anyhow::anyhow!("Layer not found"))?;
+        anyhow::ensure!(
+            !layer.is_group()
+                && layer.vector_scene.is_some()
+                && layer.advanced.is_none()
+                && crate::objects::live_text(layer)?.is_none()
+                && crate::objects::live_shape(layer)?.is_none(),
+            "Choose an existing vector scene without another live source"
+        );
+        anyhow::ensure!(
+            layer
+                .image
+                .as_ref()
+                .is_some_and(|image| image.dimensions() == cache.dimensions()),
+            "Vector scene edits must retain the existing cache dimensions"
+        );
+        if layer.vector_scene.as_deref() == Some(&scene) && layer.image.as_deref() == Some(&cache) {
+            return Ok(false);
+        }
+        let mut candidate = self.document.clone();
+        let candidate_layer = candidate.find_layer_mut(id).expect("validated layer");
+        candidate_layer.vector_scene = Some(std::sync::Arc::new(scene));
+        candidate_layer.image = Some(cache.into());
+        if let Some(metadata) = candidate_layer.metadata.as_object_mut() {
+            metadata.remove("rustVectorScene");
+        }
+        crate::document::validate_vector_scene_budget(&candidate.layers)?;
+        anyhow::ensure!(
+            tree_pixels(&candidate.layers) <= crate::model::MAX_PIXELS,
+            "Vector scene caches exceed the document pixel limit"
+        );
+        let errors = crate::raster::validate(&candidate);
+        anyhow::ensure!(
+            errors.is_empty(),
+            "Invalid vector scene document: {}",
+            errors.join("; ")
+        );
+        self.finish_stroke();
+        let before = self.snapshot();
+        self.document = candidate;
+        self.commit(before);
+        Ok(true)
     }
     pub fn delete_layer(&mut self, id: &str) -> bool {
         self.finish_stroke();
@@ -2545,7 +2667,7 @@ impl Editor {
             .document
             .find_layer(id)
             .ok_or_else(|| anyhow::anyhow!("Layer not found"))?;
-        if layer.advanced.is_some() {
+        if layer.advanced.is_some() || layer.vector_scene.is_some() {
             return Ok(false);
         }
         let old = crate::objects::live_text(layer)?;
@@ -2593,7 +2715,7 @@ impl Editor {
             .document
             .find_layer_mut(id)
             .ok_or_else(|| anyhow::anyhow!("Layer not found"))?;
-        if layer.advanced.is_some() {
+        if layer.advanced.is_some() || layer.vector_scene.is_some() {
             return Ok(false);
         }
         let old = crate::objects::live_shape(layer)?;
@@ -2627,6 +2749,24 @@ impl Editor {
         let Some(layer) = self.document.find_layer_mut(id) else {
             return false;
         };
+        if layer.vector_scene.is_some() {
+            let Some(image) = &layer.image else {
+                return false;
+            };
+            if layer
+                .vector_scene
+                .as_ref()
+                .is_none_or(|scene| image.dimensions() != (scene.width, scene.height))
+            {
+                return false;
+            }
+            layer.vector_scene = None;
+            if let Some(metadata) = layer.metadata.as_object_mut() {
+                metadata.remove("rustVectorScene");
+            }
+            self.commit(before);
+            return true;
+        }
         if let Some((proxy, blend_if)) = advanced_proxy {
             layer.advanced = None;
             layer.image = Some(proxy.into());
@@ -4089,7 +4229,7 @@ impl Editor {
             let mut out = Vec::with_capacity(layers.len());
             for original in layers {
                 let old = placement_of(original, ow, oh)?;
-                if original.advanced.is_some() {
+                if original.advanced.is_some() || original.vector_scene.is_some() {
                     // Preserve embedded originals and recipes. Scaling a
                     // rotated layer non-uniformly can introduce shear, which
                     // LayerPlacement cannot represent without rasterization.
@@ -4117,6 +4257,9 @@ impl Editor {
                             "maskPlacement",
                             exact_scale(mask, sx, sy)?,
                         );
+                        layer.mask = original.mask.clone();
+                    } else {
+                        layer.mask = original.mask.clone();
                     }
                     set_metadata_placement(&mut layer, "transform", new);
                     layer.metadata["transform"]["sampling"] = serde_json::json!(sampling);
@@ -4696,12 +4839,7 @@ impl Editor {
         if locked_in_tree(&self.document.layers, id, false) {
             return false;
         }
-        if apply
-            && self
-                .document
-                .find_layer(id)
-                .is_some_and(|layer| layer.advanced.is_some())
-        {
+        if apply && self.document.find_layer(id).is_some_and(is_live_object) {
             return false;
         }
         self.change_layer(id, |layer| {
@@ -5771,6 +5909,13 @@ fn retained_image_bytes(layers: &[Layer], seen: &mut std::collections::HashSet<u
                 }
                 bytes
             }))
+            .saturating_add(layer.vector_scene.as_ref().map_or(0, |scene| {
+                if seen.insert(std::sync::Arc::as_ptr(scene) as usize) {
+                    scene.retained_bytes()
+                } else {
+                    0
+                }
+            }))
             .saturating_add(retained_image_bytes(&layer.children, seen))
     })
 }
@@ -5993,6 +6138,7 @@ fn remove_metadata(layer: &mut Layer, key: &str) {
 }
 fn is_live_object(layer: &Layer) -> bool {
     layer.advanced.is_some()
+        || layer.vector_scene.is_some()
         || layer.metadata.get("text").is_some_and(|v| !v.is_null())
         || layer.metadata.get("shape").is_some_and(|v| !v.is_null())
 }
@@ -6234,6 +6380,7 @@ fn shallow_layer(layer: &Layer) -> Layer {
         image: layer.image.clone(),
         mask: None,
         advanced: layer.advanced.clone(),
+        vector_scene: layer.vector_scene.clone(),
         children: Vec::new(),
         metadata: layer.metadata.clone(),
     }
@@ -6405,6 +6552,7 @@ fn valid_insert_tree(layer: &Layer) -> bool {
         && layer.scale_y != 0.0
         && (!layer.is_group() || layer.image.is_none())
         && (layer.image.is_none() || layer.children.is_empty())
+        && valid_vector_scene_source(layer)
         && layer.image.as_ref().is_none_or(bitmap_is_valid)
         && layer.mask.as_ref().is_none_or(|mask| {
             bitmap_is_valid(mask)
@@ -6413,6 +6561,32 @@ fn valid_insert_tree(layer: &Layer) -> bool {
                     .all(|pixel| pixel[0] == pixel[1] && pixel[1] == pixel[2] && pixel[3] == 255)
         })
         && layer.children.iter().all(valid_insert_tree)
+}
+
+fn valid_vector_scene_source(layer: &Layer) -> bool {
+    layer.vector_scene.as_ref().is_none_or(|scene| {
+        !layer.is_group()
+            && layer.advanced.is_none()
+            && layer
+                .metadata
+                .get("text")
+                .is_none_or(serde_json::Value::is_null)
+            && layer
+                .metadata
+                .get("shape")
+                .is_none_or(serde_json::Value::is_null)
+            && scene.validate().is_ok()
+            && layer
+                .image
+                .as_ref()
+                .is_some_and(|image| image.dimensions() == (scene.width, scene.height))
+    })
+}
+
+fn valid_vector_scene_sources(layers: &[Layer]) -> bool {
+    layers.iter().all(|layer| {
+        valid_vector_scene_source(layer) && valid_vector_scene_sources(&layer.children)
+    })
 }
 
 fn clip_source(layer: &Layer) -> Option<&str> {

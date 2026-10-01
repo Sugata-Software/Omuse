@@ -10,6 +10,7 @@ use crate::{
 };
 use anyhow::{Context, Result, ensure};
 use image::{DynamicImage, ImageDecoder, ImageFormat, ImageReader, RgbaImage};
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 use std::{
     collections::{HashMap, HashSet},
@@ -25,11 +26,161 @@ const MAX_DEPTH: usize = 64;
 // Explicit mask outside coverage cannot be represented losslessly by v9's
 // inferred border rule. Old readers must reject rather than change artwork.
 pub const PROJECT_WRITE_VERSION: u64 = 10;
-pub const PROJECT_MAX_READ_VERSION: u64 = 10;
+pub const PROJECT_SCENE_VERSION: u64 = 11;
+pub const PROJECT_MAX_READ_VERSION: u64 = PROJECT_SCENE_VERSION;
+const VECTOR_SCENE_FORMAT_VERSION: u32 = 1;
+const MAX_VECTOR_SCENE_COMPRESSED: u64 = 32 * 1024 * 1024;
+const MAX_VECTOR_SCENE_JSON: u64 = 64 * 1024 * 1024;
+const MAX_VECTOR_SCENE_DOCUMENT_BYTES: usize = 256 * 1024 * 1024;
+const MAX_VECTOR_SCENE_DOCUMENT_JSON: u64 = 256 * 1024 * 1024;
 // Imports become RGBA8 before they enter the ordinary document model. Keep the
 // decoder's own allocation at that model boundary rather than relying on a
 // codec-specific default for a high-bit-depth or malformed source.
 const MAX_DECODE_BYTES: u64 = MAX_PIXELS * 4;
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct VectorSceneAsset {
+    version: u32,
+    asset: String,
+    cache_width: u32,
+    cache_height: u32,
+    cache_sha256: String,
+    scene_sha256: String,
+}
+
+fn vector_scene_asset(
+    id: &str,
+    scene: &crate::vector_scene::VectorScene,
+    image: &crate::shared_image::SharedImage,
+    scene_json: &[u8],
+) -> VectorSceneAsset {
+    VectorSceneAsset {
+        version: VECTOR_SCENE_FORMAT_VERSION,
+        asset: format!("{id}.vector-scene.json.z"),
+        cache_width: scene.width,
+        cache_height: scene.height,
+        cache_sha256: crate::asset_library::sha256_hex(image.as_raw()),
+        scene_sha256: crate::asset_library::sha256_hex(scene_json),
+    }
+}
+
+fn valid_sha256(digest: &str) -> bool {
+    digest.len() == 64
+        && digest
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+}
+
+fn serialize_vector_scene(scene: &crate::vector_scene::VectorScene) -> Result<Vec<u8>> {
+    scene.validate()?;
+    let json = serde_json::to_vec(scene)?;
+    ensure!(
+        json.len() as u64 <= MAX_VECTOR_SCENE_JSON,
+        "Vector scene geometry exceeds sidecar size limit"
+    );
+    Ok(json)
+}
+
+fn open_vector_scene_sidecar(path: &Path, root: &Path) -> Result<File> {
+    regular_file(path, Some(root), MAX_VECTOR_SCENE_COMPRESSED)?;
+    let mut options = OpenOptions::new();
+    options.read(true);
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        // Reject a final-component symlink and ensure a substituted FIFO cannot
+        // block the project loader. O_CLOEXEC also keeps the asset private.
+        options.custom_flags(0x20000 | 0x800 | 0x80000);
+    }
+    let file = options.open(path)?;
+    let metadata = file.metadata()?;
+    ensure!(
+        metadata.file_type().is_file() && metadata.len() <= MAX_VECTOR_SCENE_COMPRESSED,
+        "Vector scene sidecar is not a bounded regular file"
+    );
+    Ok(file)
+}
+
+fn load_vector_scene(
+    root: &Path,
+    id: &str,
+    value: &Value,
+    image: Option<&RgbaImage>,
+    remaining_expanded_bytes: u64,
+) -> Result<(std::sync::Arc<crate::vector_scene::VectorScene>, u64)> {
+    let asset: VectorSceneAsset =
+        serde_json::from_value(value.clone()).context("Invalid vector scene asset descriptor")?;
+    ensure!(
+        asset.version == VECTOR_SCENE_FORMAT_VERSION
+            && asset.asset == format!("{id}.vector-scene.json.z"),
+        "Invalid vector scene asset version or name"
+    );
+    ensure!(
+        valid_sha256(&asset.cache_sha256) && valid_sha256(&asset.scene_sha256),
+        "Invalid vector scene digest"
+    );
+    let image = image.context("Vector scene requires cached layer pixels")?;
+    ensure!(
+        image.dimensions() == (asset.cache_width, asset.cache_height)
+            && crate::asset_library::sha256_hex(image.as_raw()) == asset.cache_sha256,
+        "Vector scene cache dimensions or digest differ from its descriptor"
+    );
+    let sidecar = root.join("images").join(&asset.asset);
+    let mut compressed = Vec::new();
+    open_vector_scene_sidecar(&sidecar, root)?
+        .take(MAX_VECTOR_SCENE_COMPRESSED + 1)
+        .read_to_end(&mut compressed)?;
+    ensure!(
+        compressed.len() as u64 <= MAX_VECTOR_SCENE_COMPRESSED,
+        "Vector scene sidecar exceeds compressed size limit"
+    );
+    let expanded_limit = MAX_VECTOR_SCENE_JSON.min(remaining_expanded_bytes);
+    let mut json = Vec::new();
+    let mut decoder = flate2::read::ZlibDecoder::new(&compressed[..]);
+    (&mut decoder)
+        .take(expanded_limit + 1)
+        .read_to_end(&mut json)?;
+    ensure!(
+        json.len() as u64 <= expanded_limit,
+        "Vector scene sidecars exceed expanded document size limit"
+    );
+    ensure!(
+        decoder.total_in() == compressed.len() as u64,
+        "Vector scene sidecar has trailing compressed data"
+    );
+    ensure!(
+        crate::asset_library::sha256_hex(&json) == asset.scene_sha256,
+        "Vector scene geometry digest differs from its descriptor"
+    );
+    let scene: crate::vector_scene::VectorScene =
+        serde_json::from_slice(&json).context("Invalid vector scene geometry")?;
+    scene.validate()?;
+    ensure!(
+        (scene.width, scene.height) == image.dimensions(),
+        "Vector scene geometry dimensions differ from cached pixels"
+    );
+    let expanded_bytes = json.len() as u64;
+    Ok((std::sync::Arc::new(scene), expanded_bytes))
+}
+
+pub(crate) fn validate_vector_scene_budget(layers: &[Layer]) -> Result<()> {
+    fn retained(layers: &[Layer], total: &mut usize) -> Result<()> {
+        for layer in layers {
+            if let Some(scene) = &layer.vector_scene {
+                *total = total.saturating_add(scene.retained_bytes());
+                ensure!(
+                    *total <= MAX_VECTOR_SCENE_DOCUMENT_BYTES,
+                    "Vector scenes exceed document memory limit"
+                );
+            }
+            retained(&layer.children, total)?;
+        }
+        Ok(())
+    }
+    let mut total = 0usize;
+    retained(layers, &mut total)
+}
 
 /// Whether a path has the native Omuse extension, regardless of ASCII case.
 pub fn is_omuse_path(path: &Path) -> bool {
@@ -489,6 +640,9 @@ pub fn open(path: &Path) -> Result<Document> {
     let mut order = Vec::new();
     let (mut used, mut mask_used) = (0, 0);
     let mut advanced_used = 0usize;
+    let mut vector_scene_count = 0usize;
+    let mut vector_scene_used = 0usize;
+    let mut vector_scene_expanded = 0u64;
     for record in records {
         let id = canonical_id(string(record, "id")?)?;
         ensure!(!nodes.contains_key(&id), "Duplicate layer ID");
@@ -550,6 +704,39 @@ pub fn open(path: &Path) -> Result<Document> {
         };
         let image = load_asset("imageFile", ".png", &mut used)?;
         let mask = load_asset("maskFile", ".mask.png", &mut mask_used)?;
+        let vector_scene = if let Some(asset) = record
+            .get("rustVectorScene")
+            .filter(|value| !value.is_null())
+        {
+            ensure!(
+                version == PROJECT_SCENE_VERSION,
+                "Vector scenes require project format 11"
+            );
+            ensure!(
+                !is_group
+                    && record.get("rustEditableAsset").is_none_or(Value::is_null)
+                    && record.get("text").is_none_or(Value::is_null)
+                    && record.get("shape").is_none_or(Value::is_null),
+                "Vector scene must be the layer's only editable source"
+            );
+            let (scene, expanded_bytes) = load_vector_scene(
+                path,
+                &id,
+                asset,
+                image.as_ref(),
+                MAX_VECTOR_SCENE_DOCUMENT_JSON.saturating_sub(vector_scene_expanded),
+            )?;
+            vector_scene_expanded = vector_scene_expanded.saturating_add(expanded_bytes);
+            vector_scene_used = vector_scene_used.saturating_add(scene.retained_bytes());
+            ensure!(
+                vector_scene_used <= MAX_VECTOR_SCENE_DOCUMENT_BYTES,
+                "Vector scenes exceed document memory limit"
+            );
+            vector_scene_count += 1;
+            Some(scene)
+        } else {
+            None
+        };
         ensure!(
             mask.is_none() || version >= if is_group { 6 } else { 4 },
             "Layer mask requires a newer project version"
@@ -633,9 +820,13 @@ pub fn open(path: &Path) -> Result<Document> {
                 } else {
                     None
                 },
+                vector_scene,
                 children: vec![],
                 metadata: {
                     let mut normalized = record.clone();
+                    if let Some(object) = normalized.as_object_mut() {
+                        object.remove("rustVectorScene");
+                    }
                     crate::project_text::normalize_record(&mut normalized, version)?;
                     ensure!(
                         version >= 10 || normalized.get("maskOutsideCoverage").is_none(),
@@ -646,6 +837,10 @@ pub fn open(path: &Path) -> Result<Document> {
             },
         );
     }
+    ensure!(
+        version != PROJECT_SCENE_VERSION || vector_scene_count > 0,
+        "Project format 11 requires at least one vector scene"
+    );
     for id in &order {
         let mut visited = HashSet::from([id.as_str()]);
         let mut parent = parents[id].as_deref();
@@ -748,6 +943,22 @@ fn validate_live_objects(layers: &[Layer]) -> Result<()> {
                 ensure!(
                     !layer.is_group(),
                     "Group cannot own an editable pixel source"
+                );
+            }
+            if let Some(scene) = &layer.vector_scene {
+                scene
+                    .validate()
+                    .with_context(|| format!("Invalid vector scene on layer {}", layer.name))?;
+                ensure!(
+                    !layer.is_group()
+                        && layer.advanced.is_none()
+                        && layer.image.as_ref().is_some_and(|image| {
+                            image.dimensions() == (scene.width, scene.height)
+                        })
+                        && layer.metadata.get("text").is_none_or(Value::is_null)
+                        && layer.metadata.get("shape").is_none_or(Value::is_null),
+                    "Vector scene requires exclusive matching cached pixels on {}",
+                    layer.name
                 );
             }
             objects::validate_live_object(layer)
@@ -870,7 +1081,15 @@ where
     flatten(&doc.layers, None, 0, &mut flat)?;
     let mut ids = HashSet::new();
     let mut records = vec![];
+    let has_vector_scene = flat.iter().any(|(layer, _)| layer.vector_scene.is_some());
+    let write_version = if has_vector_scene {
+        PROJECT_SCENE_VERSION
+    } else {
+        PROJECT_WRITE_VERSION
+    };
     let (mut used, mut mask_used) = (0u64, 0u64);
+    let mut vector_scene_used = 0usize;
+    let mut vector_scene_json_used = 0u64;
     for (layer, parent) in &flat {
         let layer_id = canonical_id(&layer.id)?;
         ensure!(ids.insert(layer_id.clone()), "Duplicate layer ID");
@@ -952,6 +1171,29 @@ where
         } else {
             record.remove("rustEditableAsset");
         }
+        if let Some(scene) = &layer.vector_scene {
+            let scene_json = serialize_vector_scene(scene)?;
+            vector_scene_json_used = vector_scene_json_used.saturating_add(scene_json.len() as u64);
+            ensure!(
+                vector_scene_json_used <= MAX_VECTOR_SCENE_DOCUMENT_JSON,
+                "Vector scene sidecars exceed expanded document size limit"
+            );
+            vector_scene_used = vector_scene_used.saturating_add(scene.retained_bytes());
+            ensure!(
+                vector_scene_used <= MAX_VECTOR_SCENE_DOCUMENT_BYTES,
+                "Vector scenes exceed document memory limit"
+            );
+            let image = layer
+                .image
+                .as_ref()
+                .context("Vector scene requires cached layer pixels")?;
+            record.insert(
+                "rustVectorScene".into(),
+                serde_json::to_value(vector_scene_asset(&layer_id, scene, image, &scene_json))?,
+            );
+        } else {
+            record.remove("rustVectorScene");
+        }
         record.insert(
             "imageFile".into(),
             json!(layer.image.as_ref().map(|_| format!("{layer_id}.png"))),
@@ -1006,7 +1248,7 @@ where
         object(&doc.metadata)?
     };
     manifest.insert("format".into(), json!("com.compositor.project"));
-    manifest.insert("version".into(), json!(PROJECT_WRITE_VERSION));
+    manifest.insert("version".into(), json!(write_version));
     manifest.insert("colorSpace".into(), json!("sRGB"));
     manifest.insert("width".into(), json!(doc.width));
     manifest.insert("height".into(), json!(doc.height));
@@ -1029,7 +1271,7 @@ where
                 .and_then(|(layer, _)| canonical_id(&layer.id).ok())
         });
     manifest.insert("activeLayerID".into(), json!(active));
-    validate_guides(&Value::Object(manifest.clone()), 9)?;
+    validate_guides(&Value::Object(manifest.clone()), write_version)?;
     let data = serde_json::to_vec_pretty(&manifest)?;
     ensure!(data.len() as u64 <= MAX_MANIFEST, "Manifest too large");
     write_package(path, &data, &flat, before_publish)
@@ -1086,9 +1328,33 @@ where
     fs::create_dir(&stage_path)?;
     let stage = Staging(stage_path);
     fs::create_dir(stage.0.join("images"))?;
+    let mut vector_scene_json_used = 0u64;
     for (layer, _) in layers {
         if let Some(advanced) = &layer.advanced {
             advanced.save_assets(&stage.0.join("images"), &canonical_id(&layer.id)?)?;
+        }
+        if let Some(scene) = &layer.vector_scene {
+            let id = canonical_id(&layer.id)?;
+            let json = serialize_vector_scene(scene)?;
+            vector_scene_json_used = vector_scene_json_used.saturating_add(json.len() as u64);
+            ensure!(
+                vector_scene_json_used <= MAX_VECTOR_SCENE_DOCUMENT_JSON,
+                "Vector scene sidecars exceed expanded document size limit"
+            );
+            let file = OpenOptions::new().write(true).create_new(true).open(
+                stage
+                    .0
+                    .join("images")
+                    .join(format!("{id}.vector-scene.json.z")),
+            )?;
+            let mut encoder = flate2::write::ZlibEncoder::new(file, flate2::Compression::fast());
+            encoder.write_all(&json)?;
+            let file = encoder.finish()?;
+            ensure!(
+                file.metadata()?.len() <= MAX_VECTOR_SCENE_COMPRESSED,
+                "Compressed vector scene exceeds sidecar size limit"
+            );
+            file.sync_all()?;
         }
         if let Some(image) = &layer.image {
             let file = stage
@@ -1175,6 +1441,88 @@ mod tests {
     use super::*;
     use image::{Rgba, RgbaImage};
     use tempfile::tempdir;
+
+    #[test]
+    fn expanded_vector_geometry_is_charged_across_sidecars() {
+        let directory = tempdir().unwrap();
+        let images = directory.path().join("images");
+        fs::create_dir(&images).unwrap();
+        let scene = crate::vector_scene::VectorScene {
+            version: crate::vector_scene::VECTOR_SCENE_VERSION,
+            width: 2,
+            height: 2,
+            objects: vec![
+                crate::vector_scene::VectorObject::rectangle(
+                    "Square",
+                    0.,
+                    0.,
+                    2.,
+                    2.,
+                    Some([10, 20, 30, 255]),
+                    None,
+                )
+                .unwrap(),
+            ],
+        };
+        let mut scene_json = serialize_vector_scene(&scene).unwrap();
+        scene_json.extend(std::iter::repeat_n(b' ', 4_096));
+        let image = RgbaImage::from_pixel(2, 2, Rgba([10, 20, 30, 255]));
+
+        let descriptor = |id: &str| {
+            serde_json::to_value(VectorSceneAsset {
+                version: VECTOR_SCENE_FORMAT_VERSION,
+                asset: format!("{id}.vector-scene.json.z"),
+                cache_width: 2,
+                cache_height: 2,
+                cache_sha256: crate::asset_library::sha256_hex(image.as_raw()),
+                scene_sha256: crate::asset_library::sha256_hex(&scene_json),
+            })
+            .unwrap()
+        };
+        for id in ["FIRST", "SECOND"] {
+            let file = File::create(images.join(format!("{id}.vector-scene.json.z"))).unwrap();
+            let mut encoder = flate2::write::ZlibEncoder::new(file, flate2::Compression::fast());
+            encoder.write_all(&scene_json).unwrap();
+            encoder.finish().unwrap();
+        }
+
+        let project_budget = scene_json.len() as u64 * 2 - 1;
+        let (_, first_used) = load_vector_scene(
+            directory.path(),
+            "FIRST",
+            &descriptor("FIRST"),
+            Some(&image),
+            project_budget,
+        )
+        .unwrap();
+        assert_eq!(first_used, scene_json.len() as u64);
+        let error = load_vector_scene(
+            directory.path(),
+            "SECOND",
+            &descriptor("SECOND"),
+            Some(&image),
+            project_budget - first_used,
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("expanded document size limit"));
+
+        let second = images.join("SECOND.vector-scene.json.z");
+        OpenOptions::new()
+            .append(true)
+            .open(&second)
+            .unwrap()
+            .write_all(b"trailing")
+            .unwrap();
+        let error = load_vector_scene(
+            directory.path(),
+            "SECOND",
+            &descriptor("SECOND"),
+            Some(&image),
+            project_budget,
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("trailing compressed data"));
+    }
 
     #[test]
     fn native_extension_detection_is_case_insensitive_and_exact() {

@@ -12,6 +12,7 @@ use crate::{
     model::{Document, Layer},
     precision::TiledImage16,
     shared_image::SharedImage,
+    vector_scene::VectorScene,
 };
 use anyhow::{Context, Result};
 use std::sync::{
@@ -135,6 +136,7 @@ fn layer_matches(left: &Layer, right: &Layer) -> bool {
         && shared_images_match(&left.image, &right.image)
         && shared_images_match(&left.mask, &right.mask)
         && advanced_match(&left.advanced, &right.advanced)
+        && vector_scene_match(&left.vector_scene, &right.vector_scene)
         && left.metadata == right.metadata
         && layers_match(&left.children, &right.children)
 }
@@ -164,6 +166,14 @@ fn advanced_match(left: &Option<Arc<LayerState>>, right: &Option<Arc<LayerState>
                     && tiled_images_match(&left.source, &right.source)
                     && tiled_images_match(&left.result, &right.result))
         }
+        _ => false,
+    }
+}
+
+fn vector_scene_match(left: &Option<Arc<VectorScene>>, right: &Option<Arc<VectorScene>>) -> bool {
+    match (left, right) {
+        (None, None) => true,
+        (Some(left), Some(right)) => Arc::ptr_eq(left, right) || left == right,
         _ => false,
     }
 }
@@ -231,8 +241,13 @@ fn tiled_region_matches(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{advanced::LayerState, precision::Rgba16};
+    use crate::{
+        advanced::LayerState,
+        precision::Rgba16,
+        vector_scene::{VECTOR_SCENE_VERSION, VectorObject},
+    };
     use image::{Rgba, RgbaImage};
+    use std::sync::atomic::AtomicBool;
 
     #[test]
     fn layer_edits_are_not_mistaken_for_unchanged_artwork() {
@@ -300,6 +315,34 @@ mod tests {
         .set_pixel(0, 0, Rgba16([5, 6, 7, 8]))
         .unwrap();
         assert!(!documents_match(&document, &result_changed));
+    }
+
+    #[test]
+    fn vector_geometry_is_semantic_even_when_cache_pixels_match() {
+        let mut document = Document::new(8, 8);
+        let scene = VectorScene {
+            version: VECTOR_SCENE_VERSION,
+            width: 8,
+            height: 8,
+            objects: vec![
+                VectorObject::rectangle("Card", 1., 1., 6., 6., Some([20, 30, 40, 255]), None)
+                    .unwrap(),
+            ],
+        };
+        scene.validate().unwrap();
+        document.layers[0].image = Some(scene.render(&AtomicBool::new(false)).unwrap().into());
+        document.layers[0].vector_scene = Some(Arc::new(scene));
+        let same = document.clone();
+        assert!(documents_match(&document, &same));
+
+        let mut renamed_geometry = document.clone();
+        Arc::make_mut(renamed_geometry.layers[0].vector_scene.as_mut().unwrap()).objects[0].name =
+            "Renamed object".into();
+        assert_eq!(
+            document.layers[0].image, renamed_geometry.layers[0].image,
+            "the derived cache intentionally remains byte-identical"
+        );
+        assert!(!documents_match(&document, &renamed_geometry));
     }
 
     #[test]

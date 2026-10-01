@@ -186,10 +186,15 @@ impl CreateState {
             "false",
             "16",
         ];
-        let fields = defaults
+        let fields: Vec<_> = defaults
             .iter()
             .map(|v| cx.new(|cx| InputState::new(window, cx).default_value(*v)))
             .collect();
+        // Prefix swatches belong to the inspector, not the text editor entity.
+        // Repaint on typing and programmatic brand changes without applying a kit.
+        for field in &fields[5..8] {
+            cx.observe(field, |_, _, cx| cx.notify()).detach();
+        }
         Self {
             session: project.map(CreateSession::new),
             design: create_design_ui::CreateDesignState::new(window, cx),

@@ -2,7 +2,7 @@
 use crate::{
     advanced_ops::{self, AdvancedOperation, DodgeBurnMode},
     filters::Filter,
-    precision::{Rgba16, TiledImage16},
+    precision::{Rgba16, TiledImage16, WorkingSpace},
 };
 use anyhow::{Result, ensure};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -160,6 +160,57 @@ pub fn evaluate(
                 }
             }
         }
+        AdvancedOperation::TargetColourUniformity(settings) => {
+            if settings.hue_uniformity == 0.
+                && settings.saturation_uniformity == 0.
+                && settings.lightness_uniformity == 0.
+            {
+                return Ok(Some(output));
+            }
+            let original_space = source.working_space();
+            let srgb = source.converted_working_space_with_cancel(WorkingSpace::Srgb, || {
+                cancel.load(Ordering::Relaxed)
+            })?;
+            check(cancel)?;
+            let kernel = advanced_ops::TargetColourUniformityKernel::new(settings);
+            let mut adjusted_srgb = srgb.clone();
+            let mut selected = vec![false; source.width() as usize * source.height() as usize];
+            for y in 0..source.height() {
+                check(cancel)?;
+                for x in 0..source.width() {
+                    let old = srgb.get_pixel(x, y).0;
+                    let rgb = [old[0], old[1], old[2]].map(|value| f64::from(value) / 65_535.);
+                    let Some(adjusted) = kernel.apply(rgb) else {
+                        continue;
+                    };
+                    let mut pixel = old;
+                    for channel in 0..3 {
+                        pixel[channel] = word(adjusted[channel] * 65_535.);
+                    }
+                    if pixel[..3] != old[..3] {
+                        selected[(y * source.width() + x) as usize] = true;
+                        adjusted_srgb.set_pixel(x, y, Rgba16(pixel))?;
+                    }
+                }
+            }
+            if original_space != WorkingSpace::Srgb {
+                check(cancel)?;
+                adjusted_srgb = adjusted_srgb
+                    .converted_working_space_with_cancel(original_space, || {
+                        cancel.load(Ordering::Relaxed)
+                    })?;
+            }
+            for y in 0..source.height() {
+                check(cancel)?;
+                for x in 0..source.width() {
+                    if selected[(y * source.width() + x) as usize] {
+                        let mut pixel = adjusted_srgb.get_pixel(x, y).0;
+                        pixel[3] = source.get_pixel(x, y).0[3];
+                        output.set_pixel(x, y, Rgba16(pixel))?;
+                    }
+                }
+            }
+        }
     }
     check(cancel)?;
     Ok(Some(output))
@@ -220,7 +271,7 @@ fn sample(source: &TiledImage16, x: f32, y: f32) -> [u16; 4] {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::advanced_ops::{ContentAwareReplace, SoftMask, WarpMesh};
+    use crate::advanced_ops::{ContentAwareReplace, SoftMask, TargetColourUniformity, WarpMesh};
     fn master() -> TiledImage16 {
         TiledImage16::from_rgba16(&image::ImageBuffer::from_fn(7, 5, |x, y| {
             image::Rgba([1001 + x as u16 * 17, 13001 + y as u16 * 23, 33003, 65535])
@@ -284,6 +335,127 @@ mod tests {
             )
             .is_err()
         );
+    }
+    #[test]
+    fn target_colour_uses_native_precision_and_noop_and_cancel_are_exact() {
+        let pixels = image::ImageBuffer::from_fn(3, 1, |x, _| {
+            image::Rgba([
+                48_001 + x as u16 * 101,
+                18_003 + x as u16 * 53,
+                9_001 + x as u16 * 17,
+                20_003 + x as u16 * 7_001,
+            ])
+        });
+        let source = TiledImage16::from_rgba16(&pixels).unwrap();
+        let settings = TargetColourUniformity {
+            target_rgb: [214, 126, 82],
+            hue_range_degrees: 180.,
+            hue_falloff_degrees: 0.,
+            hue_uniformity: 0.6,
+            saturation_uniformity: 0.7,
+            lightness_uniformity: 0.,
+        };
+        let result = evaluate(
+            &source,
+            &AdvancedOperation::TargetColourUniformity(settings),
+            &AtomicBool::new(false),
+        )
+        .unwrap()
+        .unwrap()
+        .to_rgba16();
+        assert_ne!(result, pixels);
+        for (actual, original) in result.pixels().zip(pixels.pixels()) {
+            assert_eq!(actual[3], original[3]);
+        }
+        assert!(
+            result
+                .pixels()
+                .flat_map(|pixel| pixel.0[..3].iter())
+                .any(|value| value % 257 != 0),
+            "target-colour operation quantized through an 8-bit proxy"
+        );
+
+        let mut no_op = settings;
+        no_op.hue_uniformity = 0.;
+        no_op.saturation_uniformity = 0.;
+        assert_eq!(
+            evaluate(
+                &source,
+                &AdvancedOperation::TargetColourUniformity(no_op),
+                &AtomicBool::new(false),
+            )
+            .unwrap()
+            .unwrap()
+            .to_rgba16(),
+            pixels
+        );
+        assert!(
+            evaluate(
+                &source,
+                &AdvancedOperation::TargetColourUniformity(settings),
+                &AtomicBool::new(true),
+            )
+            .is_err()
+        );
+
+        let exact_settings = TargetColourUniformity {
+            target_rgb: [51, 153, 204],
+            hue_range_degrees: 180.,
+            hue_falloff_degrees: 0.,
+            hue_uniformity: 1.,
+            saturation_uniformity: 1.,
+            lightness_uniformity: 1.,
+        };
+        let exact_source = TiledImage16::from_rgba16(
+            &image::ImageBuffer::from_vec(1, 1, vec![200 * 257, 100 * 257, 20 * 257, 12_345])
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            evaluate(
+                &exact_source,
+                &AdvancedOperation::TargetColourUniformity(exact_settings),
+                &AtomicBool::new(false),
+            )
+            .unwrap()
+            .unwrap()
+            .get_pixel(0, 0)
+            .0,
+            [51 * 257, 153 * 257, 204 * 257, 12_345]
+        );
+    }
+    #[test]
+    fn target_colour_keeps_unselected_p3_and_linear_samples_bit_exact() {
+        let settings = TargetColourUniformity {
+            target_rgb: [0, 0, 255],
+            hue_range_degrees: 5.,
+            hue_falloff_degrees: 5.,
+            hue_uniformity: 1.,
+            saturation_uniformity: 1.,
+            lightness_uniformity: 1.,
+        };
+        for space in [WorkingSpace::DisplayP3, WorkingSpace::LinearSrgb] {
+            let pixels = image::ImageBuffer::from_vec(
+                3,
+                1,
+                vec![
+                    65_535, 0, 0, 40_003, // P3 red is outside encoded sRGB.
+                    50_001, 50_001, 50_001, 20_003, // achromatic hue is undefined.
+                    0, 0, 65_535, 30_007, // already-uniform P3 blue stays original.
+                ],
+            )
+            .unwrap();
+            let source = TiledImage16::from_rgba16_in(&pixels, space).unwrap();
+            let result = evaluate(
+                &source,
+                &AdvancedOperation::TargetColourUniformity(settings),
+                &AtomicBool::new(false),
+            )
+            .unwrap()
+            .unwrap();
+            assert_eq!(result.working_space(), space);
+            assert_eq!(result.to_rgba16(), pixels, "working space {space:?}");
+        }
     }
     #[test]
     fn removal_copies_exact_source_even_at_far_edge_of_allowed_search() {

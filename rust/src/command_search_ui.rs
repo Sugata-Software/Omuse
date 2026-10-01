@@ -480,6 +480,12 @@ impl EditorView {
         if self.busy {
             return Some("Wait for the current operation to finish");
         }
+        if self.image_trace_active() && !Self::trace_command_allowed(id) {
+            return Some("Keep vectors or cancel Image trace first");
+        }
+        if id == "image-trace" {
+            return self.trace_unavailable();
+        }
         let floating = self.editor.floating_selection_layer().is_some();
         if floating
             && (id.starts_with("tool-")
@@ -491,8 +497,12 @@ impl EditorView {
             return Some("Commit or cancel the floating selection first");
         }
         match id {
-            "undo" if !self.can_undo_or_collection() => Some("Nothing to undo"),
-            "redo" if !self.can_redo_or_collection() => Some("Nothing to redo"),
+            "undo" if !self.vector_scene_active() && !self.can_undo_or_collection() => {
+                Some("Nothing to undo")
+            }
+            "redo" if !self.vector_has_redo() && !self.can_redo_or_collection() => {
+                Some("Nothing to redo")
+            }
             "commit-selection" | "cancel-selection" if !floating => Some("No floating selection"),
             "crop" | "dither" | "bloom-glow" | "vignette-overlay" | "local-contrast"
                 if floating =>
@@ -687,16 +697,26 @@ impl EditorView {
                 list = list.child(
                     div()
                         .p_3()
-                        .rounded(px(4.))
+                        .rounded(control_radius())
                         .flex_shrink_0()
                         .bg(if index == self.command_search.selected {
                             theme.accent.opacity(0.10)
                         } else {
                             theme.inset
                         })
-                        .child(div().text_color(theme.bright).child(*label))
                         .child(
                             div()
+                                .w_full()
+                                .min_w_0()
+                                .text_ellipsis()
+                                .text_color(theme.bright)
+                                .child(*label),
+                        )
+                        .child(
+                            div()
+                                .w_full()
+                                .min_w_0()
+                                .text_ellipsis()
                                 .text_size(px(11.))
                                 .text_color(theme.secondary)
                                 .child(*keys),
@@ -735,7 +755,6 @@ impl EditorView {
                     .px_3()
                     .py_1()
                     .justify_start()
-                    .rounded(px(4.))
                     .bg(if selected {
                         theme.accent.opacity(0.12)
                     } else {
@@ -756,6 +775,8 @@ impl EditorView {
                             .overflow_hidden()
                             .child(
                                 div()
+                                    .w_full()
+                                    .text_ellipsis()
                                     .text_size(px(13.))
                                     .text_color(if reason.is_some() {
                                         theme.secondary
@@ -766,6 +787,8 @@ impl EditorView {
                             )
                             .child(
                                 div()
+                                    .w_full()
+                                    .text_ellipsis()
                                     .text_size(px(10.))
                                     .text_color(theme.secondary)
                                     .child(reason.unwrap_or(entry.definition.category)),

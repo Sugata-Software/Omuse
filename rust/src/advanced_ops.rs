@@ -120,6 +120,7 @@ pub enum AdvancedOperation {
     FrequencySeparation(FrequencySeparation),
     DodgeBurn(DodgeBurn),
     ContentAwareReplace(ContentAwareReplace),
+    TargetColourUniformity(TargetColourUniformity),
 }
 
 impl AdvancedOperation {
@@ -272,6 +273,22 @@ pub struct ContentAwareReplace {
     pub feather: f32,
 }
 
+/// Bring colours around a user-selected reference hue toward that reference.
+/// Selection is colour-based only; no semantic subject or skin detection is
+/// performed. Angles are circular HSL hue distances in encoded sRGB.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TargetColourUniformity {
+    pub target_rgb: [u8; 3],
+    /// Full-strength half-width around the target hue, in degrees.
+    pub hue_range_degrees: f32,
+    /// Additional cubic falloff beyond the full-strength range, in degrees.
+    pub hue_falloff_degrees: f32,
+    pub hue_uniformity: f32,
+    pub saturation_uniformity: f32,
+    pub lightness_uniformity: f32,
+}
+
 /// Low plane plus signed high-frequency residual. `reconstruct` returns the
 /// exact original bytes (for valid layers), making the decomposition useful to
 /// an editor that exposes separate low/high controls.
@@ -420,6 +437,39 @@ pub fn validate_operation_dimensions(
             content_candidate_budget(settings)?;
             finite_range(settings.feather, 0.0..=1.0, "content replacement feather")
         }
+        AdvancedOperation::TargetColourUniformity(settings) => {
+            let target = settings.target_rgb.map(|value| f64::from(value) / 255.);
+            let target_saturation = rgb_to_hsl(target)[1];
+            ensure!(
+                target_saturation >= 0.02,
+                "target colour must have at least 2% HSL saturation to define a stable hue"
+            );
+            finite_range(
+                settings.hue_range_degrees,
+                0.0..=180.0,
+                "target colour hue range",
+            )?;
+            finite_range(
+                settings.hue_falloff_degrees,
+                0.0..=180.0,
+                "target colour hue falloff",
+            )?;
+            ensure!(
+                settings.hue_range_degrees + settings.hue_falloff_degrees <= 180.0,
+                "target colour hue range plus falloff must not exceed 180 degrees"
+            );
+            finite_range(settings.hue_uniformity, 0.0..=1.0, "hue uniformity")?;
+            finite_range(
+                settings.saturation_uniformity,
+                0.0..=1.0,
+                "saturation uniformity",
+            )?;
+            finite_range(
+                settings.lightness_uniformity,
+                0.0..=1.0,
+                "lightness uniformity",
+            )
+        }
     }
 }
 
@@ -558,6 +608,9 @@ fn apply_operation(
         AdvancedOperation::ContentAwareReplace(settings) => {
             apply_content_aware(candidate, current, settings, cancelled)
         }
+        AdvancedOperation::TargetColourUniformity(settings) => {
+            apply_target_colour_uniformity(candidate, settings, cancelled)
+        }
     }
 }
 
@@ -694,6 +747,149 @@ fn smooth_ramp_down(value: f32, start: f32, end: f32) -> f32 {
 
 fn smoothstep(value: f32) -> f32 {
     value * value * (3.0 - 2.0 * value)
+}
+
+fn smoothstep64(value: f64) -> f64 {
+    value * value * (3.0 - 2.0 * value)
+}
+
+fn rgb_to_hsl(rgb: [f64; 3]) -> [f64; 3] {
+    let maximum = rgb.into_iter().fold(f64::NEG_INFINITY, f64::max);
+    let minimum = rgb.into_iter().fold(f64::INFINITY, f64::min);
+    let chroma = maximum - minimum;
+    let lightness = (maximum + minimum) * 0.5;
+    if chroma <= f64::EPSILON {
+        return [0., 0., lightness];
+    }
+    let saturation = chroma / (1. - (2. * lightness - 1.).abs());
+    let hue_sector = if maximum == rgb[0] {
+        ((rgb[1] - rgb[2]) / chroma).rem_euclid(6.)
+    } else if maximum == rgb[1] {
+        (rgb[2] - rgb[0]) / chroma + 2.
+    } else {
+        (rgb[0] - rgb[1]) / chroma + 4.
+    };
+    [(hue_sector / 6.).rem_euclid(1.), saturation, lightness]
+}
+
+fn hsl_to_rgb(hsl: [f64; 3]) -> [f64; 3] {
+    let [hue, saturation, lightness] = hsl;
+    let chroma = (1. - (2. * lightness - 1.).abs()) * saturation;
+    let sector = hue.rem_euclid(1.) * 6.;
+    let x = chroma * (1. - (sector.rem_euclid(2.) - 1.).abs());
+    let rgb = match sector.floor() as u8 {
+        0 => [chroma, x, 0.],
+        1 => [x, chroma, 0.],
+        2 => [0., chroma, x],
+        3 => [0., x, chroma],
+        4 => [x, 0., chroma],
+        _ => [chroma, 0., x],
+    };
+    let offset = lightness - chroma * 0.5;
+    rgb.map(|channel| (channel + offset).clamp(0., 1.))
+}
+
+fn target_hue_coverage(distance_degrees: f64, settings: &TargetColourUniformity) -> f64 {
+    let range = f64::from(settings.hue_range_degrees);
+    if distance_degrees <= range {
+        return 1.;
+    }
+    let falloff = f64::from(settings.hue_falloff_degrees);
+    if falloff <= 0. || distance_degrees >= range + falloff {
+        return 0.;
+    }
+    smoothstep64(1. - (distance_degrees - range) / falloff)
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct TargetColourUniformityKernel {
+    settings: TargetColourUniformity,
+    target_hsl: [f64; 3],
+}
+
+impl TargetColourUniformityKernel {
+    pub(crate) fn new(settings: &TargetColourUniformity) -> Self {
+        Self {
+            settings: *settings,
+            target_hsl: rgb_to_hsl(settings.target_rgb.map(|value| f64::from(value) / 255.)),
+        }
+    }
+
+    /// Apply the shared encoded-sRGB HSL kernel to normalized channels.
+    /// `None` means zero membership or no-op, allowing wide-gamut callers to
+    /// retain the original samples without a colour-space round trip.
+    pub(crate) fn apply(&self, rgb: [f64; 3]) -> Option<[f64; 3]> {
+        let settings = &self.settings;
+        if settings.hue_uniformity == 0.
+            && settings.saturation_uniformity == 0.
+            && settings.lightness_uniformity == 0.
+        {
+            return None;
+        }
+        let source = rgb_to_hsl(rgb);
+        // HSL assigns an arbitrary hue to grays. Fade that convention out
+        // through near-neutral colours so a red target cannot tint them.
+        let chroma_coverage = smoothstep64(((source[1] - 0.02) / 0.08).clamp(0., 1.));
+        if chroma_coverage == 0. {
+            return None;
+        }
+        let hue_delta = (self.target_hsl[0] - source[0] + 0.5).rem_euclid(1.) - 0.5;
+        let coverage = chroma_coverage * target_hue_coverage(hue_delta.abs() * 360., settings);
+        if coverage == 0. {
+            return None;
+        }
+        let hsl = [
+            (source[0] + hue_delta * f64::from(settings.hue_uniformity) * coverage).rem_euclid(1.),
+            source[1]
+                + (self.target_hsl[1] - source[1])
+                    * f64::from(settings.saturation_uniformity)
+                    * coverage,
+            source[2]
+                + (self.target_hsl[2] - source[2])
+                    * f64::from(settings.lightness_uniformity)
+                    * coverage,
+        ];
+        Some(hsl_to_rgb(hsl))
+    }
+}
+
+/// Convenience wrapper used by byte rendering and math tests.
+#[cfg(test)]
+pub(crate) fn target_colour_uniformity_rgb(
+    rgb: [f64; 3],
+    settings: &TargetColourUniformity,
+) -> [f64; 3] {
+    TargetColourUniformityKernel::new(settings)
+        .apply(rgb)
+        .unwrap_or(rgb)
+}
+
+fn apply_target_colour_uniformity(
+    image: &mut RgbaImage,
+    settings: &TargetColourUniformity,
+    cancelled: &AtomicBool,
+) -> Result<()> {
+    if settings.hue_uniformity == 0.
+        && settings.saturation_uniformity == 0.
+        && settings.lightness_uniformity == 0.
+    {
+        return Ok(());
+    }
+    let kernel = TargetColourUniformityKernel::new(settings);
+    for row in image.rows_mut() {
+        check_cancelled(cancelled)?;
+        for pixel in row {
+            let source = pixel.0;
+            let rgb = [source[0], source[1], source[2]].map(|value| f64::from(value) / 255.);
+            let Some(adjusted) = kernel.apply(rgb) else {
+                continue;
+            };
+            for channel in 0..3 {
+                pixel[channel] = (adjusted[channel] * 255.).round().clamp(0., 255.) as u8;
+            }
+        }
+    }
+    Ok(())
 }
 
 fn channel_value(pixel: [u8; 4], channel: BlendIfChannel) -> f32 {
@@ -1188,6 +1384,153 @@ mod tests {
             operation,
             soft_mask: None,
         }
+    }
+
+    fn uniformity() -> TargetColourUniformity {
+        TargetColourUniformity {
+            target_rgb: [255, 9, 0],
+            hue_range_degrees: 10.,
+            hue_falloff_degrees: 20.,
+            hue_uniformity: 1.,
+            saturation_uniformity: 0.,
+            lightness_uniformity: 0.,
+        }
+    }
+
+    #[test]
+    fn target_colour_wrap_falloff_and_outside_range_are_independent() {
+        let settings = uniformity();
+        let at = |degrees: f64| hsl_to_rgb([degrees / 360., 0.8, 0.5]);
+        let target_hue =
+            rgb_to_hsl(settings.target_rgb.map(|value| f64::from(value) / 255.))[0] * 360.;
+        let inside = rgb_to_hsl(target_colour_uniformity_rgb(at(358.), &settings));
+        let feathered = rgb_to_hsl(target_colour_uniformity_rgb(at(22.), &settings));
+        let outside = at(90.);
+        assert!(
+            ((inside[0] * 360. - target_hue).rem_euclid(360.))
+                .min((target_hue - inside[0] * 360.).rem_euclid(360.))
+                < 0.1,
+            "wrap-around target hue: {inside:?}"
+        );
+        assert!(
+            (11.5..12.3).contains(&(feathered[0] * 360.)),
+            "half-falloff hue: {feathered:?}"
+        );
+        assert_eq!(target_colour_uniformity_rgb(outside, &settings), outside);
+
+        // 348° toward 12° by one half takes the short arc through 0° red.
+        // These RGB triples are analytic HSL endpoints, independent of the
+        // conversion helpers used by the implementation.
+        let halfway = target_colour_uniformity_rgb(
+            [1., 0., 0.2],
+            &TargetColourUniformity {
+                target_rgb: [255, 51, 0],
+                hue_range_degrees: 180.,
+                hue_falloff_degrees: 0.,
+                hue_uniformity: 0.5,
+                saturation_uniformity: 0.,
+                lightness_uniformity: 0.,
+            },
+        );
+        assert!((halfway[0] - 1.).abs() < 1e-12, "{halfway:?}");
+        assert!(halfway[1].abs() < 1e-12, "{halfway:?}");
+        assert!(halfway[2].abs() < 1e-12, "{halfway:?}");
+    }
+
+    #[test]
+    fn target_colour_full_uniformity_hits_the_reference_rgb_exactly() {
+        let settings = TargetColourUniformity {
+            target_rgb: [51, 153, 204],
+            hue_range_degrees: 180.,
+            hue_falloff_degrees: 0.,
+            hue_uniformity: 1.,
+            saturation_uniformity: 1.,
+            lightness_uniformity: 1.,
+        };
+        let source = RgbaImage::from_pixel(1, 1, Rgba([200, 100, 20, 91]));
+        let output = evaluate(
+            &source,
+            &[node(AdvancedOperation::TargetColourUniformity(settings))],
+        )
+        .unwrap();
+        assert_eq!(output.get_pixel(0, 0).0, [51, 153, 204, 91]);
+    }
+
+    #[test]
+    fn target_colour_keeps_neutrals_and_lightness_texture_when_requested() {
+        let settings = TargetColourUniformity {
+            target_rgb: [210, 100, 60],
+            hue_range_degrees: 180.,
+            hue_falloff_degrees: 0.,
+            hue_uniformity: 1.,
+            saturation_uniformity: 1.,
+            lightness_uniformity: 0.,
+        };
+        let gray = [0.4; 3];
+        assert_eq!(target_colour_uniformity_rgb(gray, &settings), gray);
+        for lightness in [0.21, 0.43, 0.77] {
+            let source = hsl_to_rgb([25. / 360., 0.55, lightness]);
+            let result = rgb_to_hsl(target_colour_uniformity_rgb(source, &settings));
+            assert!((result[2] - lightness).abs() < 1e-12, "{result:?}");
+        }
+    }
+
+    #[test]
+    fn target_colour_validates_bounds_and_preserves_alpha_masks_and_noop() {
+        let mut settings = uniformity();
+        assert!(
+            validate_operation_dimensions(
+                (2, 1),
+                &AdvancedOperation::TargetColourUniformity(settings)
+            )
+            .is_ok()
+        );
+        settings.target_rgb = [128; 3];
+        assert!(
+            validate_operation_dimensions(
+                (2, 1),
+                &AdvancedOperation::TargetColourUniformity(settings)
+            )
+            .is_err()
+        );
+        settings = uniformity();
+        settings.hue_range_degrees = 170.;
+        settings.hue_falloff_degrees = 20.;
+        assert!(
+            validate_operation_dimensions(
+                (2, 1),
+                &AdvancedOperation::TargetColourUniformity(settings)
+            )
+            .is_err()
+        );
+
+        let source = RgbaImage::from_pixel(2, 1, Rgba([210, 90, 50, 73]));
+        let mut entry = node(AdvancedOperation::TargetColourUniformity(uniformity()));
+        entry.opacity = 0.5;
+        entry.soft_mask = Some(SoftMask::new(2, 1, vec![0, 255]).unwrap());
+        let output = evaluate(&source, &[entry]).unwrap();
+        assert_eq!(output.get_pixel(0, 0), source.get_pixel(0, 0));
+        assert_ne!(output.get_pixel(1, 0).0[..3], source.get_pixel(1, 0).0[..3]);
+        assert_eq!(output.get_pixel(1, 0)[3], 73);
+
+        let mut no_op = uniformity();
+        no_op.hue_uniformity = 0.;
+        let unchanged = evaluate(
+            &source,
+            &[node(AdvancedOperation::TargetColourUniformity(no_op))],
+        )
+        .unwrap();
+        assert_eq!(unchanged, source);
+        assert!(
+            evaluate_cancellable(
+                &source,
+                &[node(
+                    AdvancedOperation::TargetColourUniformity(uniformity())
+                )],
+                &AtomicBool::new(true)
+            )
+            .is_err()
+        );
     }
 
     #[test]

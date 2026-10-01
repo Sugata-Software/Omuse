@@ -495,11 +495,10 @@ impl EditorView {
             .when(compact, |composer| composer.gap_1().p_2())
             .child(self.ai_route_button(cx))
             .child(
-                gpui_omarchy::textarea("ai-prompt", &self.ai.prompt, window, cx)
+                textarea("ai-prompt", &self.ai.prompt, window, cx)
                     .debug_selector(|| "ai-prompt".into())
                     .min_h(px(if compact { 48. } else { 64. }))
                     .max_h(px(if compact { 64. } else { 88. }))
-                    .rounded(px(6.))
                     .bg(t.inset),
             );
         if let Some(progress) = self.ai_workflow_progress() {

@@ -18,6 +18,10 @@ impl Editor {
         );
         ensure!(!layers.is_empty(), "No derived layers");
         ensure!(
+            valid_vector_scene_sources(&layers),
+            "Invalid vector scene source or cache"
+        );
+        ensure!(
             tree_count(&self.document.layers).saturating_add(tree_count(&layers))
                 <= crate::model::MAX_LAYERS,
             "Too many layers"
@@ -39,6 +43,7 @@ impl Editor {
             after = id;
         }
         crate::advanced::validate_document_budget(&candidate)?;
+        crate::document::validate_vector_scene_budget(&candidate.layers)?;
         ensure!(
             crate::raster::validate(&candidate).is_empty(),
             "Derived result cannot be rendered"
@@ -95,7 +100,7 @@ impl Editor {
         }
         ensure!(
             !is_live_object(layer),
-            "Rasterize text or shapes before attaching an editable source"
+            "Rasterize text, shapes or vector artwork before attaching an editable source"
         );
         let mut state = crate::advanced::LayerState::from_image(
             layer.image.as_deref().context("Layer has no pixels")?,
@@ -156,6 +161,10 @@ impl Editor {
             ensure!(
                 !layer.is_group() && layer.image.is_some(),
                 "Choose a pixel layer"
+            );
+            ensure!(
+                layer.advanced.is_some() || !is_live_object(&layer),
+                "Rasterize the live object before attaching an editable source"
             );
             state.validate()?;
             let old = layer.image.as_ref().unwrap().dimensions();

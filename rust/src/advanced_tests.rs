@@ -1,5 +1,5 @@
 use super::*;
-use gpui_kit::{Modifiers, TestAppContext, VisualTestContext};
+use gpui_kit::{Focusable, Modifiers, TestAppContext, VisualTestContext};
 use image::{Rgba, RgbaImage};
 use omuse::{
     advanced::LayerState,
@@ -41,7 +41,7 @@ fn reveal_control(cx: &mut VisualTestContext, id: &'static str) -> Bounds<Pixels
         return bounds;
     }
     // Exercise the same scroll path as a user: rewind then find the control.
-    for delta in std::iter::once(10_000.).chain(std::iter::repeat_n(-100., 30)) {
+    for delta in std::iter::once(10_000.).chain(std::iter::repeat_n(-100., 60)) {
         cx.simulate_event(gpui_kit::ScrollWheelEvent {
             position: viewport.center(),
             delta: gpui_kit::ScrollDelta::Pixels(point(px(0.), px(delta))),
@@ -244,6 +244,101 @@ fn filter_stack_edit_mask_reorder_apply_and_undo_are_one_transaction(cx: &mut Te
         let view = view.read(cx);
         assert!(
             view.editor.document.layers[0]
+                .advanced
+                .as_ref()
+                .unwrap()
+                .recipe
+                .nodes
+                .is_empty()
+        );
+    });
+}
+
+#[gpui_kit::test]
+fn target_colour_fields_preview_apply_and_keyboard_undo_at_minimum_viewport(
+    cx: &mut TestAppContext,
+) {
+    let (view, cx, _recovery) = setup(cx);
+    cx.update(|window, _| window.activate_window());
+    cx.run_until_parked();
+    let original = source_pixels(&view, cx);
+    open(&view, cx, Kind::Stack);
+    click(cx, "pro-effect-14");
+    for (index, input_id, value) in [
+        (0, "pro-input-0", "#D07C50"),
+        (1, "pro-input-1", "35"),
+        (2, "pro-input-2", "20"),
+        (3, "pro-input-3", "0.6"),
+        (4, "pro-input-4", "0.7"),
+        (5, "pro-input-5", "0"),
+    ] {
+        let bounds = reveal_control(cx, input_id);
+        cx.simulate_click(bounds.center(), Modifiers::default());
+        draw(cx);
+        view.update_in(cx, |view, window, cx| {
+            assert!(window.is_window_active());
+            assert!(
+                view.detail_inputs[index]
+                    .read(cx)
+                    .focus_handle(cx)
+                    .is_focused(window),
+                "{input_id} did not receive native focus from its click target"
+            );
+        });
+        cx.simulate_keystrokes("ctrl-a");
+        cx.simulate_input(value);
+        draw(cx);
+        cx.update(|_, cx| {
+            assert_eq!(view.read(cx).detail_inputs[index].read(cx).value(), value);
+        });
+    }
+    let last_field = reveal_control(cx, "pro-input-5");
+    let viewport = cx.debug_bounds("pro-settings").unwrap();
+    assert!(
+        last_field.origin.y >= viewport.origin.y
+            && last_field.bottom_right().y <= viewport.bottom_right().y,
+        "last target-colour field is not reachable by scrolling"
+    );
+    click(cx, "pro-add-effect");
+    cx.run_until_parked();
+    draw(cx);
+    cx.update(|_, cx| {
+        let node = &view.read(cx).pro_draft.as_ref().unwrap().state.recipe.nodes[0];
+        let AdvancedOperation::TargetColourUniformity(settings) = &node.operation else {
+            panic!("target-colour node was not created")
+        };
+        assert_eq!(settings.target_rgb, [0xD0, 0x7C, 0x50]);
+        assert_eq!(settings.lightness_uniformity, 0.);
+    });
+    click(cx, "pro-preview-button");
+    cx.run_until_parked();
+    draw(cx);
+    cx.update(|_, cx| {
+        let view = view.read(cx);
+        assert!(view.pro_draft.as_ref().unwrap().preview.is_some());
+        assert!(!view.busy, "{}", view.status);
+    });
+    apply(&view, cx);
+    cx.update(|_, cx| {
+        let view = view.read(cx);
+        assert_eq!(view.editor.undo_depth(), 1);
+        assert!(matches!(
+            view.editor.document.layers[0]
+                .advanced
+                .as_ref()
+                .unwrap()
+                .recipe
+                .nodes[0]
+                .operation,
+            AdvancedOperation::TargetColourUniformity(_)
+        ));
+    });
+    cx.simulate_keystrokes("ctrl-z");
+    draw(cx);
+    assert_eq!(source_pixels(&view, cx), original);
+    cx.update(|_, cx| {
+        assert!(
+            view.read(cx).editor.document.layers[0]
                 .advanced
                 .as_ref()
                 .unwrap()

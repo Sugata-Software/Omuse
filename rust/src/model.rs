@@ -79,6 +79,8 @@ pub struct Layer {
     pub mask: Option<SharedImage>,
     /// Editable original, recipe and full-precision cache. Shared by snapshots.
     pub advanced: Option<std::sync::Arc<crate::advanced::LayerState>>,
+    /// Editable procedural vector geometry. `image` is its derived RGBA8 cache.
+    pub vector_scene: Option<std::sync::Arc<crate::vector_scene::VectorScene>>,
     pub children: Vec<Layer>,
     /// Original layer record; empty groups have `isGroup: true`.
     pub metadata: Value,
@@ -159,6 +161,7 @@ impl Layer {
             image: None,
             mask: None,
             advanced: None,
+            vector_scene: None,
             children: vec![],
             metadata: json!({"isGroup": true}),
         }

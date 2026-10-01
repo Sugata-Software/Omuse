@@ -1,6 +1,6 @@
 //! Full-resolution finishing drafts. Preview never edits the document; Apply
 //! consumes the exact computed pixels through the editor's selection/undo path.
-use super::inspector_ui::panel_button as button;
+use super::inspector_ui::{colour_swatch, panel_button as button};
 use super::*;
 use anyhow::{Context as _, Result, ensure};
 use gpui_kit::img;
@@ -653,15 +653,24 @@ impl EditorView {
                     .flex_col()
                     .gap_1()
                     .child(*label)
-                    .child(
-                        input(
+                    .child({
+                        let mut field = input(
                             SharedString::from(format!("finishing-field-{i}")),
                             &draft.inputs[i],
                             window,
                             cx,
-                        )
-                        .debug_selector(move || format!("finishing-field-{i}").into()),
-                    ),
+                        );
+                        if matches!((draft.kind, i), (2, 3) | (0, 7) | (0, 8)) {
+                            field = field.prefix(colour_swatch(
+                                parse_color(draft.inputs[i].read(cx).value().as_ref())
+                                    .ok()
+                                    .map(|rgb| [rgb[0], rgb[1], rgb[2], 255]),
+                                false,
+                                cx,
+                            ));
+                        }
+                        field.debug_selector(move || format!("finishing-field-{i}").into())
+                    }),
             );
         }
         body = body.child(controls).child(match draft.kind {

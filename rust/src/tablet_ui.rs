@@ -26,6 +26,8 @@ impl EditorView {
         if self.dialog != Dialog::None
             || self.busy
             || self.inline_text.is_some()
+            || self.vector_scene_active()
+            || self.image_trace_active()
             || self.crop.is_some()
         {
             return;

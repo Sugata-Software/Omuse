@@ -615,20 +615,24 @@ impl EditorView {
                                 div()
                                     .flex_1()
                                     .min_w_0()
+                                    .text_ellipsis()
                                     .text_size(px(13.))
                                     .font_weight(FontWeight::SEMIBOLD)
                                     .child(status.display_name),
                             )
-                            .child(label(
-                                match status.connection {
-                                    ConnectionState::Ready => "Signed in",
-                                    ConnectionState::SignedOut => "Sign in needed",
-                                    ConnectionState::Unavailable => "Not installed",
-                                    ConnectionState::IdentityUnverified => "Unverified",
-                                    ConnectionState::Degraded => "Needs a check",
-                                },
-                                cx,
-                            )),
+                            .child(
+                                label(
+                                    match status.connection {
+                                        ConnectionState::Ready => "Signed in",
+                                        ConnectionState::SignedOut => "Sign in needed",
+                                        ConnectionState::Unavailable => "Not installed",
+                                        ConnectionState::IdentityUnverified => "Unverified",
+                                        ConnectionState::Degraded => "Needs a check",
+                                    },
+                                    cx,
+                                )
+                                .flex_shrink_0(),
+                            ),
                     )
                     .child(label(status.detail.clone(), cx))
                     .child(label(billing_mode_label(Some(status)), cx))

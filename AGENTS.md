@@ -32,3 +32,15 @@ See `docs/project-guide.md` for the update workflow and
   `docs/omaphoto-watch.json` records the reviewed baseline. Separate proposed
   pull requests, merged unreleased code and published releases, and compare
   actual source/tests before updating `docs/omaphoto-comparison.md`.
+
+# Control presentation
+
+- Buttons and text controls use the 3-pixel corner radius in
+  `rust/src/control_style.rs`, matching the studio toolbar. Route controls
+  through these constructors or `inspector_ui` rather than adding local radius
+  overrides. Custom interactive rows use `control_radius()` too.
+- Retain `gpui-omarchy` theme colours, fonts, focus, keyboard and disabled states.
+  The colour-picker presenter mirrors the pinned upstream behaviour; review it
+  when updating that dependency. Its licence is retained under `rust/licenses/`.
+- Container cards, image previews, round indicators and artwork geometry have
+  separate roles; do not change them as a side effect of button styling.

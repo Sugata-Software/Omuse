@@ -13,6 +13,8 @@ mod camera_preview_ui;
 mod clipboard_ui;
 #[path = "command_search_ui.rs"]
 mod command_search_ui;
+#[path = "control_style.rs"]
+mod control_style;
 #[path = "create_design_ui.rs"]
 mod create_design_ui;
 #[path = "create_previews.rs"]
@@ -28,6 +30,8 @@ mod editing_workflow_ui_tests;
 mod external_change_ui;
 #[path = "finishing_ui.rs"]
 mod finishing_ui;
+#[path = "image_trace_ui.rs"]
+mod image_trace_ui;
 #[path = "inline_text_ui.rs"]
 mod inline_text_ui;
 #[path = "inspector_ui.rs"]
@@ -80,6 +84,7 @@ use crate::transform_interaction::{
     CanvasPoint, DragMode, DragModifiers, HitTarget, LayerSelection, SelectionAction,
     TransformDrag, TransformGeometry, commit_drag, selection_bounds,
 };
+use control_style::{button, color_picker, control_radius, input, textarea};
 use gpui_kit::{
     AnyElement, App, AppContext, BorderStyle, Bounds, ClipboardEntry, ClipboardItem, Context,
     Corners, Entity, ExternalPaths, FocusHandle, Image, ImageFormat, KeyBinding, KeyDownEvent,
@@ -93,7 +98,7 @@ use gpui_kit::{
     prelude::*,
     px, rgb, rgba, size,
 };
-use gpui_omarchy::{ActiveTheme, ButtonVariant, button, color_picker, focus_scope, input};
+use gpui_omarchy::{ActiveTheme, ButtonVariant, focus_scope};
 use omuse::{
     document,
     editor::{Adjustment, Editor, PaintTool, Selection},
@@ -436,6 +441,7 @@ pub struct EditorView {
     subject_mask: Option<image::GrayImage>,
     range_draft: Option<range_ui::RangeDraft>,
     vector_draft: Option<vector_ui::VectorDraft>,
+    image_trace: image_trace_ui::ImageTraceUi,
     workflow_draft: Option<workflow_ui::WorkflowDraft>,
     pro_draft: Option<advanced_ui::ProDraft>,
     finishing_draft: Option<finishing_ui::FinishingDraft>,
@@ -597,6 +603,9 @@ impl EditorView {
         let view = cx.entity().downgrade();
         window.on_window_should_close(cx, move |window, cx| {
             view.update(cx, |this, cx| {
+                if this.vector_before_request(Pending::Quit, window, cx) {
+                    return false;
+                }
                 if !this.finish_inline_text(true, window, cx) {
                     return false;
                 }
@@ -787,6 +796,11 @@ impl EditorView {
                 if matches!(event, InputEvent::Change) {
                     this.invalidate_jpeg_preview();
                     this.schedule_range_preview(cx);
+                    if this.vector_scene_active() && !this.busy {
+                        // Intermediate text (for example an incomplete hex colour)
+                        // keeps the last valid preview; Done reports invalid input.
+                        let _ = this.update_vector_style(cx);
+                    }
                     cx.notify();
                 }
             })
@@ -926,6 +940,7 @@ impl EditorView {
             subject_mask: None,
             range_draft: None,
             vector_draft: None,
+            image_trace: image_trace_ui::ImageTraceUi::default(),
             workflow_draft: None,
             pro_draft: None,
             finishing_draft: None,
@@ -961,6 +976,7 @@ impl EditorView {
         }
         view.start_external_watch(window, cx);
         cx.on_release(|view, cx| {
+            view.clear_image_trace(cx);
             view.clear_range(cx);
             view.clear_vector(cx);
             view.clear_workflow(cx);
@@ -1263,10 +1279,18 @@ impl EditorView {
             return;
         }
         if (self.tool == Tool::Hand && self.crop.is_none()) || self.space_down {
+            self.stop_vector_drag();
             if let Some(crop) = &mut self.crop {
                 crop.end();
             }
             self.pan_pointer = Some(event.position);
+            return;
+        }
+        if self.image_trace_active() {
+            return;
+        }
+        if self.vector_scene_active() {
+            self.vector_canvas_down(event, window, cx);
             return;
         }
         let (x, y) = self.coordinates(event.position);
@@ -1443,6 +1467,7 @@ impl EditorView {
                     l.metadata.get("text").is_some_and(|v| !v.is_null())
                         || l.metadata.get("shape").is_some_and(|v| !v.is_null())
                         || l.advanced.is_some()
+                        || l.vector_scene.is_some()
                 })
         {
             self.status="This layer has an editable source. Use its editing workspace, paint on a new layer, or Rasterize before painting.".into();
@@ -1608,6 +1633,7 @@ impl EditorView {
         {
             return;
         }
+        self.stop_vector_drag();
         self.focus.focus(window, cx);
         self.middle_pan_pointer = Some(event.position);
         if let Some(crop) = &mut self.crop {
@@ -1643,6 +1669,13 @@ impl EditorView {
                 self.middle_pan_pointer = Some(event.position);
             }
             cx.notify();
+            return;
+        }
+        if self.image_trace_active() {
+            return;
+        }
+        if self.vector_scene_active() {
+            self.vector_move(event, window, cx);
             return;
         }
         if self.crop.is_some() {
@@ -1755,6 +1788,13 @@ impl EditorView {
             return;
         }
         if self.pan_pointer.take().is_some() {
+            return;
+        }
+        if self.image_trace_active() {
+            return;
+        }
+        if self.vector_scene_active() {
+            self.vector_up(event, window, cx);
             return;
         }
         if self.crop.is_some() {
@@ -2070,6 +2110,13 @@ impl EditorView {
         }
     }
     fn request(&mut self, what: Pending, window: &mut Window, cx: &mut Context<Self>) {
+        if self.image_trace_active() && !matches!(what, Pending::Quit) {
+            self.guard_image_trace(cx);
+            return;
+        }
+        if self.vector_before_request(what.clone(), window, cx) {
+            return;
+        }
         if !self.finish_inline_text(true, window, cx) {
             return;
         }
@@ -3102,6 +3149,13 @@ impl EditorView {
         if self.busy || self.dialog != Dialog::None {
             return;
         }
+        if self.image_trace_active() && !Self::trace_command_allowed(name) {
+            self.guard_image_trace(cx);
+            return;
+        }
+        if self.vector_before_command(name, window, cx) {
+            return;
+        }
         if self.crop.is_some() {
             if name.starts_with("nudge-") {
                 let step = if name.ends_with("-large") { 10. } else { 1. };
@@ -3201,7 +3255,16 @@ impl EditorView {
             }
             "automation" => self.open_workflow(workflow_ui::WorkflowKind::Automation, window, cx),
             "multi-image" => self.open_workflow(workflow_ui::WorkflowKind::Merge, window, cx),
-            "vector-path" => self.open_vector(false, window, cx),
+            "image-trace" => self.open_image_trace(window, cx),
+            "vector-path" => {
+                self.open_vector_scene(window, cx);
+                self.vector_before_command("vector-path", window, cx);
+            }
+            "vector-scene" => self.open_vector_scene(window, cx),
+            "vector-nodes" => {
+                self.open_vector_scene(window, cx);
+                self.vector_before_command("vector-nodes", window, cx);
+            }
             "vector-mask" => self.open_vector(true, window, cx),
             "import-report" => {
                 self.import_notes = omuse::import_report::conversion_notes(&self.editor.document);
@@ -3619,6 +3682,27 @@ impl EditorView {
                 cx.notify();
             }
             "new-text" | "edit-object" => {
+                if name == "edit-object"
+                    && self
+                        .editor
+                        .document
+                        .find_layer(&self.editor.active_layer)
+                        .is_some_and(|layer| layer.vector_scene.is_some())
+                {
+                    self.open_vector_scene(window, cx);
+                    return;
+                }
+                if name == "edit-object"
+                    && self
+                        .editor
+                        .document
+                        .find_layer(&self.editor.active_layer)
+                        .and_then(|layer| layer.advanced.as_ref())
+                        .is_some_and(|state| state.recipe.vector.is_some())
+                {
+                    self.open_vector(false, window, cx);
+                    return;
+                }
                 self.editing_object = None;
                 let layer = self.editor.document.find_layer(&self.editor.active_layer);
                 let text = if name == "edit-object" {
@@ -3691,7 +3775,7 @@ impl EditorView {
                     self.detail_inputs[9].update(cx, |input, cx| input.set_value("", window, cx));
                     self.set_dialog_rgb(style.red, style.green, style.blue, window, cx);
                 } else {
-                    self.status = "Select an editable text or shape layer".into();
+                    self.status = "Select editable text, a shape, or vector artwork".into();
                 }
             }
             "rasterize" => {
@@ -5003,15 +5087,16 @@ impl EditorView {
             .min_h(px(46.))
             .border_l_2()
             .border_color(if selected { t.accent } else { t.surface })
-            .rounded(px(3.))
+            .rounded(control_radius())
             .bg(if selected { t.selection } else { t.surface })
             .text_color(t.foreground)
             .hover(|s| s.bg(t.hover_fill()))
             .on_mouse_down(
                 MouseButton::Left,
                 cx.listener(move |this, event: &MouseDownEvent, window, cx| {
-                    this.finish_interaction(cx);
-                    this.paint_mask = false;
+                    if this.busy || this.dialog != Dialog::None {
+                        return;
+                    }
                     let action = if event.modifiers.control {
                         SelectionAction::Toggle
                     } else if event.modifiers.shift {
@@ -5019,6 +5104,21 @@ impl EditorView {
                     } else {
                         SelectionAction::Replace
                     };
+                    if this.guard_image_trace(cx) {
+                        return;
+                    }
+                    if this.vector_before_layer(
+                        id.clone(),
+                        action,
+                        event.click_count == 2,
+                        false,
+                        window,
+                        cx,
+                    ) {
+                        return;
+                    }
+                    this.finish_interaction(cx);
+                    this.paint_mask = false;
                     if action != SelectionAction::Replace || !this.layer_selection.ids.contains(&id)
                     {
                         this.layer_selection.click(id.clone(), action);
@@ -5049,7 +5149,20 @@ impl EditorView {
             .on_mouse_down(
                 MouseButton::Right,
                 cx.listener(move |this, _, window, cx| {
-                    if this.dialog != Dialog::None {
+                    if this.busy || this.dialog != Dialog::None {
+                        return;
+                    }
+                    if this.guard_image_trace(cx) {
+                        return;
+                    }
+                    if this.vector_before_layer(
+                        context_id.clone(),
+                        SelectionAction::Replace,
+                        false,
+                        true,
+                        window,
+                        cx,
+                    ) {
                         return;
                     }
                     this.finish_interaction(cx);
@@ -5067,7 +5180,11 @@ impl EditorView {
             )
             .on_drag(dragged, |payload, _, _, cx| cx.new(|_| payload.clone()))
             .on_drop(cx.listener(move |this, drag: &MaskDrag, _, cx| {
-                if this.dialog != Dialog::None {
+                if this.dialog != Dialog::None
+                    || this.busy
+                    || this.vector_scene_active()
+                    || this.image_trace_active()
+                {
                     return;
                 }
                 match this.editor.copy_layer_mask(&drag.id, &mask_target, true) {
@@ -5080,7 +5197,11 @@ impl EditorView {
                 }
             }))
             .on_drop(cx.listener(move |this, drag: &EffectDrag, _, cx| {
-                if this.dialog != Dialog::None {
+                if this.dialog != Dialog::None
+                    || this.busy
+                    || this.vector_scene_active()
+                    || this.image_trace_active()
+                {
                     return;
                 }
                 match this
@@ -5115,6 +5236,7 @@ impl EditorView {
                     ButtonVariant::Secondary,
                     cx,
                 )
+                .disabled(self.busy || self.vector_scene_active() || self.image_trace_active())
                 .accessibility_label(if visible { "Hide layer" } else { "Show layer" })
                 .size(px(24.))
                 .p_0()
@@ -5142,7 +5264,7 @@ impl EditorView {
                     })
                     .px_1()
                     .border_1()
-                    .rounded(px(2.))
+                    .rounded(control_radius())
                     .border_color(if self.paint_mask && self.editor.active_layer == layer.id {
                         t.accent
                     } else {
@@ -5155,6 +5277,10 @@ impl EditorView {
                         MouseButton::Left,
                         cx.listener(move |this, _, _, cx| {
                             cx.stop_propagation();
+                            if this.busy || this.vector_scene_active() || this.image_trace_active()
+                            {
+                                return;
+                            }
                             this.finish_interaction(cx);
                             this.editor.active_layer = mask_id.clone();
                             this.layer_selection
@@ -5545,7 +5671,11 @@ impl EditorView {
         copy: bool,
         cx: &mut Context<Self>,
     ) {
-        if self.dialog != Dialog::None {
+        if self.dialog != Dialog::None
+            || self.busy
+            || self.vector_scene_active()
+            || self.image_trace_active()
+        {
             return;
         }
         let ids = self.editor.drop_layers(&drag.ids, target, placement, copy);
@@ -5774,7 +5904,7 @@ impl EditorView {
         // Keep the typing controls below the artwork instead of covering the
         // exact text/effects preview with a second, differently rendered font.
         let top = f32::from(bounds.origin.y) + (height - 218.).max(4.);
-        let input = gpui_omarchy::textarea("inline-text-input", &draft.input, window, cx)
+        let input = textarea("inline-text-input", &draft.input, window, cx)
             .debug_selector(|| "inline-text-input".into())
             .min_h(px(56.))
             .max_h(px(
@@ -5876,8 +6006,13 @@ impl EditorView {
 
     fn canvas_view(&self, cx: &mut Context<Self>) -> AnyElement {
         let viewport = self.viewport.clone();
-        let tiles = self.display.snapshot();
-        let display_dimensions = self.display.dimensions();
+        let display = self
+            .image_trace_display()
+            .or_else(|| self.vector_canvas_display())
+            .unwrap_or(&self.display);
+        let tiles = display.snapshot();
+        let display_dimensions = display.dimensions();
+        let vector_overlay = self.vector_canvas_overlay();
         let reference = self.display_reference.clone();
         let probe_matte = self.display_probe_matte;
         let textures = self.canvas_textures.clone();
@@ -5895,14 +6030,18 @@ impl EditorView {
         let selection_contour = self.contour_for_canvas(cx);
         let interaction_dragging = self.drag_start.is_some();
         let selection_ant_phase = self.selection_ant_phase as u32;
-        let transform =
-            if self.crop.is_none() && self.tool == Tool::Move && self.preferences.transform_box {
-                self.transform_draft
-                    .or_else(|| selection_bounds(&self.editor, &self.layer_selection.ids))
-                    .and_then(|placement| TransformGeometry::new(placement, 24. / zoom))
-            } else {
-                None
-            };
+        let transform = if !self.image_trace_active()
+            && !self.vector_scene_active()
+            && self.crop.is_none()
+            && self.tool == Tool::Move
+            && self.preferences.transform_box
+        {
+            self.transform_draft
+                .or_else(|| selection_bounds(&self.editor, &self.layer_selection.ids))
+                .and_then(|placement| TransformGeometry::new(placement, 24. / zoom))
+        } else {
+            None
+        };
         let accent = cx.omarchy().accent;
         let show_grid = self.show_grid;
         let distort = self.distort_draft;
@@ -5937,13 +6076,25 @@ impl EditorView {
                 if this.dialog != Dialog::None || this.busy {
                     return;
                 }
+                if this.guard_image_trace(cx) {
+                    return;
+                }
+                if this.vector_before_import(paths.0.to_vec(), window, cx) {
+                    return;
+                }
                 this.finish_interaction(cx);
                 this.import_photos_background(paths.0.to_vec(), window, cx);
             }))
             .on_mouse_down(
                 MouseButton::Right,
                 cx.listener(|this, _, window, cx| {
-                    if this.dialog == Dialog::None {
+                    if this.dialog == Dialog::None && !this.busy {
+                        if this.vector_scene_active() || this.image_trace_active() {
+                            this.inspector_visible = true;
+                            this.inspector_tab = studio_ui::InspectorTab::Layers;
+                            cx.notify();
+                            return;
+                        }
                         this.finish_interaction(cx);
                         this.dialog = Dialog::LayerMenu;
                         this.modal_focus.focus(window, cx);
@@ -6197,6 +6348,9 @@ impl EditorView {
                                 color,
                             ));
                         }
+                        if let Some(overlay) = vector_overlay {
+                            overlay.paint(rect, bounds, window);
+                        }
                         if interaction_dragging && let Some((x, y, sw, sh)) = selection {
                             let sel = Bounds::new(
                                 point(rect.origin.x + px(x * zoom), rect.origin.y + px(y * zoom)),
@@ -6280,7 +6434,17 @@ impl EditorView {
                     "Luminosity range"
                 }
             }
-            Dialog::VectorPath => "Vector paths & masks",
+            Dialog::VectorPath => {
+                if self
+                    .vector_draft
+                    .as_ref()
+                    .is_some_and(|draft| draft.is_scene())
+                {
+                    "Vector artwork"
+                } else {
+                    "Vector paths & masks"
+                }
+            }
             Dialog::Workflow => self.workflow_title(),
             Dialog::Pro => self.pro_title(),
             Dialog::Finishing => "Finishing effects",
@@ -7878,7 +8042,12 @@ impl EditorView {
                                             return;
                                         }
                                         this.cancel_range(cx);
-                                        this.clear_vector(cx);
+                                        if !matches!(
+                                            this.dialog,
+                                            Dialog::CommandSearch | Dialog::Shortcuts
+                                        ) {
+                                            this.clear_vector(cx);
+                                        }
                                         this.clear_workflow(cx);
                                         this.clear_pro(cx);
                                         this.cancel_finishing(cx);
@@ -7978,6 +8147,8 @@ impl EditorView {
 
 impl Render for EditorView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.validate_image_trace(cx);
+        self.validate_vector_canvas(cx);
         self.validate_numeric_context(window, cx);
         self.validate_camera_gesture_context(window, cx);
         if let Some(error) = self.editor.take_mask_paint_error() {
@@ -8000,7 +8171,7 @@ impl Render for EditorView {
                 .unwrap_or_else(|| "Untitled".into())
         );
         window.set_window_title(&title);
-        let header = self.studio_header(cx);
+        let header = self.studio_header(window, cx);
         let context_bar = self.studio_context(window, cx);
         let tools = self.studio_tools(cx);
         let inspector = self.studio_inspector(window, cx);
@@ -8026,32 +8197,32 @@ impl Render for EditorView {
             .text_size(px(13.))
             .on_action(cx.listener(move |this, _: &New, w, cx| {
                 if !modal {
-                    this.request(Pending::New, w, cx);
+                    this.command("new", w, cx);
                 }
             }))
             .on_action(cx.listener(move |this, _: &Open, w, cx| {
                 if !modal {
-                    this.request(Pending::Open, w, cx);
+                    this.command("open", w, cx);
                 }
             }))
             .on_action(cx.listener(move |this, _: &Save, w, cx| {
                 if !modal {
-                    this.save(w, cx);
+                    this.command("save", w, cx);
                 }
             }))
             .on_action(cx.listener(move |this, _: &SaveAs, w, cx| {
                 if !modal {
-                    this.save_dialog(false, w, cx);
+                    this.command("save-as", w, cx);
                 }
             }))
             .on_action(cx.listener(move |this, _: &Export, w, cx| {
                 if !modal {
-                    this.save_dialog(true, w, cx);
+                    this.command("export", w, cx);
                 }
             }))
             .on_action(cx.listener(move |this, _: &Import, w, cx| {
                 if !modal {
-                    this.open_dialog(true, w, cx);
+                    this.command("import", w, cx);
                 }
             }))
             .on_action(cx.listener(move |this, _: &Undo, w, cx| {
@@ -8089,24 +8260,24 @@ impl Render for EditorView {
                     this.command("fit", w, cx);
                 }
             }))
-            .on_action(cx.listener(move |this, _: &Copy, _, cx| {
+            .on_action(cx.listener(move |this, _: &Copy, w, cx| {
                 if !modal {
-                    this.copy(false, cx);
+                    this.command("copy", w, cx);
                 }
             }))
-            .on_action(cx.listener(move |this, _: &Cut, _, cx| {
+            .on_action(cx.listener(move |this, _: &Cut, w, cx| {
                 if !modal {
-                    this.copy(true, cx);
+                    this.command("cut", w, cx);
                 }
             }))
-            .on_action(cx.listener(move |this, _: &Paste, _, cx| {
+            .on_action(cx.listener(move |this, _: &Paste, w, cx| {
                 if !modal {
-                    this.paste(cx);
+                    this.command("paste", w, cx);
                 }
             }))
             .on_action(cx.listener(move |this, _: &Quit, w, cx| {
                 if !modal {
-                    this.request(Pending::Quit, w, cx);
+                    this.command("quit", w, cx);
                 }
             }))
             .on_action(cx.listener(move |this, action: &Command, w, cx| {
@@ -8149,11 +8320,15 @@ impl Render for EditorView {
                         );
                         let camera_preview = this.dialog == Dialog::CameraRaw;
                         let gradient_preview = this.dialog == Dialog::Gradient;
+                        let keep_vector =
+                            matches!(this.dialog, Dialog::CommandSearch | Dialog::Shortcuts);
                         this.dialog = Dialog::None;
                         this.pending = None;
                         this.dialog_generation += 1;
                         this.cancel_range(cx);
-                        this.clear_vector(cx);
+                        if !keep_vector {
+                            this.clear_vector(cx);
+                        }
                         this.clear_workflow(cx);
                         this.clear_pro(cx);
                         this.cancel_finishing(cx);
@@ -8193,6 +8368,14 @@ impl Render for EditorView {
                         this.space_down = true;
                     }
                     "escape" => {
+                        if this.image_trace_active() {
+                            this.cancel_image_trace(window, cx);
+                            return;
+                        }
+                        if this.vector_scene_active() {
+                            this.cancel_vector_canvas(window, cx);
+                            return;
+                        }
                         if this.crop.is_some() {
                             this.cancel_crop(window, cx);
                             return;
@@ -8224,6 +8407,14 @@ impl Render for EditorView {
                         }
                     }
                     "enter" => {
+                        if this.image_trace_active() {
+                            this.keep_image_trace(window, cx);
+                            return;
+                        }
+                        if this.vector_scene_active() {
+                            this.apply_vector(cx);
+                            return;
+                        }
                         if this.crop.is_some() {
                             this.apply_crop(window, cx);
                             return;
@@ -11750,7 +11941,17 @@ impl EditorView {
                         this.begin_inline_text(None,(80.,110.),Some(objects::ObjectSize { width: 320., height: 160. }),window,cx);
                         this.inline_text.as_ref().unwrap().input.update(cx,|s,cx|s.set_value("Edit directly on canvas\nOmuse on Linux",window,cx));
                     } else if let Ok(panel) = omuse::identity::env_var("OMUSE_NATIVE_PANEL") {
-                        if panel == "crop" {
+                        if panel == "image-trace" {
+                            let pixels=image::load_from_memory(include_bytes!("../assets/omuse.png"))?.to_rgba8();
+                            let mut doc=Document::new(pixels.width(),pixels.height());
+                            doc.layers[0].name="Muse artwork".into();
+                            doc.layers[0].image=Some(pixels.into());
+                            this.editor=Editor::new(doc);
+                            this.select_layer_ids(vec![this.editor.active_layer.clone()]);
+                            this.refresh(cx);
+                            this.command("fit",window,cx);
+                            this.command("image-trace",window,cx);
+                        } else if panel == "crop" {
                             this.command("crop",window,cx);
                             if let Some(crop)=&mut this.crop { crop.set_preset(3); }
                         } else if matches!(panel.as_str(), "commands" | "shortcuts") {
@@ -11766,17 +11967,24 @@ impl EditorView {
                             this.editor=Editor::new(doc);
                             this.command(&panel,window,cx);
                             this.run_finishing(false,cx);
-                        } else if matches!(panel.as_str(), "filter-stack" | "blend-if" | "advanced-retouch" | "controlled-removal" | "editable-warp" | "refine-workspace" | "brush-studio" | "smart-source" | "colour-management" | "automation" | "multi-image" | "vector-path" | "vector-mask") {
+                        } else if matches!(panel.as_str(), "filter-stack" | "target-colour" | "blend-if" | "advanced-retouch" | "controlled-removal" | "editable-warp" | "refine-workspace" | "brush-studio" | "smart-source" | "colour-management" | "automation" | "multi-image" | "vector-path" | "vector-scene" | "vector-mask") {
                             let pixels=this.pixels.clone();
                             let mut doc=Document::new(pixels.width(),pixels.height());doc.layers[0].image=Some(pixels.into());
                             this.editor=Editor::new(doc);
                             if matches!(panel.as_str(),"controlled-removal"|"refine-workspace") {this.editor.select_rectangle(120.,100.,160.,180.);}
-                            this.command(&panel,window,cx);
-                            if panel=="filter-stack" {this.pro_add_node(false,cx);} else if this.dialog==Dialog::Pro {this.run_pro(false,cx);}
+                            this.command(if panel=="target-colour" {"filter-stack"} else {&panel},window,cx);
+                            if panel=="target-colour" {this.pro_choose_effect(14,window,cx);}
+                            if panel=="vector-path" {this.prepare_vector_inspection(window,cx)?;}
+                            if panel=="vector-scene" {this.prepare_vector_scene_inspection(window,cx)?;}
+                            if matches!(panel.as_str(),"filter-stack"|"target-colour") {this.pro_add_node(false,cx);} else if this.dialog==Dialog::Pro {this.run_pro(false,cx);}
                         } else if matches!(panel.as_str(), "luminosity-range" | "color-range") {
                             this.inspector_tab=studio_ui::InspectorTab::Selection;
                             if panel=="color-range" { this.editor.brush.color=[122,162,247,255]; }
                             this.command(&panel,window,cx);
+                        } else if panel == "colour-picker" {
+                            this.inspector_tab = studio_ui::InspectorTab::Layers;
+                            this.tool = Tool::Brush;
+                            this.color.update(cx, |state, cx| state.set_open(true, cx));
                         } else if matches!(panel.as_str(), "layers" | "develop" | "selection" | "canvas") {
                             this.inspector_tab = match panel.as_str() {
                                 "develop" => studio_ui::InspectorTab::Develop,
@@ -11817,6 +12025,32 @@ impl EditorView {
                     ensure!(std::time::Instant::now()<deadline,"inspection workspace preview timed out");
                     cx.background_executor().timer(std::time::Duration::from_millis(20)).await;
                 }
+                if omuse::identity::env_var("OMUSE_NATIVE_PANEL").ok().as_deref() == Some("image-trace") {
+                    let deadline=std::time::Instant::now()+std::time::Duration::from_secs(30);
+                    while !view.update(cx,|this,_|this.image_trace_ready())? {
+                        ensure!(std::time::Instant::now()<deadline,"image trace preview timed out");
+                        cx.background_executor().timer(std::time::Duration::from_millis(20)).await;
+                    }
+                    view.update(cx,|this,_| {
+                        ensure!(this.dialog==Dialog::None,"image trace opened a modal");
+                        ensure!(this.image_trace_display().is_some(),"trace composite missing");
+                        ensure!(this.editor.undo_depth()==0 && this.editor.document.layers.len()==1,"preview changed the document");
+                        Ok::<(),anyhow::Error>(())
+                    })??;
+                }
+                if matches!(omuse::identity::env_var("OMUSE_NATIVE_PANEL").ok().as_deref(), Some("vector-scene" | "vector-path")) {
+                    let deadline=std::time::Instant::now()+std::time::Duration::from_secs(20);
+                    while !view.update(cx,|this,_|this.vector_canvas_ready())? {
+                        ensure!(std::time::Instant::now()<deadline,"main canvas vector preview timed out");
+                        cx.background_executor().timer(std::time::Duration::from_millis(20)).await;
+                    }
+                    view.update(cx,|this,_| {
+                        ensure!(this.dialog==Dialog::None,"vector editing opened a modal");
+                        ensure!(this.inspector_tab==studio_ui::InspectorTab::Layers,"vector editing detached from Layers");
+                        ensure!(this.vector_canvas_overlay().is_some(),"main canvas vector overlay missing");
+                        Ok::<(),anyhow::Error>(())
+                    })??;
+                }
                 if omuse::identity::env_var("OMUSE_NATIVE_PANEL").ok().as_deref() == Some("templates") {
                     let deadline=std::time::Instant::now()+std::time::Duration::from_secs(30);
                     while view.update(cx,|this,_|this.create.template_previews.images.len())? < omuse::create::templates().len() {
@@ -11825,7 +12059,17 @@ impl EditorView {
                     }
                 }
                 cx.update(|window,cx|{window.refresh();window.draw(cx).clear(cx)})?;
-                let report=serde_json::json!({"status":"passed","renderer":"GPUI native window","checks":["coalesced in-progress stroke preview","pointer painting","undo","redo","unsaved guard","save","reopen pixel equality","light theme retains artwork","system theme following","inline text insert/edit","live adjustment insert/reopen","live effects","live-document save/reopen","luminosity selection and undo","colour range mask save/reopen","16-bit source import retains exact samples","editable filter preview and Apply","editable source save/reopen and undo","16-bit export pixel equality","background photo open","photo adjustment crop resize and undo redo","background photo export pixel equality","command palette keyboard open search execute","palette command keyboard undo and focus restoration"]});
+                let mut report=serde_json::json!({"status":"passed","renderer":"GPUI native window","checks":["coalesced in-progress stroke preview","pointer painting","undo","redo","unsaved guard","save","reopen pixel equality","light theme retains artwork","system theme following","inline text insert/edit","live adjustment insert/reopen","live effects","live-document save/reopen","luminosity selection and undo","colour range mask save/reopen","16-bit source import retains exact samples","editable filter preview and Apply","editable source save/reopen and undo","16-bit export pixel equality","background photo open","photo adjustment crop resize and undo redo","background photo export pixel equality","command palette keyboard open search execute","palette command keyboard undo and focus restoration"]});
+                if matches!(omuse::identity::env_var("OMUSE_NATIVE_PANEL").ok().as_deref(), Some("vector-scene" | "vector-path")) {
+                    for check in ["vector artwork shares main canvas without modal", "vector inspector shares Layers", "settled vector composite and canvas overlay"] {
+                        report["checks"].as_array_mut().unwrap().push(serde_json::json!(check));
+                    }
+                }
+                if omuse::identity::env_var("OMUSE_NATIVE_PANEL").ok().as_deref() == Some("image-trace") {
+                    for check in ["image trace shares main canvas without modal", "settled trace composite", "trace preview leaves document and history unchanged"] {
+                        report["checks"].as_array_mut().unwrap().push(serde_json::json!(check));
+                    }
+                }
                 std::fs::write(dir.join("native-results.json"),serde_json::to_vec_pretty(&report)?).context("write native report")?;
                 println!("Native GUI journey passed: {}",dir.display());
                 Ok::<(),anyhow::Error>(())

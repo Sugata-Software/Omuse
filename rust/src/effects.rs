@@ -976,6 +976,36 @@ impl<'a> MaskSampler<'a> {
         source_w: f64,
         source_h: f64,
     ) -> f32 {
+        self.coverage_impl(
+            canvas_x, canvas_y, local_u, local_v, source_w, source_h, false,
+        )
+    }
+    /// Evaluate a mask at a source-filter tap. At an exact mask pixel centre,
+    /// the Lanczos reconstruction is mathematically the centre sample; avoid
+    /// evaluating the other 35 zero-weight candidates in that common path.
+    pub(crate) fn coverage_at_filter_tap(
+        &self,
+        canvas_x: f64,
+        canvas_y: f64,
+        local_u: f64,
+        local_v: f64,
+        source_w: f64,
+        source_h: f64,
+    ) -> f32 {
+        self.coverage_impl(
+            canvas_x, canvas_y, local_u, local_v, source_w, source_h, true,
+        )
+    }
+    fn coverage_impl(
+        &self,
+        canvas_x: f64,
+        canvas_y: f64,
+        local_u: f64,
+        local_v: f64,
+        source_w: f64,
+        source_h: f64,
+        exact_tap: bool,
+    ) -> f32 {
         let point = self
             .placed
             .as_ref()
@@ -1035,6 +1065,12 @@ impl<'a> MaskSampler<'a> {
                 + value(ix + 1, iy) * fx * (1. - fy)
                 + value(ix, iy + 1) * (1. - fx) * fy
                 + value(ix + 1, iy + 1) * fx * fy;
+        }
+        if exact_tap {
+            let (nearest_x, nearest_y) = (px.round(), py.round());
+            if (px - nearest_x).abs() < 1e-9 && (py - nearest_y).abs() < 1e-9 {
+                return value(nearest_x as i64, nearest_y as i64);
+            }
         }
         fn sinc(x: f64) -> f64 {
             if x.abs() < 1e-9 {

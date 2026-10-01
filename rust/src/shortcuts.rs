@@ -121,10 +121,13 @@ define_commands! {
     command!("transform", "Transform layer", "ctrl-t", "Object", "move resize rotate scale", "Transform the active layer numerically.");
     command!("distort", "Distort corners", "", "Object", "perspective warp transform", "Move the active layer's four corners.");
     command!("sampling", "Cycle sampling quality", "", "Object", "nearest smooth interpolation", "Cycle transform resampling quality.");
-    command!("edit-object", "Edit text or shape", "", "Object", "live object properties", "Edit the selected live text or shape.");
+    command!("edit-object", "Edit text, shape or vector artwork", "", "Object", "live object properties vector scene", "Edit the selected live text, shape or vector artwork.");
     command!("new-text", "Create text object", "", "Object", "type typography live text", "Create editable text with detailed settings.");
     command!("rasterize", "Rasterize object", "", "Object", "convert pixels bake", "Convert an editable object to pixels; Undo restores it.");
-    command!("vector-path", "Vector path workspace", "p", "Object", "bezier pen curves", "Open the editable vector-path workspace.");
+    command!("image-trace", "Image trace / retrace", "", "Object", "bitmap vectorize convert logo outline palette colours simplify points", "Convert an image into editable vector artwork on the main canvas. Compare Source/Trace, adjust detail and point limits, then Keep vectors. The original image is retained.");
+    command!("vector-path", "Vector pen tool", "p", "Object", "bezier pen curves nodes svg import export", "Click to place corners; drag to draw smooth curves. Click the first anchor to close. Click a segment to add a point. A edits nodes; V moves objects.");
+    command!("vector-scene", "Vector artwork on canvas", "shift-p", "Object", "illustration objects scene rectangle ellipse bezier svg", "Draw and edit objects on the main canvas with the shared layer stack. Enter keeps edits; Escape discards them.");
+    command!("vector-nodes", "Vector node tool", "a", "Object", "direct selection bezier handles curves anchors", "Drag anchors or handles on the main canvas. Double-click a segment to add a point; Alt frees a handle, Shift constrains to 45 degrees. Delete removes points.");
     command!("rotate", "Rotate layer 90 degrees", "", "Object", "turn clockwise", "Rotate the active layer clockwise by 90 degrees.");
     command!("flip", "Flip layer horizontally", "", "Object", "mirror horizontal", "Flip the active layer horizontally.");
     command!("nudge-left", "Nudge left", "left", "Object", "move one pixel", "Move selected layers left by one pixel.");
@@ -215,7 +218,7 @@ define_commands! {
     command!("edit-adjustment", "Edit adjustment", "", "Adjustments", "nondestructive layer settings", "Edit the selected adjustment layer.");
     command!("effects", "Layer effects", "", "Adjustments", "shadow glow stroke overlay", "Edit nondestructive effects on the active layer.");
     command!("clear-effects", "Delete layer effects", "", "Adjustments", "remove styles", "Remove every effect from the active layer.");
-    command!("filter-stack", "Editable filter stack", "", "Adjustments", "nondestructive blur sharpen nodes", "Build a reorderable filter stack.");
+    command!("filter-stack", "Editable filter stack", "", "Adjustments", "nondestructive blur sharpen nodes target colour color uniformity", "Build a reorderable stack, including target-colour uniformity.");
     command!("dither", "Dither and halftone", "", "Adjustments", "retro print pixel atkinson floyd steinberg bayer dots lines diamonds patterns ascii", "Preview ten retro finishes with pixel, cell and palette controls; Apply is one undo step.");
     command!("bloom-glow", "Bloom into transparency", "", "Adjustments", "highlight glow bloom margin transparent", "Preview highlight glow that can spread into existing transparent layer margins.");
     command!("vignette-overlay", "Vignette overlay", "", "Adjustments", "vignette blank empty layer frame edge colour", "Preview a coloured edge overlay, including on an empty paint layer.");
@@ -269,6 +272,24 @@ pub const GESTURES: &[(&str, &str)] = &[
         "Alt+Drop layers in the Layers panel",
     ),
     ("Copy a mask or effect", "Drag it onto another layer"),
+    (
+        "Draw vector corners and curves",
+        "P: click a corner, or drag to create smooth handles",
+    ),
+    (
+        "Add a vector point without changing its curve",
+        "P: click a segment; A: double-click a segment",
+    ),
+    ("Close a vector contour", "P: click its first anchor"),
+    ("Break vector handle alignment", "A: Alt+Drag a handle"),
+    (
+        "Constrain vector points and handles",
+        "A: Shift+Drag for 45-degree increments",
+    ),
+    (
+        "Keep or cancel an image trace",
+        "Enter keeps a ready trace; Escape cancels (canvas focused)",
+    ),
 ];
 
 pub fn catalog() -> &'static [CommandDefinition] {
@@ -579,7 +600,13 @@ fn allows_plain_key(id: &str) -> bool {
         || id.starts_with("brush-")
         || matches!(
             id,
-            "text" | "crop" | "vector-path" | "default-colors" | "swap-colors"
+            "text"
+                | "crop"
+                | "vector-path"
+                | "vector-scene"
+                | "vector-nodes"
+                | "default-colors"
+                | "swap-colors"
         )
 }
 

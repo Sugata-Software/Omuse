@@ -1373,6 +1373,7 @@ pub fn replace_frame_image(layer: &mut Layer, image: RgbaImage) -> Result<()> {
         "Frame image exceeds supported bounds"
     );
     let frame = frame_spec(layer)?.context("Layer is not an image frame")?;
+    objects::detach_live_object(layer);
     layer.image = Some(image.into());
     place_frame_layer(layer, &frame)
 }
@@ -3640,6 +3641,25 @@ mod tests {
         )
         .unwrap();
         let layer = document.find_layer_mut(&id).unwrap();
+        let scene = crate::vector_scene::VectorScene {
+            version: crate::vector_scene::VECTOR_SCENE_VERSION,
+            width: 600,
+            height: 400,
+            objects: vec![
+                crate::vector_scene::VectorObject::rectangle(
+                    "Frame source",
+                    0.,
+                    0.,
+                    600.,
+                    400.,
+                    Some([1, 2, 3, 255]),
+                    None,
+                )
+                .unwrap(),
+            ],
+        };
+        layer.vector_scene = Some(std::sync::Arc::new(scene));
+        layer.metadata["rustVectorScene"] = json!({"stale": true});
         replace_frame_image(layer, RgbaImage::from_pixel(300, 900, Rgba([4, 5, 6, 255]))).unwrap();
         assert_eq!(frame_spec(layer).unwrap().unwrap(), spec);
         assert_eq!(
@@ -3647,6 +3667,8 @@ mod tests {
             [4, 5, 6, 255]
         );
         assert!(layer.mask.is_some());
+        assert!(layer.vector_scene.is_none());
+        assert!(layer.metadata.get("rustVectorScene").is_none());
     }
 
     #[test]
@@ -3667,6 +3689,48 @@ mod tests {
         assert!(changed.offset_y > original.offset_y);
         assert_eq!(resized.width, 1080);
         assert_eq!(resized.height, 1920);
+    }
+
+    #[test]
+    fn layout_resize_preserves_vector_scene_geometry_and_cache() {
+        let mut document = Document::new(16, 12);
+        let scene = crate::vector_scene::VectorScene {
+            version: crate::vector_scene::VECTOR_SCENE_VERSION,
+            width: 16,
+            height: 12,
+            objects: vec![
+                crate::vector_scene::VectorObject::rectangle(
+                    "Card",
+                    1.,
+                    1.,
+                    14.,
+                    10.,
+                    Some([40, 80, 120, 255]),
+                    None,
+                )
+                .unwrap(),
+            ],
+        };
+        let cache = scene
+            .render(&std::sync::atomic::AtomicBool::new(false))
+            .unwrap();
+        document.layers[0].image = Some(cache.clone().into());
+        document.layers[0].vector_scene = Some(std::sync::Arc::new(scene.clone()));
+        set_layout_rule(
+            &mut document.layers[0],
+            LayerLayoutRule {
+                horizontal: HorizontalAnchor::Relative,
+                vertical: VerticalAnchor::Relative,
+                scale: LayoutScale::Stretch,
+            },
+        )
+        .unwrap();
+
+        let resized = resize_layout(&document, 32, 24, ResizeStrategy::Adapt).unwrap();
+        let layer = &resized.layers[0];
+        assert_eq!(layer.vector_scene.as_deref(), Some(&scene));
+        assert_eq!(layer.image.as_deref(), Some(&cache));
+        assert_eq!((layer.scale_x, layer.scale_y), (2., 2.));
     }
 
     #[test]

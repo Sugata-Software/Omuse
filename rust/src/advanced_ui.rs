@@ -1,5 +1,5 @@
 //! Draft-based advanced editing workspaces with cancellable background results.
-use super::inspector_ui::panel_button as button;
+use super::inspector_ui::{colour_swatch, panel_button as button};
 use super::*;
 use anyhow::{Context as _, Result, ensure};
 use omuse::{
@@ -86,6 +86,7 @@ const EFFECTS: &[&str] = &[
     "Invert",
     "Grayscale",
     "Curves",
+    "Target colour uniformity",
 ];
 fn effect_fields(kind: usize) -> Vec<(&'static str, &'static str)> {
     match kind {
@@ -132,6 +133,14 @@ fn effect_fields(kind: usize) -> Vec<(&'static str, &'static str)> {
             "Curve points · input:output (0–1)",
             "0:0,0.25:0.2,0.75:0.8,1:1",
         )],
+        14 => vec![
+            ("Target colour (#RRGGBB)", "#D69A7A"),
+            ("Full hue range (0–180°)", "20"),
+            ("Hue falloff (0–180°)", "20"),
+            ("Hue uniformity (0–1)", "0.25"),
+            ("Saturation uniformity (0–1)", "0.5"),
+            ("Lightness uniformity (0–1)", "0"),
+        ],
         _ => vec![],
     }
 }
@@ -404,9 +413,18 @@ impl EditorView {
             }),
             11 => AdvancedOperation::Filter(Filter::Invert),
             12 => AdvancedOperation::Filter(Filter::Grayscale),
-            _ => AdvancedOperation::Filter(Filter::Curves {
+            13 => AdvancedOperation::Filter(Filter::Curves {
                 points: parse_points(&self.detail_inputs[0].read(cx).value())?,
             }),
+            14 => AdvancedOperation::TargetColourUniformity(TargetColourUniformity {
+                target_rgb: parse_hex_colour(&self.detail_inputs[0].read(cx).value())?,
+                hue_range_degrees: n(1)?,
+                hue_falloff_degrees: n(2)?,
+                hue_uniformity: n(3)?,
+                saturation_uniformity: n(4)?,
+                lightness_uniformity: n(5)?,
+            }),
+            _ => anyhow::bail!("Unknown editable effect"),
         })
     }
 
@@ -422,7 +440,9 @@ impl EditorView {
                 ensure!(
                     matches!(
                         state.recipe.nodes[i].operation,
-                        AdvancedOperation::Filter(_) | AdvancedOperation::Denoise { .. }
+                        AdvancedOperation::Filter(_)
+                            | AdvancedOperation::Denoise { .. }
+                            | AdvancedOperation::TargetColourUniformity(_)
                     ),
                     "Edit this operation in its dedicated workspace; stack order, enable and masks remain editable here"
                 );
@@ -459,7 +479,12 @@ impl EditorView {
         }
     }
 
-    fn pro_choose_effect(&mut self, kind: usize, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn pro_choose_effect(
+        &mut self,
+        kind: usize,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if let Some(d) = self.pro_draft.as_mut() {
             d.effect = kind;
         }
@@ -584,6 +609,25 @@ fn parse_points(value: &str) -> Result<Vec<(f32, f32)>> {
         })
         .collect()
 }
+
+fn parse_hex_colour(value: &str) -> Result<[u8; 3]> {
+    let value = value.trim();
+    let digits = value.strip_prefix('#').unwrap_or(value);
+    ensure!(
+        digits.len() == 6 && digits.bytes().all(|byte| byte.is_ascii_hexdigit()),
+        "Target colour must use #RRGGBB"
+    );
+    Ok([
+        u8::from_str_radix(&digits[0..2], 16)?,
+        u8::from_str_radix(&digits[2..4], 16)?,
+        u8::from_str_radix(&digits[4..6], 16)?,
+    ])
+}
+
+fn format_hex_colour(rgb: [u8; 3]) -> String {
+    format!("#{:02X}{:02X}{:02X}", rgb[0], rgb[1], rgb[2])
+}
+
 fn operation_values(op: &AdvancedOperation) -> (usize, Vec<String>) {
     let (k, v) = match op {
         AdvancedOperation::Filter(Filter::Exposure { stops }) => (0, vec![*stops]),
@@ -641,6 +685,19 @@ fn operation_values(op: &AdvancedOperation) -> (usize, Vec<String>) {
                         .map(|(x, y)| format!("{x}:{y}"))
                         .collect::<Vec<_>>()
                         .join(","),
+                ],
+            );
+        }
+        AdvancedOperation::TargetColourUniformity(settings) => {
+            return (
+                14,
+                vec![
+                    format_hex_colour(settings.target_rgb),
+                    settings.hue_range_degrees.to_string(),
+                    settings.hue_falloff_degrees.to_string(),
+                    settings.hue_uniformity.to_string(),
+                    settings.saturation_uniformity.to_string(),
+                    settings.lightness_uniformity.to_string(),
                 ],
             );
         }
@@ -1703,12 +1760,33 @@ impl EditorView {
         };
         let mut fields = div().flex().flex_wrap().gap_2();
         for (i, label) in labels.iter().enumerate() {
-            fields = fields.child(div().w(px(210.)).min_w_0().child(*label).child(input(
-                SharedString::from(format!("pro-input-{i}")),
-                &self.detail_inputs[i],
-                window,
-                cx,
-            )));
+            let selector = format!("pro-field-{i}");
+            fields = fields.child(
+                div()
+                    .id(SharedString::from(selector.clone()))
+                    .debug_selector(move || selector.clone().into())
+                    .w(px(210.))
+                    .min_w_0()
+                    .child(*label)
+                    .child({
+                        let mut field = input(
+                            SharedString::from(format!("pro-input-{i}")),
+                            &self.detail_inputs[i],
+                            window,
+                            cx,
+                        );
+                        if kind == Kind::Stack && effect == 14 && i == 0 {
+                            field = field.prefix(colour_swatch(
+                                parse_hex_colour(self.detail_inputs[i].read(cx).value().as_ref())
+                                    .ok()
+                                    .map(|rgb| [rgb[0], rgb[1], rgb[2], 255]),
+                                false,
+                                cx,
+                            ));
+                        }
+                        field.debug_selector(move || format!("pro-input-{i}").into())
+                    }),
+            );
         }
         body = body.child(fields);
         let mut stack_actions = None;
@@ -1779,6 +1857,34 @@ impl EditorView {
                     .children(stack_actions),
             )
             .into_any_element()
+    }
+}
+
+#[cfg(test)]
+mod target_colour_ui_tests {
+    use super::*;
+
+    #[test]
+    fn target_colour_fields_round_trip_hex_and_label_every_parameter() {
+        assert_eq!(parse_hex_colour("#0a7BCf").unwrap(), [10, 123, 207]);
+        assert_eq!(parse_hex_colour("0A7BCF").unwrap(), [10, 123, 207]);
+        assert!(parse_hex_colour("#abc").is_err());
+        assert!(parse_hex_colour("#GG0000").is_err());
+        let settings = TargetColourUniformity {
+            target_rgb: [10, 123, 207],
+            hue_range_degrees: 12.,
+            hue_falloff_degrees: 18.,
+            hue_uniformity: 0.25,
+            saturation_uniformity: 0.5,
+            lightness_uniformity: 0.75,
+        };
+        let (kind, values) = operation_values(&AdvancedOperation::TargetColourUniformity(settings));
+        assert_eq!(kind, 14);
+        assert_eq!(values, ["#0A7BCF", "12", "18", "0.25", "0.5", "0.75"]);
+        let fields = effect_fields(kind);
+        assert_eq!(fields.len(), 6);
+        assert_eq!(fields[0].0, "Target colour (#RRGGBB)");
+        assert!(fields.iter().any(|(label, _)| label.contains("Lightness")));
     }
 }
 

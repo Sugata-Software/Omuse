@@ -49,6 +49,7 @@ workspace for pages, templates, brand assets and content exports.
 | Generate an image or ask for a reviewed edit | [Ask Omuse](../ai-experience.md) |
 | Animate pages, add audio/subtitles and export an MP4 | [Motion](create-content.md#make-a-short-animation) |
 | Work with RAW, 16-bit sources, filter stacks or masks | [Advanced workflows](../rust-advanced-workflows.md) |
+| Trace images, edit vector points, or try development colour/SVG tools | [Photo and vector foundations — unreleased](photo-vector.md) |
 
 ## Save projects; export deliverables
 

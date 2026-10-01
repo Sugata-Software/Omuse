@@ -314,6 +314,47 @@ impl TiledRgba16 {
         Ok(())
     }
 
+    /// Return a converted copy while polling between rows. Cancellation never
+    /// mutates the retained source image or exposes a partially converted
+    /// result.
+    pub fn converted_working_space_with_cancel<F>(
+        &self,
+        target: WorkingSpace,
+        mut cancelled: F,
+    ) -> Result<Self>
+    where
+        F: FnMut() -> bool,
+    {
+        ensure!(!cancelled(), "precision colour conversion cancelled");
+        if self.working_space == target {
+            return Ok(self.clone());
+        }
+        let source_space = self.working_space;
+        let mut output = self.clone();
+        for y in 0..self.height {
+            ensure!(!cancelled(), "precision colour conversion cancelled");
+            for x in 0..self.width {
+                let mut pixel = self.get_pixel(x, y);
+                let rgb = convert_rgb(
+                    [
+                        f32::from(pixel.0[0]) / 65_535.,
+                        f32::from(pixel.0[1]) / 65_535.,
+                        f32::from(pixel.0[2]) / 65_535.,
+                    ],
+                    source_space,
+                    target,
+                );
+                for channel in 0..3 {
+                    pixel.0[channel] = (rgb[channel].clamp(0., 1.) * 65_535.).round() as u16;
+                }
+                output.set_pixel(x, y, pixel)?;
+            }
+        }
+        ensure!(!cancelled(), "precision colour conversion cancelled");
+        output.working_space = target;
+        Ok(output)
+    }
+
     /// Apply the repository filter vocabulary directly in 16-bit storage.
     /// Alpha is preserved exactly by every filter.
     pub fn apply_filter(&mut self, filter: &crate::filters::Filter) -> Result<()> {
@@ -1095,5 +1136,46 @@ mod tests {
                 .is_err()
         );
         assert_eq!(source.to_rgba16(), unchanged);
+    }
+
+    #[test]
+    fn cancellable_colour_conversion_preserves_source_and_matches_existing_conversion() {
+        let mut source = TiledRgba16::new(96, 8, WorkingSpace::DisplayP3).unwrap();
+        for y in 0..source.height() {
+            for x in 0..source.width() {
+                source
+                    .set_pixel(
+                        x,
+                        y,
+                        Rgba16([
+                            ((x * 613 + y * 97) & 65_535) as u16,
+                            ((x * 211 + y * 887) & 65_535) as u16,
+                            ((x * 431 + y * 307) & 65_535) as u16,
+                            40_009,
+                        ]),
+                    )
+                    .unwrap();
+            }
+        }
+        let original = source.to_rgba16();
+        let mut checks = 0;
+        let error = source
+            .converted_working_space_with_cancel(WorkingSpace::Srgb, || {
+                checks += 1;
+                checks >= 3
+            })
+            .unwrap_err();
+        assert!(error.to_string().contains("cancelled"));
+        assert_eq!(source.working_space(), WorkingSpace::DisplayP3);
+        assert_eq!(source.to_rgba16(), original);
+
+        let converted = source
+            .converted_working_space_with_cancel(WorkingSpace::Srgb, || false)
+            .unwrap();
+        let mut expected = source.clone();
+        expected.convert_working_space(WorkingSpace::Srgb).unwrap();
+        assert_eq!(converted.working_space(), WorkingSpace::Srgb);
+        assert_eq!(converted.to_rgba16(), expected.to_rgba16());
+        assert_eq!(source.to_rgba16(), original);
     }
 }

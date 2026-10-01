@@ -602,14 +602,30 @@ pub fn validate_live_object(layer: &Layer) -> Result<()> {
         text.is_none() || shape.is_none(),
         "Layer cannot be both live text and a live shape"
     );
+    if let Some(scene) = &layer.vector_scene {
+        scene.validate()?;
+        ensure!(
+            !layer.is_group()
+                && layer.advanced.is_none()
+                && text.is_none()
+                && shape.is_none()
+                && layer
+                    .image
+                    .as_ref()
+                    .is_some_and(|image| image.dimensions() == (scene.width, scene.height)),
+            "Vector scene requires exclusive matching cached pixels"
+        );
+    }
     Ok(())
 }
 
 pub fn detach_live_object(layer: &mut Layer) {
+    layer.vector_scene = None;
     if let Some(m) = layer.metadata.as_object_mut() {
         m.remove("text");
         m.remove("shape");
         m.remove("psdTextCachedAppearance");
+        m.remove("rustVectorScene");
     }
 }
 

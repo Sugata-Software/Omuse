@@ -234,11 +234,25 @@ fn validate_content(document: &Document) -> Result<()> {
                     "Editable source requires matching cached layer pixels"
                 );
             }
+            if let Some(scene) = &layer.vector_scene {
+                scene.validate()?;
+                ensure!(
+                    !layer.is_group()
+                        && layer.advanced.is_none()
+                        && crate::objects::live_text(layer)?.is_none()
+                        && crate::objects::live_shape(layer)?.is_none()
+                        && layer.image.as_ref().is_some_and(|image| {
+                            image.dimensions() == (scene.width, scene.height)
+                        }),
+                    "Vector scene requires exclusive matching cached layer pixels"
+                );
+            }
             objects(&layer.children)?;
         }
         Ok(())
     }
     objects(&document.layers)?;
+    crate::document::validate_vector_scene_budget(&document.layers)?;
     crate::advanced::validate_document_budget(document)?;
     let errors = crate::raster::validate(document);
     ensure!(
@@ -254,6 +268,7 @@ struct PayloadBudget {
     bytes: usize,
     pixels: HashSet<usize>,
     editable: HashSet<usize>,
+    vector_scenes: HashSet<usize>,
 }
 
 impl PayloadBudget {
@@ -291,6 +306,12 @@ impl PayloadBudget {
             && self.editable.insert(Arc::as_ptr(state) as usize)
         {
             self.advanced(state)?;
+        }
+        if let Some(scene) = &layer.vector_scene
+            && self.vector_scenes.insert(Arc::as_ptr(scene) as usize)
+        {
+            scene.validate()?;
+            self.add(scene.retained_bytes())?;
         }
         self.add(
             (layer.children.capacity() - layer.children.len()).saturating_mul(size_of::<Layer>()),
@@ -398,7 +419,8 @@ impl PayloadBudget {
                 | AdvancedOperation::BlendIf(_)
                 | AdvancedOperation::FrequencySeparation(_)
                 | AdvancedOperation::DodgeBurn(_)
-                | AdvancedOperation::ContentAwareReplace(_) => {}
+                | AdvancedOperation::ContentAwareReplace(_)
+                | AdvancedOperation::TargetColourUniformity(_) => {}
             }
         }
         Ok(())

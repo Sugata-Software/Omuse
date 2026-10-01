@@ -4,6 +4,69 @@ User-facing changes are grouped by release. Version numbers belong to Omuse;
 they do not follow Compositor or OmaPhoto. See the [release policy](docs/releases/README.md)
 for numbering, qualification and publication.
 
+## Unreleased — photo and vector foundations
+
+- Unify buttons and text controls around the toolbar's tighter 3-pixel corners
+  across editing, Create, AI, dialogs, command search and colour pickers. Shared
+  styling replaces local overrides. Compact headers retain the document's
+  status indicator and full-name tooltip; long command/provider labels use
+  ellipsis instead of clipping into neighbouring controls.
+- See live colour swatches beside vector Fill/Stroke, brand colours, finishing
+  colours and the Target colour uniformity reference. Vector swatches show
+  transparency and disabled strokes, with inline invalid-hex feedback. Style
+  fields use consistent inspector spacing; unavailable path actions are disabled
+  and SVG import guidance matches the main canvas's Done button.
+- Convert bitmap layers into editable vector artwork with **Image trace** on the
+  main canvas: Logo/Illustration/Photo art presets, colour/gray/B&W modes,
+  detail, smoothing, corner protection, noise, resolution and point budgets.
+  Compare Source/Trace, keep or cancel, retain the original bitmap, and reopen
+  saved trace settings. Keeping creates one document Undo step.
+- Draw smooth Bézier points by dragging with the Pen tool. Move anchors and
+  handles, use Alt to break handle alignment and Shift for angle constraints,
+  click the first point to close a contour, and insert points on existing
+  segments without changing the curve.
+- Edit vector artwork directly on the **main canvas**, with object and style
+  controls in the shared **Layers** inspector. **P** draws paths, **A** edits
+  nodes and **V** moves objects; double-click in Move mode for its nodes. The photo,
+  layer placement, masks and blending remain visible in the settled preview.
+- Use Undo/Redo for individual vector edits while the canvas session stays open.
+  **Done/Enter** keeps the session as one document Undo step; **Cancel/Escape**
+  discards it. Switching editing tools/layers or saving keeps valid work before
+  continuing. Shared zoom/pan, command search and shortcut help remain available.
+- Build several editable paths, rectangles and ellipses in one artwork layer
+  with **Shift+P**. Pick objects on the canvas or in the inspector, arrange their
+  order/visibility and change fill, stroke and opacity. Valid style changes
+  preview automatically. Geometry shares one derived image per artwork layer.
+- Save vector artwork in **canvas format 11** with bounded, validated geometry
+  and a checked display cache. Ordinary canvases continue to use format 10.
+  Omuse 0.6.0 cannot open format 11; use Save As to retain an older copy.
+  Pixel tools require explicit Rasterize, and replacing artwork clears its
+  obsolete geometry rather than leaving an inconsistent editable object.
+- Add editable **Target colour uniformity** to Filter stack: reference colour,
+  hue range/falloff and independent hue, saturation and lightness strengths,
+  with retained 16-bit evaluation, opacity and selection masks. New recipe
+  nodes require the development reader; retain a Save As copy for 0.6.0.
+- Exchange one styled editable SVG path through the path editor, preserving
+  curves and compound holes. Import fits the SVG viewport proportionally;
+  export uses a new filename and retains existing files. Unsupported artwork
+  is refused explicitly. General SVG raster import remains available.
+- Add corner nodes, exact curve-midpoint insertion, reverse/new subpaths and
+  fill-rule controls. Fix compound-hole previews and stale path-dialog jobs;
+  Apply remains one Undo step and compact controls remain scrollable.
+- Use scale-aware, premultiplied Lanczos sampling for high-quality 16-bit
+  transformed exports. Keep explicit Smooth and Nearest choices and exact
+  identity samples; integrate reduced masks into source sampling to prevent
+  masked-out colour leakage. Quality/resource limits are documented in the
+  [development guide](docs/user-guide/photo-vector.md).
+- Preserve hidden RGB in fully transparent editable-node blends, and check
+  cancellation during retained-source promotion, colour conversion and
+  high-quality sampling. Interrupted exports preserve existing destinations.
+
+The approved long-term [photo/vector roadmap](docs/photo-vector-roadmap.md)
+includes the remaining precision, masking, restoration, illustration and
+interchange work. These changes are not a new public release or a claim of
+full Photoshop/Illustrator parity.
+
 ## [0.6.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.6.0) — 2026-10-01
 
 **More control over every edit · Arch Linux / Omarchy · x86_64 source pre-release**
