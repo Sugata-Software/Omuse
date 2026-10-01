@@ -169,6 +169,11 @@ needed effects, preview, and Apply. Reopen the stack to adjust its recipe.
 Open **Camera Raw** with **Ctrl+Shift+A** on an unlocked ordinary pixel layer.
 The settings remain a draft until **Apply**; **Cancel** keeps the original.
 
+![Camera Raw and photo curve controls](../releases/images/v0.7.0/04-photo-curves.png)
+
+*Use the Light & color, Curves, Color mixer and Optics controls shown here to
+sample a tone or colour, then adjust the draft before applying it.*
+
 - In **Light & color**, choose **Pick neutral white balance**, wait for the sampling
   preview, then click a neutral midtone. Avoid clipped highlights, deep shadows
   and transparent areas. Temperature and tint update together; the app reports

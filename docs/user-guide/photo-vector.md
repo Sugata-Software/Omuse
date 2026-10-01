@@ -1,16 +1,11 @@
-# Photo and vector foundations
+# Draw, trace and refine artwork
 
-**Available in Omuse 0.7.0.** These
-instructions describe the integrated vector and photo foundations selected for
-the Arch/Omarchy x86_64 source pre-release. The [foundation qualification
-record](../photo-vector-foundations-qualification.md), [vector artwork
-checkpoint](../vector-scene-qualification.md), [unified-canvas qualification
-record](../unified-vector-canvas-qualification.md) and [trace qualification
-record](../image-trace-qualification.md) retain historical source identities
-and measurements; their captures are not all from the final production build. See the [0.7.0 gallery](../releases/v0.7.0-gallery.md)
-for ten fresh production captures.
-The [photo/vector roadmap](../photo-vector-roadmap.md) records remaining work
-and limits.
+**Omuse 0.7.0** keeps photos and editable vector artwork on the same canvas.
+Use **P** to draw, **A** to refine points and **V** to move objects. Trace a bitmap
+when you want a simpler graphic, or use the colour tools to refine a photo.
+
+[User manual](README.md) · [Photo editing](photo-editing.md) ·
+[Create content](create-content.md) · [Current interface gallery](../releases/v0.7.0-gallery.md)
 
 ## Make a product colour more consistent
 
@@ -38,6 +33,11 @@ colours in P3 sources; it is not perceptual luminance matching or a complete
 wide-gamut colour-grading engine. Broader photographic quality remains under
 evaluation. Target-colour nodes are new: **0.6.0 cannot open a project containing
 one**. Use Save As to keep a copy readable by that release.
+
+![Target Colour Uniformity controls with live reference swatch](../releases/images/v0.7.0/05-target-colour.png)
+
+*The reference swatch shows the target colour. Range and falloff limit the hues
+affected; the three strength controls preserve as much variation as you choose.*
 
 ## Build several objects in one artwork layer
 
@@ -106,6 +106,11 @@ multi-object SVG exchange remain unavailable. Exporting artwork through the
 16-bit path promotes its existing 8-bit cache; it does not create additional
 colour precision.
 
+![Multiple editable objects in one vector artwork layer](../releases/images/v0.7.0/02-vector-artwork.png)
+
+*Choose an object in the artwork inspector to change its fill, stroke, opacity
+or position in the scene. The whole scene stays in one artwork layer.*
+
 ## Draw and refine an editable path
 
 Press **P** to draw on the main canvas. On a photo or ordinary layer, this starts
@@ -114,6 +119,11 @@ vector artwork it opens that scene in Pen mode. **A** enters Node mode, and
 **V** selects and moves objects. The inspector's path controls affect the
 selected object. Zoom in when nearby anchors and handles overlap so you can
 pick each one precisely.
+
+![Pen tool and editable Bézier curves on the main canvas](../releases/images/v0.7.0/01-vector-pen.png)
+
+*Click or drag with **P** to place corners and smooth Bézier points; switch to
+**A** to move anchors and handles in the shared canvas.*
 
 - In **Pen** mode, click to place a sharp corner or **click-drag** to draw a
   smooth point with opposing Bézier handles. Click the first anchor of an open
@@ -142,10 +152,6 @@ pick each one precisely.
 
 Geometry and styles remain editable in `.omuse`. **Done** / **Enter** keeps the
 whole draft as one document Undo step; **Cancel** / **Escape** discards it.
-
-![Editable curve handles and colour swatches on the main canvas](images/controls-editor-dark.png)
-
-*Development interface with live Fill/Stroke swatches and shared compact controls, captured in the Omarchy dark theme.*
 
 ### Older retained paths and vector masks
 
@@ -226,9 +232,10 @@ qualification record](../image-trace-qualification.md); those measurements remai
 historical. The [0.7.0 qualification](../release-070-qualification.md) records
 the final production build and fresh release checks.
 
-![Image trace on the main canvas](images/image-trace-dark.png)
+![Local Image Trace controls on the main canvas](../releases/images/v0.7.0/03-image-trace.png)
 
-*Development interface with the bundled Muse icon, captured in the Omarchy dark theme. Lower settings remain accessible by scrolling the inspector.*
+*Compare Source and Trace above the canvas. Use the inspector to adjust colours,
+detail and point limits; scroll it to reach the remaining settings.*
 
 ## Exchange an SVG path
 
@@ -280,6 +287,14 @@ layers/effects remain unsupported by 16-bit export. See the
 [precision limits](../rust-advanced-workflows.md#3-precision-and-colour).
 
 ## Reproduce the synthetic acceptance artwork
+
+The [foundation record](../photo-vector-foundations-qualification.md),
+[vector scene checkpoint](../vector-scene-qualification.md),
+[unified-canvas record](../unified-vector-canvas-qualification.md) and
+[trace record](../image-trace-qualification.md) retain historical development
+measurements and captures. The [0.7.0 release record](../release-070-qualification.md)
+covers the released runtime. Future work belongs in the
+[photo/vector roadmap](../photo-vector-roadmap.md).
 
 Developers can generate disposable colour and compound-path examples:
 

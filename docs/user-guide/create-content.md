@@ -20,6 +20,11 @@
 Templates and guides are composition aids. Check the destination's current
 size/cropping requirements before making the final export.
 
+![Create workspace with branded pages and editable content](../releases/images/v0.7.0/06-create.png)
+
+*Open Create to manage the collection around your active page. Its text, shapes
+and images remain editable on the usual canvas.*
+
 An older version 1 collection opens normally, but saving upgrades it to version
 2 with nested `.omuse` pages and components. Earlier releases cannot read that
 new collection format. Use **Save As** to a new location if you need to keep the
@@ -62,6 +67,11 @@ use **Update all** when the shared definition changes.
 5. Choose **Export content pack…** for ordered PNG/JPEG/WebP pages, a multi-page
    PDF, captions, alt text and a manifest. Inspect the completed pack.
 
+![Content export controls for ordered pages and content packs](../releases/images/v0.7.0/08-content-export.png)
+
+*In Export, choose the formats and content-pack options, then inspect the
+finished files and manifest.*
+
 Canvas edits and collection operations have separate histories. Ordinary Undo
 uses the canvas history first, then the collection history. Collection changes
 that conflict with later canvas edits ask you to undo those edits first.
@@ -89,8 +99,13 @@ Choosing a task or a starting point does not send anything. Read the context
 card, then explicitly submit. [Ask Omuse](../ai-experience.md) explains provider
 connections, allowance, Before/After, history and refinement.
 
-In Omuse 0.4.0, use **Connections** to set preferred
-**Assistant** and **Images** subscriptions. The **Auto · provider ▾** control
+![Ask Omuse workspace shown as an offline presentation](../releases/images/v0.7.0/07-ai-assistant.png)
+
+*Choose a task, write a brief and inspect the selected connection. This capture
+uses an offline demo profile; no live AI request was sent.*
+
+In **Connections**, set preferred **Assistant** and **Images** subscriptions.
+The **Auto · provider ▾** control
 under the brief can choose Auto or pin a provider for the current task; a pin
 never falls back after failure. Codex is currently required for image tasks and
 the canvas-based Photo/Caption tasks, while Claude can handle text-only
@@ -116,6 +131,11 @@ halts anything not yet sent.
    track or burned-in text as required.
 6. Export **MP4…** or **GIF…**. Open the completed file to verify timing, audio
    and subtitles; native/GIF previews do not prove the MP4 soundtrack is right.
+
+![Motion workspace and video export controls](../releases/images/v0.7.0/09-motion.png)
+
+*Motion brings page timing, animation and export controls alongside the canvas.
+Keep the editable collection as well as your finished video.*
 
 ## Make several approved variations
 

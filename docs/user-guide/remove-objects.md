@@ -5,6 +5,9 @@
 Use a local tool for small repairs with usable nearby texture. Use **Ask Omuse →
 Remove object** when the missing background needs a more substantial reconstruction.
 Both need visual review: a clean-looking fill can still invent the wrong detail.
+See [photo editing](photo-editing.md) for the surrounding layer, mask and export
+workflow, and the [0.7.0 interface gallery](../releases/v0.7.0-gallery.md) for
+current editor views.
 
 ## Choose the right method
 

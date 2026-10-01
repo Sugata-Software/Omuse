@@ -1,0 +1,322 @@
+{
+  "status": "passed",
+  "file": "omuse-0.7.0-studio-film.mp4",
+  "bytes": 13246889,
+  "sha256": "91239474c8abe2a68320a0c3a34f17ea88fb309054b2aad3db1cdd9fb99e7ed9",
+  "dimensions": [
+    1920,
+    1080
+  ],
+  "fps": "30/1",
+  "frames": 3600,
+  "durationSeconds": 120.0,
+  "chapters": 14,
+  "videoCodec": "h264",
+  "pixelFormat": "yuv420p",
+  "audioCodec": "aac",
+  "audioSampleRate": "48000",
+  "audioChannels": 2,
+  "completeDecode": "passed",
+  "fastStart": true,
+  "audioPacketsMatchPriorCreditedFilm": true,
+  "encodedAudioSHA256": "1fd25988d1b3d8fba5ac48c33b7ab3bbaebafce282407a245a6546cd42d4ab4d",
+  "poster": {
+    "file": "omuse-0.7.0-studio-film-poster.jpg",
+    "sourceTimeSeconds": 3.3,
+    "sha256": "ddb1af2e59072d895e1d31e54e32a8bbc4a111f8e5f92db6ed3a61d3eb4fc5cd"
+  },
+  "reviewFrameTimes": [
+    3.3,
+    10.3,
+    21.3,
+    29.3,
+    37.3,
+    45.3,
+    49,
+    54.3,
+    63,
+    65.1,
+    69.3,
+    76,
+    81.3,
+    90.3,
+    94,
+    99.3,
+    108.3,
+    115.3
+  ],
+  "editorialAnimation": "Typography, camera moves, comparison wipes and scene transitions",
+  "aiSegment": "Offline interface demo; no new live provider request",
+  "runtime": {
+    "version": "Omuse 0.7.0",
+    "binarySha256": "fdb1e47366fec20668d19e5969c34182c9c934dc90946993715c6820b8db05ea",
+    "sourceRevision": "5b3daefbb5258afff4a74a2ff3db5247b074972d",
+    "sourceTreeDirty": false
+  },
+  "review": {
+    "decodedFramesInspected": 18,
+    "posterInspected": true,
+    "audioListeningPerformed": false,
+    "audioReviewBasis": "AAC packets match the previously retained, licensed Sunset Muse film exactly"
+  },
+  "music": {
+    "title": "Night Owl",
+    "artist": "Broke For Free",
+    "license": "https://creativecommons.org/licenses/by/3.0/",
+    "sourceRecordingSHA256": "7952dce61b28f454ff3ee0183f85df52b2a9f2edfcd6a0ebafc12f981f666ed5",
+    "sourceFilm": "docs/media/omuse-sunset-muse.mp4",
+    "sourceFilmSHA256": "4b32e3862113ea0c6974b94c0f79ec315f09784b3408acaa94e4d5f7b1f96fce",
+    "onScreenCredit": true,
+    "metadataCredit": true,
+    "creditDocument": "docs/media/omuse-0.7.0-studio-film.md"
+  },
+  "photos": {
+    "grade": {
+      "geometryIdentical": true,
+      "changedPixels": 2762876,
+      "changedPixelPercent": 99.99985522353487,
+      "meanAbsoluteChannelDifference": 6.898061443131804,
+      "maxAbsoluteChannelDifference": 34,
+      "before": {
+        "sha256": "10596c6640c6950376709f27fba2f73de08a26ca487b549db9fbdc5cd5a403a4",
+        "bytes": 3863220,
+        "width": 1920,
+        "height": 1439,
+        "mode": "RGBA",
+        "pixels": 2762880
+      },
+      "after": {
+        "sha256": "2d7e4dff39517a4ca563851183e09161ed2eb230bfb1309607bff14860da2ba5",
+        "bytes": 5102985,
+        "width": 1920,
+        "height": 1439,
+        "mode": "RGBA",
+        "pixels": 2762880
+      }
+    },
+    "mono": {
+      "geometryIdentical": true,
+      "changedPixels": 1822739,
+      "changedPixelPercent": 74.10954169919334,
+      "meanAbsoluteChannelDifference": 2.581380005041634,
+      "maxAbsoluteChannelDifference": 147,
+      "before": {
+        "sha256": "8042ebb8fd92b4600c20ef8c5339868f03800551ed97d2a16e57ae51d1828dfd",
+        "bytes": 759640,
+        "width": 1920,
+        "height": 1281,
+        "mode": "RGBA",
+        "pixels": 2459520
+      },
+      "after": {
+        "sha256": "9a7c8df76a68d0e2d8acee0e6594db1bc103eeb4cd6105e33042a2249dc2e91d",
+        "bytes": 743890,
+        "width": 1920,
+        "height": 1281,
+        "mode": "RGBA",
+        "pixels": 2459520
+      }
+    },
+    "focus": {
+      "geometryIdentical": true,
+      "changedPixels": 1725132,
+      "changedPixelPercent": 70.19580078125,
+      "meanAbsoluteChannelDifference": 1.6225296020507813,
+      "maxAbsoluteChannelDifference": 126,
+      "before": {
+        "sha256": "98be33984c479036b174b7311025bde2b64554964384d4fb44200ec57c432ff5",
+        "bytes": 3155659,
+        "width": 1920,
+        "height": 1280,
+        "mode": "RGBA",
+        "pixels": 2457600
+      },
+      "after": {
+        "sha256": "e342fa0afe5aae16c17ab6c5d79e011ac7b4a2a058584ed96619cc2f730425f2",
+        "bytes": 2884563,
+        "width": 1920,
+        "height": 1280,
+        "mode": "RGBA",
+        "pixels": 2457600
+      }
+    },
+    "colour": {
+      "geometryIdentical": true,
+      "changedPixels": 2459520,
+      "changedPixelPercent": 100.0,
+      "meanAbsoluteChannelDifference": 20.198580007481134,
+      "maxAbsoluteChannelDifference": 119,
+      "before": {
+        "sha256": "9adff923e6a7d9d843a91cad1c1c3ddbb3980ff57656a84d90779d25261efd96",
+        "bytes": 759640,
+        "width": 1920,
+        "height": 1281,
+        "mode": "RGBA",
+        "pixels": 2459520
+      },
+      "after": {
+        "sha256": "b184eb4e202bb4905e330e7875851ed5e8344ced447227393454c070783691a2",
+        "bytes": 447990,
+        "width": 1920,
+        "height": 1281,
+        "mode": "RGBA",
+        "pixels": 2459520
+      }
+    }
+  },
+  "sourcePhotoProjectsUnchanged": true,
+  "sourceCollectionUnchanged": true,
+  "screenshots": [
+    {
+      "path": "docs/releases/images/v0.7.0/01-vector-pen.png",
+      "sha256": "77bcbdfd20d4986679b26facd80b9dc0b8fa6d3f7dc7fbc91a917d2a7fad0513"
+    },
+    {
+      "path": "docs/releases/images/v0.7.0/02-vector-artwork.png",
+      "sha256": "6a3eadeb478fef209c8a45df708a22431dfa381cc4148b90f34099fb09b9e68c"
+    },
+    {
+      "path": "docs/releases/images/v0.7.0/03-image-trace.png",
+      "sha256": "207a6bd086137e5cf599400d1d080af6f047e396c8ec43b994702265289cf9be"
+    },
+    {
+      "path": "docs/releases/images/v0.7.0/04-photo-curves.png",
+      "sha256": "d59f12ae057bda9c4872861f544b3ff671a937d80fb84dc79b87713889c91cde"
+    },
+    {
+      "path": "docs/releases/images/v0.7.0/05-target-colour.png",
+      "sha256": "75e78232c3e9f1fa6d3763f28e5b3d0088ee58a43cfb4a6a6ba7fabd01b362d9"
+    },
+    {
+      "path": "docs/releases/images/v0.7.0/06-create.png",
+      "sha256": "1a3ad4d607dcd86afcb38012d48d86d7eab4848092373ed03827038eb7c465c9"
+    },
+    {
+      "path": "docs/releases/images/v0.7.0/07-ai-assistant.png",
+      "sha256": "90ae04941999e5ac43b90f3a075cd2fa1be247f651440b69d1c5aa3d26a376bf"
+    },
+    {
+      "path": "docs/releases/images/v0.7.0/08-content-export.png",
+      "sha256": "74cd48af682256db7a391ebdc31f38e7bab0e04142b7588cb59bda02c01fd4a2"
+    },
+    {
+      "path": "docs/releases/images/v0.7.0/09-motion.png",
+      "sha256": "248cfcf19b6f6a21b9fe6c95722e8dfdb420aa79a4dfa4ba02c4a9cd0b4585d6"
+    },
+    {
+      "path": "docs/releases/images/v0.7.0/10-command-search.png",
+      "sha256": "2deb56f888337680e9d99b1dd3f9dc91f78d967cf5ab048421997af77a352249"
+    }
+  ],
+  "productionAssets": [
+    {
+      "file": "native-motion.mp4",
+      "sha256": "0883f407e8e29eb372d4f8db3c06d12dd2f5266d5bc9f24fd5d87af3345995d2",
+      "bytes": 241686
+    },
+    {
+      "file": "page-1.png",
+      "sha256": "1aa3772d4c387123d3120b2c625291ccf85fd6128b2b4aef1e96b102353ac422",
+      "bytes": 108497
+    },
+    {
+      "file": "page-2.png",
+      "sha256": "11bc8fb47f90f57a27e1246fa8a33edce484e540a2ce10a3c1b8f01ae02b2fba",
+      "bytes": 111499
+    },
+    {
+      "file": "page-3.png",
+      "sha256": "ab1c56b0224b0b248d578813d2b25b9d35a16b03d30cb5370fe173ad81239ce8",
+      "bytes": 119299
+    },
+    {
+      "file": "page-4.png",
+      "sha256": "4121ee7e9ec0d0a7114ca3dfeb18cd32627b60a70c25c38720fec8cec2ad2974",
+      "bytes": 163295
+    },
+    {
+      "file": "page-5.png",
+      "sha256": "0ebea880823a38c1f9777a9448f9c1f98d4c54b0856a0b72201b9aa977a3e0e4",
+      "bytes": 115438
+    },
+    {
+      "file": "page-6.png",
+      "sha256": "790568717eada21ee0ecdf59c00c00a6b0b6c1fe5e17b72d981a8d7c1261d170",
+      "bytes": 121372
+    },
+    {
+      "file": "photo-colour-after.png",
+      "sha256": "b184eb4e202bb4905e330e7875851ed5e8344ced447227393454c070783691a2",
+      "bytes": 447990
+    },
+    {
+      "file": "photo-colour-before.png",
+      "sha256": "9adff923e6a7d9d843a91cad1c1c3ddbb3980ff57656a84d90779d25261efd96",
+      "bytes": 759640
+    },
+    {
+      "file": "photo-editor-070.png",
+      "sha256": "f54ead53da725c5cc2778a0ba0f2ff41e4cc5404bd6a7669de1f1e8668a2b915",
+      "bytes": 2339780
+    },
+    {
+      "file": "photo-focus-after.png",
+      "sha256": "e342fa0afe5aae16c17ab6c5d79e011ac7b4a2a058584ed96619cc2f730425f2",
+      "bytes": 2884563
+    },
+    {
+      "file": "photo-focus-before.png",
+      "sha256": "98be33984c479036b174b7311025bde2b64554964384d4fb44200ec57c432ff5",
+      "bytes": 3155659
+    },
+    {
+      "file": "photo-grade-after.png",
+      "sha256": "2d7e4dff39517a4ca563851183e09161ed2eb230bfb1309607bff14860da2ba5",
+      "bytes": 5102985
+    },
+    {
+      "file": "photo-grade-before.png",
+      "sha256": "10596c6640c6950376709f27fba2f73de08a26ca487b549db9fbdc5cd5a403a4",
+      "bytes": 3863220
+    },
+    {
+      "file": "photo-mono-after.png",
+      "sha256": "9a7c8df76a68d0e2d8acee0e6594db1bc103eeb4cd6105e33042a2249dc2e91d",
+      "bytes": 743890
+    },
+    {
+      "file": "photo-mono-before.png",
+      "sha256": "8042ebb8fd92b4600c20ef8c5339868f03800551ed97d2a16e57ae51d1828dfd",
+      "bytes": 759640
+    },
+    {
+      "file": "splash-muse.png",
+      "sha256": "2e0128ce61d5005687753bc0ff67dae7f00d805c7548d1f905cf90b5f1e1a148",
+      "bytes": 78824
+    },
+    {
+      "file": "wordmark.png",
+      "sha256": "42c1fa258092193adc7e5a337eb5e1dc1c7a41adc669d6de9192b7dca8bca6ee",
+      "bytes": 24410
+    }
+  ],
+  "captions": {
+    "file": "omuse-0.7.0-studio-film.vtt",
+    "cues": 14,
+    "sha256": "12c868781c1e45ec23e8d1bda5b790aabb1e36b43ce86adf5ca54e80ad08d732"
+  },
+  "readmePhotoCapture": {
+    "file": "omuse-0.7.0-photo-editor.png",
+    "sha256": "f54ead53da725c5cc2778a0ba0f2ff41e4cc5404bd6a7669de1f1e8668a2b915",
+    "dimensions": [
+      1896,
+      1150
+    ],
+    "backend": "XWayland",
+    "driver": "cua-driver 0.29.1",
+    "runtimeSource": "5b3daefbb5258afff4a74a2ff3db5247b074972d",
+    "runtimeBinarySHA256": "fdb1e47366fec20668d19e5969c34182c9c934dc90946993715c6820b8db05ea",
+    "project": "Isolated copy of the mountain-lake demo with exposure and colour-balance layers",
+    "inspection": "Actual owned window inspected; original source and existing user windows preserved"
+  }
+}

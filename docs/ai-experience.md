@@ -8,6 +8,11 @@ task; Enter adds a new line.
 For a complete removal walkthrough, see [Remove unwanted objects](user-guide/remove-objects.md).
 For first projects, see the [user manual](user-guide/README.md).
 
+![Ask Omuse with task choices, brief and connection controls](releases/images/v0.7.0/07-ai-assistant.png)
+
+*The 0.7.0 assistant sits beside your artwork. This screenshot uses an offline
+demo profile; connect a supported provider before submitting a task.*
+
 ## Tasks
 
 | Task | Result and controls |
@@ -43,7 +48,7 @@ separate login or test button in Omuse. To make an image, choose **Generate
 image**, write the brief, select **Generate image**, review the proposal, then
 select **Keep result** to add it to the canvas.
 
-In Omuse 0.4.0, each task can use **Auto** or a pinned provider. **Claude Code**
+Each task can use **Auto** or a pinned provider. **Claude Code**
 supports text-based **Design & layout**; **ChatGPT via Codex** supports the image
 tasks, **Enhance photo** and **Caption & alt text**. Those visual tasks send
 image context that the Claude adapter currently does not accept. Preferred
@@ -56,7 +61,7 @@ identity. **Sign in needed** means the runtime passed its identity checks but
 its provider account is not available. Sign in with the official provider
 runtime when needed, then use **Refresh** in Connections to check again.
 
-Omuse 0.4.0 fixes a 0.3.0 Omarchy discovery issue where recognized mise-managed
+The current release includes the fix for an earlier Omarchy discovery issue where recognized mise-managed
 Codex or Claude shims could appear as **Unverified** despite an existing login.
 Update through the normal installer if affected. Runtime identity and account
 checks still apply, and unrecognized wrappers remain refused.

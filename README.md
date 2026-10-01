@@ -12,30 +12,32 @@
 installer builds a tested source revision and adds the normal **Omuse** app.
 Downloadable binaries are still undergoing [release qualification](docs/public-release-readiness.md).
 
-**Current release: [0.7.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.7.0)**
+**Current source pre-release: [0.7.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.7.0)**
 — integrated vector editing, local Image Trace, colour uniformity and higher-quality photo sampling. Read the [release notes](docs/releases/v0.7.0.md)
 or browse the [changelog](CHANGELOG.md) for changes and known limitations.
 [See ten screenshots of the current interface](docs/releases/v0.7.0-gallery.md).
 
 **[Read the user manual](docs/user-guide/README.md)** ·
-[Remove unwanted objects](docs/user-guide/remove-objects.md) ·
 [Edit a photo](docs/user-guide/photo-editing.md) ·
+[Draw and trace vectors](docs/user-guide/photo-vector.md) ·
 [Create social content](docs/user-guide/create-content.md)
 
 <p align="center">
-  <a href="docs/media/omuse-sunset-muse.mp4">
-    <img src="docs/media/omuse-sunset-muse-poster.jpg" alt="Omuse content collection shown in the Sunset Muse promo" width="900">
+  <a href="https://github.com/Sugata-Software/Omuse/raw/refs/heads/main/docs/media/omuse-0.7.0-studio-film.mp4">
+    <img src="docs/media/omuse-0.7.0-studio-film-poster.jpg" alt="Omuse 0.7.0 — Photos. Vectors. Possibility. Watch the two-minute studio film." width="900">
   </a>
 </p>
 
 <p align="center">
-  <a href="docs/media/omuse-sunset-muse.mp4"><strong>&#9654; Watch the two-minute Sunset Muse promo</strong></a>
+  <a href="https://github.com/Sugata-Software/Omuse/raw/refs/heads/main/docs/media/omuse-0.7.0-studio-film.mp4"><strong>&#9654; Watch the new two-minute Omuse 0.7.0 film</strong></a>
   &middot;
-  <a href="docs/media/omuse-sunset-muse-credits.md">Media credits</a>
+  <a href="docs/media/omuse-0.7.0-studio-film.md">Chapters, transcript &amp; credits</a>
 </p>
 
-The film presents selected Omuse workflows. Current qualification evidence
-and remaining release gates are recorded in the release-readiness checklist.
+Four real photo before/after edits, current vector and tracing controls,
+branded pages, native motion and content exports. The film combines actual
+application captures and Omuse-rendered artwork with editorial animation.
+Its AI segment is an offline interface tour.
 
 Omuse is a native image editor for Linux, built in Rust with GPUI and designed
 to feel at home on Omarchy. It combines a compact studio interface with layered
@@ -52,9 +54,10 @@ send the selected context to the connection you choose; the assistant identifies
 the subscription route and its usage. Separate API billing is currently disabled.
 Omuse does not change the desktop theme.
 
-![Omuse editing a photograph with live exposure and colour-balance layers](docs/media/omuse-photo-editor.png)
+![Omuse 0.7.0 editing a photograph with live exposure and colour-balance layers](docs/media/omuse-0.7.0-photo-editor.png)
 
-*Actual Omuse session on Omarchy. [Image credit](docs/media/README.md).*
+*The native 0.7.0 editor on Omarchy, with editable photo adjustments.
+[Photo workflow](docs/user-guide/photo-editing.md) · [Image credit](docs/media/README.md).*
 
 ## Install
 
@@ -137,6 +140,22 @@ Explore the [editing workflows](docs/rust-advanced-workflows.md),
 [release checklist](docs/public-release-readiness.md) distinguishes tested
 features from the remaining public-release work. Omuse focuses on creating
 content; calendars and scheduling are outside its scope.
+
+## See the workflows
+
+| Draw and refine on the canvas | Turn an image into editable shapes |
+| --- | --- |
+| [![Pen tool with editable anchors and handles](docs/releases/images/v0.7.0/01-vector-pen.png)](docs/user-guide/photo-vector.md#draw-and-refine-an-editable-path) | [![Local Image Trace with detail controls](docs/releases/images/v0.7.0/03-image-trace.png)](docs/user-guide/photo-vector.md#turn-an-image-into-editable-vector-artwork) |
+| **Pen, Nodes and Move** — shape curves, add points, style objects and keep the photo beneath them. | **Local Image Trace** — choose a preset, adjust detail, compare with the source and keep editable artwork. |
+
+| Make a branded collection | Find a command from the keyboard |
+| --- | --- |
+| [![Create workspace with editable branded pages](docs/releases/images/v0.7.0/06-create.png)](docs/user-guide/create-content.md) | [![Searchable commands and keyboard shortcuts](docs/releases/images/v0.7.0/10-command-search.png)](docs/keyboard-shortcuts.md) |
+| **Create** — templates, pages, reusable brand elements and ordered export packs. | **Ctrl+K** — search actions, tools and shortcuts, then run the result. |
+
+Start with the [illustrated user manual](docs/user-guide/README.md), follow
+[object removal](docs/user-guide/remove-objects.md), or open the
+[complete ten-view gallery](docs/releases/v0.7.0-gallery.md).
 
 ## Work from the keyboard
 

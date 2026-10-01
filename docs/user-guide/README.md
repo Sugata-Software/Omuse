@@ -1,11 +1,24 @@
 # Omuse user manual
 
-**Make, retouch and finish images on Linux.** This manual describes the Omuse 0.6 editing update.
+**Make, retouch and finish images on Linux.** This manual describes the Omuse
+0.7.0 source pre-release for Arch/Omarchy x86_64, including integrated vector
+editing, local Image Trace and the existing photo, Create and optional AI
+workflows.
 Start with a photo, keep an editable project, and export a copy when it is ready.
 
 [Install Omuse](../install.md) · [Remove objects](remove-objects.md) ·
 [Edit a photo](photo-editing.md) · [Create social content](create-content.md) ·
 [Ask Omuse](../ai-experience.md) · [All shortcuts](../keyboard-shortcuts.md)
+
+Prefer a quick overview? [Watch the two-minute 0.7.0 studio film](../media/omuse-0.7.0-studio-film.md),
+then follow the illustrated workflows below.
+
+![The Omuse 0.7.0 photo editor with tools on the left and editable layers on the right](../media/omuse-0.7.0-photo-editor.png)
+
+*Tools sit on the left, the selected tool's settings run across the top, and
+Layers on the right keeps the original photograph and its adjustments separate.
+This dark theme is one example; the workspace follows your Omarchy theme.
+[Photograph credit](../media/README.md#previous-photo-editor-capture-and-photograph-credit).*
 
 ## Your first edit
 
@@ -36,6 +49,15 @@ The right inspector contains **Layers**, **Develop**, **Select** and **Canvas**,
 with **Ask Omuse** available for AI tasks. **F7** hides or shows the inspector. **Create** opens the collection
 workspace for pages, templates, brand assets and content exports.
 
+![Command search with searchable tools and keyboard shortcuts](../releases/images/v0.7.0/10-command-search.png)
+
+*Use Ctrl+K to search commands, tools and shortcuts; select a result with the
+arrow keys and press Enter.*
+
+For a visual tour, see [drawing and tracing](photo-vector.md),
+[Create workflows](create-content.md), [photo editing](photo-editing.md) and
+[complete shortcut reference](../keyboard-shortcuts.md).
+
 ## Choose a workflow
 
 | What you want to do | Start here |
@@ -49,7 +71,7 @@ workspace for pages, templates, brand assets and content exports.
 | Generate an image or ask for a reviewed edit | [Ask Omuse](../ai-experience.md) |
 | Animate pages, add audio/subtitles and export an MP4 | [Motion](create-content.md#make-a-short-animation) |
 | Work with RAW, 16-bit sources, filter stacks or masks | [Advanced workflows](../rust-advanced-workflows.md) |
-| Trace images, edit vector points, or try development colour/SVG tools | [Photo and vector foundations — unreleased](photo-vector.md) |
+| Trace images, edit vector points, or target a photo colour | [Draw, trace and refine artwork](photo-vector.md) |
 
 ## Save projects; export deliverables
 
@@ -86,9 +108,11 @@ choose **Keep editing**, **Save a copy**, or explicitly discard local edits and
 reload. A conflicting ordinary Save never overwrites the other version.
 Repeated **Ctrl+S** queues the newest edits behind a save already in progress.
 
-New saves use single-canvas **format 10**, including pages inside a collection.
-**Omuse 0.5.0 and earlier cannot read these new saves.** Use Save As to retain
-an older copy when needed; reinstalling an older app does not convert the file.
+Ordinary canvases and collection pages use **format 10**. A canvas containing
+editable vector scenes uses **format 11**; **Omuse 0.6.0 cannot read format-11
+scenes or projects containing Target Colour Uniformity**. Use Save As to retain
+an older compatible copy when needed; reinstalling an older app does not convert
+the file.
 
 ## AI is optional
 
@@ -120,7 +144,7 @@ presents one final review. **Keep** is one undoable artwork change. See the
 **Unverified** means Omuse could not prove the discovered runtime's identity.
 **Sign in needed** means its identity passed but its provider account is not
 available. Sign in through the official provider runtime if needed, then select
-**Refresh** in Connections. Omuse 0.5.0 fixes the Omarchy issue where recognized
+**Refresh** in Connections. Omuse 0.7.0 includes the Omarchy fix where recognized
 mise-managed Codex or Claude shims could appear as **Unverified** despite an
 existing login. Update with the install command if you still use 0.3.0.
 Unrecognized wrappers are still refused. Discovery uses the official runtime's
