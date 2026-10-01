@@ -1,0 +1,40 @@
+name: Omuse 0.6.0 documented link correction
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/release-060-link-correction.yml'
+      - 'scripts/correct-release-060-links.py'
+      - 'scripts/test-release-060-link-correction.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: omuse-source-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  correct:
+    if: github.repository == 'Sugata-Software/Omuse'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Check the exact documented correction and its refusal cases
+        run: |
+          python3 scripts/correct-release-060-links.py
+          python3 scripts/test-release-060-link-correction.py
+          python3 scripts/test-release-notes.py
+      - name: Correct only the two evidence links and append the visible notice
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 scripts/correct-release-060-links.py --apply
+          python3 scripts/release-notes.py --verify

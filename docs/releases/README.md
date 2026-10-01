@@ -30,6 +30,13 @@ Until that milestone, GitHub releases are marked as pre-releases. There is one
 application named Omuse; the qualification label does not create a second app.
 Project-file versions are separate from application versions.
 
+The 0.6.0 notes include a visible **1 October 2026 documentation correction**:
+two evidence links now use full URLs pinned to the published documentation
+commit. The source tag, results, flags and downloads are unchanged. The one-time
+`release-060-link-correction.yml` workflow accepts only the recorded before/after
+note hashes, checks the actual tag and release metadata, and verifies its
+body-only correction. The normal publisher still refuses altered releases.
+
 ## What every release records
 
 Write `docs/releases/vX.Y.Z.md` around user-visible changes: editing, keyboard
