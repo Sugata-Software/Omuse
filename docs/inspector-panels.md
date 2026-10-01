@@ -32,12 +32,17 @@ The [0.4.0 qualification](release-040-qualification.md) records the combined
 runtime checks. A shared style and bounded local checks do not establish
 accessibility coverage for every theme, display scale or input method.
 
-## Development colour-field polish
+## Colour-field polish — 0.7.0
+
+The qualified 0.7.0 source release is
+`5b3daefbb5258afff4a74a2ff3db5247b074972d`. It includes the colour swatches
+from `466f7ab` and the shared control geometry from `e525124`; measurements
+below retain their original source identities.
 
 Source `466f7ab` on `feature/photo-vector-studio` adds live colour swatches
 beside vector Fill/Stroke, Brand Paper/Ink/Accent, finishing Dark/Light/Overlay
-colours and the Target colour uniformity reference. It remains outside the
-installed/public 0.6.0 release.
+colours and the Target colour uniformity reference. At that checkpoint it
+remained outside the installed/public 0.6.0 release.
 
 Swatches use the existing hex parser for each tool. A neutral checkerboard
 shows alpha, a diagonal mark identifies no paint, and a question mark indicates
@@ -61,9 +66,12 @@ the disabled-stroke presentation. The native runs used isolated test profiles.
 
 Tested executable SHA-256:
 `62ff5b17ed92972ac1edfd32aaae57d4eb250fbe380a625b322311f72ed13af3`.
-The installed 0.6.0 executable remains unchanged. The earlier full 1,206-case
-application qualification belongs to `3fbca66`; this presentation follow-up
-reran the UI suite and native journeys, not that complete release script.
+At the `466f7ab` checkpoint, the installed 0.6.0 executable remained
+unchanged. The earlier full 1,206-case application qualification belongs to
+`3fbca66`; this presentation follow-up reran the UI suite and native journeys,
+not that complete release script. The final 0.7.0 release evidence is recorded
+in [release-070-qualification.md](release-070-qualification.md), the
+[receipt](release-070-receipts.json), and the [ten-image gallery](releases/v0.7.0-gallery.md).
 
 Local evidence: `rust/evidence/colour-polish-source.txt`,
 `colour-polish-ui-tests.log`, `colour-polish-check.log`, and
@@ -74,7 +82,7 @@ the recorded passing runs used the desktop context.
 See the [dark fill/stroke screenshot](user-guide/images/vector-colours-dark.png)
 and [light no-stroke screenshot](user-guide/images/vector-colours-light.png).
 
-## Shared control geometry — development
+## Shared control geometry — 0.7.0
 
 Source `e525124` on `feature/photo-vector-studio` makes **3 logical pixels** the
 single corner radius for buttons and text controls. The value lives in
@@ -108,7 +116,10 @@ and the phone-shaped preview remain separate visual elements.
 Compiler, formatting and shortcut-reference checks passed. All **351 UI
 regressions passed**, with zero failures and two ignored benchmarks. A second
 independent source pass found no remaining button or text-control constructor
-bypassing the shared presentation. The installed/public 0.6.0 release is unchanged.
+bypassing the shared presentation. At the `e525124` checkpoint, the
+installed/public 0.6.0 release was unchanged. The 0.7.0 release passed the
+recorded native/gallery checks; all captures were visually inspected. See the
+[release qualification](release-070-qualification.md) and [gallery](releases/v0.7.0-gallery.md).
 
 Eight native journeys passed at an **800×600 logical viewport**. Dark captures
 used Wayland; light captures used XWayland at 1.5× display scale. Both vector
@@ -134,3 +145,9 @@ Screenshots: [editor, dark](user-guide/images/controls-editor-dark.png),
 [colour picker](user-guide/images/controls-picker-light.png),
 [Camera Raw](user-guide/images/controls-curves-dark.png),
 and [motion](user-guide/images/controls-motion-light.png).
+
+The two vector-colour captures above and the eight shared-control captures are
+historical `466f7ab`/`e525124` evidence. The final 0.7.0 gallery contains ten
+production views: Pen, vector objects, Image Trace, curves, target-colour
+uniformity, Create, Ask Omuse, export, motion and command search. See the
+[0.7.0 gallery](releases/v0.7.0-gallery.md) and its [qualification record](release-070-qualification.md).

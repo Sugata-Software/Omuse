@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "version": "0.6.0",
-  "tag": "v0.6.0",
-  "title": "Omuse 0.6.0 — More control over every edit",
-  "date": "2026-10-01",
+  "version": "0.7.0",
+  "tag": "v0.7.0",
+  "title": "Omuse 0.7.0 — Photos and vectors, one studio",
+  "date": "2026-10-02",
   "prerelease": true,
-  "sourceRevision": "a8b7ac70e7513d305a671673a347eecaf2d6cc4c",
-  "notes": "docs/releases/v0.6.0.md",
-  "validationRun": 36784517002
+  "sourceRevision": "5b3daefbb5258afff4a74a2ff3db5247b074972d",
+  "notes": "docs/releases/v0.7.0.md",
+  "validationRun": 36910650216
 }

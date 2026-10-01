@@ -1,14 +1,16 @@
 # Photo and vector foundations
 
-**Unreleased development work on `feature/photo-vector-studio`.** These additions
-are not part of the installed/public 0.6.0 release. The complete approved scope
-and remaining work are in the [photo/vector roadmap](../photo-vector-roadmap.md).
-The [foundation qualification record](../photo-vector-foundations-qualification.md)
-and [vector artwork checkpoint](../vector-scene-qualification.md) are historical
-evidence for earlier implementations. The latter tested source `4e1da33`, before
-the main-canvas workflow described here. The
-[unified-canvas qualification record](../unified-vector-canvas-qualification.md)
-covers its local regressions, native display checks and remaining limits.
+**Available in Omuse 0.7.0.** These
+instructions describe the integrated vector and photo foundations selected for
+the Arch/Omarchy x86_64 source pre-release. The [foundation qualification
+record](../photo-vector-foundations-qualification.md), [vector artwork
+checkpoint](../vector-scene-qualification.md), [unified-canvas qualification
+record](../unified-vector-canvas-qualification.md) and [trace qualification
+record](../image-trace-qualification.md) retain historical source identities
+and measurements; their captures are not all from the final production build. See the [0.7.0 gallery](../releases/v0.7.0-gallery.md)
+for ten fresh production captures.
+The [photo/vector roadmap](../photo-vector-roadmap.md) records remaining work
+and limits.
 
 ## Make a product colour more consistent
 
@@ -92,7 +94,7 @@ can reach a budget before the object count. Previews run in the background and
 keep only the newest requested update.
 
 Save as **`.omuse`** to retain objects, styles and their order. A canvas containing
-this artwork uses **format 11**, which installed/public **0.6.0 cannot open**.
+this artwork uses **format 11**, which **0.6.0 cannot open**.
 Use **Save As** to keep a compatible original. Other canvases still use format
 10. **Rasterize** explicitly converts the layer to pixels before painting or
 destructive filters; Undo can restore its editable objects. Layer placement,
@@ -218,9 +220,11 @@ if a budget is exceeded. Masks and supported layer effects are applied around
 the trace; they are not converted into vector contours. The retained original
 makes this use more project storage than replacing the bitmap would.
 
-This development workflow uses format 11 and remains unavailable in installed
-public **0.6.0**. Its measured checks and remaining limits are recorded in the
-[trace and curve qualification record](../image-trace-qualification.md).
+This workflow uses format 11. **0.6.0** cannot open it. Its
+measured checks and remaining limits are recorded in the [trace and curve
+qualification record](../image-trace-qualification.md); those measurements remain
+historical. The [0.7.0 qualification](../release-070-qualification.md) records
+the final production build and fresh release checks.
 
 ![Image trace on the main canvas](images/image-trace-dark.png)
 

@@ -6,8 +6,11 @@ finished content. This roadmap extends the existing editor incrementally.
 It is not a claim of Illustrator, Photoshop or camera-colour parity.
 
 The [project guide](project-guide.md) tracks current implementation and evidence.
-The installed/public baseline is [0.6.0](releases/v0.6.0.md). The photo/vector
-work below is on `feature/photo-vector-studio` and remains unreleased.
+The installed/public baseline remains [0.6.0](releases/v0.6.0.md). The
+qualified 0.7.0 source pre-release is runtime
+`5b3daefbb5258afff4a74a2ff3db5247b074972d`; its local, exact-source CI,
+native, installation and rollback evidence is recorded in the [0.7.0
+qualification](release-070-qualification.md). No public binary is attached.
 Historical qualification records describe their named source checkpoints;
 the newer main-canvas workflow has its own
 [local qualification record](unified-vector-canvas-qualification.md).
@@ -93,7 +96,8 @@ saved-project compatibility and the complete Create/template run. See the
 [qualification record](photo-vector-foundations-qualification.md) and current
 [user guide](user-guide/photo-vector.md). Those results precede the unified
 canvas changes. The broader workstreams remain open; P01 still needs masked
-canvas/export agreement. This is not a public release or installation update.
+canvas/export agreement. This remains historical source-specific evidence
+within the qualified 0.7.0 source release.
 No new model/provider account, system driver or commercial subscription is
 required for this first batch.
 
@@ -185,7 +189,9 @@ all 80 templates and 27 native checks per backend. Label-only polish `63048e4`
 was rebuilt and passed repeat Wayland/dark and XWayland/light captures at an
 800×600 logical viewport. See the
 [qualification record](unified-vector-canvas-qualification.md) for evidence reuse
-and limits. This update remains uninstalled and unreleased.
+and limits. The qualified 0.7.0 source release includes this update; its
+production/native and installation evidence is recorded in the release
+qualification. No public binary is attached.
 
 It does not add gradients, boolean construction, scene text objects,
 advanced strokes, persistent visible-tile caching or multiple-object SVG

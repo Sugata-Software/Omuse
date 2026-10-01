@@ -1,0 +1,263 @@
+{
+  "version": "0.7.0",
+  "runtime": "5b3daefbb5258afff4a74a2ff3db5247b074972d",
+  "tree": "f9b4326d6ef37ea3edc56002566e1df399e47e69",
+  "productionSha256": "fdb1e47366fec20668d19e5969c34182c9c934dc90946993715c6820b8db05ea",
+  "tests": {
+    "passed": 1206,
+    "failed": 0,
+    "ignored": 4,
+    "batches": 41,
+    "all_batches_ok": true,
+    "script_complete": true
+  },
+  "validation": {
+    "id": 36910650216,
+    "head_sha": "5b3daefbb5258afff4a74a2ff3db5247b074972d",
+    "status": "completed",
+    "conclusion": "success",
+    "url": "https://github.com/Sugata-Software/Omuse/actions/runs/36910650216"
+  },
+  "templates": 80,
+  "syntheticTraceFixtures": 4,
+  "compatibility": {
+    "previousReader": "0.6.0",
+    "newReader": "0.7.0",
+    "priorFixturePixelsEqual": true,
+    "priorFixtureSize": [
+      128,
+      96
+    ],
+    "priorFilesUnchanged": 2,
+    "oldReaderRejectsFormat11": true,
+    "refusedOutputAbsent": true,
+    "format11FilesUnchanged": true,
+    "format11Fixture": "vector_scene_acceptance/multi-object-vector.omuse",
+    "oldReaderError": "Unsupported project version 11"
+  },
+  "gallery": [
+    {
+      "name": "01-vector-pen",
+      "caption": "Pen and editable B\u00e9zier curves",
+      "panel": "vector-path",
+      "theme": "dark",
+      "checks": 27,
+      "backend": "Wayland",
+      "executableSha256": "fdb1e47366fec20668d19e5969c34182c9c934dc90946993715c6820b8db05ea",
+      "screenshotSha256": "77bcbdfd20d4986679b26facd80b9dc0b8fa6d3f7dc7fbc91a917d2a7fad0513",
+      "file": "docs/releases/images/v0.7.0/01-vector-pen.png"
+    },
+    {
+      "name": "02-vector-artwork",
+      "caption": "Multiple objects in one vector artwork layer",
+      "panel": "vector-scene",
+      "theme": "light",
+      "checks": 27,
+      "backend": "XWayland",
+      "executableSha256": "fdb1e47366fec20668d19e5969c34182c9c934dc90946993715c6820b8db05ea",
+      "screenshotSha256": "6a3eadeb478fef209c8a45df708a22431dfa381cc4148b90f34099fb09b9e68c",
+      "file": "docs/releases/images/v0.7.0/02-vector-artwork.png"
+    },
+    {
+      "name": "03-image-trace",
+      "caption": "Local Image Trace and detail controls",
+      "panel": "image-trace",
+      "theme": "dark",
+      "checks": 27,
+      "backend": "Wayland",
+      "executableSha256": "fdb1e47366fec20668d19e5969c34182c9c934dc90946993715c6820b8db05ea",
+      "screenshotSha256": "207a6bd086137e5cf599400d1d080af6f047e396c8ec43b994702265289cf9be",
+      "file": "docs/releases/images/v0.7.0/03-image-trace.png"
+    },
+    {
+      "name": "04-photo-curves",
+      "caption": "Photo curves and Camera Raw controls",
+      "panel": "curves",
+      "theme": "light",
+      "checks": 24,
+      "backend": "XWayland",
+      "executableSha256": "fdb1e47366fec20668d19e5969c34182c9c934dc90946993715c6820b8db05ea",
+      "screenshotSha256": "d59f12ae057bda9c4872861f544b3ff671a937d80fb84dc79b87713889c91cde",
+      "file": "docs/releases/images/v0.7.0/04-photo-curves.png"
+    },
+    {
+      "name": "05-target-colour",
+      "caption": "Target colour uniformity",
+      "panel": "target-colour",
+      "theme": "dark",
+      "checks": 24,
+      "backend": "Wayland",
+      "executableSha256": "fdb1e47366fec20668d19e5969c34182c9c934dc90946993715c6820b8db05ea",
+      "screenshotSha256": "75e78232c3e9f1fa6d3763f28e5b3d0088ee58a43cfb4a6a6ba7fabd01b362d9",
+      "file": "docs/releases/images/v0.7.0/05-target-colour.png"
+    },
+    {
+      "name": "06-create",
+      "caption": "Create workspace and branded pages",
+      "panel": "create",
+      "theme": "dark",
+      "checks": 24,
+      "backend": "Wayland",
+      "executableSha256": "fdb1e47366fec20668d19e5969c34182c9c934dc90946993715c6820b8db05ea",
+      "screenshotSha256": "1a3ad4d607dcd86afcb38012d48d86d7eab4848092373ed03827038eb7c465c9",
+      "file": "docs/releases/images/v0.7.0/06-create.png"
+    },
+    {
+      "name": "07-ai-assistant",
+      "caption": "Ask Omuse workspace \u2014 offline demo",
+      "panel": "assistant",
+      "theme": "light",
+      "checks": 24,
+      "backend": "XWayland",
+      "executableSha256": "fdb1e47366fec20668d19e5969c34182c9c934dc90946993715c6820b8db05ea",
+      "screenshotSha256": "90ae04941999e5ac43b90f3a075cd2fa1be247f651440b69d1c5aa3d26a376bf",
+      "file": "docs/releases/images/v0.7.0/07-ai-assistant.png"
+    },
+    {
+      "name": "08-content-export",
+      "caption": "Content export",
+      "panel": "content-export",
+      "theme": "dark",
+      "checks": 24,
+      "backend": "Wayland",
+      "executableSha256": "fdb1e47366fec20668d19e5969c34182c9c934dc90946993715c6820b8db05ea",
+      "screenshotSha256": "74cd48af682256db7a391ebdc31f38e7bab0e04142b7588cb59bda02c01fd4a2",
+      "file": "docs/releases/images/v0.7.0/08-content-export.png"
+    },
+    {
+      "name": "09-motion",
+      "caption": "Motion and video export",
+      "panel": "motion",
+      "theme": "dark",
+      "checks": 24,
+      "backend": "Wayland",
+      "executableSha256": "fdb1e47366fec20668d19e5969c34182c9c934dc90946993715c6820b8db05ea",
+      "screenshotSha256": "248cfcf19b6f6a21b9fe6c95722e8dfdb420aa79a4dfa4ba02c4a9cd0b4585d6",
+      "file": "docs/releases/images/v0.7.0/09-motion.png"
+    },
+    {
+      "name": "10-command-search",
+      "caption": "Searchable commands and keyboard shortcuts",
+      "panel": "commands",
+      "theme": "dark",
+      "checks": 24,
+      "backend": "Wayland",
+      "executableSha256": "fdb1e47366fec20668d19e5969c34182c9c934dc90946993715c6820b8db05ea",
+      "screenshotSha256": "2deb56f888337680e9d99b1dd3f9dc91f78d967cf5ab048421997af77a352249",
+      "file": "docs/releases/images/v0.7.0/10-command-search.png"
+    }
+  ],
+  "native": [
+    {
+      "name": "minimum-wayland",
+      "checks": 27,
+      "backend": "Wayland",
+      "viewport": [
+        800.0,
+        600.0
+      ],
+      "executableSha256": "fdb1e47366fec20668d19e5969c34182c9c934dc90946993715c6820b8db05ea",
+      "screenshotSha256": "7328fbf8b1ceb57adb360d25359521c08fd15e26eea471dbb26c98f2e95bd9c3"
+    },
+    {
+      "name": "minimum-xwayland",
+      "checks": 27,
+      "backend": "XWayland",
+      "viewport": [
+        800.0,
+        600.0
+      ],
+      "executableSha256": "fdb1e47366fec20668d19e5969c34182c9c934dc90946993715c6820b8db05ea",
+      "screenshotSha256": "94618d544d44cf857903a51dd5e61c4771feae6f293c68f20d5ad2ae6550d290"
+    },
+    {
+      "name": "installed-native",
+      "checks": 24,
+      "backend": "Wayland",
+      "viewport": [
+        800.0,
+        600.0
+      ],
+      "executableSha256": "1f4792f0bdb0945c05532db4924e3b2a016aaf62b9d6423e2f17596cc7cadfab",
+      "screenshotSha256": "0a0e70595a61ee064e47521594801bbc16502fb362b4d2041cbb8cc7d971825a"
+    }
+  ],
+  "installation": {
+    "current": {
+      "generation": "install-gowujrk8",
+      "files": {
+        ".omuse-generation.json": "d6daac282a0a1dfa17e4000beab976914e94039446e756a42e85d4d6a33d5258",
+        "SOURCE-REVISION": "0f44c59a5f602ad0560e2894f782d2cb58121b6d0201c37e475f6ecba5e7391a",
+        "icons/omuse.png": "f2c581469b601ed6b4c51f1bb4e2eeb91c23af7c47c7f5203c412290b95100d1",
+        "icons/omuse.svg": "abc8af6c0087c66fa8fc36dbb6abf00743746b262d07ffb6bcf105b4d5d66cf5",
+        "lib/libonnxruntime.so": "13ab8084954fa4a47c777880180b90810d6020f021441395712b48a75b74c68b",
+        "lib/libraw.so": "50a95112a6e1bbd06b032bcd8fa143bdfb6194aa861a5864ec714559681ea3ec",
+        "licenses/GPUI-APACHE-2.0.txt": "752daf2fb234ca4a1fa372c073fe127f44b7b90fd2529ae44273a64f9d53da7a",
+        "licenses/GPUI-OMARCHY-MIT.txt": "3241d48260a45a03073f60bb25e26e60b62ca14c7ea2d2d24cb9be584eddcd1d",
+        "licenses/GPUI-TABLET-PATCH.txt": "7e0f190ce524b987cfada65622db4d340eb9c560add27dff13f30e1c1d3a4595",
+        "licenses/LUCIDE-LICENSE.txt": "b495047bd93a9b06913511076f504daba17d5bbeb3e0650f3bb53a4220329c57",
+        "licenses/LibRaw-CDDL.txt": "0e3098d2d54a12434715f6679ea408d57da5e8d613c385c58ecc6fe5d30cc81f",
+        "licenses/LibRaw-COPYRIGHT.txt": "574c88f5dd59414cfc896293a63defbc2d525a418ed413d7ab7dcc43cf79c509",
+        "licenses/LibRaw-LGPL.txt": "eea173a556abac0370461e57e12aab266894ea6be3874c2be05fd87871f75449",
+        "licenses/ONNX-Runtime-MIT.txt": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c",
+        "licenses/ONNX-ThirdPartyNotices.txt": "e9e90971a8e75a9a8ac0c6412e29c1202d079998389915aa485f46c816c3b4cc",
+        "licenses/Omuse-MIT.txt": "dd4ed477fc9654db5aca736b822c1a61ae75c325b38742905d010d070b2f9a19",
+        "licenses/Outfit-OFL-1.1.txt": "c676351bf8576b9aba743cd5eaa8c0e7ee0d51f805d720447b4df4ddb6a2e416",
+        "licenses/U2NET-APACHE-2.0.txt": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+        "models/u2netp.onnx": "309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8",
+        "omuse": "fdb1e47366fec20668d19e5969c34182c9c934dc90946993715c6820b8db05ea"
+      }
+    },
+    "previous": {
+      "generation": "install-brzel9z6",
+      "files": {
+        ".omuse-generation.json": "063b7b2618c3ee8ed09d424f6e164dd9a3d80cab13049fead559f2fc9b161d2e",
+        "SOURCE-REVISION": "ba34bd3adbe374d7b1f2a99c49fdc2fb3b4c662e7d1806a29d9e448b86d75f5d",
+        "icons/omuse.png": "f2c581469b601ed6b4c51f1bb4e2eeb91c23af7c47c7f5203c412290b95100d1",
+        "icons/omuse.svg": "abc8af6c0087c66fa8fc36dbb6abf00743746b262d07ffb6bcf105b4d5d66cf5",
+        "lib/libonnxruntime.so": "13ab8084954fa4a47c777880180b90810d6020f021441395712b48a75b74c68b",
+        "lib/libraw.so": "50a95112a6e1bbd06b032bcd8fa143bdfb6194aa861a5864ec714559681ea3ec",
+        "licenses/GPUI-APACHE-2.0.txt": "752daf2fb234ca4a1fa372c073fe127f44b7b90fd2529ae44273a64f9d53da7a",
+        "licenses/GPUI-TABLET-PATCH.txt": "7e0f190ce524b987cfada65622db4d340eb9c560add27dff13f30e1c1d3a4595",
+        "licenses/LUCIDE-LICENSE.txt": "b495047bd93a9b06913511076f504daba17d5bbeb3e0650f3bb53a4220329c57",
+        "licenses/LibRaw-CDDL.txt": "0e3098d2d54a12434715f6679ea408d57da5e8d613c385c58ecc6fe5d30cc81f",
+        "licenses/LibRaw-COPYRIGHT.txt": "574c88f5dd59414cfc896293a63defbc2d525a418ed413d7ab7dcc43cf79c509",
+        "licenses/LibRaw-LGPL.txt": "eea173a556abac0370461e57e12aab266894ea6be3874c2be05fd87871f75449",
+        "licenses/ONNX-Runtime-MIT.txt": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c",
+        "licenses/ONNX-ThirdPartyNotices.txt": "e9e90971a8e75a9a8ac0c6412e29c1202d079998389915aa485f46c816c3b4cc",
+        "licenses/Omuse-MIT.txt": "dd4ed477fc9654db5aca736b822c1a61ae75c325b38742905d010d070b2f9a19",
+        "licenses/Outfit-OFL-1.1.txt": "c676351bf8576b9aba743cd5eaa8c0e7ee0d51f805d720447b4df4ddb6a2e416",
+        "licenses/U2NET-APACHE-2.0.txt": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+        "models/u2netp.onnx": "309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8",
+        "omuse": "bf3b8f5f510865fd832d3305b1b2ea40505c5eab6c93bf9fa2d49dc629b41a46"
+      }
+    }
+  },
+  "rollback": "passed; both complete payload manifests unchanged",
+  "visualInspection": {
+    "galleryImages": 10,
+    "minimumWindowImages": 3,
+    "status": "inspected by release owner",
+    "scope": "representative actual views, synthetic artwork; no live AI request"
+  },
+  "cua": {
+    "driver": "0.29.1",
+    "version": "0.7.0",
+    "productionSha256": "fdb1e47366fec20668d19e5969c34182c9c934dc90946993715c6820b8db05ea",
+    "backend": "XWayland",
+    "isolatedProfile": true,
+    "checks": [
+      "installed normal launcher opens saved synthetic project",
+      "exact-window capture",
+      "foreground Ctrl+K opens command search"
+    ],
+    "backgroundShortcutEffect": "no visible effect; fresh state checked before foreground delivery",
+    "scope": "bounded keyboard and capture smoke; no live AI or full accessibility qualification",
+    "captures": {
+      "start.png": "2e5d841e1d764f58f794f5c8250caf18c7fd66923aacac01f02cbccafd369102",
+      "after-shortcut.png": "2e5d841e1d764f58f794f5c8250caf18c7fd66923aacac01f02cbccafd369102",
+      "commands.png": "de130504359da316a1304690082077d72b45f29233bbb5246fb9ed469177234e"
+    },
+    "cleanup": "owned synthetic test process terminated after an unconfirmed window-manager close request"
+  }
+}

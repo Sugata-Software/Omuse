@@ -34,7 +34,7 @@ Passing CI establishes that the locked Rust graph builds and that the automated 
 - the pinned optional runtime asset preparation and Camera RAW/subject workflows when those features are included;
 - save/recovery interruption qualification with `scripts/rust-release-qualification.py`;
 - representative large-document memory and interaction measurements; and
-- cross-platform `.comp` interchange with independently reviewed fixtures.
+- `.omuse` round trips and bounded legacy interchange with independently reviewed fixtures.
 
 The CI workflow does not publish packages or releases. Native acceptance results and optional-backend evidence belong in release evidence from the exact candidate binary.
 

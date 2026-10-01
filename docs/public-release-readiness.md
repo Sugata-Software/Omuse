@@ -1,56 +1,54 @@
 # Public release readiness
 
-**1 October 2026: Omuse source installation is available; downloadable binaries are not yet qualified.**
+**2 October 2026: Omuse 0.7.0 is available through the source installer. Downloadable binaries remain unqualified.**
 
-The current numbered source release is **0.6.0**. Its
-[release notes](releases/v0.6.0.md) identify the tested runtime, installation,
-changes and limitations; the [release policy](releases/README.md) keeps future
-versions and evidence consistent. It is marked as a GitHub pre-release while
-stable-release gates remain open. This does not add a separate Preview app.
+The current numbered source release is **0.7.0 — Photos and vectors, one studio**.
+Its [release notes](releases/v0.7.0.md), [qualification](release-070-qualification.md)
+and [receipt](release-070-receipts.json) identify the exact tested runtime,
+installation, changes and limits. GitHub marks the release as a pre-release
+while stable-release gates remain open; there is one normal application named
+Omuse. The supported source-install scope is **Arch/Omarchy Linux x86_64**.
 
 The canonical public repository is
-[Sugata-Software/Omuse](https://github.com/Sugata-Software/Omuse). The first
-source release is scoped to **Arch/Omarchy, Linux x86_64**. Broader Linux support
-requires its own packaging and test evidence.
-
-The application source is published. Its first complete source commit is
-`d8c926e`, with Git tree `580d583266db090d18ca6159813a3ea0b343237f`, exactly
-matching the locally qualified source snapshot. The project-guide workflow
-passed. The first [Rust validation run](https://github.com/Sugata-Software/Omuse/actions/runs/36426033617)
-passed on 28 September, including the complete headless suite, editing/Create
-journeys, recovery checks, offline installer and dependency inventory.
-The Linux cleanup and installer candidate `971c419` also passed its complete
-[Rust validation run](https://github.com/Sugata-Software/Omuse/actions/runs/36439517375),
-including the separate installer/reference job and the full Rust job.
-GitHub App access and source publication are no longer blockers.
+[Sugata-Software/Omuse](https://github.com/Sugata-Software/Omuse).
+The tested runtime is `5b3daefbb5258afff4a74a2ff3db5247b074972d`, tree
+`f9b4326d6ef37ea3edc56002566e1df399e47e69`. Its complete
+[GitHub validation](https://github.com/Sugata-Software/Omuse/actions/runs/36910650216)
+passed. Local qualification passed **1,206 application tests**, all **80
+editable template variants**, editing/Create/media, four synthetic tracing
+fixtures, vector/photo acceptance and interrupted-save recovery.
 
 ## Current application and installation
 
-The tested application source is `a8b7ac7`. Its [complete GitHub workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36784517002)
-passed. The [0.6.0 qualification](release-060-qualification.md) records 1,105
-application cases, editing/Create/motion, all 80 template variants, native checks
-and complete installation rollback. Local core evidence is reused from the
-unchanged preceding candidate; the final UI suite and exact-source CI cover the
-last compact-window repair.
+The normal launcher and curl installer select **0.7.0**. The production binary
+passed 13 native journeys: minimum-size Wayland and XWayland, the installed
+normal launcher, and ten [gallery views](releases/v0.7.0-gallery.md). The light
+and dark captures were inspected. The installed payload contains 20 files and
+a clean public-source receipt. Complete rollback to 0.6.0 and back passed with
+every old and new payload hash unchanged. See the
+[installation record](main-install-qualification.md).
 
-The production executable passed 24 native checks on Wayland, 24 on XWayland
-and 24 through the installed normal launcher at 800×600 with reduced motion.
-Dark and light captures were inspected. The normal app and curl installer select
-0.6.0; a complete 0.5.0 installation is retained for rollback. The
-[installation record](main-install-qualification.md) and
-[receipt](release-060-receipts.json) identify every payload.
+The previous-release synthetic project rendered identically with both readers
+and remained unchanged. **Vector scenes use format 11; ordinary canvases stay
+format 10.** Omuse 0.6.0 cannot read format-11 artwork or the new Target Colour
+Uniformity recipe. Use Save As to retain an older compatible copy; application
+rollback does not downgrade artwork.
 
-Older format-9 artwork rendered identically with both production readers and
-was not modified. **New format-10 saves require 0.6.0 or later**; retain an older
-copy with Save As before upgrading artwork. App rollback does not downgrade it.
+A bounded Cua Driver 0.29.1 check independently opened the installed production
+app and a saved test project on XWayland, then visually verified foreground
+Ctrl+K opening command search. Background key delivery had no visible effect.
+This does not qualify all physical devices or accessibility routes.
 
-No new live AI request was sent for this editing release. Earlier
+No new live AI request was sent for this release. Earlier
 [Claude Design](ai-claude-qualification.md),
 [Codex image editing](ai-image-editing-qualification.md) and
-[Cua checks](cua-ai-qualification.md) retain their own source identities.
-The [manual](user-guide/README.md) covers the new editing workflows and limits.
-Broader hardware, independent interchange/image-quality evaluation and the
-remaining binary/stable-release gates below are still open.
+[Cua AI checks](cua-ai-qualification.md) retain their own source identities.
+The [manual](user-guide/README.md) documents photo/vector workflows and limits.
+Broader hardware, clean-machine installation, independent interchange/image
+quality and the binary/stable-release gates below remain open.
+
+The preceding [0.6.0 qualification](release-060-qualification.md) and the records
+below are historical evidence for their own candidates.
 
 ## What is established
 
@@ -118,7 +116,7 @@ to Omuse without declaring a prebuilt binary release qualified.
 
 | Gate | Current state | Completion evidence |
 | --- | --- | --- |
-| Clean CI build | Installed runtime `73dd0d4`: the [full Rust/installer run](https://github.com/Sugata-Software/Omuse/actions/runs/36682319767) passed; guide/reference checks are current. Later runtime changes require their own run | Green Rust workflow for the exact candidate commit, retained artifacts and notice inventory |
+| Clean CI build | 0.7.0 runtime `5b3daef`: the [exact-source Rust/installer run](https://github.com/Sugata-Software/Omuse/actions/runs/36910650216) passed. Later runtime changes require their own run | Green Rust workflow for the exact candidate commit, retained artifacts and notice inventory |
 | Dependency legal texts | Two unresolved entries in the locked graph; upstream texts recovered for `seahash` and `simd_helpers` | Resolve `hexf-parse` and `mac` by verifiable upstream terms or tested dependency changes; see the [notice review](rust-license-findings.md) |
 | Reproducible release identity | The hardening pass records tested source hashes, the production executable, native runs, installation and rollback; a clean public build/archive remains pending | One clean release commit/tag, fresh build, source-to-binary-to-archive hash ledger and reproducible packaging instructions |
 | Clean target installation | Passed only on the development host | Install, launch, upgrade and rollback on a clean supported Arch/Omarchy system |

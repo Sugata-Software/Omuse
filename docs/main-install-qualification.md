@@ -1,6 +1,32 @@
-# Main Omuse installation — 1 October 2026
+# Main Omuse installation — 2 October 2026
 
-## Current Omuse 0.6.0 release
+## Current Omuse 0.7.0 release
+
+The normal launcher and curl installer select clean public source
+`5b3daefbb5258afff4a74a2ff3db5247b074972d`. Its [exact-source GitHub validation](https://github.com/Sugata-Software/Omuse/actions/runs/36910650216)
+passed. The [qualification](release-070-qualification.md) and
+[receipt](release-070-receipts.json) record 1,206 application tests, editing,
+Create/media, 80 template variants, tracing/vector acceptance and recovery.
+
+- Production SHA-256: `fdb1e47366fec20668d19e5969c34182c9c934dc90946993715c6820b8db05ea`.
+- Current generation: `install-gowujrk8`, complete 20-file Omuse 0.7.0 payload.
+- Previous generation: `install-brzel9z6`, complete 19-file Omuse 0.6.0 payload.
+- Wayland and XWayland each passed 27 production checks at 800×600 logical
+  size. The installed normal launcher passed 24 checks at that same minimum.
+- Ten more production journeys passed and produced the inspected
+  [interface gallery](releases/v0.7.0-gallery.md).
+- Both rollback directions passed isolated editing self-tests, and every
+  payload hash stayed unchanged. The normal command reports **Omuse 0.7.0**;
+  the desktop entry validates and the source receipt is clean.
+
+Existing windows retain their running executable until reopened. User artwork,
+settings and provider profiles were preserved. New format-11 vector scenes and
+Target Colour Uniformity recipes require 0.7.0; use Save As to preserve an
+older compatible original. App rollback does not downgrade artwork. This is
+development-host installation evidence, not a clean-machine or portable-binary
+qualification. All sections below are historical snapshots.
+
+## Historical Omuse 0.6.0 release
 
 The normal launcher and curl installer select clean public source
 `a8b7ac70e7513d305a671673a347eecaf2d6cc4c`. The [exact-source GitHub workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36784517002) passed.

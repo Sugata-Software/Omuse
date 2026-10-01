@@ -4,7 +4,13 @@ User-facing changes are grouped by release. Version numbers belong to Omuse;
 they do not follow Compositor or OmaPhoto. See the [release policy](docs/releases/README.md)
 for numbering, qualification and publication.
 
-## Unreleased — photo and vector foundations
+## Unreleased
+
+No additional changes recorded.
+
+## [0.7.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.7.0) — 2026-10-02
+
+**Photos and vectors, one studio · Arch Linux / Omarchy · x86_64 source pre-release**
 
 - Unify buttons and text controls around the toolbar's tighter 3-pixel corners
   across editing, Create, AI, dialogs, command search and colour pickers. Shared
@@ -45,7 +51,7 @@ for numbering, qualification and publication.
 - Add editable **Target colour uniformity** to Filter stack: reference colour,
   hue range/falloff and independent hue, saturation and lightness strengths,
   with retained 16-bit evaluation, opacity and selection masks. New recipe
-  nodes require the development reader; retain a Save As copy for 0.6.0.
+  nodes require 0.7.0; retain a Save As copy for 0.6.0.
 - Exchange one styled editable SVG path through the path editor, preserving
   curves and compound holes. Import fits the SVG viewport proportionally;
   export uses a new filename and retains existing files. Unsupported artwork
@@ -57,15 +63,16 @@ for numbering, qualification and publication.
   transformed exports. Keep explicit Smooth and Nearest choices and exact
   identity samples; integrate reduced masks into source sampling to prevent
   masked-out colour leakage. Quality/resource limits are documented in the
-  [development guide](docs/user-guide/photo-vector.md).
+  [photo/vector guide](docs/user-guide/photo-vector.md).
 - Preserve hidden RGB in fully transparent editable-node blends, and check
   cancellation during retained-source promotion, colour conversion and
   high-quality sampling. Interrupted exports preserve existing destinations.
 
 The approved long-term [photo/vector roadmap](docs/photo-vector-roadmap.md)
 includes the remaining precision, masking, restoration, illustration and
-interchange work. These changes are not a new public release or a claim of
-full Photoshop/Illustrator parity.
+interchange work. See the [release notes](docs/releases/v0.7.0.md) and
+[qualification record](docs/release-070-qualification.md). This release does
+not claim full Photoshop/Illustrator parity.
 
 ## [0.6.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.6.0) — 2026-10-01
 

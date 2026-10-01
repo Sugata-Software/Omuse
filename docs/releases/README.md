@@ -5,6 +5,7 @@ Start with the [changelog](../../CHANGELOG.md) or
 
 | Version | Date | Scope | Notes |
 | --- | --- | --- | --- |
+| 0.7.0 | 2 October 2026 | Integrated vector editing, local Image Trace, colour uniformity and precision photo foundations; Arch/Omarchy x86_64 source pre-release | [Release notes](v0.7.0.md) |
 | 0.6.0 | 1 October 2026 | Photo finishing, direct editing, Photoshop/SVG imports and save/reload safety; source pre-release | [Release notes](v0.6.0.md) |
 | 0.5.0 | 30 September 2026 | Unified .omuse projects, legacy migration and safer Save As; source pre-release | [Release notes](v0.5.0.md) |
 | 0.4.0 | 30 September 2026 | Selectable AI providers, shared creation workflows, desktop connection fixes and refined panels; source pre-release | [Release notes](v0.4.0.md) |
@@ -16,8 +17,9 @@ Start with the [changelog](../../CHANGELOG.md) or
 ## Version numbers
 
 Omuse has its own sequence, beginning at **0.1.0**. Each release matches its
-Rust package version; the current release is **0.6.0**. It does not inherit
-another editor's release numbers.
+Rust package version; the current published release is **0.7.0**. It does not
+inherit another editor's release numbers. This is a qualified source pre-release;
+the broader binary and stable-release gates remain open.
 
 - **Patch versions (for example 0.2.1):** compatible fixes and hardening within a minor version.
 - **0.2.0 and later minor versions:** substantial new workflows or behavior.

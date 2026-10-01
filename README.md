@@ -12,9 +12,10 @@
 installer builds a tested source revision and adds the normal **Omuse** app.
 Downloadable binaries are still undergoing [release qualification](docs/public-release-readiness.md).
 
-**Current release: [0.6.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.6.0)**
-— richer photo finishing, direct editing controls, Photoshop/SVG imports and safer saves. Read the [release notes](docs/releases/v0.6.0.md)
+**Current release: [0.7.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.7.0)**
+— integrated vector editing, local Image Trace, colour uniformity and higher-quality photo sampling. Read the [release notes](docs/releases/v0.7.0.md)
 or browse the [changelog](CHANGELOG.md) for changes and known limitations.
+[See ten screenshots of the current interface](docs/releases/v0.7.0-gallery.md).
 
 **[Read the user manual](docs/user-guide/README.md)** ·
 [Remove unwanted objects](docs/user-guide/remove-objects.md) ·
@@ -98,6 +99,12 @@ and troubleshooting.
 - Brush, Pencil, Eraser, Fill, Gradient, Clone, Heal and selection tools.
 - Editable text with live artwork previews and selected-letter colour styling;
   shapes, Bézier paths, vector masks and transform workflows.
+- Integrated vector artwork on the main canvas with Pen, Nodes and Move tools,
+  multi-object scenes, editable styles and bounded format-11 persistence.
+- Local Image Trace for logos, illustrations and photo-art approximations, with
+  Source/Trace preview, retained originals, editable curves and saved settings.
+- Target colour uniformity and scale-aware 16-bit export sampling, with explicit
+  limits documented in the photo/vector guide.
 - Dither, halftone and ASCII, Bloom into transparency, Vignette overlay and
   spatial Local Contrast, with preview and Undo on 8-bit raster copies up to 16 MP.
 - Brush, fill and gradient mask growth with preserved placement and outside coverage.
@@ -173,8 +180,9 @@ Existing `.comp` projects still open. Their first **Save** offers an `.omuse`
 copy and leaves the original intact. Opening a project does not rename or
 rewrite it; recovery snapshots stay separate from saved artwork.
 
-**Omuse 0.6.0 writes canvas format 10**, including pages inside collections.
-**Omuse 0.5.0 and earlier cannot read those new saves.** Use **Save As** to retain
+**Omuse 0.7.0 writes canvas format 11** for vector scenes and format 10 for
+ordinary canvases. **Omuse 0.6.0 cannot read format-11 scenes or projects with
+Target Colour Uniformity.** Use **Save As** to retain
 an older copy; rolling back the app does not downgrade project files.
 
 New collection saves use schema version 2 with nested `.omuse` pages and
