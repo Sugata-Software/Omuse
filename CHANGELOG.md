@@ -11,8 +11,12 @@ for numbering, qualification and publication.
   collections, with settings in `%APPDATA%\omuse`, data and recovery in
   `%LOCALAPPDATA%\omuse`, and save/recovery locks. Camera RAW, local subject
   selection and MP4/GIF motion export work with `scripts/prepare-rust-assets.ps1`
-  and FFmpeg on `PATH`; `omuse.exe` opens without a console window and needs no
-  Visual C++ Redistributable. CI runs the test suite and editing and motion
+  and FFmpeg on `PATH`, including lossy and deflate-compressed DNG files;
+  `omuse.exe` opens without a console window, carries the Omuse icon and needs
+  no Visual C++ Redistributable. The window follows the Windows light or dark
+  app mode, save dialogs start in the Pictures or Videos folder (also when it is
+  redirected into OneDrive), long paths are supported, and saves wait for sync
+  clients and scanners that briefly hold project files. CI runs the test suite and editing and motion
   journeys on Windows and keeps an unsigned package zip. This is an
   in-development build, not a release, and Ask Omuse does not work on Windows
   yet. Linux behaviour and project formats are unchanged.

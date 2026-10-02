@@ -110,10 +110,13 @@ fn move_no_replace(from: &Path, to: &Path) -> io::Result<()> {
     unsafe extern "system" {
         fn MoveFileExW(existing: *const u16, new: *const u16, flags: u32) -> i32;
     }
+    use std::time::{Duration, Instant};
     const MOVEFILE_WRITE_THROUGH: u32 = 0x8;
-    const RETRIES: u32 = 40;
+    // Antivirus, indexing and sync clients such as OneDrive open files in a
+    // package while scanning or uploading it, which blocks moving its folder.
+    const BUDGET: Duration = Duration::from_secs(10);
     fn wide(path: &Path) -> io::Result<Vec<u16>> {
-        let mut units: Vec<u16> = path.as_os_str().encode_wide().collect();
+        let mut units: Vec<u16> = win32_path(path).as_os_str().encode_wide().collect();
         if units.contains(&0) {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
@@ -124,7 +127,8 @@ fn move_no_replace(from: &Path, to: &Path) -> io::Result<()> {
         Ok(units)
     }
     let (from, to) = (wide(from)?, wide(to)?);
-    let mut attempt = 0;
+    let started = Instant::now();
+    let mut delay = Duration::from_millis(25);
     loop {
         // SAFETY: both NUL-terminated buffers outlive the call and are not
         // retained. Without MOVEFILE_REPLACE_EXISTING an existing `to` fails.
@@ -132,15 +136,55 @@ fn move_no_replace(from: &Path, to: &Path) -> io::Result<()> {
             return Ok(());
         }
         let error = io::Error::last_os_error();
-        // Antivirus and indexing services briefly open files in new packages:
-        // retry access-denied and sharing violations for about one second.
-        if attempt < RETRIES && matches!(error.raw_os_error(), Some(5 | 32)) {
-            attempt += 1;
-            std::thread::sleep(std::time::Duration::from_millis(25));
+        // Retry access-denied, sharing and lock violations with backoff.
+        if started.elapsed() < BUDGET && matches!(error.raw_os_error(), Some(5 | 32 | 33)) {
+            std::thread::sleep(delay);
+            delay = (delay * 2).min(Duration::from_millis(500));
             continue;
         }
         return Err(error);
     }
+}
+
+/// The form of `path` to pass to Win32 calls. Rust's standard library adds the
+/// `\\?\` prefix to long paths itself; direct calls need it too unless the
+/// system enables long paths. Short paths are returned unchanged.
+#[cfg(windows)]
+pub fn win32_path(path: &Path) -> std::path::PathBuf {
+    use std::{
+        ffi::OsString,
+        path::{Component, Prefix},
+    };
+    // CreateDirectoryW's limit, the smallest of the classic MAX_PATH limits.
+    const LIMIT: usize = 248;
+    if path.as_os_str().len() < LIMIT {
+        return path.to_owned();
+    }
+    let Ok(absolute) = std::path::absolute(path) else {
+        return path.to_owned();
+    };
+    let prefixed = match absolute.components().next() {
+        Some(Component::Prefix(prefix)) => match prefix.kind() {
+            Prefix::Disk(_) => {
+                let mut value = OsString::from(r"\\?\");
+                value.push(absolute.as_os_str());
+                value
+            }
+            Prefix::UNC(..) => {
+                // \\server\share\rest becomes \\?\UNC\server\share\rest.
+                let text = absolute.to_string_lossy();
+                match text.strip_prefix(r"\\") {
+                    Some(rest) if absolute.to_str().is_some() => {
+                        OsString::from(format!(r"\\?\UNC\{rest}"))
+                    }
+                    _ => return absolute,
+                }
+            }
+            _ => return absolute,
+        },
+        _ => return absolute,
+    };
+    prefixed.into()
 }
 
 #[cfg(test)]
@@ -191,6 +235,72 @@ mod tests {
         assert_eq!(fs::read(stage.join("manifest.json")).unwrap(), b"old");
         let names: Vec<_> = fs::read_dir(temp.path()).unwrap().collect();
         assert_eq!(names.len(), 2, "no hidden previous package remains");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn win32_path_prefixes_only_long_paths() {
+        let short = Path::new(r"C:\Art\Project.omuse");
+        assert_eq!(win32_path(short), short);
+        let long = format!(r"C:\{}\Project.omuse", "folder\\".repeat(40));
+        let converted = win32_path(Path::new(&long));
+        let converted = converted.to_str().unwrap();
+        assert!(converted.starts_with(r"\\?\C:\folder\folder"));
+        // Verbatim paths are not normalized by Windows, so separators must be.
+        assert!(!converted[4..].contains(r"\\"));
+        let unc = format!(r"\\server\share\{}\Project.omuse", "folder\\".repeat(40));
+        assert!(
+            win32_path(Path::new(&unc))
+                .to_str()
+                .unwrap()
+                .starts_with(r"\\?\UNC\server\share\folder")
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn packages_publish_and_exchange_beyond_max_path() {
+        let temp = tempfile::tempdir().unwrap();
+        let mut deep = temp.path().to_path_buf();
+        while deep.as_os_str().len() < 300 {
+            deep.push("a-deep-folder-for-long-paths");
+        }
+        fs::create_dir_all(&deep).unwrap();
+        let (stage, target) = (deep.join("stage"), deep.join("Art.omuse"));
+        fs::create_dir(&stage).unwrap();
+        fs::write(stage.join("manifest.json"), b"first").unwrap();
+        rename_no_replace(&stage, &target).unwrap();
+        fs::create_dir(&stage).unwrap();
+        fs::write(stage.join("manifest.json"), b"second").unwrap();
+        exchange_dirs(&stage, &target).unwrap();
+        assert_eq!(fs::read(target.join("manifest.json")).unwrap(), b"second");
+    }
+
+    /// A sync client or scanner holding a file inside the package blocks the
+    /// folder move until it closes; publication must wait rather than fail.
+    #[cfg(windows)]
+    #[test]
+    fn exchange_dirs_waits_for_a_briefly_held_file() {
+        use std::os::windows::fs::OpenOptionsExt;
+        let temp = tempfile::tempdir().unwrap();
+        let (stage, target) = (temp.path().join("stage"), temp.path().join("Art.omuse"));
+        fs::create_dir(&stage).unwrap();
+        fs::create_dir(&target).unwrap();
+        fs::write(stage.join("manifest.json"), b"new").unwrap();
+        fs::write(target.join("manifest.json"), b"old").unwrap();
+        // Share read and write but not delete, as an uploading client may.
+        let held = fs::OpenOptions::new()
+            .read(true)
+            .share_mode(0x1 | 0x2)
+            .open(target.join("manifest.json"))
+            .unwrap();
+        let release = std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(1500));
+            drop(held);
+        });
+        exchange_dirs(&stage, &target).unwrap();
+        release.join().unwrap();
+        assert_eq!(fs::read(target.join("manifest.json")).unwrap(), b"new");
     }
 
     #[cfg(windows)]

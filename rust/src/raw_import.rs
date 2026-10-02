@@ -330,7 +330,10 @@ fn develop_bitmap(path: &Path, s: &DevelopSettings, bits: i32) -> Result<image::
     #[cfg(windows)]
     let name = {
         use std::os::windows::ffi::OsStrExt;
-        let mut wide: Vec<u16> = path.as_os_str().encode_wide().collect();
+        let mut wide: Vec<u16> = crate::durable_fs::win32_path(path)
+            .as_os_str()
+            .encode_wide()
+            .collect();
         ensure!(!wide.contains(&0), "RAW path contains NUL");
         wide.push(0);
         wide

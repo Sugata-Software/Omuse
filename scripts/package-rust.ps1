@@ -73,6 +73,9 @@ Requirements
   Redistributable (x64): https://aka.ms/vs/17/release/vc_redist.x64.exe
 - MP4 and GIF export need FFmpeg on PATH, for example: winget install Gyan.FFmpeg
 
+Camera RAW uses LibRaw with libjpeg-turbo and zlib. This software is based in
+part on the work of the Independent JPEG Group. Licences are in the licenses folder.
+
 Settings are stored in %APPDATA%\omuse; data and recovery in %LOCALAPPDATA%\omuse.
 This build is unsigned and is not a release, so Windows SmartScreen may warn
 before the first run. Ask Omuse is not available on Windows yet.
@@ -90,7 +93,19 @@ In a terminal, pipe command-line modes so the shell waits for them:
     [IO.File]::WriteAllText((Join-Path $root 'SHA256SUMS'), (($sums -join "`n") + "`n"))
 
     if (Test-Path -LiteralPath $Output) { Remove-Item -LiteralPath $Output -Force }
-    Compress-Archive -Path $root -DestinationPath $Output -CompressionLevel Optimal
+    # Write standard forward-slash entry names; Windows PowerShell's
+    # Compress-Archive writes backslashes, which other unzip tools mishandle.
+    Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
+    $zip = [IO.Compression.ZipFile]::Open($Output, [IO.Compression.ZipArchiveMode]::Create)
+    try {
+        $top = Split-Path -Leaf $root
+        foreach ($file in Get-ChildItem -LiteralPath $root -Recurse -File | Sort-Object FullName) {
+            $entry = $top + '/' + $file.FullName.Substring($root.Length + 1).Replace('\', '/')
+            [void] [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $file.FullName, $entry, [IO.Compression.CompressionLevel]::Optimal)
+        }
+    } finally {
+        $zip.Dispose()
+    }
 } finally {
     Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
 }

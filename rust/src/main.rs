@@ -52,6 +52,19 @@ fn attach_parent_console() {
     }
 }
 
+/// Windows has no Omarchy palette: follow its light or dark app setting with
+/// gpui-omarchy's built-in themes. Artwork colours are unaffected.
+#[cfg(windows)]
+fn apply_windows_theme(appearance: gpui_kit::WindowAppearance, cx: &mut gpui_kit::App) {
+    use gpui_kit::WindowAppearance::{Dark, Light, VibrantDark, VibrantLight};
+    let theme = match appearance {
+        Dark | VibrantDark => gpui_omarchy::Theme::tokyo_night(),
+        Light | VibrantLight => gpui_omarchy::Theme::flexoki_light(),
+    };
+    theme.apply(cx);
+    cx.refresh_windows();
+}
+
 fn main() {
     #[cfg(windows)]
     attach_parent_console();
@@ -169,6 +182,8 @@ fn main() {
         .with_assets(studio_icons::StudioAssets)
         .run(move |cx| {
             gpui_omarchy::init(cx);
+            #[cfg(windows)]
+            apply_windows_theme(cx.window_appearance(), cx);
             ui::bind_keys(cx);
             let options = WindowOptions {
                 titlebar: Some(TitlebarOptions {
@@ -185,6 +200,12 @@ fn main() {
                 ..Default::default()
             };
             match cx.open_window(options, |window, cx| {
+                #[cfg(windows)]
+                window
+                    .observe_window_appearance(|window, cx| {
+                        apply_windows_theme(window.appearance(), cx)
+                    })
+                    .detach();
                 cx.new(|cx| {
                     startup::StartupView::new(path.clone(), native_journey.clone(), window, cx)
                 })
