@@ -662,6 +662,31 @@ pub struct MotionProgress {
     pub page_index: usize,
 }
 
+const FFMPEG_EXECUTABLE: &str = if cfg!(windows) {
+    "ffmpeg.exe"
+} else {
+    "ffmpeg"
+};
+const FFPROBE_EXECUTABLE: &str = if cfg!(windows) {
+    "ffprobe.exe"
+} else {
+    "ffprobe"
+};
+
+/// Start an FFmpeg tool. On Windows this keeps the GUI from opening a console
+/// window for each encode or probe.
+fn tool_command(program: impl AsRef<std::ffi::OsStr>) -> Command {
+    #[cfg_attr(not(windows), allow(unused_mut))]
+    let mut command = Command::new(program);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+    command
+}
+
 #[derive(Clone, Debug)]
 pub struct Ffmpeg {
     executable: PathBuf,
@@ -673,7 +698,7 @@ impl Ffmpeg {
         let path =
             env::var_os("PATH").context("PATH is unavailable; FFmpeg cannot be discovered")?;
         for directory in env::split_paths(&path) {
-            let candidate = directory.join("ffmpeg");
+            let candidate = directory.join(FFMPEG_EXECUTABLE);
             if candidate.exists()
                 && let Ok(ffmpeg) = Self::from_path(&candidate)
             {
@@ -690,7 +715,7 @@ impl Ffmpeg {
             .with_context(|| format!("Cannot resolve FFmpeg at {}", path.display()))?;
         let metadata = fs::metadata(&canonical)?;
         ensure!(metadata.is_file(), "FFmpeg path is not a regular file");
-        let output = Command::new(&canonical)
+        let output = tool_command(&canonical)
             .arg("-version")
             .stdin(Stdio::null())
             .output()
@@ -711,7 +736,7 @@ impl Ffmpeg {
             "Unexpected FFmpeg executable"
         );
         for (kind, name) in [("encoder", "libx264"), ("encoder", "gif")] {
-            let status = Command::new(&canonical)
+            let status = tool_command(&canonical)
                 .args(["-hide_banner", "-loglevel", "error", "-h"])
                 .arg(format!("{kind}={name}"))
                 .stdin(Stdio::null())
@@ -720,7 +745,7 @@ impl Ffmpeg {
                 .status()?;
             ensure!(status.success(), "FFmpeg lacks the required {name} {kind}");
         }
-        let filters = Command::new(&canonical)
+        let filters = tool_command(&canonical)
             .args(["-hide_banner", "-filters"])
             .stdin(Stdio::null())
             .output()?;
@@ -841,7 +866,7 @@ fn probe_video_clip_with_timeout(
     );
     let path = path.as_ref();
     validate_media_file(path, "video clip")?;
-    let ffprobe = ffmpeg.executable().with_file_name("ffprobe");
+    let ffprobe = ffmpeg.executable().with_file_name(FFPROBE_EXECUTABLE);
     let probe = Ffmpeg::from_companion(&ffprobe, "ffprobe")?;
     check_cancel(cancel)?;
     let output = run_ffprobe_probe(&probe, path, cancel, timeout)?;
@@ -854,7 +879,7 @@ fn run_ffprobe_probe(
     cancel: &AtomicBool,
     timeout: Duration,
 ) -> Result<Vec<u8>> {
-    let mut child = Command::new(probe)
+    let mut child = tool_command(probe)
         .args([
             "-v",
             "error",
@@ -968,7 +993,7 @@ impl Ffmpeg {
             fs::metadata(&canonical)?.is_file(),
             "{name} is not a regular file"
         );
-        let output = Command::new(&canonical)
+        let output = tool_command(&canonical)
             .arg("-version")
             .stdin(Stdio::null())
             .output()?;
@@ -1032,7 +1057,7 @@ pub fn transcode_video_clip(
     fs::create_dir_all(parent)?;
     let temporary = parent.join(format!(".omuse-clip-{}.mp4", uuid::Uuid::new_v4()));
     let result = (|| -> Result<()> {
-        let mut command = Command::new(ffmpeg.executable());
+        let mut command = tool_command(ffmpeg.executable());
         command
             .args(["-hide_banner", "-loglevel", "error", "-ss"])
             .arg(format!("{:.6}", options.source_start_ms as f64 / 1000.0))
@@ -1298,7 +1323,7 @@ pub fn export_motion_with_ffmpeg(
     let burn_subtitles = subtitle_path.is_some()
         && options.subtitle_style.presentation == SubtitlePresentation::BurnIn;
     let result = (|| -> Result<()> {
-        let mut command = Command::new(ffmpeg.executable());
+        let mut command = tool_command(ffmpeg.executable());
         command
             .arg("-hide_banner")
             .arg("-loglevel")

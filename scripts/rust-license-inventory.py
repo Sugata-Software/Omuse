@@ -368,10 +368,17 @@ def source_label(package: dict, package_dir: Path, repo_root: Path) -> str:
 
 
 def validate_locked_override_applicability(
-    packages: dict[str, dict], dependency_ids: list[str], overrides: dict[tuple[str, str], dict]
+    packages: dict[str, dict],
+    dependency_ids: list[str],
+    overrides: dict[tuple[str, str], dict],
+    other_platform_keys: frozenset[tuple[str, str]] = frozenset(),
 ) -> None:
-    """Reject stale or misidentified fallbacks before creating an inventory."""
-    applied: set[tuple[str, str]] = set()
+    """Reject stale or misidentified fallbacks before creating an inventory.
+
+    `other_platform_keys` names locked packages outside this target's graph;
+    their overrides belong to another platform's inventory and are skipped.
+    """
+    applied: set[tuple[str, str]] = set(other_platform_keys & set(overrides))
     for package_id in dependency_ids:
         package = packages[package_id]
         package_dir = Path(package["manifest_path"]).resolve().parent
@@ -423,7 +430,8 @@ def main() -> int:
         "1",
     ]
     try:
-        result = subprocess.run(command, check=True, capture_output=True, text=True)
+        # Cargo writes UTF-8; Windows would otherwise decode with its ANSI code page.
+        result = subprocess.run(command, check=True, capture_output=True, encoding="utf-8")
         metadata = json.loads(result.stdout)
     except (OSError, subprocess.CalledProcessError, json.JSONDecodeError) as error:
         detail = getattr(error, "stderr", None)
@@ -443,7 +451,16 @@ def main() -> int:
         ),
     )
     try:
-        validate_locked_override_applicability(packages, dependency_ids, overrides)
+        # Locked packages outside this target's graph, e.g. Linux backends in a
+        # Windows inventory. Overrides for crates removed from the lock stay errors.
+        lock = tomllib.loads((repo_root / "rust" / "Cargo.lock").read_text(encoding="utf-8"))
+        target_keys = {(package["name"], package["version"]) for package in packages.values()}
+        other_platform_keys = frozenset(
+            (package["name"], package["version"]) for package in lock["package"]
+        ) - target_keys
+        validate_locked_override_applicability(
+            packages, dependency_ids, overrides, other_platform_keys
+        )
     except ValueError as error:
         print(error, file=sys.stderr)
         return 1
@@ -538,7 +555,7 @@ def main() -> int:
                 }
             )
 
-    if set(overrides) != applied_overrides:
+    if set(overrides) - other_platform_keys != applied_overrides:
         print("Dependency license override application changed during inventory generation.", file=sys.stderr)
         return 1
 

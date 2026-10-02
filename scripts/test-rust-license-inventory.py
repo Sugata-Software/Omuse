@@ -23,7 +23,7 @@ OVERRIDE_DIR = ROOT / "rust" / "licenses" / "dependency-overrides"
 class DependencyOverrideTests(unittest.TestCase):
     def test_current_override_manifest_is_hash_verified_and_narrow(self) -> None:
         overrides = INVENTORY.load_overrides(OVERRIDE_DIR)
-        self.assertEqual(len(overrides), 28)
+        self.assertEqual(len(overrides), 29)
         self.assertEqual(
             set(overrides),
             {
@@ -31,6 +31,7 @@ class DependencyOverrideTests(unittest.TestCase):
                 ("accesskit_atspi_common", "0.19.1"),
                 ("accesskit_consumer", "0.38.0"),
                 ("accesskit_unix", "0.22.1"),
+                ("accesskit_windows", "0.34.0"),
                 ("gpu-descriptor", "0.3.2"),
                 ("gpu-descriptor-types", "0.2.0"),
                 ("gpui-kit", "0.6.6"),

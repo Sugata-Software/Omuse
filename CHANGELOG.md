@@ -9,10 +9,13 @@ for numbering, qualification and publication.
 - Build and use the editor on Windows 11 x86_64 from source with
   `scripts/build-rust.ps1`: open, edit, save and reopen canvases and Create
   collections, with settings in `%APPDATA%\omuse`, data and recovery in
-  `%LOCALAPPDATA%\omuse`, and save/recovery locks. CI runs the test suite and
-  editing journeys on Windows. This is an in-development build, not a release:
-  Camera RAW, local subject selection, motion export and Ask Omuse do not work
-  on Windows yet. Linux behaviour and project formats are unchanged.
+  `%LOCALAPPDATA%\omuse`, and save/recovery locks. Camera RAW, local subject
+  selection and MP4/GIF motion export work with `scripts/prepare-rust-assets.ps1`
+  and FFmpeg on `PATH`; `omuse.exe` opens without a console window and needs no
+  Visual C++ Redistributable. CI runs the test suite and editing and motion
+  journeys on Windows and keeps an unsigned package zip. This is an
+  in-development build, not a release, and Ask Omuse does not work on Windows
+  yet. Linux behaviour and project formats are unchanged.
 
 ## [0.7.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.7.0) — 2026-10-02
 

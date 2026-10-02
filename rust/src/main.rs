@@ -1,3 +1,6 @@
+// On Windows, start as a GUI program so opening Omuse shows no console window;
+// command-line modes reattach to the terminal (see `attach_parent_console`).
+#![cfg_attr(all(windows, not(test)), windows_subsystem = "windows")]
 mod adjustment_controls;
 mod camera_canvas;
 mod camera_controls;
@@ -29,7 +32,29 @@ fn init_test_theme(cx: &mut gpui_kit::App) {
     gpui_omarchy::Theme::tokyo_night().apply(cx);
 }
 
+/// A Windows GUI program has no console. When it is started from a terminal
+/// without redirected output, borrow that terminal so `--help`, `--version`
+/// and the command-line modes still print there.
+#[cfg(windows)]
+fn attach_parent_console() {
+    #[link(name = "kernel32")]
+    unsafe extern "system" {
+        fn GetStdHandle(id: u32) -> isize;
+        fn AttachConsole(process_id: u32) -> i32;
+    }
+    const STD_OUTPUT_HANDLE: u32 = -11i32 as u32;
+    const ATTACH_PARENT_PROCESS: u32 = u32::MAX;
+    // SAFETY: plain Win32 calls with no pointer arguments.
+    unsafe {
+        if matches!(GetStdHandle(STD_OUTPUT_HANDLE), 0 | -1) {
+            AttachConsole(ATTACH_PARENT_PROCESS);
+        }
+    }
+}
+
 fn main() {
+    #[cfg(windows)]
+    attach_parent_console();
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.first().map(String::as_str) == Some("--batch") {
         if !(4..=6).contains(&args.len()) {

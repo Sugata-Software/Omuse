@@ -40,6 +40,11 @@
           "licenseExpression": "MIT OR Apache-2.0",
           "name": "accesskit_unix",
           "version": "0.22.1"
+        },
+        {
+          "licenseExpression": "MIT OR Apache-2.0",
+          "name": "accesskit_windows",
+          "version": "0.34.0"
         }
       ],
       "id": "accesskit-platform",
