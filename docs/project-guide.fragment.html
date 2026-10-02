@@ -1932,8 +1932,8 @@
           "id": "windows-development-build",
           "name": "Windows development build",
           "status": "experimental",
-          "current": "The editor compiles, links and opens its window on Windows 11 x86_64 with MSVC. scripts/build-rust.ps1 builds it; the windows CI job checks all targets, builds the release executable and keeps it as an unsigned 14-day workflow artifact. LittleCMS is compiled from the bundled lcms2-sys source on Windows only.",
-          "boundary": "Not a release target and not qualified. Saving projects and settings, recovery, Camera RAW, local subject selection, motion export and Ask Omuse do not work on Windows yet; directory sync, atomic package replacement, file locks, settings locations and runtime library names still need Windows implementations. Tablet pressure and Omarchy theme following are Linux-only. Linux behaviour and project formats are unchanged.",
+          "current": "The editor opens, edits, saves and reopens canvases and Create collections on Windows 11 x86_64 with MSVC. Settings use %APPDATA%\\omuse; data, recovery and state use %LOCALAPPDATA%\\omuse unless XDG variables are set. Saves flush files and folders, publish without replacing, and use LockFileEx save, recovery and asset-library locks. scripts/build-rust.ps1 builds it; the windows CI job runs the test suite, the editing self-test and the Create/template catalog journeys, then keeps the unsigned executable as a 14-day workflow artifact.",
+          "boundary": "Not a release target and not qualified. Locally on Windows 11 Pro the full suite passed with --test-threads=1, as did the editing self-test, Create acceptance (without motion) and all 80 template variants. Windows has no atomic directory exchange: replacing a project moves the previous package to a hidden sibling between two renames. Camera RAW, local subject selection, motion export and Ask Omuse do not work on Windows yet. Tablet pressure and Omarchy theme following are Linux-only. No physical tablet, mixed-DPI or multi-monitor checks. Linux behaviour and project formats are unchanged.",
           "evidence": [
             "rust/README.md",
             "rust/vendor/README.md",
@@ -1944,7 +1944,11 @@
             "rust/Cargo.toml",
             "rust/src/color_management.rs",
             "rust/src/recent_projects.rs",
-            "rust/src/segmentation.rs"
+            "rust/src/segmentation.rs",
+            "rust/src/durable_fs.rs",
+            "rust/src/identity.rs",
+            "rust/src/recovery.rs",
+            "rust/src/save_guard.rs"
           ]
         }
       ]

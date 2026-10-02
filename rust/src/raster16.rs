@@ -145,8 +145,7 @@ pub fn export16_cancellable(
         output.sync_all()?;
         check_cancel(cancel)?;
         std::fs::rename(&temporary, path).context("Publishing 16-bit export")?;
-        std::fs::File::open(parent)?
-            .sync_all()
+        crate::durable_fs::sync_path(parent)
             .context("16-bit export published; directory sync failed")?;
         Ok(())
     })();

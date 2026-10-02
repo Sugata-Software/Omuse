@@ -443,7 +443,7 @@ impl Shortcuts {
             file.write_all(b"\n")?;
             file.sync_all()?;
             std::fs::rename(&temp, path)?;
-            std::fs::File::open(parent)?.sync_all()?;
+            omuse::durable_fs::sync_path(parent)?;
             Ok(())
         })();
         if result.is_err() {

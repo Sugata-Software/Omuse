@@ -9,8 +9,7 @@ use anyhow::{Context, Result, bail, ensure};
 use image::{Rgba, RgbaImage};
 use serde::{Deserialize, Serialize};
 use std::{
-    env,
-    fs::{self, File},
+    env, fs,
     io::{Read, Write},
     path::{Path, PathBuf},
     process::{Command, Stdio},
@@ -1093,16 +1092,15 @@ pub fn transcode_video_clip(
             String::from_utf8_lossy(&stderr).trim()
         );
         check_cancel(cancel)?;
-        let output = File::open(&temporary)?;
         ensure!(
-            output.metadata()?.len() > 0,
+            fs::metadata(&temporary)?.len() > 0,
             "FFmpeg produced an empty clip"
         );
-        output.sync_all()?;
+        crate::durable_fs::sync_path(&temporary)?;
         fs::hard_link(&temporary, destination)
             .context("Publishing clip without replacing an existing file")?;
         let _ = fs::remove_file(&temporary);
-        let _ = File::open(parent).and_then(|directory| directory.sync_all());
+        let _ = crate::durable_fs::sync_path(parent);
         Ok(())
     })();
     let _ = fs::remove_file(&temporary);
@@ -1176,11 +1174,11 @@ pub fn split_video_clip(
             cancel,
         )?;
         check_cancel(cancel)?;
-        File::open(&before)?.sync_all()?;
-        File::open(&after)?.sync_all()?;
-        File::open(&stage)?.sync_all()?;
+        crate::durable_fs::sync_path(&before)?;
+        crate::durable_fs::sync_path(&after)?;
+        crate::durable_fs::sync_path(&stage)?;
         publish_new_directory(&stage, destination)?;
-        let _ = File::open(parent).and_then(|directory| directory.sync_all());
+        let _ = crate::durable_fs::sync_path(parent);
         Ok(())
     })();
     if result.is_err() {
@@ -1442,13 +1440,15 @@ pub fn export_motion_with_ffmpeg(
             String::from_utf8_lossy(&stderr).trim()
         );
         check_cancel(cancel)?;
-        let file = File::open(&temporary)?;
-        ensure!(file.metadata()?.len() > 0, "FFmpeg produced an empty file");
-        file.sync_all()?;
+        ensure!(
+            fs::metadata(&temporary)?.len() > 0,
+            "FFmpeg produced an empty file"
+        );
+        crate::durable_fs::sync_path(&temporary)?;
         fs::hard_link(&temporary, destination)
             .context("Publishing motion export without replacing an existing file")?;
         let _ = fs::remove_file(&temporary);
-        let _ = File::open(parent).and_then(|directory| directory.sync_all());
+        let _ = crate::durable_fs::sync_path(parent);
         Ok(())
     })();
     let _ = fs::remove_file(&temporary);

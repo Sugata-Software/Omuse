@@ -175,9 +175,9 @@ jobs:
           path: ${{ runner.temp }}/omuse-notices
 
   windows:
-    name: Windows build and type check
+    name: Windows build, tests and journey
     runs-on: windows-2025
-    timeout-minutes: 60
+    timeout-minutes: 90
     env:
       CARGO_BUILD_JOBS: '4'
       CARGO_INCREMENTAL: '0'
@@ -203,15 +203,52 @@ jobs:
           restore-keys: |
             omuse-windows-2025-rust-1.98.0-
 
-      - name: Check all Rust targets with the UI test surface
+      - name: Create disposable XDG directories
+        run: |
+          foreach ($name in 'data', 'config', 'cache', 'state') {
+            New-Item -ItemType Directory -Force (Join-Path $env:RUNNER_TEMP "omuse-tests/$name") | Out-Null
+          }
+
+      - name: Run the Rust tests with the UI test surface
+        env:
+          XDG_DATA_HOME: ${{ runner.temp }}/omuse-tests/data
+          XDG_CONFIG_HOME: ${{ runner.temp }}/omuse-tests/config
+          XDG_CACHE_HOME: ${{ runner.temp }}/omuse-tests/cache
+          XDG_STATE_HOME: ${{ runner.temp }}/omuse-tests/state
         run: >-
-          cargo check
+          cargo test
           --manifest-path rust/Cargo.toml
           --release
           --locked
-          --all-targets
           --features ui-test
           --jobs $env:CARGO_BUILD_JOBS
+          -- --test-threads=1
+
+      - name: Run the editing self-test journey
+        env:
+          XDG_DATA_HOME: ${{ runner.temp }}/omuse-tests/data
+          XDG_CONFIG_HOME: ${{ runner.temp }}/omuse-tests/config
+          XDG_CACHE_HOME: ${{ runner.temp }}/omuse-tests/cache
+          XDG_STATE_HOME: ${{ runner.temp }}/omuse-tests/state
+        run: >-
+          cargo run
+          --manifest-path rust/Cargo.toml
+          --release
+          --locked
+          --features ui-test
+          --jobs $env:CARGO_BUILD_JOBS
+          -- --self-test "$env:RUNNER_TEMP/omuse-tests/journey"
+
+      - name: Run the Create and template catalog journeys
+        env:
+          XDG_DATA_HOME: ${{ runner.temp }}/omuse-tests/data
+          XDG_CONFIG_HOME: ${{ runner.temp }}/omuse-tests/config
+          XDG_CACHE_HOME: ${{ runner.temp }}/omuse-tests/cache
+          XDG_STATE_HOME: ${{ runner.temp }}/omuse-tests/state
+        run: |
+          cargo run --manifest-path rust/Cargo.toml --release --locked --jobs $env:CARGO_BUILD_JOBS --example create_acceptance -- "$env:RUNNER_TEMP/omuse-tests/create-journey"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo run --manifest-path rust/Cargo.toml --release --locked --jobs $env:CARGO_BUILD_JOBS --example catalog_acceptance -- "$env:RUNNER_TEMP/omuse-tests/template-catalog"
 
       - name: Build the Windows editor
         run: ./scripts/build-rust.ps1

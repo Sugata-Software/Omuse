@@ -270,8 +270,7 @@ impl PublishedExport {
     }
 
     pub fn finish(self) -> Result<PathBuf> {
-        fs::File::open(&self.parent)
-            .and_then(|directory| directory.sync_all())
+        crate::durable_fs::sync_path(&self.parent)
             .context("Cannot finish publishing editable SVG")?;
         Ok(self.destination.clone())
     }

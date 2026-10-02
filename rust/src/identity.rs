@@ -33,22 +33,32 @@ fn env_var_os_with(name: &str, mut get: impl FnMut(&str) -> Option<OsString>) ->
     })
 }
 
-fn home_child(variable: &str, fallback: &str) -> PathBuf {
-    std::env::var_os(variable)
-        .filter(|value| !value.is_empty())
+/// The user's home directory: `HOME`, or `USERPROFILE` on Windows.
+pub fn home_dir() -> Option<PathBuf> {
+    non_empty_var("HOME")
+        .or_else(|| non_empty_var("USERPROFILE").filter(|_| cfg!(windows)))
         .map(PathBuf::from)
-        .or_else(|| {
-            std::env::var_os("HOME")
-                .filter(|value| !value.is_empty())
-                .map(|home| PathBuf::from(home).join(fallback))
-        })
+}
+
+fn non_empty_var(name: &str) -> Option<OsString> {
+    std::env::var_os(name).filter(|value| !value.is_empty())
+}
+
+/// An XDG override wins on every platform. Windows has no XDG defaults, so
+/// it uses `windows_folder`: `APPDATA` for settings that roam with the
+/// profile, `LOCALAPPDATA` for data, recovery and state kept on this machine.
+fn home_child(variable: &str, fallback: &str, windows_folder: &str) -> PathBuf {
+    non_empty_var(variable)
+        .or_else(|| non_empty_var(windows_folder).filter(|_| cfg!(windows)))
+        .map(PathBuf::from)
+        .or_else(|| home_dir().map(|home| home.join(fallback)))
         .unwrap_or_else(std::env::temp_dir)
 }
 
 pub fn config_dir() -> PathBuf {
-    let config_home = home_child("XDG_CONFIG_HOME", ".config");
+    let config_home = home_child("XDG_CONFIG_HOME", ".config", "APPDATA");
     if !cfg!(test) {
-        let state_home = home_child("XDG_STATE_HOME", ".local/state");
+        let state_home = home_child("XDG_STATE_HOME", ".local/state", "LOCALAPPDATA");
         let _ = migrate_config_files(&config_home, &state_home);
     }
     config_home.join(APP_ID)
@@ -60,11 +70,11 @@ pub fn config_file_path(name: &str) -> PathBuf {
 }
 
 pub fn data_dir() -> PathBuf {
-    home_child("XDG_DATA_HOME", ".local/share").join(APP_ID)
+    home_child("XDG_DATA_HOME", ".local/share", "LOCALAPPDATA").join(APP_ID)
 }
 
 pub fn legacy_data_dir() -> PathBuf {
-    home_child("XDG_DATA_HOME", ".local/share").join(LEGACY_APP_ID)
+    home_child("XDG_DATA_HOME", ".local/share", "LOCALAPPDATA").join(LEGACY_APP_ID)
 }
 
 fn is_file_name(name: &str) -> bool {
@@ -145,7 +155,7 @@ fn copy_file_once(source: &Path, destination: &Path, limit: u64) -> io::Result<(
             Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {}
             Err(error) => return Err(error),
         }
-        File::open(parent)?.sync_all()
+        crate::durable_fs::sync_path(parent)
     })();
     let _ = fs::remove_file(&temp);
     result
@@ -166,7 +176,7 @@ fn publish_marker(marker: &Path) -> io::Result<()> {
             Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {}
             Err(error) => return Err(error),
         }
-        File::open(parent)?.sync_all()
+        crate::durable_fs::sync_path(parent)
     })();
     let _ = fs::remove_file(temp);
     result

@@ -1329,8 +1329,7 @@ impl EditorView {
             return;
         }
         self.finish_interaction(cx);
-        let dir = std::env::var_os("HOME")
-            .map(PathBuf::from)
+        let dir = omuse::identity::home_dir()
             .unwrap_or_default()
             .join("Pictures");
         let task = cx.prompt_for_new_path(&dir, Some("Omuse content pack"));

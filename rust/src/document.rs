@@ -1362,7 +1362,7 @@ where
                 .join("images")
                 .join(format!("{}.png", canonical_id(&layer.id)?));
             image.save_with_format(&file, ImageFormat::Png)?;
-            File::open(file)?.sync_all()?;
+            crate::durable_fs::sync_path(file)?;
         }
         if let Some(mask) = &layer.mask {
             let file = stage
@@ -1372,7 +1372,7 @@ where
             DynamicImage::ImageRgba8(mask.to_image())
                 .into_luma8()
                 .save_with_format(&file, ImageFormat::Png)?;
-            File::open(file)?.sync_all()?;
+            crate::durable_fs::sync_path(file)?;
         }
     }
     let mut file = OpenOptions::new()
@@ -1381,8 +1381,10 @@ where
         .open(stage.0.join("manifest.json"))?;
     file.write_all(manifest)?;
     file.sync_all()?;
-    File::open(stage.0.join("images"))?.sync_all()?;
-    File::open(&stage.0)?.sync_all()?;
+    // Windows cannot move a directory while a file inside it is open.
+    drop(file);
+    crate::durable_fs::sync_path(stage.0.join("images"))?;
+    crate::durable_fs::sync_path(&stage.0)?;
     before_publish().context("Save was rejected before publishing the staged project")?;
     if destination.exists() {
         exchange(&stage.0, &destination)?;
@@ -1391,7 +1393,7 @@ where
     }
     // A sync failure after successful exchange cannot honestly be reported as "not
     // saved"; the complete new package is already visible. Best-effort durability.
-    let _ = File::open(parent).and_then(|file| file.sync_all());
+    let _ = crate::durable_fs::sync_path(parent);
     Ok(())
 }
 
@@ -1427,13 +1429,13 @@ fn rename_new(from: &Path, to: &Path) -> Result<()> {
     rename_flags(from, to, 1)
 }
 #[cfg(not(target_os = "linux"))]
-fn exchange(_: &Path, _: &Path) -> Result<()> {
-    anyhow::bail!("Atomic package replacement is only implemented on Linux")
+fn exchange(from: &Path, to: &Path) -> Result<()> {
+    crate::durable_fs::exchange_dirs(from, to)
+        .context("Project replacement failed; original retained")
 }
 #[cfg(not(target_os = "linux"))]
 fn rename_new(from: &Path, to: &Path) -> Result<()> {
-    fs::rename(from, to)?;
-    Ok(())
+    crate::durable_fs::rename_no_replace(from, to).context("Publishing the saved project")
 }
 
 #[cfg(test)]

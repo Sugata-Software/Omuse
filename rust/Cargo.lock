@@ -4689,6 +4689,7 @@ version = "0.7.0"
 dependencies = [
  "anyhow",
  "cosmic-text",
+ "dunce",
  "flate2",
  "gpui-kit",
  "gpui-omarchy",

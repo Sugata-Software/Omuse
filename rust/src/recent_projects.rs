@@ -64,6 +64,10 @@ impl RecentProjects {
         let path = path
             .canonicalize()
             .context("The recent project is no longer available")?;
+        // Windows canonical paths carry a `\\?\` prefix; list the familiar
+        // form whenever it names the same folder.
+        #[cfg(windows)]
+        let path = dunce::simplified(&path).to_path_buf();
         ensure!(
             path.is_dir()
                 && (path.join("manifest.json").is_file() || path.join("project.json").is_file()),
@@ -111,7 +115,7 @@ impl RecentProjects {
             file.write_all(&bytes)?;
             file.sync_all()?;
             fs::rename(&temporary, path)?;
-            fs::File::open(parent)?.sync_all()?;
+            crate::durable_fs::sync_path(parent)?;
             Ok(())
         })();
         let _ = fs::remove_file(temporary);
@@ -149,6 +153,15 @@ fn decode_path(bytes: Vec<u8>) -> Result<PathBuf> {
 mod tests {
     use super::*;
 
+    /// The form `note` records: canonical, without Windows' `\\?\` prefix, so
+    /// temporary folders reached through short or linked names still match.
+    fn recorded(path: &Path) -> PathBuf {
+        let path = path.canonicalize().unwrap();
+        #[cfg(windows)]
+        let path = dunce::simplified(&path).to_path_buf();
+        path
+    }
+
     /// Linux names may be arbitrary bytes; Windows names are Unicode.
     fn unusual_project_name() -> std::ffi::OsString {
         #[cfg(unix)]
@@ -177,6 +190,7 @@ mod tests {
         let legacy = temp.path().join(unusual_project_name());
         fs::create_dir(&legacy).unwrap();
         fs::write(legacy.join("manifest.json"), "{}").unwrap();
+        let legacy = recorded(&legacy);
         history.note(&legacy).unwrap();
         history.note(&legacy.join(".")).unwrap();
         assert_eq!(history.paths.iter().filter(|p| **p == legacy).count(), 1);

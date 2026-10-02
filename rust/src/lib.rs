@@ -55,6 +55,7 @@ pub mod create;
 pub mod create_history;
 pub mod create_project;
 pub mod creative_commands;
+pub mod durable_fs;
 pub mod identity;
 pub mod image_trace;
 pub mod image_trace_layer;

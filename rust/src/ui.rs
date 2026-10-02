@@ -2224,8 +2224,7 @@ impl EditorView {
             })
             .detach();
         } else {
-            let dir = std::env::var_os("HOME")
-                .map(PathBuf::from)
+            let dir = omuse::identity::home_dir()
                 .unwrap_or_else(|| PathBuf::from("/tmp"))
                 .join("Pictures");
             let name = if mode == Dialog::Export {
@@ -2279,8 +2278,7 @@ impl EditorView {
                 }
             })
             .unwrap_or_else(|| {
-                std::env::var_os("HOME")
-                    .map(PathBuf::from)
+                omuse::identity::home_dir()
                     .unwrap_or_default()
                     .join("Pictures")
                     .join(if export {

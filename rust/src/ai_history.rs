@@ -335,10 +335,10 @@ impl HistoryStore {
         // Copies and their directory entries must be durable before an index
         // can reference them. Large file copying stays outside the lock.
         if !stored_assets.is_empty() {
-            File::open(self.root.join("assets"))?.sync_all()?;
+            crate::durable_fs::sync_path(self.root.join("assets"))?;
         }
         if !stored_context.is_empty() {
-            File::open(self.root.join("context"))?.sync_all()?;
+            crate::durable_fs::sync_path(self.root.join("context"))?;
         }
         let _lock = lock_history(&self.root)?;
         let mut entries = read_valid_entries(&self.root)?;
@@ -737,7 +737,7 @@ fn write_index_with_sync(
     }
     let mut file = options.open(&temporary)?;
     let result = (|| -> Result<IndexPublication> {
-        let directory = File::open(root)?;
+        let directory = crate::durable_fs::open_for_sync(root)?;
         file.write_all(&bytes)?;
         file.sync_all()?;
         fs::rename(&temporary, root.join("history.json"))?;

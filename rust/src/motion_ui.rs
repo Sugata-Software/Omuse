@@ -1755,8 +1755,7 @@ impl EditorView {
             MotionFormat::Mp4 => "mp4",
             MotionFormat::Gif => "gif",
         };
-        let directory = std::env::var_os("HOME")
-            .map(PathBuf::from)
+        let directory = omuse::identity::home_dir()
             .unwrap_or_default()
             .join("Videos");
         let task = cx.prompt_for_new_path(&directory, Some(&format!("Omuse motion.{extension}")));
@@ -1838,8 +1837,7 @@ impl EditorView {
         if self.create.job.is_some() {
             return;
         }
-        let directory = std::env::var_os("HOME")
-            .map(PathBuf::from)
+        let directory = omuse::identity::home_dir()
             .unwrap_or_default()
             .join("Videos");
         let task = cx.prompt_for_new_path(&directory, Some("Omuse prepared clip.mp4"));
@@ -1860,8 +1858,7 @@ impl EditorView {
         if self.create.job.is_some() {
             return;
         }
-        let directory = std::env::var_os("HOME")
-            .map(PathBuf::from)
+        let directory = omuse::identity::home_dir()
             .unwrap_or_default()
             .join("Videos");
         let task = cx.prompt_for_new_path(&directory, Some("Omuse split clips"));

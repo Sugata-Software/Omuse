@@ -349,7 +349,7 @@ impl ExportPackageWriter {
         })?;
         self.stage = None;
         if let Some(parent) = self.destination.parent() {
-            let _ = File::open(parent).and_then(|directory| directory.sync_all());
+            let _ = crate::durable_fs::sync_path(parent);
         }
         Ok(ExportPackageResult {
             path: self.destination.clone(),
@@ -451,7 +451,7 @@ pub fn export_pdf(
         write_pdf_from_spools(&temporary, &spools, cancel)?;
         check_cancel(cancel)?;
         publish_file_new(&temporary, &destination)?;
-        let _ = File::open(parent).and_then(|directory| directory.sync_all());
+        let _ = crate::durable_fs::sync_path(parent);
         Ok(())
     })();
     let _ = fs::remove_dir_all(&stage);
@@ -724,16 +724,16 @@ fn write_json_atomic(path: &Path, value: &impl Serialize) -> Result<()> {
 
 fn sync_package(stage: &Path) -> Result<()> {
     for entry in fs::read_dir(stage.join("images"))? {
-        File::open(entry?.path())?.sync_all()?;
+        crate::durable_fs::sync_path(entry?.path())?;
     }
-    File::open(stage.join("images"))?.sync_all()?;
+    crate::durable_fs::sync_path(stage.join("images"))?;
     for name in ["manifest.json", "content.json"] {
-        File::open(stage.join(name))?.sync_all()?;
+        crate::durable_fs::sync_path(stage.join(name))?;
     }
     if stage.join("pages.pdf").exists() {
-        File::open(stage.join("pages.pdf"))?.sync_all()?;
+        crate::durable_fs::sync_path(stage.join("pages.pdf"))?;
     }
-    File::open(stage)?.sync_all()?;
+    crate::durable_fs::sync_path(stage)?;
     Ok(())
 }
 
@@ -768,9 +768,7 @@ fn rename_new(from: &Path, to: &Path) -> Result<()> {
 
 #[cfg(not(target_os = "linux"))]
 fn rename_new(from: &Path, to: &Path) -> Result<()> {
-    ensure!(!to.exists(), "export destination already exists");
-    fs::rename(from, to)?;
-    Ok(())
+    crate::durable_fs::rename_no_replace(from, to).context("Publishing export package")
 }
 
 #[cfg(test)]

@@ -50,8 +50,9 @@ impl Shared {
     }
 }
 
-/// Holding this descriptor holds a Linux flock, including against another open
-/// descriptor in the same process. The lock releases automatically on crash/reboot.
+/// Holding this descriptor holds a Linux flock (a `LockFileEx` lock on Windows),
+/// including against another open descriptor in the same process. The lock
+/// releases automatically on crash/reboot.
 struct Ownership {
     _file: File,
 }
@@ -92,12 +93,27 @@ impl Ownership {
             }
         }
     }
+    /// Windows `LockFileEx` locks are per handle as well, so a second handle in
+    /// the same process is refused, and they are released when the process ends.
     #[cfg(not(target_os = "linux"))]
-    fn acquire(_: &Path) -> io::Result<Option<Self>> {
-        Err(io::Error::new(
-            io::ErrorKind::Unsupported,
-            "Recovery ownership requires Linux advisory locks",
-        ))
+    fn acquire(path: &Path) -> io::Result<Option<Self>> {
+        let file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(path)?;
+        if !file.metadata()?.is_file() {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "Recovery lock is not a regular file",
+            ));
+        }
+        match file.try_lock() {
+            Ok(()) => Ok(Some(Self { _file: file })),
+            Err(fs::TryLockError::WouldBlock) => Ok(None),
+            Err(fs::TryLockError::Error(error)) => Err(error),
+        }
     }
 }
 
@@ -441,7 +457,7 @@ fn save_snapshot(snapshot: RecoverySnapshot, shared: &Shared, path: &Path) -> an
     exchange_recovery(&prepared, path)?;
     // Publication has succeeded; match the package writers' best-effort
     // parent sync rather than reporting a completed exchange as an old save.
-    let _ = File::open(parent).and_then(|directory| directory.sync_all());
+    let _ = omuse::durable_fs::sync_path(parent);
     Ok(())
 }
 
@@ -470,8 +486,10 @@ fn exchange_recovery(from: &Path, to: &Path) -> anyhow::Result<()> {
 }
 
 #[cfg(not(target_os = "linux"))]
-fn exchange_recovery(_: &Path, _: &Path) -> anyhow::Result<()> {
-    anyhow::bail!("Atomic recovery format conversion is only implemented on Linux")
+fn exchange_recovery(from: &Path, to: &Path) -> anyhow::Result<()> {
+    use anyhow::Context;
+    omuse::durable_fs::exchange_dirs(from, to)
+        .context("Recovery format conversion failed; previous recovery retained")
 }
 
 fn writer(shared: &Shared, path: &Path) {
@@ -535,7 +553,7 @@ fn writer(shared: &Shared, path: &Path) {
                     // Persist the directory entry removal before acknowledging a
                     // discard, so a reboot cannot restore an older recovery name.
                     path.parent()
-                        .map_or(Ok(()), |parent| File::open(parent)?.sync_all())
+                        .map_or(Ok(()), |parent| omuse::durable_fs::sync_path(parent))
                 });
                 let mut state = shared.lock();
                 if let Err(error) = result {

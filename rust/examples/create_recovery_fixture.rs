@@ -21,7 +21,7 @@ use serde_json::json;
 use std::{
     collections::BTreeMap,
     env,
-    fs::{self, File, OpenOptions},
+    fs::{self, OpenOptions},
     io::{Cursor, Write},
     path::Path,
     thread,
@@ -452,9 +452,9 @@ fn verify_package(path: &Path) -> Result<ProjectEvidence> {
 fn write_marker(root: &Path, value: serde_json::Value) -> Result<()> {
     let temporary = root.join("phase.json.tmp");
     fs::write(&temporary, serde_json::to_vec(&value)?)?;
-    File::open(&temporary)?.sync_all()?;
+    omuse::durable_fs::sync_path(&temporary)?;
     fs::rename(temporary, root.join("phase.json"))?;
-    File::open(root)?.sync_all()?;
+    omuse::durable_fs::sync_path(root)?;
     Ok(())
 }
 
