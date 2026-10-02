@@ -18,6 +18,9 @@ small independent reference suite retained for compatibility tests.
   tested source revision locally; the first installation takes longer than an update.
 - For development, install the documented Linux libraries and FFmpeg, then run
   `scripts/build-rust.sh` and `scripts/test-rust.sh`.
+- A Windows build is in development. Changes must keep the `windows` CI job
+  passing; put platform-specific code behind `cfg` attributes and leave Linux
+  behaviour unchanged. See [Build on Windows](rust/README.md#build-on-windows-in-development).
 - Use a branch and submit a focused pull request to `main`. Describe the user
   problem, resulting behaviour, validation and any remaining limitation.
 - Add user-visible changes to **Unreleased** in [CHANGELOG.md](CHANGELOG.md).

@@ -6,6 +6,7 @@ on:
     paths:
       - 'rust/**'
       - 'scripts/build-rust.sh'
+      - 'scripts/build-rust.ps1'
       - 'scripts/prepare-rust-assets.sh'
       - 'scripts/install-rust.sh'
       - 'install.sh'
@@ -29,6 +30,7 @@ on:
     paths:
       - 'rust/**'
       - 'scripts/build-rust.sh'
+      - 'scripts/build-rust.ps1'
       - 'scripts/prepare-rust-assets.sh'
       - 'scripts/install-rust.sh'
       - 'install.sh'
@@ -171,3 +173,53 @@ jobs:
         with:
           name: omuse-dependency-notices
           path: ${{ runner.temp }}/omuse-notices
+
+  windows:
+    name: Windows build and type check
+    runs-on: windows-2025
+    timeout-minutes: 60
+    env:
+      CARGO_BUILD_JOBS: '4'
+      CARGO_INCREMENTAL: '0'
+      RUST_BACKTRACE: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Install the exercised Rust toolchain
+        run: |
+          rustup toolchain install 1.98.0 --profile minimal --component rustfmt
+          rustup default 1.98.0
+          rustc --version --verbose
+          cargo --version
+
+      - name: Cache locked Cargo inputs and build outputs
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+          key: omuse-windows-2025-rust-1.98.0-${{ hashFiles('rust/Cargo.lock') }}
+          restore-keys: |
+            omuse-windows-2025-rust-1.98.0-
+
+      - name: Check all Rust targets with the UI test surface
+        run: >-
+          cargo check
+          --manifest-path rust/Cargo.toml
+          --release
+          --locked
+          --all-targets
+          --features ui-test
+          --jobs $env:CARGO_BUILD_JOBS
+
+      - name: Build the Windows editor
+        run: ./scripts/build-rust.ps1
+
+      - name: Retain the unsigned Windows development build
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: omuse-windows-x86_64-unsigned
+          path: rust/target/release/omuse.exe
+          if-no-files-found: error
+          retention-days: 14

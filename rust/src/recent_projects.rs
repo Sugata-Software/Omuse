@@ -1,11 +1,11 @@
 //! A bounded project history. Linux paths are stored losslessly, including names
-//! that are not UTF-8. No document contents or provider information are recorded.
+//! that are not UTF-8; Windows paths are stored as UTF-8 and must be valid
+//! Unicode. No document contents or provider information are recorded.
 use anyhow::{Context, Result, ensure};
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
     io::{Read, Write},
-    os::unix::ffi::{OsStrExt, OsStringExt},
     path::{Path, PathBuf},
 };
 
@@ -51,7 +51,7 @@ impl RecentProjects {
                 bytes.len() <= 4096 && !bytes.contains(&0),
                 "Invalid recent-project path"
             );
-            let path = PathBuf::from(std::ffi::OsString::from_vec(bytes));
+            let path = decode_path(bytes)?;
             ensure!(path.is_absolute(), "Recent-project paths must be absolute");
             if !result.paths.contains(&path) {
                 result.paths.push(path);
@@ -69,6 +69,7 @@ impl RecentProjects {
                 && (path.join("manifest.json").is_file() || path.join("project.json").is_file()),
             "Recent entry is not a project"
         );
+        encode_path(&path)?;
         self.paths.retain(|p| p != &path);
         self.paths.insert(0, path);
         self.paths.truncate(LIMIT);
@@ -90,8 +91,8 @@ impl RecentProjects {
             paths: self
                 .paths
                 .iter()
-                .map(|p| p.as_os_str().as_bytes().to_vec())
-                .collect(),
+                .map(|p| encode_path(p))
+                .collect::<Result<_>>()?,
         })?;
         ensure!(
             bytes.len() as u64 <= MAX_FILE,
@@ -99,12 +100,14 @@ impl RecentProjects {
         );
         let temporary = parent.join(format!(".recent-{}.tmp", uuid::Uuid::new_v4()));
         let result = (|| -> Result<()> {
-            use std::os::unix::fs::OpenOptionsExt;
-            let mut file = fs::OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .mode(0o600)
-                .open(&temporary)?;
+            let mut options = fs::OpenOptions::new();
+            options.write(true).create_new(true);
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::OpenOptionsExt;
+                options.mode(0o600);
+            }
+            let mut file = options.open(&temporary)?;
             file.write_all(&bytes)?;
             file.sync_all()?;
             fs::rename(&temporary, path)?;
@@ -116,9 +119,49 @@ impl RecentProjects {
     }
 }
 
+#[cfg(unix)]
+fn encode_path(path: &Path) -> Result<Vec<u8>> {
+    use std::os::unix::ffi::OsStrExt;
+    Ok(path.as_os_str().as_bytes().to_vec())
+}
+
+#[cfg(unix)]
+fn decode_path(bytes: Vec<u8>) -> Result<PathBuf> {
+    use std::os::unix::ffi::OsStringExt;
+    Ok(PathBuf::from(std::ffi::OsString::from_vec(bytes)))
+}
+
+#[cfg(not(unix))]
+fn encode_path(path: &Path) -> Result<Vec<u8>> {
+    let text = path
+        .to_str()
+        .context("Recent-project paths must be valid Unicode")?;
+    Ok(text.as_bytes().to_vec())
+}
+
+#[cfg(not(unix))]
+fn decode_path(bytes: Vec<u8>) -> Result<PathBuf> {
+    let text = String::from_utf8(bytes).context("Invalid recent-project path")?;
+    Ok(PathBuf::from(text))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Linux names may be arbitrary bytes; Windows names are Unicode.
+    fn unusual_project_name() -> std::ffi::OsString {
+        #[cfg(unix)]
+        {
+            use std::os::unix::ffi::OsStringExt;
+            std::ffi::OsString::from_vec(b"Older-\xff.comp".to_vec())
+        }
+        #[cfg(not(unix))]
+        {
+            "Older-\u{00e9}.comp".into()
+        }
+    }
+
     #[test]
     fn history_deduplicates_prunes_and_roundtrips_non_utf8_paths() {
         let temp = tempfile::tempdir().unwrap();
@@ -131,9 +174,7 @@ mod tests {
         }
         assert_eq!(history.paths.len(), 10);
         assert_eq!(history.paths[0].file_name().unwrap(), "11.omuse");
-        let legacy = temp
-            .path()
-            .join(std::ffi::OsString::from_vec(b"Older-\xff.comp".to_vec()));
+        let legacy = temp.path().join(unusual_project_name());
         fs::create_dir(&legacy).unwrap();
         fs::write(legacy.join("manifest.json"), "{}").unwrap();
         history.note(&legacy).unwrap();

@@ -33,6 +33,32 @@ tree contains one application and one development toolchain.
 
 For an offline installation of an already built candidate, see [the runtime bundle instructions](../docs/rust-bundle.md). Bundle qualification is specific to an executable and this Omarchy/Arch x86_64 host; it does not establish compatibility with every Linux distribution. The [rename checkpoint](../docs/omuse-rename.md) records verification of the Omuse identity.
 
+## Build on Windows (in development)
+
+Windows support is being brought up in stages and is not a release target.
+The editor compiles, links and opens its window on Windows 11 x86_64. Saving
+projects and settings, recovery, Camera RAW, local subject selection, motion
+export and Ask Omuse do not work there yet. Linux remains the reference
+platform, and Omarchy theme following has no Windows equivalent; the window
+uses the built-in Tokyo Night theme.
+
+Install [Rust with rustup](https://rustup.rs) and Visual Studio Build Tools with
+**Desktop development with C++** (MSVC and a Windows SDK). Rustup selects Rust
+1.98.0 from `rust-toolchain.toml`. LittleCMS is compiled from the source bundled
+with the `lcms2-sys` crate, so no other native libraries are needed to build.
+
+From the repository root in PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\build-rust.ps1
+rust\target\release\omuse.exe
+```
+
+The `windows` job in `.github/workflows/rust-validation.yml` checks all
+targets, builds the editor and keeps the unsigned executable as a 14-day
+workflow artifact. Put platform differences behind `cfg` attributes so Linux
+behaviour and file formats stay unchanged.
+
 ## Omarchy integration
 
 The application uses [gpui-omarchy](https://github.com/huacnlee/gpui-omarchy) directly for themed controls and surfaces. `gpui_omarchy::init` loads the current theme and installs the upstream theme watcher. Buttons, text inputs, the shared color picker, focus behavior, and application colors use this common theme source.

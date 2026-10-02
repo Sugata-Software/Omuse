@@ -39,6 +39,13 @@ buffer until it closes; this patch bounds callback work, not transfer lifetime.
 Two trailing-space-only lines in `gpui-pre/src/_accessibility.rs` documentation
 were trimmed for the repository whitespace check; this does not change code.
 
+`gpui-pre/resources/windows/gpui.rc` and `gpui.manifest.xml` are restored
+unchanged from the published 0.3.6 crate (crates.io SHA-256
+`a0437c0b83e636a92bd1a39fa1d05fb632ae671289537497b35871ffbe231b84`). GPUI's
+build script embeds them only when compiling for Windows. The tablet and
+clipboard backend patches above are Linux-only; Windows builds use the
+published `gpui-pre-windows` backend without them.
+
 The app-level tests in `tablet_ui.rs` exercise pressure, proximity-out history,
 and ordinary toolbar activation with synthetic events. The Linux client has a
 separate pure frame-priority/pressure-normalization unit test. Neither replaces
