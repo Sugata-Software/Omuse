@@ -9,6 +9,11 @@ use std::ptr;
 use std::sync::{Mutex, OnceLock};
 
 const SIDE: u32 = 320;
+const RUNTIME_LIBRARY: &str = if cfg!(windows) {
+    "lib/onnxruntime.dll"
+} else {
+    "lib/libonnxruntime.so"
+};
 static ENGINE: OnceLock<std::result::Result<Mutex<Engine>, String>> = OnceLock::new();
 
 /// Return an 8-bit mask at the source dimensions, white over the detected subject.
@@ -46,7 +51,7 @@ unsafe impl Send for Engine {}
 
 impl Engine {
     fn load() -> Result<Self> {
-        let runtime = asset_path("OMUSE_ONNX_RUNTIME", "lib/libonnxruntime.so")?;
+        let runtime = asset_path("OMUSE_ONNX_RUNTIME", RUNTIME_LIBRARY)?;
         let model = asset_path("OMUSE_SUBJECT_MODEL", "models/u2netp.onnx")?;
         ensure!(
             runtime.is_file(),

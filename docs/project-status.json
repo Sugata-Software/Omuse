@@ -1735,12 +1735,13 @@
           "id": "windows-development-build",
           "name": "Windows development build",
           "status": "experimental",
-          "current": "The editor opens, edits, saves and reopens canvases and Create collections on Windows 11 x86_64 with MSVC. Settings use %APPDATA%\\omuse; data, recovery and state use %LOCALAPPDATA%\\omuse unless XDG variables are set. Saves flush files and folders, publish without replacing, and use LockFileEx save, recovery and asset-library locks. scripts/build-rust.ps1 builds it; the windows CI job runs the test suite, the editing self-test and the Create/template catalog journeys, then keeps the unsigned executable as a 14-day workflow artifact.",
-          "boundary": "Not a release target and not qualified. Locally on Windows 11 Pro the full suite passed with --test-threads=1, as did the editing self-test, Create acceptance (without motion) and all 80 template variants. Windows has no atomic directory exchange: replacing a project moves the previous package to a hidden sibling between two renames. Camera RAW, local subject selection, motion export and Ask Omuse do not work on Windows yet. Tablet pressure and Omarchy theme following are Linux-only. No physical tablet, mixed-DPI or multi-monitor checks. Linux behaviour and project formats are unchanged.",
+          "current": "The editor opens, edits, saves and reopens canvases and Create collections on Windows 11 x86_64 with MSVC, develops Camera RAW through LibRaw, selects subjects with local ONNX Runtime inference and exports MP4/GIF motion through FFmpeg on PATH. Settings use %APPDATA%\\omuse; data, recovery and state use %LOCALAPPDATA%\\omuse unless XDG variables are set. omuse.exe is a GUI-subsystem program with a static C runtime. scripts/prepare-rust-assets.ps1 fetches the pinned model and ONNX Runtime and builds LibRaw; scripts/package-rust.ps1 creates a zip with runtime assets, notices and a Windows dependency inventory. The windows CI job runs the test suite and the editing, Create, template catalog and motion journeys, then keeps the unsigned zip as a 14-day workflow artifact.",
+          "boundary": "Not a release target and not qualified. On Windows 11 Pro the full suite passed with --test-threads=1 including real u2netp inference; the self-test, Create acceptance with motion, media acceptance, all 80 template variants and a Nikon D90 NEF photo journey (also from a Unicode path) passed, and the packaged build selected a subject in the native window. Windows has no atomic directory exchange: replacing a project moves the previous package to a hidden sibling between two renames. Subject selection needs the Visual C++ 2015-2022 Redistributable for Microsoft's onnxruntime.dll; FFmpeg is not bundled. The zip is unsigned and four Windows dependency notice findings remain open. Ask Omuse, tablet pressure and Omarchy theme following are not available on Windows. No physical tablet, mixed-DPI, multi-monitor or clean-machine checks. Linux behaviour and project formats are unchanged.",
           "evidence": [
             "rust/README.md",
             "rust/vendor/README.md",
-            ".github/workflows/rust-validation.yml"
+            ".github/workflows/rust-validation.yml",
+            "docs/rust-license-findings.md"
           ],
           "modules": [
             "scripts/build-rust.ps1",
@@ -1751,7 +1752,12 @@
             "rust/src/durable_fs.rs",
             "rust/src/identity.rs",
             "rust/src/recovery.rs",
-            "rust/src/save_guard.rs"
+            "rust/src/save_guard.rs",
+            "scripts/prepare-rust-assets.ps1",
+            "scripts/package-rust.ps1",
+            "rust/src/raw_import.rs",
+            "rust/src/motion.rs",
+            ".cargo/config.toml"
           ]
         }
       ]

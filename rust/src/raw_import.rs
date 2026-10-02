@@ -2,7 +2,7 @@ use anyhow::{Context, Result, ensure};
 use image::{Rgba, RgbaImage};
 use libloading::Library;
 use std::{
-    ffi::{CStr, CString, c_char, c_void},
+    ffi::{CStr, c_char, c_void},
     path::{Path, PathBuf},
     ptr::NonNull,
 };
@@ -68,7 +68,11 @@ struct Processed {
     data: [u8; 1],
 }
 type Init = unsafe extern "C" fn(u32) -> *mut c_void;
+#[cfg(not(windows))]
 type Open = unsafe extern "C" fn(*mut c_void, *const c_char) -> i32;
+/// `libraw_open_wfile` takes a UTF-16 `wchar_t` path on Windows.
+#[cfg(windows)]
+type Open = unsafe extern "C" fn(*mut c_void, *const u16) -> i32;
 type One = unsafe extern "C" fn(*mut c_void) -> i32;
 type Close = unsafe extern "C" fn(*mut c_void);
 type SetI = unsafe extern "C" fn(*mut c_void, i32);
@@ -115,7 +119,10 @@ impl Api {
             }
             Ok(Self {
                 init: s!("libraw_init", Init),
+                #[cfg(not(windows))]
                 open: s!("libraw_open_file", Open),
+                #[cfg(windows)]
+                open: s!("libraw_open_wfile", Open),
                 unpack: s!("libraw_unpack", One),
                 process: s!("libraw_dcraw_process", One),
                 close: s!("libraw_close", Close),
@@ -149,16 +156,21 @@ impl Api {
         anyhow::bail!("{step}: {text} ({n})")
     }
 }
+const LIBRARY_NAME: &str = if cfg!(windows) {
+    "libraw.dll"
+} else {
+    "libraw.so"
+};
 fn library_path() -> Result<PathBuf> {
     if let Some(v) = crate::identity::env_var_os("OMUSE_LIBRAW") {
         let p = PathBuf::from(v);
-        return Ok(if p.is_dir() { p.join("libraw.so") } else { p });
+        return Ok(if p.is_dir() { p.join(LIBRARY_NAME) } else { p });
     }
     let e = std::env::current_exe()?;
     Ok(e.parent()
         .context("executable has no parent")?
         .join("lib")
-        .join("libraw.so"))
+        .join(LIBRARY_NAME))
 }
 pub fn matches(path: &Path) -> bool {
     path.extension().and_then(|x| x.to_str()).is_some_and(|x| {
@@ -314,9 +326,15 @@ fn develop_bitmap(path: &Path, s: &DevelopSettings, bits: i32) -> Result<image::
     #[cfg(unix)]
     use std::os::unix::ffi::OsStrExt;
     #[cfg(unix)]
-    let name = CString::new(path.as_os_str().as_bytes())?;
-    #[cfg(not(unix))]
-    let name = CString::new(path.to_string_lossy().as_bytes())?;
+    let name = std::ffi::CString::new(path.as_os_str().as_bytes())?;
+    #[cfg(windows)]
+    let name = {
+        use std::os::windows::ffi::OsStrExt;
+        let mut wide: Vec<u16> = path.as_os_str().encode_wide().collect();
+        ensure!(!wide.contains(&0), "RAW path contains NUL");
+        wide.push(0);
+        wide
+    };
     a.check(
         unsafe { (a.open)(raw.p.as_ptr(), name.as_ptr()) },
         "open RAW",

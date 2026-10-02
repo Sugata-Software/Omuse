@@ -37,10 +37,11 @@ For an offline installation of an already built candidate, see [the runtime bund
 
 Windows support is being brought up in stages and is not a release target.
 On Windows 11 x86_64 the editor opens, edits, saves and reopens canvases and
-Create collections, keeps settings and shortcuts, and runs recovery. Camera
-RAW, local subject selection, motion export and Ask Omuse do not work there
-yet. Linux remains the reference platform, and Omarchy theme following has no
-Windows equivalent; the window uses the built-in Tokyo Night theme.
+Create collections, keeps settings and shortcuts, runs recovery, develops
+Camera RAW, selects subjects locally and exports MP4/GIF motion. Ask Omuse does
+not work there yet. Linux remains the reference platform, and Omarchy theme
+following has no Windows equivalent; the window uses the built-in Tokyo Night
+theme. Tablet pressure is Linux-only.
 
 Settings are stored in `%APPDATA%\omuse`; data, recovery and state are in
 `%LOCALAPPDATA%\omuse`. Set the `XDG_*` variables to override either, as the
@@ -52,20 +53,46 @@ renames, the previous project is complete under the hidden name.
 Install [Rust with rustup](https://rustup.rs) and Visual Studio Build Tools with
 **Desktop development with C++** (MSVC and a Windows SDK). Rustup selects Rust
 1.98.0 from `rust-toolchain.toml`. LittleCMS is compiled from the source bundled
-with the `lcms2-sys` crate, so no other native libraries are needed to build.
+with the `lcms2-sys` crate, and `.cargo/config.toml` links the C runtime
+statically, so `omuse.exe` needs no Visual C++ Redistributable.
 
 From the repository root in PowerShell:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\build-rust.ps1
+# Optional Camera RAW and subject-selection assets in rust\runtime:
+powershell -ExecutionPolicy Bypass -File scripts\prepare-rust-assets.ps1
 rust\target\release\omuse.exe
 ```
 
-The `windows` job in `.github/workflows/rust-validation.yml` runs the test
-suite, the editing self-test and the Create and template catalog journeys,
-then builds the editor and keeps the unsigned executable as a 14-day workflow
-artifact. Put platform differences behind `cfg` attributes so Linux behaviour
-and file formats stay unchanged.
+`prepare-rust-assets.ps1` downloads the pinned u2netp model and ONNX Runtime
+1.23.2 Windows archive, verifies their SHA-256 digests, and builds LibRaw 0.22.2
+from its pinned source with MSVC and a static C runtime. The editor looks for
+`lib\libraw.dll`, `lib\onnxruntime.dll` and `models\u2netp.onnx` beside the
+executable; `OMUSE_LIBRAW`, `OMUSE_ONNX_RUNTIME` and `OMUSE_SUBJECT_MODEL`
+point a development build at `rust\runtime` instead. Microsoft's
+`onnxruntime.dll` needs the Visual C++ 2015-2022 Redistributable. Motion export
+finds `ffmpeg.exe` and `ffprobe.exe` on `PATH`, for example after
+`winget install Gyan.FFmpeg`.
+
+`omuse.exe` is a Windows GUI program, so opening it shows no console window.
+Command-line modes print to the terminal that started them; pipe them so
+PowerShell waits, for example `rust\target\release\omuse.exe --help | Out-Host`.
+
+To package a committed build with its runtime assets and notices:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\package-rust.ps1 -Binary rust\target\release\omuse.exe
+```
+
+The `windows` job in `.github/workflows/rust-validation.yml` prepares the
+runtime assets, installs pinned FFmpeg 9.0.2, runs the test suite, the editing
+self-test and the Create, template catalog and motion journeys, then keeps the
+unsigned package zip as a 14-day workflow artifact. The package carries a
+Windows dependency inventory; its remaining licence findings are recorded in
+[the dependency notice review](../docs/rust-license-findings.md). Put platform
+differences behind `cfg` attributes so Linux behaviour and file formats stay
+unchanged.
 
 ## Omarchy integration
 

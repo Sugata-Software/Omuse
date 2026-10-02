@@ -1,0 +1,3 @@
+# Legal files are verified byte for byte against pinned SHA-256 digests, so
+# Windows checkouts must not convert their line endings.
+rust/licenses/** -text

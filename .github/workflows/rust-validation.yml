@@ -7,6 +7,10 @@ on:
       - 'rust/**'
       - 'scripts/build-rust.sh'
       - 'scripts/build-rust.ps1'
+      - 'scripts/prepare-rust-assets.ps1'
+      - 'scripts/package-rust.ps1'
+      - '.cargo/config.toml'
+      - '.gitattributes'
       - 'scripts/prepare-rust-assets.sh'
       - 'scripts/install-rust.sh'
       - 'install.sh'
@@ -31,6 +35,10 @@ on:
       - 'rust/**'
       - 'scripts/build-rust.sh'
       - 'scripts/build-rust.ps1'
+      - 'scripts/prepare-rust-assets.ps1'
+      - 'scripts/package-rust.ps1'
+      - '.cargo/config.toml'
+      - '.gitattributes'
       - 'scripts/prepare-rust-assets.sh'
       - 'scripts/install-rust.sh'
       - 'install.sh'
@@ -199,9 +207,28 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             rust/target
-          key: omuse-windows-2025-rust-1.98.0-${{ hashFiles('rust/Cargo.lock') }}
+          key: omuse-windows-2025-rust-1.98.0-${{ hashFiles('rust/Cargo.lock', '.cargo/config.toml') }}
           restore-keys: |
             omuse-windows-2025-rust-1.98.0-
+
+      - name: Cache pinned Windows runtime assets
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: rust/runtime
+          key: omuse-windows-runtime-${{ hashFiles('scripts/prepare-rust-assets.ps1') }}
+
+      - name: Prepare Camera RAW and subject-selection runtime assets
+        run: ./scripts/prepare-rust-assets.ps1
+
+      - name: Install pinned FFmpeg for motion export journeys
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP 'ffmpeg-9.0.2-essentials_build.zip'
+          curl.exe --fail --location --retry 2 --proto '=https' --tlsv1.2 --silent --show-error `
+            https://github.com/GyanD/codexffmpeg/releases/download/9.0.2/ffmpeg-9.0.2-essentials_build.zip --output $archive
+          $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $archive).Hash.ToLowerInvariant()
+          if ($hash -ne '60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba') { throw "FFmpeg checksum mismatch: $hash" }
+          Expand-Archive -LiteralPath $archive -DestinationPath $env:RUNNER_TEMP
+          Join-Path $env:RUNNER_TEMP 'ffmpeg-9.0.2-essentials_build/bin' | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
 
       - name: Create disposable XDG directories
         run: |
@@ -239,24 +266,29 @@ jobs:
           --jobs $env:CARGO_BUILD_JOBS
           -- --self-test "$env:RUNNER_TEMP/omuse-tests/journey"
 
-      - name: Run the Create and template catalog journeys
+      - name: Run the Create, template catalog and motion journeys
         env:
           XDG_DATA_HOME: ${{ runner.temp }}/omuse-tests/data
           XDG_CONFIG_HOME: ${{ runner.temp }}/omuse-tests/config
           XDG_CACHE_HOME: ${{ runner.temp }}/omuse-tests/cache
           XDG_STATE_HOME: ${{ runner.temp }}/omuse-tests/state
         run: |
-          cargo run --manifest-path rust/Cargo.toml --release --locked --jobs $env:CARGO_BUILD_JOBS --example create_acceptance -- "$env:RUNNER_TEMP/omuse-tests/create-journey"
+          cargo run --manifest-path rust/Cargo.toml --release --locked --jobs $env:CARGO_BUILD_JOBS --example create_acceptance -- "$env:RUNNER_TEMP/omuse-tests/create-journey" --motion
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo run --manifest-path rust/Cargo.toml --release --locked --jobs $env:CARGO_BUILD_JOBS --example catalog_acceptance -- "$env:RUNNER_TEMP/omuse-tests/template-catalog"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo run --manifest-path rust/Cargo.toml --release --locked --jobs $env:CARGO_BUILD_JOBS --example media_acceptance -- "$env:RUNNER_TEMP/omuse-tests/media"
 
       - name: Build the Windows editor
         run: ./scripts/build-rust.ps1
 
-      - name: Retain the unsigned Windows development build
+      - name: Package the Windows development build
+        run: ./scripts/package-rust.ps1 -Binary rust/target/release/omuse.exe -Output dist/omuse-windows-x86_64.zip
+
+      - name: Retain the unsigned Windows development package
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: omuse-windows-x86_64-unsigned
-          path: rust/target/release/omuse.exe
+          path: dist/omuse-windows-x86_64.zip
           if-no-files-found: error
           retention-days: 14
