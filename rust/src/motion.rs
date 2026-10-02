@@ -1217,9 +1217,8 @@ fn publish_new_directory(from: &Path, to: &Path) -> Result<()> {
 
 #[cfg(not(target_os = "linux"))]
 fn publish_new_directory(from: &Path, to: &Path) -> Result<()> {
-    ensure!(!to.exists(), "split clip destination already exists");
-    fs::rename(from, to).context("Publishing split clip folder")?;
-    Ok(())
+    crate::durable_fs::rename_no_replace(from, to)
+        .context("Publishing split clips without replacing an existing folder")
 }
 
 /// Discover FFmpeg and export a native motion timeline.
