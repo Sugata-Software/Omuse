@@ -183,7 +183,7 @@ impl AssetLibrary {
                     Err(error) => return Err(error).context("Publishing library asset"),
                 }
                 let _ = fs::remove_file(&temporary);
-                File::open(&self.root.join("assets"))?.sync_all()?;
+                crate::durable_fs::sync_path(&self.root.join("assets"))?;
             }
 
             let name = clean_name(
@@ -375,7 +375,7 @@ impl AssetLibrary {
             fs::rename(&temporary, &metadata)?;
             // The complete index is already visible. A directory fsync error
             // cannot honestly be reported as an uncommitted metadata change.
-            let _ = File::open(&self.root).and_then(|directory| directory.sync_all());
+            let _ = crate::durable_fs::sync_path(&self.root);
             Ok(())
         })();
         if outcome.is_err() {
@@ -471,8 +471,12 @@ fn try_lock(file: &File) -> std::io::Result<bool> {
 }
 
 #[cfg(not(target_os = "linux"))]
-fn try_lock(_: &File) -> std::io::Result<bool> {
-    Ok(true)
+fn try_lock(file: &File) -> std::io::Result<bool> {
+    match file.try_lock() {
+        Ok(()) => Ok(true),
+        Err(std::fs::TryLockError::WouldBlock) => Ok(false),
+        Err(std::fs::TryLockError::Error(error)) => Err(error),
+    }
 }
 
 #[cfg(target_os = "linux")]
@@ -490,8 +494,8 @@ fn unlock(file: &File) -> std::io::Result<()> {
 }
 
 #[cfg(not(target_os = "linux"))]
-fn unlock(_: &File) -> std::io::Result<()> {
-    Ok(())
+fn unlock(file: &File) -> std::io::Result<()> {
+    file.unlock()
 }
 
 fn validate_index(root: &Path, index: &LibraryIndex) -> Result<()> {

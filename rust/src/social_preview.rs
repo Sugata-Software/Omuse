@@ -766,9 +766,12 @@ mod tests {
                 content: "A long headline that needs room".into(),
                 font_name: "Omuse deliberately absent fixture font".into(),
                 font_size: 42.,
+                // Tall enough to show the first line with any host's fallback
+                // font (preflight skips fully transparent layers), yet far
+                // shorter than the wrapped headline.
                 box_size: Some(objects::ObjectSize {
                     width: 80.,
-                    height: 24.,
+                    height: 72.,
                 }),
                 ..Default::default()
             },

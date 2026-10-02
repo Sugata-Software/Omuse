@@ -280,8 +280,7 @@ impl EditorView {
                 return;
             }
         };
-        let directory = std::env::var_os("HOME")
-            .map(PathBuf::from)
+        let directory = omuse::identity::home_dir()
             .unwrap_or_else(|| PathBuf::from("/tmp"))
             .join("Pictures");
         let task = cx.prompt_for_new_path(&directory, Some("Omuse path.svg"));

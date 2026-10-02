@@ -1674,10 +1674,12 @@ where
         .open(stage.0.join("project.json"))?;
     file.write_all(&bytes)?;
     file.sync_all()?;
+    // Windows cannot move a directory while a file inside it is open.
+    drop(file);
     for directory in ["pages", "components", "resources"] {
-        File::open(stage.0.join(directory))?.sync_all()?;
+        crate::durable_fs::sync_path(stage.0.join(directory))?;
     }
-    File::open(&stage.0)?.sync_all()?;
+    crate::durable_fs::sync_path(&stage.0)?;
     before_publish()?;
     source_session.finish()?;
     if destination.exists() {
@@ -1685,7 +1687,7 @@ where
     } else {
         rename_new(&stage.0, &destination)?;
     }
-    let _ = File::open(parent).and_then(|directory| directory.sync_all());
+    let _ = crate::durable_fs::sync_path(parent);
     Ok(())
 }
 
@@ -1743,13 +1745,13 @@ fn rename_new(from: &Path, to: &Path) -> Result<()> {
     rename_flags(from, to, 1)
 }
 #[cfg(not(target_os = "linux"))]
-fn exchange(_: &Path, _: &Path) -> Result<()> {
-    anyhow::bail!("Atomic Create package replacement is only implemented on Linux")
+fn exchange(from: &Path, to: &Path) -> Result<()> {
+    crate::durable_fs::exchange_dirs(from, to)
+        .context("Create project replacement failed; original retained")
 }
 #[cfg(not(target_os = "linux"))]
 fn rename_new(from: &Path, to: &Path) -> Result<()> {
-    fs::rename(from, to)?;
-    Ok(())
+    crate::durable_fs::rename_no_replace(from, to).context("Publishing the saved Create project")
 }
 
 #[cfg(test)]

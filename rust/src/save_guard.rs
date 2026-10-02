@@ -148,6 +148,24 @@ impl SaveGuard {
                 std::thread::sleep(Duration::from_millis(10));
             }
         }
+        #[cfg(not(unix))]
+        {
+            let started = Instant::now();
+            loop {
+                match lock.try_lock() {
+                    Ok(()) => break,
+                    Err(fs::TryLockError::WouldBlock) => {}
+                    Err(fs::TryLockError::Error(error)) => {
+                        anyhow::bail!("Cannot lock the destination: {error}")
+                    }
+                }
+                ensure!(
+                    started.elapsed() < timeout,
+                    "Another Omuse window is saving this project. Try again when it finishes."
+                );
+                std::thread::sleep(Duration::from_millis(10));
+            }
+        }
         Ok(Self { _lock: lock })
     }
     pub fn verify(&self, path: &Path, expected: Option<u64>) -> Result<()> {

@@ -122,7 +122,7 @@ fn marker(root: &Path, value: serde_json::Value) -> Result<()> {
 struct FileSync;
 impl FileSync {
     fn sync(path: &Path) -> Result<()> {
-        fs::File::open(path)?.sync_all()?;
+        omuse::durable_fs::sync_path(path)?;
         Ok(())
     }
 }

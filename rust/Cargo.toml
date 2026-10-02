@@ -26,6 +26,7 @@ roxmltree = "=0.21.1"
 # Windows has no system LittleCMS; compile the crate's bundled copy statically.
 [target.'cfg(windows)'.dependencies]
 lcms2-sys = { version = "=4.0.7", default-features = false, features = ["static"] }
+dunce = "=1.0.5"
 
 [dev-dependencies]
 tempfile = "3"

@@ -132,7 +132,7 @@ impl Recipe {
         drop(file);
         std::fs::hard_link(&staging, path)
             .context("Choose a new recipe filename; existing recipes are preserved")?;
-        std::fs::File::open(parent)?.sync_all()?;
+        crate::durable_fs::sync_path(parent)?;
         Ok(())
     }
     /// Returns a new surface. Source documents are never changed by a recipe.

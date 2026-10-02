@@ -36,11 +36,18 @@ For an offline installation of an already built candidate, see [the runtime bund
 ## Build on Windows (in development)
 
 Windows support is being brought up in stages and is not a release target.
-The editor compiles, links and opens its window on Windows 11 x86_64. Saving
-projects and settings, recovery, Camera RAW, local subject selection, motion
-export and Ask Omuse do not work there yet. Linux remains the reference
-platform, and Omarchy theme following has no Windows equivalent; the window
-uses the built-in Tokyo Night theme.
+On Windows 11 x86_64 the editor opens, edits, saves and reopens canvases and
+Create collections, keeps settings and shortcuts, and runs recovery. Camera
+RAW, local subject selection, motion export and Ask Omuse do not work there
+yet. Linux remains the reference platform, and Omarchy theme following has no
+Windows equivalent; the window uses the built-in Tokyo Night theme.
+
+Settings are stored in `%APPDATA%\omuse`; data, recovery and state are in
+`%LOCALAPPDATA%\omuse`. Set the `XDG_*` variables to override either, as the
+tests do. Windows has no atomic directory exchange, so saving over a project
+first moves the previous package to a hidden `.<name>.previous-<id>` folder
+beside it and then publishes the new one. If Omuse stops between those two
+renames, the previous project is complete under the hidden name.
 
 Install [Rust with rustup](https://rustup.rs) and Visual Studio Build Tools with
 **Desktop development with C++** (MSVC and a Windows SDK). Rustup selects Rust
@@ -54,10 +61,11 @@ powershell -ExecutionPolicy Bypass -File scripts\build-rust.ps1
 rust\target\release\omuse.exe
 ```
 
-The `windows` job in `.github/workflows/rust-validation.yml` checks all
-targets, builds the editor and keeps the unsigned executable as a 14-day
-workflow artifact. Put platform differences behind `cfg` attributes so Linux
-behaviour and file formats stay unchanged.
+The `windows` job in `.github/workflows/rust-validation.yml` runs the test
+suite, the editing self-test and the Create and template catalog journeys,
+then builds the editor and keeps the unsigned executable as a 14-day workflow
+artifact. Put platform differences behind `cfg` attributes so Linux behaviour
+and file formats stay unchanged.
 
 ## Omarchy integration
 

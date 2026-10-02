@@ -51,7 +51,7 @@ impl Preferences {
             file.write_all(&serde_json::to_vec_pretty(self)?)?;
             file.sync_all()?;
             std::fs::rename(&temp, path)?;
-            std::fs::File::open(parent)?.sync_all()?;
+            omuse::durable_fs::sync_path(parent)?;
             Ok(())
         })();
         if result.is_err() {

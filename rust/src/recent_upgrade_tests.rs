@@ -1,6 +1,13 @@
 use super::*;
 use gpui_kit::TestAppContext;
 
+fn recorded_project_path(path: &std::path::Path) -> std::path::PathBuf {
+    let path = path.canonicalize().unwrap();
+    #[cfg(windows)]
+    let path = dunce::simplified(&path).to_path_buf();
+    path
+}
+
 #[gpui_kit::test]
 fn recent_upgrade_persists_canvas_collection_order_and_keyboard_search(cx: &mut TestAppContext) {
     cx.update(crate::init_test_theme);
@@ -11,6 +18,10 @@ fn recent_upgrade_persists_canvas_collection_order_and_keyboard_search(cx: &mut 
     document::save(&Document::new(8, 8), &canvas).unwrap();
     let mut project = omuse::create_project::Project::new("Summer", Document::new(7, 9));
     project.save(&collection).unwrap();
+    // Windows CI may supply an 8.3 temporary path. Keep exercising those input
+    // aliases while expecting history and reopen to use the canonical spelling.
+    let recorded_canvas = recorded_project_path(&canvas);
+    let recorded_collection = recorded_project_path(&collection);
     let store = temp.path().join("recent.json");
     let (view, cx) = cx.add_window_view(|window, cx| {
         let mut v = EditorView::new(None, window, cx);
@@ -26,7 +37,10 @@ fn recent_upgrade_persists_canvas_collection_order_and_keyboard_search(cx: &mut 
     });
     cx.run_until_parked();
     let saved = RecentProjects::load(&store).unwrap();
-    assert_eq!(saved.paths, vec![canvas.clone(), collection.clone()]);
+    assert_eq!(
+        saved.paths,
+        vec![recorded_canvas, recorded_collection.clone()]
+    );
     view.update(cx, |v, cx| {
         v.recent.history = RecentProjects::default();
         v.refresh_recent(cx);
@@ -39,16 +53,16 @@ fn recent_upgrade_persists_canvas_collection_order_and_keyboard_search(cx: &mut 
     cx.update(|_, cx| {
         let v = view.read(cx);
         assert_eq!(v.dialog, Dialog::Recent);
-        assert_eq!(v.recent_results(cx), vec![collection.clone()]);
+        assert_eq!(v.recent_results(cx), vec![recorded_collection.clone()]);
     });
     cx.simulate_keystrokes("enter");
     cx.run_until_parked();
     cx.update(|_, cx| {
         let v = view.read(cx);
-        assert_eq!(v.path.as_ref(), Some(&collection));
+        assert_eq!(v.path.as_ref(), Some(&recorded_collection));
         assert!(v.create.session.is_some());
         assert_eq!(v.dialog, Dialog::None);
-        assert_eq!(v.recent.history.paths.first(), Some(&collection));
+        assert_eq!(v.recent.history.paths.first(), Some(&recorded_collection));
     });
 }
 

@@ -343,7 +343,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!((result.width, result.height), (1, 1));
-        assert!(result.path.starts_with(root.path()));
+        assert!(result.path.starts_with(root.path().canonicalize().unwrap()));
     }
 
     #[test]

@@ -359,7 +359,7 @@ impl LayerState {
             let path = images.join(format!("{id}.{suffix}16.png"));
             image::DynamicImage::ImageRgba16(pixels.to_rgba16())
                 .save_with_format(&path, image::ImageFormat::Png)?;
-            std::fs::File::open(path)?.sync_all()?;
+            crate::durable_fs::sync_path(path)?;
         }
         let recipe = serde_json::to_vec(&self.recipe)?;
         ensure!(
