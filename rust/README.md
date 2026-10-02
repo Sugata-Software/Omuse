@@ -40,8 +40,8 @@ On Windows 11 x86_64 the editor opens, edits, saves and reopens canvases and
 Create collections, keeps settings and shortcuts, runs recovery, develops
 Camera RAW, selects subjects locally and exports MP4/GIF motion. Ask Omuse does
 not work there yet. Linux remains the reference platform; Omarchy theme
-following and tablet pressure are Linux-only.
-
+following and tablet pressure are Linux-only.
+
 On Windows the window follows the system light or dark app setting, using
 gpui-omarchy's Tokyo Night and Flexoki Light themes, and save dialogs start in
 the Pictures or Videos known folder, which may be redirected into OneDrive.
