@@ -28,6 +28,7 @@ roxmltree = "=0.21.1"
 lcms2-sys = { version = "=4.0.7", default-features = false, features = ["static"] }
 dunce = "=1.0.5"
 dirs = "=6.0.0"
+windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_Security", "Win32_Security_Authorization", "Win32_System_Threading"] }
 
 # Windows: embed the application icon and version information (see build.rs).
 [target.'cfg(windows)'.build-dependencies]

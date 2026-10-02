@@ -572,6 +572,12 @@ fn isolated_runtime_home(work_dir: &Path) -> Result<PathBuf, AiError> {
     let source_home = env::var_os("CODEX_HOME")
         .map(PathBuf::from)
         .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".codex")))
+        // Codex keeps its home in %USERPROFILE%\.codex when HOME is unset.
+        .or_else(|| {
+            env::var_os("USERPROFILE")
+                .filter(|_| cfg!(windows))
+                .map(|home| PathBuf::from(home).join(".codex"))
+        })
         .ok_or_else(|| AiError::Protocol("Codex account home is unavailable".into()))?;
     let auth_source = source_home.join("auth.json");
     if !auth_source.is_file() && !cfg!(test) {
@@ -609,10 +615,9 @@ fn set_private_permissions(path: &Path) -> Result<(), AiError> {
 }
 
 #[cfg(not(unix))]
-fn set_private_permissions(_path: &Path) -> Result<(), AiError> {
-    Err(AiError::Protocol(
-        "Codex runtime isolation is not qualified on this platform".into(),
-    ))
+fn set_private_permissions(path: &Path) -> Result<(), AiError> {
+    crate::private_dir::make_private(path)?;
+    Ok(())
 }
 
 #[cfg(unix)]
@@ -621,11 +626,17 @@ fn symlink_file(source: &Path, destination: &Path) -> Result<(), AiError> {
     Ok(())
 }
 
+/// Windows symlinks need Developer Mode or elevation. A hard link shares the
+/// credentials file the same way, so in-place token refreshes reach the
+/// user's own copy; it requires the Codex home and Omuse data on one volume.
 #[cfg(not(unix))]
-fn symlink_file(_source: &Path, _destination: &Path) -> Result<(), AiError> {
-    Err(AiError::Protocol(
-        "Codex runtime isolation is not qualified on this platform".into(),
-    ))
+fn symlink_file(source: &Path, destination: &Path) -> Result<(), AiError> {
+    fs::hard_link(source, destination).map_err(|error| {
+        AiError::Protocol(format!(
+            "Codex credentials could not be linked into the isolated runtime ({error}); \
+             keep the Codex home on the same drive as Omuse data"
+        ))
+    })
 }
 
 #[cfg(unix)]
@@ -634,11 +645,22 @@ fn symlink_directory(source: &Path, destination: &Path) -> Result<(), AiError> {
     Ok(())
 }
 
+/// The image-generation skill is read-only content, so Windows copies it
+/// rather than needing a symlink. Links inside the skill are not followed.
 #[cfg(not(unix))]
-fn symlink_directory(_source: &Path, _destination: &Path) -> Result<(), AiError> {
-    Err(AiError::Protocol(
-        "Codex runtime isolation is not qualified on this platform".into(),
-    ))
+fn symlink_directory(source: &Path, destination: &Path) -> Result<(), AiError> {
+    fs::create_dir(destination)?;
+    for entry in fs::read_dir(source)? {
+        let entry = entry?;
+        let kind = entry.file_type()?;
+        let target = destination.join(entry.file_name());
+        if kind.is_dir() {
+            symlink_directory(&entry.path(), &target)?;
+        } else if kind.is_file() {
+            fs::copy(entry.path(), target)?;
+        }
+    }
+    Ok(())
 }
 
 pub(crate) fn auth_process(
@@ -1143,5 +1165,34 @@ mod tests {
         .unwrap();
         fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
         path
+    }
+}
+
+#[cfg(all(test, windows))]
+mod windows_tests {
+    use super::*;
+
+    #[test]
+    fn isolated_runtime_shares_credentials_and_copies_only_skill_files() {
+        let root = tempfile::tempdir().unwrap();
+        let auth = root.path().join("auth.json");
+        fs::write(&auth, b"{\"tokens\":1}").unwrap();
+        let linked = root.path().join("runtime-auth.json");
+        symlink_file(&auth, &linked).unwrap();
+        // An in-place refresh through the runtime home reaches the original.
+        fs::write(&linked, b"{\"tokens\":2}").unwrap();
+        assert_eq!(fs::read(&auth).unwrap(), b"{\"tokens\":2}");
+
+        let skill = root.path().join("imagegen");
+        fs::create_dir_all(skill.join("scripts")).unwrap();
+        fs::write(skill.join("SKILL.md"), b"skill").unwrap();
+        fs::write(skill.join("scripts/run.py"), b"print()").unwrap();
+        let copy = root.path().join("runtime-skill");
+        symlink_directory(&skill, &copy).unwrap();
+        assert_eq!(fs::read(copy.join("SKILL.md")).unwrap(), b"skill");
+        assert_eq!(fs::read(copy.join("scripts/run.py")).unwrap(), b"print()");
+
+        set_private_permissions(&copy).unwrap();
+        assert!(crate::private_dir::is_private(&copy).unwrap());
     }
 }

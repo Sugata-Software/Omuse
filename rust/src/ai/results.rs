@@ -111,6 +111,14 @@ fn capture_saved_image(
         use std::os::unix::fs::OpenOptionsExt;
         options.custom_flags(0x20000 | 0x80000);
     }
+    // Open a link itself rather than its target (Windows' O_NOFOLLOW), so the
+    // regular-file check below rejects a substituted symlink or junction.
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        const FILE_FLAG_OPEN_REPARSE_POINT: u32 = 0x0020_0000;
+        options.custom_flags(FILE_FLAG_OPEN_REPARSE_POINT);
+    }
     let input = options.open(&source)?;
     let metadata = input.metadata()?;
     if !metadata.is_file() || metadata.len() > limits.max_asset_bytes {

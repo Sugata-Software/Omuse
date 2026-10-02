@@ -79,7 +79,8 @@ part on the work of the Independent JPEG Group. Licences are in the licenses fol
 
 Settings are stored in %APPDATA%\omuse; data and recovery in %LOCALAPPDATA%\omuse.
 This build is unsigned and is not a release, so Windows SmartScreen may warn
-before the first run. Ask Omuse is not available on Windows yet.
+before the first run. Ask Omuse uses Codex or Claude Code when their official
+command-line tools are installed and signed in.
 In a terminal, pipe command-line modes so the shell waits for them:
   .\omuse.exe --help | Out-Host
 '@

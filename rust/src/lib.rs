@@ -62,6 +62,7 @@ pub mod image_trace_layer;
 pub mod motion;
 pub mod multiframe;
 pub mod precision;
+pub mod private_dir;
 pub mod proofing;
 pub mod recent_projects;
 pub mod recipes;
