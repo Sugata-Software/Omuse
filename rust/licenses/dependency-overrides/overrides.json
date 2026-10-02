@@ -162,6 +162,27 @@
     {
       "crateVersionAllowlist": [
         {
+          "licenseExpression": "MIT",
+          "name": "lcms2-sys",
+          "version": "4.0.7"
+        }
+      ],
+      "id": "lcms2-sys-vendor-license",
+      "legalFiles": [
+        {
+          "path": "lcms2-sys-LittleCMS-MIT.txt",
+          "publishedCratePath": "vendor/LICENSE",
+          "publishedCrateSha256": "6dbd60437f8ef91d8de1f08ad75882547fd4931bfcc3566a0735f28db1484d31",
+          "sha256": "6dbd60437f8ef91d8de1f08ad75882547fd4931bfcc3566a0735f28db1484d31",
+          "sourceUrl": "https://github.com/kornelski/rust-lcms2-sys/blob/78a8d8b20c37da2f7be38d2e39d6432fd15aa88d/LICENSE"
+        }
+      ],
+      "sourceRevision": "78a8d8b20c37da2f7be38d2e39d6432fd15aa88d",
+      "sourceUrl": "https://github.com/kornelski/rust-lcms2-sys"
+    },
+    {
+      "crateVersionAllowlist": [
+        {
           "licenseExpression": "MIT OR Apache-2.0",
           "name": "lyon",
           "version": "1.0.19"

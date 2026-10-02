@@ -48,7 +48,8 @@ $root = Join-Path $work "omuse-$short-windows-x86_64"
 try {
     foreach ($name in 'lib', 'models', 'licenses') { New-Item -ItemType Directory -Force (Join-Path $root $name) | Out-Null }
     $inventory = Join-Path $work 'license-inventory'
-    & python (Join-Path $repoRoot 'scripts\rust-license-inventory.py') $inventory --target x86_64-pc-windows-msvc
+    # Inventory the crates this release build compiles, not every optional feature.
+    & python (Join-Path $repoRoot 'scripts\rust-license-inventory.py') $inventory --target x86_64-pc-windows-msvc --release-build
     if ($LASTEXITCODE -ne 0) { throw 'Rust dependency license inventory failed.' }
 
     Copy-Item -LiteralPath $Binary -Destination (Join-Path $root 'omuse.exe')

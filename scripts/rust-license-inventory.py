@@ -32,7 +32,49 @@ def arguments() -> argparse.Namespace:
         default="x86_64-unknown-linux-gnu",
         help="Cargo filter platform (default: %(default)s)",
     )
+    parser.add_argument(
+        "--release-build",
+        action="store_true",
+        help=(
+            "keep only crates that a default-feature release build compiles for the target, "
+            "as packaged; cargo metadata alone also lists optional dependencies that the "
+            "feature resolver never enables"
+        ),
+    )
     return parser.parse_args()
+
+
+def release_build_keys(manifest: Path, target: str) -> set[tuple[str, str]]:
+    """Crates compiled by a default-feature release build for `target`."""
+    result = subprocess.run(
+        [
+            "cargo",
+            "tree",
+            "--manifest-path",
+            str(manifest),
+            "--locked",
+            "--offline",
+            "--target",
+            target,
+            "--edges",
+            "normal,build",
+            "--prefix",
+            "none",
+            "--format",
+            "{p}",
+        ],
+        check=True,
+        capture_output=True,
+        encoding="utf-8",
+    )
+    keys = set()
+    for line in result.stdout.splitlines():
+        match = re.match(r"(\S+) v(\S+)", line)
+        if match:
+            keys.add((match.group(1), match.group(2)))
+    if not keys:
+        raise ValueError("cargo tree reported no compiled crates")
+    return keys
 
 
 def safe_component(value: str) -> str:
@@ -450,11 +492,29 @@ def main() -> int:
             package_id,
         ),
     )
+    if args.release_build:
+        try:
+            compiled = release_build_keys(manifest, args.target)
+        except (OSError, subprocess.CalledProcessError, ValueError) as error:
+            detail = getattr(error, "stderr", None)
+            if detail:
+                print(detail.rstrip(), file=sys.stderr)
+            print(f"Could not resolve the release build graph: {error}", file=sys.stderr)
+            return 1
+        dependency_ids = [
+            package_id
+            for package_id in dependency_ids
+            if (packages[package_id]["name"], packages[package_id]["version"]) in compiled
+        ]
     try:
         # Locked packages outside this target's graph, e.g. Linux backends in a
         # Windows inventory. Overrides for crates removed from the lock stay errors.
         lock = tomllib.loads((repo_root / "rust" / "Cargo.lock").read_text(encoding="utf-8"))
-        target_keys = {(package["name"], package["version"]) for package in packages.values()}
+        target_keys = (
+            {(packages[i]["name"], packages[i]["version"]) for i in dependency_ids}
+            if args.release_build
+            else {(package["name"], package["version"]) for package in packages.values()}
+        )
         other_platform_keys = frozenset(
             (package["name"], package["version"]) for package in lock["package"]
         ) - target_keys
@@ -568,6 +628,10 @@ def main() -> int:
         "packages": records,
         "reviewFindings": review_findings,
     }
+    if args.release_build:
+        inventory["releaseBuildFilter"] = (
+            "cargo tree --locked --offline --target <target> --edges normal,build"
+        )
     (output / "inventory.json").write_text(
         json.dumps(inventory, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )

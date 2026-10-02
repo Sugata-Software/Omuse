@@ -23,7 +23,7 @@ OVERRIDE_DIR = ROOT / "rust" / "licenses" / "dependency-overrides"
 class DependencyOverrideTests(unittest.TestCase):
     def test_current_override_manifest_is_hash_verified_and_narrow(self) -> None:
         overrides = INVENTORY.load_overrides(OVERRIDE_DIR)
-        self.assertEqual(len(overrides), 29)
+        self.assertEqual(len(overrides), 30)
         self.assertEqual(
             set(overrides),
             {
@@ -36,6 +36,7 @@ class DependencyOverrideTests(unittest.TestCase):
                 ("gpu-descriptor-types", "0.2.0"),
                 ("gpui-kit", "0.6.6"),
                 ("harfrust", "0.5.2"),
+                ("lcms2-sys", "4.0.7"),
                 ("lyon", "1.0.19"),
                 ("lyon_algorithms", "1.0.21"),
                 ("lyon_geom", "1.0.19"),
