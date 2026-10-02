@@ -184,7 +184,9 @@ rust/target/release/omuse
 ```
 
 The [Linux development guide](rust/README.md) covers build prerequisites,
-tests and the source map. Start with [CONTRIBUTING.md](CONTRIBUTING.md) for a
+tests and the source map. A Windows build is in development; see
+[Build on Windows](rust/README.md#build-on-windows-in-development) for its
+current limits. Start with [CONTRIBUTING.md](CONTRIBUTING.md) for a
 fix or contribution. Omuse uses Rust and native Linux libraries.
 
 ## Projects and user data

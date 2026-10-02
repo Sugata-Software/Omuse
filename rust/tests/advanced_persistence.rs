@@ -12,12 +12,9 @@ use omuse::{
     vector_path::{Anchor, Point, Subpath, VectorPath},
 };
 use serde_json::json;
-use std::{
-    io::Write,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
 };
 
 fn source16(width: u32, height: u32) -> Rgba16Image {
@@ -502,7 +499,7 @@ fn resize_preserves_exact_advanced_source_and_rejects_shear_atomically() {
 #[cfg(unix)]
 #[test]
 fn malformed_advanced_assets_are_rejected_without_replacing_existing_project() {
-    use std::{fs, os::unix::fs::symlink};
+    use std::{fs, io::Write, os::unix::fs::symlink};
     let directory = tempfile::tempdir().unwrap();
     let assets = directory.path().join("images");
     fs::create_dir(&assets).unwrap();

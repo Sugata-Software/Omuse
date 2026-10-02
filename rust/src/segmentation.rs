@@ -4,8 +4,7 @@ use anyhow::{Context, Result, ensure};
 use image::{GrayImage, Luma, RgbaImage};
 use libloading::Library;
 use std::ffi::{CStr, CString, c_char, c_void};
-use std::os::unix::ffi::OsStrExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::ptr;
 use std::sync::{Mutex, OnceLock};
 
@@ -107,8 +106,7 @@ impl Engine {
             }
             return Err(error);
         }
-        let model_path =
-            CString::new(model.as_os_str().as_bytes()).context("Model path contains NUL")?;
+        let model_path = model_path_argument(&model)?;
         let mut session = ptr::null_mut();
         let created = check(api, unsafe {
             ((*api).CreateSession.context("Missing CreateSession")?)(
@@ -395,6 +393,22 @@ unsafe fn release_env(api: *const ort::OrtApi, value: *mut ort::OrtEnv) {
             unsafe { f(value) }
         }
     }
+}
+
+/// ONNX Runtime takes the model path as bytes on Unix and UTF-16 on Windows.
+#[cfg(unix)]
+fn model_path_argument(model: &Path) -> Result<CString> {
+    use std::os::unix::ffi::OsStrExt;
+    CString::new(model.as_os_str().as_bytes()).context("Model path contains NUL")
+}
+
+#[cfg(windows)]
+fn model_path_argument(model: &Path) -> Result<Vec<u16>> {
+    use std::os::windows::ffi::OsStrExt;
+    let mut wide: Vec<u16> = model.as_os_str().encode_wide().collect();
+    ensure!(!wide.contains(&0), "Model path contains NUL");
+    wide.push(0);
+    Ok(wide)
 }
 
 fn asset_path(variable: &str, relative: &str) -> Result<PathBuf> {

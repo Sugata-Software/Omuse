@@ -149,7 +149,8 @@ fn validate_private_work_dir(_path: &std::path::Path) -> Result<(), AiError> {
     ))
 }
 
-#[cfg(test)]
+// AI job workspaces are qualified only on Unix (see `validate_private_work_dir`).
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
     use crate::ai::types::{JobOperation, ValidatedClient};

@@ -6398,6 +6398,8 @@ mod tests {
         assert!(!workspace.exists());
     }
 
+    // Private AI workspaces rely on Unix permissions.
+    #[cfg(unix)]
     #[gpui_kit::test]
     fn failed_history_keeps_completed_images_alive_through_refinement_preparation(
         cx: &mut TestAppContext,

@@ -572,7 +572,8 @@ fn is_shell_wrapper(path: &Path) -> Result<bool, AiError> {
             .any(|marker| first_line.contains(marker)))
 }
 
-#[cfg(test)]
+// The fixtures are executable shell scripts, so these tests are Unix-only.
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
     use std::{

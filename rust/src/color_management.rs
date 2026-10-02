@@ -128,7 +128,12 @@ pub struct ConvertedImage {
     pub source_profile: Option<SourceProfile>,
 }
 
-#[link(name = "lcms2")]
+// Linux links the system LittleCMS. Windows has no system copy, so the
+// `lcms2-sys` crate compiles its bundled source into the executable.
+#[cfg(windows)]
+use lcms2_sys as _;
+
+#[cfg_attr(not(windows), link(name = "lcms2"))]
 unsafe extern "C" {
     fn cmsOpenProfileFromMem(mem: *const c_void, size: u32) -> *mut c_void;
     fn cmsCreate_sRGBProfile() -> *mut c_void;

@@ -197,7 +197,7 @@
   <script type="application/json" id="omuse-guide-data">
 {
   "schemaVersion": 1,
-  "snapshotDate": "2026-10-01",
+  "snapshotDate": "2026-10-02",
   "project": "Omuse",
   "releaseScope": "Native Rust/GPUI application for Arch/Omarchy Linux x86_64",
   "releaseState": "Omuse 0.7.0 qualified source pre-release: photo/vector editing, image tracing, editable SVG and shared control polish; no public binary is attached and hardware gates remain open",
@@ -1927,6 +1927,25 @@
             "docs/photo-vector-roadmap.md"
           ],
           "modules": []
+        },
+        {
+          "id": "windows-development-build",
+          "name": "Windows development build",
+          "status": "experimental",
+          "current": "The editor compiles, links and opens its window on Windows 11 x86_64 with MSVC. scripts/build-rust.ps1 builds it; the windows CI job checks all targets, builds the release executable and keeps it as an unsigned 14-day workflow artifact. LittleCMS is compiled from the bundled lcms2-sys source on Windows only.",
+          "boundary": "Not a release target and not qualified. Saving projects and settings, recovery, Camera RAW, local subject selection, motion export and Ask Omuse do not work on Windows yet; directory sync, atomic package replacement, file locks, settings locations and runtime library names still need Windows implementations. Tablet pressure and Omarchy theme following are Linux-only. Linux behaviour and project formats are unchanged.",
+          "evidence": [
+            "rust/README.md",
+            "rust/vendor/README.md",
+            ".github/workflows/rust-validation.yml"
+          ],
+          "modules": [
+            "scripts/build-rust.ps1",
+            "rust/Cargo.toml",
+            "rust/src/color_management.rs",
+            "rust/src/recent_projects.rs",
+            "rust/src/segmentation.rs"
+          ]
         }
       ]
     },

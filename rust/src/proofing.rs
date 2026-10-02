@@ -14,7 +14,8 @@ pub struct Settings {
     pub enabled: bool,
 }
 
-#[link(name = "lcms2")]
+// Windows links the bundled LittleCMS through `color_management`.
+#[cfg_attr(not(windows), link(name = "lcms2"))]
 unsafe extern "C" {
     fn cmsOpenProfileFromMem(data: *const c_void, size: u32) -> *mut c_void;
     fn cmsCloseProfile(profile: *mut c_void) -> i32;

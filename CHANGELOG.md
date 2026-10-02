@@ -6,7 +6,11 @@ for numbering, qualification and publication.
 
 ## Unreleased
 
-No additional changes recorded.
+- Build and open the editor on Windows 11 x86_64 from source with
+  `scripts/build-rust.ps1`; CI now checks and builds a Windows target. This is
+  an in-development build, not a release: saving projects and settings,
+  recovery, Camera RAW, local subject selection, motion export and Ask Omuse do
+  not work on Windows yet. Linux behaviour and project formats are unchanged.
 
 ## [0.7.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.7.0) — 2026-10-02
 
