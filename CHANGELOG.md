@@ -13,14 +13,17 @@ for numbering, qualification and publication.
   selection and MP4/GIF motion export work with `scripts/prepare-rust-assets.ps1`
   and FFmpeg on `PATH`, including lossy and deflate-compressed DNG files;
   `omuse.exe` opens without a console window, carries the Omuse icon and needs
-  no Visual C++ Redistributable. The window follows the Windows light or dark
-  app mode, save dialogs start in the Pictures or Videos folder (also when it is
-  redirected into OneDrive), long paths are supported, and saves wait for sync
-  clients and scanners that briefly hold project files. CI runs the test suite and editing and motion
-  journeys on Windows and keeps an unsigned package zip. This is an
+  no Visual C++ Redistributable for the core editor. The optional ONNX subject
+  runtime still needs its documented Visual C++ runtime. The window follows
+  the Windows light or dark app mode, save dialogs start in the Pictures or
+  Videos folder (also when redirected into OneDrive), long paths are supported,
+  and saves wait for sync clients and scanners that briefly hold project files.
+  CI runs the test suite and editing and motion journeys on Windows and keeps
+  an unsigned package zip. This is an
   in-development build, not a release. Ask Omuse runs on Windows with Codex
   (including npm installs) and native Claude Code, using workspaces only the
-  current user can open. Linux behaviour and project formats are unchanged.
+  current user can open. The Windows port uses the same project formats as
+  Linux. Native desktop and live-provider qualification remain separate from CI.
 
 - Prevent Image Trace from panicking at image edges in development builds
   with integer overflow checks enabled.
@@ -32,16 +35,65 @@ for numbering, qualification and publication.
 - Construct filled shapes with Unite, Subtract, Intersect, Exclude and Divide.
   Operations run in the background, preserve Undo and refuse unsupported open
   or stroke-only inputs. Curves become bounded polygonal paths in the result.
-- Import and export multiple editable solid-paint SVG objects with names,
-  organizational groups, supported transforms and object opacity. Main-canvas
-  import appends to existing artwork. Unsupported text, gradients, clipping,
-  group opacity and external resources produce an explicit error.
+- Add editable linear/radial fills with 2–16 colour/alpha stops, geometry,
+  Pad/Repeat/Reflect spread and gradient fitting. Strokes gain butt/round/square
+  caps, miter/round/bevel joins, dash/gap patterns, offsets and miter limits.
+  Controls apply in the shared Layers inspector; variable widths, stroke
+  expansion, pattern and mesh fills remain planned.
+- Import and export multiple SVG objects with supported gradients and stroke
+  settings, names, organizational groups, transforms and object opacity.
+  Main-canvas import appends to existing artwork. SVG text import, clipping,
+  group opacity, paint-server strokes and external resources remain unsupported.
+- Create editable text along a single curve in the Layers inspector, with font,
+  size, tracking, start position, alignment and reverse direction. Retain the
+  source curve, update text from a separately edited curve, or explicitly
+  convert the text to glyph outlines. Saved outlines preserve appearance;
+  subsequent text edits can use available fallback fonts. SVG/PDF export keeps
+  the outlines, not an editable text recipe.
+- Export the active vector artwork or legacy path as a vector PDF at document
+  DPI. The bounded exporter preserves supported paths, transparency and Pad
+  gradients, and refuses Repeat/Reflect rather than changing their appearance.
+  It does not export the complete mixed photo composition, embed editable text,
+  import PDF/AI files, or establish print-ready CMYK output.
 - Find objects with matching fill, stroke or opacity; toggle an outline view
   with Ctrl+Y. Supported simple documents rerender vector editing previews at
   up to 4× resolution within a 16-million-pixel preview budget.
-- Save grouped artwork using canvas format 12. Legacy flat scenes retain
-  format 11; ordinary canvases retain format 10. Omuse 0.7.0 cannot read format
-  12: use Save As to preserve an older copy. This batch is unreleased.
+- Preserve soft selection coverage when making reveal/hide masks, including
+  fractional or rotated layer placement. Imported PSD masks retain their
+  outside coverage. Read Photoshop Levels gamma correctly, distinguish master
+  Hue/Saturation from Colorize and report unsupported selective bands; malformed
+  adjustment/mask records fail explicitly.
+- Read external format-11 UTF-16 font runs alongside colour runs without
+  changing cached artwork on open. Invalid or split-character ranges and
+  overlaps within the same run type are refused. This does not add mixed-style
+  Photoshop text conversion.
+- Add **Hue range** beside RGB distance in Colour range: sampled hue, tolerance,
+  softness, minimum saturation and inversion, with selection, add, subtract,
+  intersect or editable layer-mask output. The saved mask retains pixels;
+  the hue settings are not a persistent mask-generation recipe.
+- Inspect the actual encoded JPEG with **Fit** and **100%** views, drag/arrow
+  panning, quality, DPI and matte controls. Preview stays bounded to 16 MP and
+  does not change the working image.
+- Improve Blur, Smudge and Liquify strokes with fractional footprints and
+  consistent spacing. Smudge carries the evolving paint; Liquify samples the
+  untouched stroke source through accumulated displacement. Work limits reject
+  excessive strokes without committing partial results. These remain raster
+  tools, with broader real-photo quality evaluation still required.
+- Add **Match reference colour** to the editable Filter stack and Precision &
+  colour workspace. Load a bounded raster reference, set Amount and Preserve
+  lightness, and retain the result as a reversible recipe with optional node
+  masking. Alpha-weighted Oklab statistics support 8-bit and retained 16-bit
+  sRGB/Display P3 evaluation; saved recipes keep statistics rather than the
+  reference filename or pixels. This is global palette transfer, not semantic
+  matching, camera calibration or HDR look matching.
+- Save grouped scenes as canvas format **12**, gradients/advanced strokes as
+  **13**, and editable text on curves as **14**. Flat legacy scenes retain
+  format 11; ordinary canvases retain format 10. Formats 12–14 require this
+  unreleased reader. Older releases also cannot read the new reference-match
+  operation; use **Save As** to preserve a compatible original.
+
+These entries describe implemented development work. The numbered public
+release and its completed platform qualification remain unchanged here.
 
 See the [development qualification record](docs/vector-workflow-qualification.md)
 and [workflow instructions](docs/user-guide/photo-vector.md) for the tested scope
