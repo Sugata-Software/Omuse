@@ -1,6 +1,15 @@
 # Public release readiness
 
-**2 October 2026: Omuse 0.7.0 is available through the source installer. Downloadable binaries remain unqualified.**
+**3 October 2026: Omuse 0.7.0 is available through the source installer. The
+0.8.0 candidate is in qualification; permanent downloadable previews are not
+published yet.**
+
+The [0.8.0 qualification record](release-080-qualification.md) tracks photo
+fidelity, gradients and curved text, reference colour matching, selective masks,
+JPEG inspection and native Linux/Windows archives. The new dependency
+replacements close the candidate's missing legal-text findings. That candidate
+still needs its combined tests, native journeys and exact package receipts;
+none of this changes the evidence or files of the published 0.7.0 release.
 
 The current numbered source release is **0.7.0 — Photos and vectors, one studio**.
 Its [release notes](releases/v0.7.0.md), [qualification](release-070-qualification.md)
@@ -117,7 +126,7 @@ to Omuse without declaring a prebuilt binary release qualified.
 | Gate | Current state | Completion evidence |
 | --- | --- | --- |
 | Clean CI build | 0.7.0 runtime `5b3daef`: the [exact-source Rust/installer run](https://github.com/Sugata-Software/Omuse/actions/runs/36910650216) passed. Later runtime changes require their own run | Green Rust workflow for the exact candidate commit, retained artifacts and notice inventory |
-| Dependency legal texts | Two unresolved entries in the locked graph; upstream texts recovered for `seahash` and `simd_helpers` | Resolve `hexf-parse` and `mac` by verifiable upstream terms or tested dependency changes; see the [notice review](rust-license-findings.md) |
+| Dependency legal texts | The 0.8.0 candidate replaces the two registry sources with missing terms; reviewed candidate inventories report zero unresolved findings | Final native package inventories must pass the strict notice gate; see the [notice review](rust-license-findings.md) |
 | Reproducible release identity | The hardening pass records tested source hashes, the production executable, native runs, installation and rollback; a clean public build/archive remains pending | One clean release commit/tag, fresh build, source-to-binary-to-archive hash ledger and reproducible packaging instructions |
 | Clean target installation | Passed only on the development host | Install, launch, upgrade and rollback on a clean supported Arch/Omarchy system |
 | Physical desktop acceptance | Native in-process journeys pass; bounded Cua foreground XWayland input works. The native Omarchy plugin has a package/compiler compatibility mismatch | Real foreground keyboard/pointer, clipboard, file dialogs and at least the supported display/DPI configurations |
@@ -126,9 +135,10 @@ to Omuse without declaring a prebuilt binary release qualified.
 | Public support and security | Contribution and bug-report entry points prepared | Establish a private vulnerability-reporting channel, owner-approved security policy, maintenance scope and triage ownership |
 | Supply-chain review | Locked dependencies and notices inventoried | Dependency vulnerability review, focused review of untrusted imports/provider boundaries, checksums and release attestations/signing decision |
 
-The two missing legal texts are a **binary-distribution gate**. Publishing this
-source repository does not certify the resulting third-party dependency bundle
-for redistribution.
+The historical 0.7.0 dependency graph still has the two missing legal texts;
+its existing receipts are not retroactively changed. Candidate notice inventory
+success applies only to the exact graph inspected, and does not by itself
+qualify a package, establish licence compatibility or certify redistribution.
 
 ## Before calling it stable or portable
 

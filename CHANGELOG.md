@@ -59,7 +59,9 @@ for numbering, qualification and publication.
   with Ctrl+Y. Supported simple documents rerender vector editing previews at
   up to 4× resolution within a 16-million-pixel preview budget.
 - Preserve soft selection coverage when making reveal/hide masks, including
-  fractional or rotated layer placement. Imported PSD masks retain their
+  fractional or rotated layer placement, and when masking editable filters.
+  New group/adjustment masks retain the correct canvas extent without moving
+  their children. Imported PSD masks retain their
   outside coverage. Read Photoshop Levels gamma correctly, distinguish master
   Hue/Saturation from Colorize and report unsupported selective bands; malformed
   adjustment/mask records fail explicitly.
@@ -71,6 +73,8 @@ for numbering, qualification and publication.
   softness, minimum saturation and inversion, with selection, add, subtract,
   intersect or editable layer-mask output. The saved mask retains pixels;
   the hue settings are not a persistent mask-generation recipe.
+  The preview shows the combined selection for Add/Subtract/Intersect and
+  refuses a draft if the underlying selection has changed.
 - Inspect the actual encoded JPEG with **Fit** and **100%** views, drag/arrow
   panning, quality, DPI and matte controls. Preview stays bounded to 16 MP and
   does not change the working image.

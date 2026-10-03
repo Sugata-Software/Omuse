@@ -4506,6 +4506,7 @@ impl Editor {
         metadata_bool(layer, "maskLinked", true);
         remove_metadata(layer, "maskPlacement");
         layer.metadata["maskOutsideCoverage"] = serde_json::json!(outside);
+        normalize_canvas_mask_extent(layer, w, h);
         self.commit(before);
         true
     }
@@ -4636,7 +4637,8 @@ impl Editor {
                 .and_then(serde_json::Value::as_bool)
                 == Some(true)
             && layer.metadata.get("maskPlacement").is_none()
-            && layer.metadata.get("maskSourceID").is_none();
+            && layer.metadata.get("maskSourceID").is_none()
+            && canvas_mask_extent_matches(layer, target_width, target_height);
         if already_explicit {
             return Ok(false);
         }
@@ -4656,6 +4658,7 @@ impl Editor {
         remove_metadata(layer, "maskPlacement");
         remove_metadata(layer, "maskSourceID");
         remove_metadata(layer, "maskOutsideCoverage");
+        normalize_canvas_mask_extent(layer, target_width, target_height);
         self.commit(before);
         Ok(true)
     }
@@ -6195,6 +6198,22 @@ fn source_size(layer: &Layer, document_width: u32, document_height: u32) -> (u32
         .as_ref()
         .map(|i| i.dimensions())
         .unwrap_or((document_width, document_height))
+}
+// Image-less masks are rendered using their retained transform extent. A new
+// canvas-sized mask is projected using the canvas source grid, so an old mask
+// extent must not stretch the replacement. Keep placement, scale and children
+// intact; only the source-grid dimensions change with the new mask bitmap.
+fn canvas_mask_extent_matches(layer: &Layer, width: u32, height: u32) -> bool {
+    layer.image.is_some()
+        || layer.metadata.pointer("/transform/size").is_none_or(|size| {
+            size.get(0).and_then(serde_json::Value::as_f64) == Some(f64::from(width))
+                && size.get(1).and_then(serde_json::Value::as_f64) == Some(f64::from(height))
+        })
+}
+fn normalize_canvas_mask_extent(layer: &mut Layer, width: u32, height: u32) {
+    if !canvas_mask_extent_matches(layer, width, height) {
+        layer.metadata["transform"]["size"] = serde_json::json!([width, height]);
+    }
 }
 fn placement_of(
     layer: &Layer,

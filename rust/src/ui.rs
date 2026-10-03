@@ -2440,6 +2440,12 @@ impl EditorView {
         let value = self.path_input.read(cx).value().to_string();
         let path = PathBuf::from(value.trim());
         if self.busy {
+            // A range output change only regenerates its thumbnail when the
+            // raw mask is cached. Apply can use that mask immediately, or own
+            // the pending computation if its settings are still being read.
+            if self.dialog == Dialog::RangeMask {
+                self.run_range(true, cx);
+            }
             return;
         }
         if matches!(self.dialog, Dialog::Open | Dialog::Import) && omuse::raw_import::matches(&path)

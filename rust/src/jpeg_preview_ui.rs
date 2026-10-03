@@ -267,9 +267,11 @@ mod tests {
         let (view, cx) = cx.add_window_view(|window, cx| {
             let mut view = EditorView::new(None, window, cx);
             view.recovery = Recovery::at(temp.path().join("recovery"));
-            let mut doc = Document::new(1024, 600);
+            // The GPUI test display is scaled: use enough source pixels to
+            // exceed the viewport even at physical-pixel 100% on that display.
+            let mut doc = Document::new(2048, 600);
             doc.layers[0].image = Some(
-                image::RgbaImage::from_fn(1024, 600, |x, y| {
+                image::RgbaImage::from_fn(2048, 600, |x, y| {
                     image::Rgba([(x % 255) as u8, (y % 255) as u8, 100, 255])
                 })
                 .into(),

@@ -17,7 +17,14 @@ application launcher. Windows x64 users can download a portable development ZIP.
 **Current Linux source pre-release: [0.7.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.7.0)**
 — integrated vector editing, local Image Trace, colour uniformity and higher-quality photo sampling. Read the [release notes](docs/releases/v0.7.0.md)
 or browse the [changelog](CHANGELOG.md) for changes and known limitations.
-[See ten screenshots of the current interface](docs/releases/v0.7.0-gallery.md).
+[See ten screenshots from 0.7.0](docs/releases/v0.7.0-gallery.md).
+
+**Next: the 0.8.0 candidate is in qualification.** It adds richer vector
+artwork, editable text on curves, reference colour matching and finer photo
+controls. [Explore the candidate highlights](#candidate-highlights) and
+[follow the new workflows](docs/user-guide/photo-vector.md#new-photo-and-vector-tools--unreleased-development-build).
+The published release and Linux installer remain on **0.7.0** while checks run;
+0.8.0 downloads are not published yet.
 
 **[Read the user manual](docs/user-guide/README.md)** ·
 [Edit a photo](docs/user-guide/photo-editing.md) ·
@@ -36,7 +43,7 @@ or browse the [changelog](CHANGELOG.md) for changes and known limitations.
   <a href="docs/media/omuse-0.7.0-studio-film.md">Chapters, transcript &amp; credits</a>
 </p>
 
-Four real photo before/after edits, current vector and tracing controls,
+Four real photo before/after edits, the 0.7.0 vector and tracing controls,
 branded pages, native motion and content exports. The film combines actual
 application captures and Omuse-rendered artwork with editorial animation.
 Its AI segment is an offline interface tour.
@@ -132,12 +139,43 @@ Photo editing and Camera RAW are included. These features have extra requirement
 
 The Windows ZIP includes development changes beyond the Linux 0.7.0 source
 release. It is **experimental and unsigned**, so Windows SmartScreen may show a
-warning. Live Windows AI generation/editing, clean-machine acceptance and a
-dependency notice remain outstanding; there is no Windows installer or binary
-on the Releases page yet. See the [Windows build notes](rust/README.md#build-on-windows-in-development)
-for connection requirements and known limits.
+warning. Live Windows AI generation/editing and clean-machine acceptance remain
+unqualified; finding a signed-in CLI does not establish that an AI task works.
+The linked artifact also predates the candidate's dependency-notice fixes; the
+[notice review](docs/rust-license-findings.md#windows-x86_64-development-package)
+separates its historical finding from the new source checks. There is no Windows
+installer or binary on the Releases page yet. See the
+[Windows build notes](rust/README.md#build-on-windows-in-development) for
+connection requirements and known limits.
 
 ## Highlights
+
+### Candidate highlights
+
+These features are implemented in the **0.8.0 candidate**, with release and
+platform qualification in progress. They are not included in the published
+0.7.0 source release or promised by the older Windows artifact above.
+
+| Workflow | What the candidate adds |
+| --- | --- |
+| **Build vector artwork on the photo canvas** | Select several objects, group them, align, distribute and transform them together. Unite, Subtract, Intersect, Exclude and Divide construct new filled shapes with Undo. [Arrange and combine](docs/user-guide/photo-vector.md#select-group-and-arrange). |
+| **Refine fills and strokes** | Editable linear/radial gradients with 2–16 colour and transparency stops; cap, join, dash, gap and offset controls. Apply styles to selected objects in the Layers inspector. [Gradient and stroke guide](docs/user-guide/photo-vector.md#set-gradient-fills-and-precise-strokes). |
+| **Put editable text on a curve** | Set content, font, size, tracking and alignment, then update the text from an edited guide. Keep the text recipe in `.omuse`, or convert glyphs to points for further editing. [Text on a curve](docs/user-guide/photo-vector.md#put-editable-text-on-a-curve). |
+| **Exchange vector artwork** | Multiple supported SVG objects retain gradients and stroke settings. Export the active vector artwork as PDF, preserving supported paths, transparency and Pad gradients; text exports as glyph outlines. [SVG](docs/user-guide/photo-vector.md#exchange-an-svg-artwork) · [PDF](docs/user-guide/photo-vector.md#export-vector-artwork-as-pdf). |
+| **Select colour with softer masks** | Sample a hue, control tolerance, softness and minimum saturation, then replace, add, subtract or intersect a selection, or create an editable layer mask. Feathered coverage stays soft. [Hue and mask guide](docs/user-guide/photo-vector.md#keep-soft-masks-and-select-by-hue). |
+| **Borrow a reference palette** | Match reference colour adds a reversible Filter stack effect with Amount, Preserve lightness and optional selection masking. It supports ordinary photos and retained 16-bit sources. [Reference matching](docs/user-guide/photo-vector.md#match-the-palette-of-a-reference-image). |
+| **Inspect the JPEG you will export** | Fit and 100% views show the actual encoded file. Pan through detail and compare quality, DPI and matte settings before saving. [JPEG preview](docs/user-guide/photo-vector.md#inspect-jpeg-detail-and-refine-raster-strokes). |
+| **Retouch with more consistent strokes** | Blur, Smudge and Liquify use fractional brush footprints and consistent spacing. Smudge carries evolving paint; Liquify samples the original stroke source, with Undo and no partial commit when work limits are reached. [Raster retouch](docs/user-guide/photo-vector.md#inspect-jpeg-detail-and-refine-raster-strokes). |
+
+Editable SVG remains a documented subset: text import, clipping, masks, effects,
+group opacity and gradient strokes are not supported. Vector PDF exports the
+active artwork, not the surrounding photo composition; it does not add PDF/AI
+import or print-ready CMYK. Complete Create/page PDFs use the existing raster
+export workflow. Reference matching transfers a global palette, rather than
+recognizing subjects or reproducing an HDR look. The linked guides describe
+format, font, image-size and editing limits.
+
+### Studio essentials
 
 - Layers, groups, masks, clipping, blend modes, live adjustments and effects.
 - Interactive crop ratios including 3:4, anchored zoom and editable layer/group Copy/Paste.
@@ -145,7 +183,7 @@ for connection requirements and known limits.
 - Editable text with live artwork previews and selected-letter colour styling;
   shapes, Bézier paths, vector masks and transform workflows.
 - Integrated vector artwork on the main canvas with Pen, Nodes and Move tools,
-  multi-object scenes, editable styles and bounded format-11 persistence.
+  multi-object scenes, editable styles and native `.omuse` project storage.
 - Local Image Trace for logos, illustrations and photo-art approximations, with
   Source/Trace preview, retained originals, editable curves and saved settings.
 - Target colour uniformity and scale-aware 16-bit export sampling, with explicit
@@ -201,12 +239,13 @@ Start with the [illustrated user manual](docs/user-guide/README.md), follow
 
 ## Work from the keyboard
 
-Press **Ctrl+K** or click the search icon to find and run any of **176 commands**.
-Search by action, tool, category or key combination; use **↑ / ↓** and **Enter**
+In the **0.8.0 candidate**, press **Ctrl+K** or click the search icon to find and
+run any of **200 commands**. Search by action, tool, category or key combination;
+use **↑ / ↓** and **Enter**
 to run, or **Esc** to return to your canvas. Commands without a shortcut are
 available here too.
 
-There are **102 default shortcuts**, including familiar tools, **Ctrl+L** for
+There are **106 default shortcuts**, including familiar tools, **Ctrl+L** for
 Levels, **Ctrl+M** for Curves, **Ctrl+U** for Hue/Saturation, and **[ / ]** for
 brush size. **Ctrl+Alt+K** opens the recorder for customizing, clearing and
 restoring bindings. Super stays available to Omarchy.
@@ -244,10 +283,15 @@ Existing `.comp` projects still open. Their first **Save** offers an `.omuse`
 copy and leaves the original intact. Opening a project does not rename or
 rewrite it; recovery snapshots stay separate from saved artwork.
 
-**Omuse 0.7.0 writes canvas format 11** for vector scenes and format 10 for
-ordinary canvases. **Omuse 0.6.0 cannot read format-11 scenes or projects with
-Target Colour Uniformity.** Use **Save As** to retain
-an older copy; rolling back the app does not downgrade project files.
+**Published Omuse 0.7.0 writes canvas format 11** for vector scenes and format 10
+for ordinary canvases. Omuse 0.6.0 cannot read format-11 scenes or projects with
+Target Colour Uniformity.
+
+The **0.8.0 candidate** retains those formats for ordinary and flat legacy
+artwork, and uses **format 12** for grouped scenes, **13** for gradients or
+advanced strokes, and **14** for editable text on curves. **Older releases cannot
+open these newer formats or the new reference-colour effect.** Use **Save As**
+to retain an older copy; rolling back the app does not downgrade project files.
 
 New collection saves use schema version 2 with nested `.omuse` pages and
 components. Version 1 collections still open, but saving upgrades them to
@@ -302,7 +346,8 @@ upstream credits and the archived implementations.
 
 Application source: MIT — see [LICENSE](LICENSE), including the retained
 original copyright notice. Third-party code, fonts, images and optional runtime
-assets retain their own licences. Runtime notices are under `rust/licenses/`;
-the [dependency notice review](docs/rust-license-findings.md) records unresolved
-binary-distribution findings. The source licence does not relicense third-party
-media.
+assets retain their own licences. Runtime notices are under `rust/licenses/`.
+The [dependency notice review](docs/rust-license-findings.md) records the
+candidate's resolved missing-text findings, provenance and remaining platform
+checks; this does not change older download receipts or qualify a public binary.
+The source licence does not relicense third-party media.
