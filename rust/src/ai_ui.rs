@@ -3281,6 +3281,11 @@ fn new_ai_job_work_dir() -> anyhow::Result<PathBuf> {
             return Err(error.into());
         }
     }
+    #[cfg(windows)]
+    if let Err(error) = omuse::private_dir::make_private(&work_dir) {
+        let _ = std::fs::remove_dir_all(&work_dir);
+        return Err(error.into());
+    }
     Ok(work_dir)
 }
 
@@ -6728,6 +6733,8 @@ impl EditorView {
                 use std::os::unix::fs::PermissionsExt;
                 std::fs::set_permissions(&workdir, std::fs::Permissions::from_mode(0o700))?;
             }
+            #[cfg(windows)]
+            omuse::private_dir::make_private(&workdir)?;
             self.ai.auth = Some(ai::begin_auth(ai::AuthRequest::new(client, workdir))?);
             self.ai.activity = "Opening the provider’s secure sign-in…".into();
             self.poll_ai_sign_in(cx);

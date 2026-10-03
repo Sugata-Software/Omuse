@@ -548,17 +548,69 @@ fn create_private_probe_dir(path: &Path) -> Result<(), AiError> {
         use std::os::unix::fs::PermissionsExt;
         fs::set_permissions(path, fs::Permissions::from_mode(0o700))?;
     }
+    #[cfg(windows)]
+    crate::private_dir::make_private(path)?;
     Ok(())
 }
 
 fn find_on_path(name: &str) -> Option<PathBuf> {
     let path = env::var_os("PATH")?;
-    env::split_paths(&path)
-        .map(|directory| directory.join(name))
-        .find(|candidate| candidate.is_file())
+    env::split_paths(&path).find_map(|directory| {
+        #[cfg(windows)]
+        {
+            let executable = directory.join(format!("{name}.exe"));
+            if executable.is_file() {
+                return Some(executable);
+            }
+            npm_native_executable(&directory, name)
+        }
+        #[cfg(not(windows))]
+        {
+            let candidate = directory.join(name);
+            candidate.is_file().then_some(candidate)
+        }
+    })
+}
+
+/// npm installs Codex on Windows as a `codex.cmd` launcher for a Node script
+/// that starts the platform package's native `codex.exe`. Recognise only that
+/// exact layout and use the binary directly, without the cmd.exe and Node
+/// layers; it still has to pass every identity and isolation probe.
+#[cfg(windows)]
+fn npm_native_executable(directory: &Path, name: &str) -> Option<PathBuf> {
+    if name != "codex" || !directory.join("codex.cmd").is_file() {
+        return None;
+    }
+    let (platform, triple) = if cfg!(target_arch = "aarch64") {
+        ("codex-win32-arm64", "aarch64-pc-windows-msvc")
+    } else {
+        ("codex-win32-x64", "x86_64-pc-windows-msvc")
+    };
+    let package = directory.join("node_modules").join("@openai").join("codex");
+    [
+        package.join("node_modules").join("@openai").join(platform),
+        package,
+    ]
+    .into_iter()
+    .map(|root| {
+        root.join("vendor")
+            .join(triple)
+            .join("bin")
+            .join("codex.exe")
+    })
+    .find(|candidate| candidate.is_file())
 }
 
 fn is_shell_wrapper(path: &Path) -> Result<bool, AiError> {
+    // Windows script launchers are wrappers as well.
+    #[cfg(windows)]
+    if path.extension().is_some_and(|extension| {
+        ["cmd", "bat", "ps1"]
+            .iter()
+            .any(|wrapper| extension.eq_ignore_ascii_case(wrapper))
+    }) {
+        return Ok(true);
+    }
     let mut file = fs::File::open(path)?;
     let mut prefix = [0_u8; 160];
     let read = file.read(&mut prefix)?;
@@ -759,5 +811,42 @@ mod tests {
                 && status.detail == "Connection check cancelled"
                 && status.client.is_none()
         }));
+    }
+}
+
+#[cfg(all(test, windows))]
+mod windows_tests {
+    use super::*;
+
+    #[test]
+    fn npm_codex_launcher_resolves_only_its_native_runtime() {
+        let root = tempfile::tempdir().unwrap();
+        let npm = root.path();
+        let native = npm.join(
+            "node_modules/@openai/codex/node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc/bin",
+        );
+        fs::create_dir_all(&native).unwrap();
+        fs::write(native.join("codex.exe"), b"MZ").unwrap();
+        // Without npm's launcher the package is not an installed command.
+        assert_eq!(npm_native_executable(npm, "codex"), None);
+        fs::write(npm.join("codex.cmd"), b"@ECHO off").unwrap();
+        assert_eq!(
+            npm_native_executable(npm, "codex"),
+            Some(native.join("codex.exe"))
+        );
+        assert_eq!(npm_native_executable(npm, "claude"), None);
+    }
+
+    #[test]
+    fn windows_script_launchers_are_wrappers() {
+        let root = tempfile::tempdir().unwrap();
+        for name in ["codex.cmd", "claude.BAT", "grok.ps1"] {
+            let path = root.path().join(name);
+            fs::write(&path, b"@ECHO off").unwrap();
+            assert!(is_shell_wrapper(&path).unwrap(), "{name}");
+        }
+        let binary = root.path().join("claude.exe");
+        fs::write(&binary, b"MZ").unwrap();
+        assert!(!is_shell_wrapper(&binary).unwrap());
     }
 }

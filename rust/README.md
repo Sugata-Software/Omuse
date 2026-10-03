@@ -38,9 +38,21 @@ For an offline installation of an already built candidate, see [the runtime bund
 Windows support is being brought up in stages and is not a release target.
 On Windows 11 x86_64 the editor opens, edits, saves and reopens canvases and
 Create collections, keeps settings and shortcuts, runs recovery, develops
-Camera RAW, selects subjects locally and exports MP4/GIF motion. Ask Omuse does
-not work there yet. Linux remains the reference platform; Omarchy theme
-following and tablet pressure are Linux-only.
+Camera RAW, selects subjects locally, exports MP4/GIF motion and runs Ask Omuse.
+Linux remains the reference platform; Omarchy theme following and tablet
+pressure are Linux-only.
+
+Ask Omuse finds `codex.exe` or `claude.exe` on `PATH`. npm installs Codex as a
+`codex.cmd` launcher; Omuse recognises that exact package layout and runs its
+native `codex.exe` directly, so the Node script is not involved. Claude Code's
+npm package is a Node script, so use its native installer (`claude.exe`).
+Script launchers (`.cmd`, `.bat`, `.ps1`) are treated as unverified wrappers,
+like shell scripts on Linux. Job, sign-in and probe workspaces get an access
+list that admits only the current user, the Windows counterpart of mode 0700,
+and jobs refuse a workspace whose list admits anyone apart from SYSTEM and
+Administrators. Codex's isolated home links `auth.json` with a hard link,
+because symbolic links need Developer Mode, so the Codex home must be on the
+same drive as Omuse data. Grok Build stays unqualified, as on Linux.
 
 On Windows the window follows the system light or dark app setting, using
 gpui-omarchy's Tokyo Night and Flexoki Light themes, and save dialogs start in

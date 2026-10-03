@@ -18,8 +18,9 @@ for numbering, qualification and publication.
   redirected into OneDrive), long paths are supported, and saves wait for sync
   clients and scanners that briefly hold project files. CI runs the test suite and editing and motion
   journeys on Windows and keeps an unsigned package zip. This is an
-  in-development build, not a release, and Ask Omuse does not work on Windows
-  yet. Linux behaviour and project formats are unchanged.
+  in-development build, not a release. Ask Omuse runs on Windows with Codex
+  (including npm installs) and native Claude Code, using workspaces only the
+  current user can open. Linux behaviour and project formats are unchanged.
 
 ## [0.7.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.7.0) — 2026-10-02
 

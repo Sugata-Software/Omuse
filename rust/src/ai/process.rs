@@ -34,6 +34,35 @@ const ENV_ALLOWLIST: &[&str] = &[
     "SSL_CERT_FILE",
 ];
 
+/// Windows programs need these to start, find the profile and reach the
+/// network; none carries credentials. Unix has no equivalents.
+#[cfg(windows)]
+const WINDOWS_ENV_ALLOWLIST: &[&str] = &[
+    "SystemRoot",
+    "SystemDrive",
+    "windir",
+    "ComSpec",
+    "PATHEXT",
+    "TEMP",
+    "TMP",
+    "USERPROFILE",
+    "USERNAME",
+    "USERDOMAIN",
+    "HOMEDRIVE",
+    "HOMEPATH",
+    "APPDATA",
+    "LOCALAPPDATA",
+    "ProgramData",
+    "ProgramFiles",
+    "ProgramFiles(x86)",
+    "ProgramW6432",
+    "CommonProgramFiles",
+    "COMPUTERNAME",
+    "NUMBER_OF_PROCESSORS",
+    "PROCESSOR_ARCHITECTURE",
+    "OS",
+];
+
 pub(crate) fn sanitized_command(executable: &Path) -> Command {
     let mut command = Command::new(executable);
     command.env_clear();
@@ -41,6 +70,19 @@ pub(crate) fn sanitized_command(executable: &Path) -> Command {
         if let Some(value) = std::env::var_os(name) {
             command.env(name, value);
         }
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        for name in WINDOWS_ENV_ALLOWLIST {
+            if let Some(value) = std::env::var_os(name) {
+                command.env(name, value);
+            }
+        }
+        // Provider runtimes are console programs; keep the GUI from opening
+        // a console window for each probe or request.
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        command.creation_flags(CREATE_NO_WINDOW);
     }
     command.env("NO_COLOR", "1");
     command

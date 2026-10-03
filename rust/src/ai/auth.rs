@@ -398,10 +398,13 @@ fn validate_private_work_dir(path: &std::path::Path) -> Result<(), AiError> {
 }
 
 #[cfg(not(unix))]
-fn validate_private_work_dir(_path: &std::path::Path) -> Result<(), AiError> {
-    Err(AiError::InvalidRequest(
-        "Provider sign-in is not qualified on this platform".into(),
-    ))
+fn validate_private_work_dir(path: &std::path::Path) -> Result<(), AiError> {
+    if !crate::private_dir::is_private(path)? {
+        return Err(AiError::InvalidRequest(
+            "The sign-in workspace must be private to the current user".into(),
+        ));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
