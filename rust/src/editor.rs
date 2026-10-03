@@ -6205,10 +6205,13 @@ fn source_size(layer: &Layer, document_width: u32, document_height: u32) -> (u32
 // intact; only the source-grid dimensions change with the new mask bitmap.
 fn canvas_mask_extent_matches(layer: &Layer, width: u32, height: u32) -> bool {
     layer.image.is_some()
-        || layer.metadata.pointer("/transform/size").is_none_or(|size| {
-            size.get(0).and_then(serde_json::Value::as_f64) == Some(f64::from(width))
-                && size.get(1).and_then(serde_json::Value::as_f64) == Some(f64::from(height))
-        })
+        || layer
+            .metadata
+            .pointer("/transform/size")
+            .is_none_or(|size| {
+                size.get(0).and_then(serde_json::Value::as_f64) == Some(f64::from(width))
+                    && size.get(1).and_then(serde_json::Value::as_f64) == Some(f64::from(height))
+            })
 }
 fn normalize_canvas_mask_extent(layer: &mut Layer, width: u32, height: u32) {
     if !canvas_mask_extent_matches(layer, width, height) {
