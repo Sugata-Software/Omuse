@@ -200,7 +200,7 @@
   "snapshotDate": "2026-10-03",
   "project": "Omuse",
   "releaseScope": "Native Rust/GPUI application for Arch/Omarchy Linux x86_64",
-  "releaseState": "Omuse 0.8.0 candidate in qualification: stronger photo editing, gradients, text on curves, reference matching and versioned downloads; installed source release remains 0.7.0",
+  "releaseState": "Omuse 0.8.0 source candidate eb558dc in qualification: stronger photo editing, gradients, text on curves, reference matching and versioned downloads; installed source release remains 0.7.0",
   "visualizationMirror": "omuse-project-guide.html",
   "statusDefinitions": [
     {
@@ -233,7 +233,7 @@
     {
       "label": "Next release candidate",
       "value": "0.8.0 in qualification",
-      "detail": "Photo fidelity, reference palette matching, hue masks, multiselection/groups, gradient and stroke styling, retained curved text, vector PDF and downloadable archives. Final review corrected transformed masks, combined selection previews and compact controls. Combined local and Linux/Windows checks are required before promotion; installed 0.7.0 is preserved.",
+      "detail": "Photo fidelity, reference palette matching, hue masks, multiselection/groups, gradient and stroke styling, retained curved text, vector PDF and downloadable archives. Candidate source eb558dc updates only dependency-helper checks and workflow wiring over the b47/d2 Rust tree. Local 1,352-case acceptance, final photo/recovery evidence, b47 cross-version installation and Linux/Windows app suites passed. The repaired helper passed 20 Rust and 4 Python checks plus Windows metadata; native Windows and download CI remain pending. Installed 0.7.0 is preserved.",
       "status": "implemented-needs-qualification"
     },
     {
@@ -281,7 +281,7 @@
     {
       "label": "Public-release blockers",
       "value": "Open gates",
-      "detail": "The 0.8.0 candidate still needs final combined, native, recovery and package checks. Candidate dependency inventories report zero unresolved findings; final package inventories must be verified again. Clean-machine, broader hardware/accessibility and live Windows AI acceptance remain open. Published 0.7.0 has no permanent binary attached.",
+      "detail": "The 0.8.0 source candidate eb558dc still needs native Windows and download CI completion, current package qualification, and the unavailable native compact-resize capture. Local 1,352-case acceptance, 16/16 photo, d2 recovery, b47 cross-version and bounded Subject Refine keyboard evidence passed; these do not replace CI/package gates. Clean-machine, broader hardware/accessibility and live Windows AI acceptance remain open; no 0.8 tag or asset is published and installed 0.7.0 is preserved.",
       "status": "blocked-deferred"
     }
   ],
@@ -644,7 +644,7 @@
           "name": "Inspect the actual JPEG before export",
           "status": "implemented-needs-qualification",
           "current": "Fit/100% physical-pixel views and drag/arrow panning inspect the actual encoded JPEG. Compact quality, resolution and matte RGB controls include a live swatch.",
-          "boundary": "JPEG preview supports its existing pixel/work limits and does not change the saved document. Full visual tests are running.",
+          "boundary": "JPEG preview supports its existing pixel/work limits and does not change the saved document. Compact JPEG behavior passes GPUI; the b47 full-size native screenshot is retained, while a new compact-window resize capture was unavailable.",
           "evidence": [
             "docs/release-080-qualification.md"
           ],
@@ -2134,7 +2134,7 @@
           "id": "release-ci-github",
           "name": "Public candidate and Linux/Windows CI",
           "status": "implemented-needs-qualification",
-          "current": "The first 0.8 candidate failed compilation; public f40d37d passed Linux/Windows library checks but both GUI runs found JPEG-fixture and clipped Hue-control failures. These are corrected locally alongside transformed-mask and range-preview defects; the next exact-source run must pass before release.",
+          "current": "The public source candidate eb558dc59ccdf88a3d62dfc2d706a6b836da1eda (tree 68e406316b92d5817abfe810fbdc7840e57b5d17) carries the b47/d2 Rust tree plus dependency-helper and workflow wiring. The earlier b47 Linux/Windows application suites and journeys passed; the new eb558dc runs are still in progress. The repaired helper passed 20 Rust and 4 Python checks plus Windows metadata resolution; native Windows and download CI remain pending in runs 37161936414 and 37161936378. The earlier f40d37d GUI failures and a0 16-bit blend failures remain historical checkpoints.",
           "boundary": "Neither run is yet qualified. Source promotion and permanent asset publication require successful exact-source checks and reviewed package receipts.",
           "evidence": [
             "docs/release-060-qualification.md",
@@ -2294,8 +2294,8 @@
           "id": "release-photo-vector-quality",
           "name": "Photo/vector correctness and release qualification",
           "status": "implemented-needs-qualification",
-          "current": "The combined 0.8 candidate adds corrected PSD levels/gamma/masks, antialiased selection-to-mask mapping, safe external UTF16 font runs, retouch improvements, colour matching and gradient/type/PDF fidelity checks.",
-          "boundary": "Complete optimized UI/native/recovery/install qualification is in progress. Live Windows AI, clean-machine, accessibility and broader camera/hardware acceptance are still unverified.",
+          "current": "Candidate eb558dc carries the b47/d2 corrected PSD levels/gamma/masks, antialiased selection-to-mask mapping, safe external UTF16 font runs, retouch improvements, colour matching and gradient/type/PDF fidelity checks, plus the compact JPEG, focus and 16-bit blend fixes.",
+          "boundary": "Local 1,352-case acceptance, final 16/16 photo, d2 recovery, b47 cross-version installation, Camera Raw keyboard Undo/Redo and bounded installed Subject Refine Apply/Undo/Redo passed. Compact JPEG passes GPUI; native compact-resize capture was unavailable. Native Windows and download CI remain pending. Live Windows AI, clean-machine, accessibility and broader camera/hardware acceptance are still unverified.",
           "evidence": [
             "docs/photo-vector-roadmap.md",
             "docs/vector-scene-qualification.md",
@@ -2310,7 +2310,7 @@
           "name": "Permanent Linux and Windows preview downloads",
           "status": "implemented-needs-qualification",
           "current": "Exact-source candidate workflows build Linux/Windows archives, verify all members/notices, run native editing/install/reinstall/rollback smoke checks, and bind their hashes into a reviewed publication manifest.",
-          "boundary": "Pipeline tests passed using synthetic runtime fixtures. Real native CI packages are building; no 0.8 assets or tag are published yet. Initial packages are unsigned experimental previews.",
+          "boundary": "Pipeline tests passed using synthetic runtime fixtures; the b47 Linux cross-version report passed four installed-launcher journeys. Linux and Windows eb558dc packages are in CI, with native Windows/download qualification pending. No 0.8 assets or tag are published. Initial packages are unsigned experimental previews.",
           "evidence": [
             "docs/downloadable-releases.md",
             "docs/release-080-qualification.md"

@@ -191,6 +191,8 @@ Release a targeted drag to update the preview. **Escape** during the drag
 restores its starting settings; **Cancel** closes the entire draft. Sampling
 uses the relevant stage of the current grade, so earlier corrections remain
 accounted for. Transparent samples are rejected. Apply commits one Undo step.
+In the 0.8.0 candidate, **Ctrl+Z** undoes the applied result immediately;
+**Ctrl+Shift+Z** restores it without first clicking the canvas.
 Preview work is limited to one active job and the newest queued request, with
 cancellation and checks against changed artwork. Grading still runs at full
 resolution within the 16 MP limit; it is not a sensor-RAW or HDR sampling tool.
@@ -212,14 +214,21 @@ for sampling controls, protected areas, shadows and cleanup.
 
 ### Transparent cutout on this computer
 
-1. Select the photo layer and search **Remove background** with **Ctrl+K**.
-2. Inspect the local subject result, particularly hair, glass, fur and narrow gaps.
-3. For finer control, use **Select subject**, then **Refinement workspace** from
-   command search. Paint foreground/background corrections and compare the
-   preview on black, white or checkerboard.
-4. Apply the refined cutout. The refinement workflow creates a separate result
-   and preserves the original layer. Hide an opaque original/background layer
-   when you want transparency to show.
+1. Select the photo layer and choose **Select → Remove background**, or find
+   **Remove background** with **Ctrl+K**.
+2. The local model opens **Refine subject matte**. Adjust Edge refinement,
+   Contrast and Edge shift if needed, choose **Preview**, then **Apply**.
+   **Cancel** leaves the document unchanged.
+3. The result is an **editable layer mask**: original photo pixels remain in
+   the layer. Inspect hair, glass, fur, narrow gaps and any background fragments
+   the model retained. In the 0.8.0 candidate, **Ctrl+Z / Ctrl+Shift+Z** work
+   immediately after Apply.
+4. For painted corrections, start from the original photo, use **Select
+   subject**, then **Refinement workspace** from command search. Paint
+   foreground/background corrections and compare on black, white or
+   checkerboard. This separate refinement workflow creates a result layer and
+   preserves the original; hide an opaque original/background layer to see
+   transparency.
 5. Export **PNG** (or another format that supports alpha). JPEG cannot preserve
    a transparent background.
 

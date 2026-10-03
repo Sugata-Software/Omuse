@@ -77,7 +77,13 @@ for numbering, qualification and publication.
   refuses a draft if the underlying selection has changed.
 - Inspect the actual encoded JPEG with **Fit** and **100%** views, drag/arrow
   panning, quality, DPI and matte controls. Preview stays bounded to 16 MP and
-  does not change the working image.
+  does not change the working image. Compact controls keep the preview and
+  export actions visible at the minimum supported window size.
+- Restore editor keyboard focus after applying Camera Raw or a refined subject
+  selection/mask, so **Ctrl+Z / Ctrl+Shift+Z** work immediately. A cancelled or
+  failed background operation does not steal focus from the current control.
+- Preserve exact 16-bit blend rounding when a masked edit keeps the original
+  alpha, including partially transparent pixels and hidden colour values.
 - Improve Blur, Smudge and Liquify strokes with fractional footprints and
   consistent spacing. Smudge carries the evolving paint; Liquify samples the
   untouched stroke source through accumulated displacement. Work limits reject

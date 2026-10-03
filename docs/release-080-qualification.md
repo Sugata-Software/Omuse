@@ -3,12 +3,22 @@
 This is a development record, not a release declaration. The installed and
 published source release remains 0.7.0 while the candidate is being checked.
 
-Public checkpoint `f40d37d7932ec321f5dacbcdd65ae94773481bc8` on
-`release/0.8.0` completed its Linux/Windows library checks, but both GUI suites
-found the same two failures. The JPEG panning fixture was smaller than its
-viewport on GPUI's 2× test display; the Hue output controls still clipped at
-minimum size. The revised candidate enlarges the JPEG fixture, reduces the
-compact range preview height and explicitly checks control visibility.
+The current public source candidate is `eb558dc59ccdf88a3d62dfc2d706a6b836da1eda`
+on `release/0.8.0`, with source tree
+`68e406316b92d5817abfe810fbdc7840e57b5d17`. It changes only the dependency
+helper and its four regression checks/workflow wiring; the Rust application
+source is byte-identical to b47/d2. The b47 Linux and Windows application
+suites and journeys passed; the new eb558dc runs remain in progress. The repaired helper passed 20 Rust and 4 Python
+checks, and Windows dependency metadata passed; native Windows validation is
+still pending in CI runs 37161936414 and 37161936378. This candidate includes
+all earlier compact JPEG, Camera Raw/Subject Refine focus, 16-bit blend and
+external-format-11 fixes.
+It is still a source candidate: no 0.8.0 tag or downloadable asset is
+published, and the installed 0.7.0 generation remains in place.
+
+The earlier public `f40d37d7932ec321f5dacbcdd65ae94773481bc8` checkpoint is
+historical. Its Linux/Windows GUI runs exposed the undersized JPEG panning
+fixture and clipped Hue controls; those findings drove the fixes above.
 
 The first `ebadd073` checkpoint failed compilation because the range inspector
 exposed Intersect before the selection engine defined it. Soft coverage
@@ -49,9 +59,33 @@ for the final combined suite.
 
 The exploratory debug GUI run found clipped JPEG/range controls and a semantic
 round-trip comparator that did not normalize the new, validated scene inventory.
-Those were corrected before the candidate. The startup test also encountered
-the developer's real recovery prompt; the unchanged test passed with an isolated
-XDG directory. The complete release suite uses isolated XDG directories.
+Those were corrected before the current candidate. Camera Raw and Subject
+Refine focus handling and 16-bit blend rounding were corrected afterward; the
+native Camera Raw Apply → keyboard Undo/Redo journey passed. The installed
+Subject Refine journey also passed Apply → immediate Ctrl+Z/Ctrl+Shift+Z with
+the bundled local model on one public portrait; residual flag pixels remained
+and the editable mask needs cleanup, so this is not a general model-quality
+claim. A new compact-window resize capture was unavailable. The startup test also
+encountered the developer's real recovery prompt; the unchanged test passed
+with an isolated XDG directory. The complete release suite uses isolated XDG
+directories.
+
+The final release evidence packet records 16/16 real-photo cases passed in
+`real-photo-d2dac18/results.json`, 14 recovery-worker checks with a 12-revision
+session and SIGKILL at revision 4 passed in `recovery-qualified-d2dac18/results.json`,
+and the optimized local suite passed 1,352 cases (516 library, 378 GPUI and
+458 integration; four ignored). The b47ba4d Linux cross-version report passed
+0.7.0 → 0.8.0 → rollback → forward with four installed-launcher journeys.
+Native b47 Camera Raw Apply → keyboard Undo/Redo passed; compact JPEG behavior
+passes GPUI, while a new native compact-resize capture was unavailable and the
+full-size native screenshot is the applicable evidence.
+
+The earlier b47ba4d application suites and journeys passed on Linux and Windows.
+The new eb558dc exact-source runs are still in progress.
+The repaired helper passed its local 20 Rust and 4 Python checks plus Windows
+metadata resolution. Native Windows validation and the final download workflow
+remain pending in CI; built packages are not release-qualified until those runs
+finish.
 
 Native gradient inspection exposed a conservative stroke-work estimate that
 rejected a simple supersampled scene. Styled stroke accounting now follows its
@@ -80,14 +114,13 @@ exact inventory again.
 
 ## Remaining qualification
 
-- Complete optimized library, integration and GPUI interaction tests, editing,
-  Create/motion and all template journeys for the combined candidate.
-- Capture and inspect the new native interfaces in both themes and a compact
-  window; verify save/reopen, cancellation, Undo and export behavior.
-- Check sustained sessions, interrupted saves, production-feature builds,
-  isolated installation, replacement and rollback.
-- Review exact-source Linux/Windows CI and actual native package receipts before
-  declaring the source release and permanent unsigned preview downloads.
+- Complete CI runs 37161936414 and 37161936378, including native Windows
+  validation and the download workflow, then review their receipts.
+- Complete native compact-window resize capture if the environment supports it;
+  retain the passing full-size screenshot and the b47 Camera Raw/Subject Refine
+  keyboard receipts with their bounded portrait limitations.
+- Review current eb558dc package receipts before declaring the source release or
+  publishing permanent unsigned preview downloads.
 - Live Windows Codex/Claude jobs, clean-machine acceptance, mixed-DPI,
   accessibility and broader hardware checks require their separate environment
   and evidence. No Windows machine is connected to this development session.
