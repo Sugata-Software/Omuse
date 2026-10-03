@@ -445,8 +445,9 @@ fn range_invalid_or_changed_canvas_is_never_applied(cx: &mut TestAppContext) {
     cx.update(|_, cx| {
         let view = view.read(cx);
         assert_eq!(view.dialog, Dialog::RangeMask);
-        assert!(view.status.contains("canvas changed"));
+        assert!(view.status.contains("canvas or selection changed"));
         assert_eq!(view.editor.undo_depth(), 0);
+        assert!(view.editor.selection.is_none());
     });
 }
 
