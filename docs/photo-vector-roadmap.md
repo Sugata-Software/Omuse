@@ -6,14 +6,18 @@ finished content. This roadmap extends the existing editor incrementally.
 It is not a claim of Illustrator, Photoshop or camera-colour parity.
 
 The [project guide](project-guide.md) tracks current implementation and evidence.
-The installed/public baseline remains [0.6.0](releases/v0.6.0.md). The
-qualified 0.7.0 source pre-release is runtime
+The installed baseline is the [0.7.0 source pre-release](releases/v0.7.0.md). Its
+qualified runtime is
 `5b3daefbb5258afff4a74a2ff3db5247b074972d`; its local, exact-source CI,
 native, installation and rollback evidence is recorded in the [0.7.0
 qualification](release-070-qualification.md). No public binary is attached.
 Historical qualification records describe their named source checkpoints;
-the newer main-canvas workflow has its own
-[local qualification record](unified-vector-canvas-qualification.md).
+the new selection, boolean and SVG work has its own
+[development qualification record](vector-workflow-qualification.md).
+That unreleased batch passed 1,254 optimized application tests, editing/Create
+acceptance, 80 templates, native checks on Wayland/XWayland and a bounded Cua
+keyboard/construction journey. Production-feature, exact-source CI and release
+promotion checks remain separate from this local development result.
 Calendars, scheduling, social publishing and tablet qualification remain
 outside this work.
 
@@ -59,11 +63,11 @@ limits and focused tests. Engine-only work is not a completed user feature.
 | ID | Work | Existing foundation and required outcome |
 | --- | --- | --- |
 | V01 | Direct canvas Pen and Node tools | Implemented on the development branch: P draws, A edits nodes, V picks/moves objects, double-click in Move mode enters nodes, and the shared Layers inspector provides insertion, open/close, corner/smooth and object controls. Arrow nudging uses source pixels. The unified canvas passed local regression/native checks. Pen click/drag corners and smooth curves, linked/Alt handles, Shift constraints, exact segment insertion and first-anchor closing are implemented in the current trace/curve batch. Split/join, precise snapping and broader hardware qualification remain open. |
-| V02 | Shape construction | Union, subtract, intersect, exclude/divide, compound paths and a visual Shape Builder. Define fill-rule semantics and test tangencies, self-intersections, holes and degenerate geometry. |
+| V02 | Shape construction | Implemented in the unreleased vector workflow batch: background Unite, Subtract, Intersect, Exclude and Divide on selected filled paths, with Undo, fill-rule handling and bounded world-space flattening. Divide partitions the bottom object; resulting curves are polygonal. Interactive Shape Builder, retained live booleans and broader pathological-geometry qualification remain open. |
 | V03 | Strokes and fills | Linear/radial gradients, caps, joins, dashes, editable variable widths, stroke expansion, corners and offsets; retain editable originals. Later mesh/pattern fills require their own complexity budgets. |
 | V04 | Typography | Text on paths, text-to-outline conversion, more complete per-selection inline styling and font fallback reporting. Preserve Unicode, shaping, reading order and editable source text when outlining a copy. |
 | V05 | Image tracing | Implemented in development: local Colour/Gray/B&W tracing, presets, detail/smoothing/corner/noise/resolution/point controls, Source/Trace preview, retained original, saved settings/retrace, editable compound curves and one-step Keep/Undo. See the [qualification record](image-trace-qualification.md). Photo results are solid-colour approximations; broad photographic/topology/large-document qualification remains open. |
-| V06 | Editable SVG exchange | Explicit solid-colour single-path import/export is implemented, including for the selected object in an artwork scene, with bounded geometry and clear unsupported-feature errors. Multiple-object exchange, hierarchy, text, gradients and supported clipping remain open. Existing general SVG import remains a raster option. |
+| V06 | Editable SVG exchange | The unreleased workflow batch adds multiple solid-paint objects, organizational groups, names, visibility and object opacity; canvas import appends supported artwork and export writes the complete scene. Text, gradients, clipping, effects, group opacity and non-round/variable strokes remain unsupported. Legacy path exchange and general raster SVG import remain available. |
 | V07 | Vector-preserving PDF | Export supported text/paths/shapes as vectors with explicit raster-effect fallbacks, font handling and object/artboard output. Verify in independent readers; existing multipage raster PDF is not vector PDF. |
 | V08 | Illustration tools | Reusable vector symbols/instances, repeats, live offsets, blends and mesh/pattern fills, reusing the existing component/artboard model where compatible. Add only after the core geometry and exchange contracts are stable. |
 | V09 | Illustrator interchange | Explore an explicitly bounded PDF-compatible `.ai` import after SVG/PDF foundations. Full proprietary Illustrator document round-trip is a separate research item, not an implied result of SVG support. |
@@ -73,7 +77,7 @@ limits and focused tests. Engine-only work is not a completed user feature.
 | ID | Work | Required outcome |
 | --- | --- | --- |
 | Q01 | One document and reversible edits | Retain raster/vector/text objects in `.omuse`, with versioned schema, clear unsupported-version handling, old-project appearance tests and Save As protection. No new extension or destructive rewrite. |
-| Q02 | Responsive rendering | A procedural scene now persists geometry/styles with one derived full-source image. Background draft previews use the document compositor and cancel obsolete jobs. Persistent visible/damaged-tile caching, regional invalidation and large mixed-document latency/peak-memory qualification remain open. Keep path/render-work budgets and a dependable CPU path; GPU work requires host-specific evidence. |
+| Q02 | Responsive rendering | A procedural scene now persists geometry/styles with one derived full-source image. Background draft previews use the document compositor and cancel obsolete jobs. The unreleased workflow adds integer zoom rerenders up to 4× and 16 million pixels for admitted simple documents, with settled-preview fallback. Persistent visible/damaged-tile caching, regional invalidation and large mixed-document latency/peak-memory qualification remain open. Keep path/render-work budgets and a dependable CPU path; GPU work requires host-specific evidence. |
 | Q03 | Coherent workspaces | Vector scenes now edit on the main canvas with the shared Layers inspector, navigation, file handling and command search. Local Undo/Redo stays in the draft; Done/Enter keeps one document Undo step. Tool/layer/save changes keep valid drafts before continuing, and Cancel/Escape discards them. Compact layouts, mode switching and dark/light themes passed local headless and native checks; broader hardware/accessibility and long-session work remain open. |
 | Q04 | Output and fonts | Compare actual exported pixels/geometry with previews, preserve alpha and colour, document raster fallbacks and missing fonts, and test non-Latin text and Linux font substitutions. |
 | Q05 | Professional print | Separately design/qualify CMYK, spot colours, overprint and print proofing with appropriate fixtures. A vector editor or PDF export alone does not establish press readiness. |
@@ -118,7 +122,9 @@ to multiple-object exchange. Its design and remaining work are:
 
 - Implemented: a versioned procedural scene retains bounded objects, paths,
   transforms, solid paint and stacking order as the authoritative source.
-  Scene hierarchy remains open.
+  The unreleased workflow batch adds nested organizational groups and multiple-object
+  selection, transforms, arrangement and matching-style selection. Isolated
+  group appearance and reusable instances remain open.
 - Implemented: objects share one derived RGBA8 image, rebuilt through bounded
   temporary tiles. Persistent visible/damaged-region caching keyed by revision,
   scale and working space remains open; temporary render tiles are not that
@@ -152,8 +158,8 @@ This is retained allocation accounting, not a process-memory or rendering-speed
 benchmark, and does not qualify the newer canvas interaction changes.
 
 This is a partial Q01/Q02 checkpoint. The compositor still consumes one
-full-source image per scene. Persistent visible/damaged-tile caching, scene
-hierarchy, broad SVG interchange, 16-bit procedural rendering and mixed-document
+full-source image per scene. Persistent visible/damaged-tile caching, isolated
+group appearance, full SVG interchange, 16-bit procedural rendering and mixed-document
 latency/peak-memory qualification remain open.
 Legacy path recipes are preserved; they are not silently converted.
 

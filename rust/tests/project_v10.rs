@@ -76,7 +76,7 @@ fn format10_converts_utf16_ranges_without_rerendering_or_rewriting_original() {
 fn malformed_legacy_runs_and_unknown_versions_are_rejected_without_disk_changes() {
     for (version, runs) in [
         (9, json!([run(0, 1)])),
-        (11, json!([])),
+        (12, json!([])),
         (10, json!([run(2, 1)])),
         (10, json!([run(1, 1)])),
         (10, json!([run(0, 0)])),

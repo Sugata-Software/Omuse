@@ -16,6 +16,12 @@ mod scene;
 mod tests;
 #[path = "vector_canvas_ui.rs"]
 mod vector_canvas;
+#[path = "vector_selection_ui.rs"]
+mod vector_selection;
+#[path = "vector_style_ui.rs"]
+mod vector_style;
+#[path = "vector_text_ui.rs"]
+mod vector_text;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum DragPart {
@@ -380,6 +386,17 @@ impl EditorView {
         if draft.as_mask {
             return Ok(());
         }
+        if draft
+            .scene
+            .as_ref()
+            .is_some_and(|s| s.selected_objects.is_empty())
+        {
+            return Ok(());
+        }
+        anyhow::ensure!(
+            !self.pending_vector_text_edits(cx),
+            "Choose Update text to keep these text settings before changing tools or objects"
+        );
         let fill = parse_vector_colour(self.detail_inputs[0].read(cx).value().as_ref())?;
         let color = parse_vector_colour(self.detail_inputs[1].read(cx).value().as_ref())?;
         let width: f32 = self.detail_inputs[2].read(cx).value().parse()?;
@@ -402,19 +419,77 @@ impl EditorView {
         } else {
             None
         };
+        let paints = self.pending_vector_paints(cx)?;
+        let changed_gradient =
+            draft
+                .scene
+                .as_ref()
+                .zip(paints.as_ref())
+                .is_some_and(|(scene, paints)| {
+                    scene.artwork.objects[scene.active].fill_gradient != paints.gradient
+                });
+        let changed_options =
+            draft
+                .scene
+                .as_ref()
+                .zip(paints.as_ref())
+                .is_some_and(|(scene, paints)| {
+                    scene.artwork.objects[scene.active].stroke_options != paints.stroke
+                });
         if draft.fill == fill
             && draft.stroke == stroke
             && opacity.is_none_or(|(new, old)| new == old)
+            && !changed_gradient
+            && !changed_options
         {
             return Ok(());
         }
+        let changed_fill = draft.fill != fill;
+        let changed_stroke = draft.stroke != stroke;
         self.scene_checkpoint();
         let draft = self.vector_draft.as_mut().unwrap();
         draft.fill = fill;
         draft.stroke = stroke;
-        if let Some((opacity, _)) = opacity {
-            let scene = draft.scene.as_mut().unwrap();
-            scene.artwork.objects[scene.active].opacity = opacity;
+        if let Some(scene) = draft.scene.as_mut() {
+            if changed_gradient || changed_options {
+                scene.artwork.version = scene
+                    .artwork
+                    .version
+                    .max(omuse::vector_scene::VECTOR_SCENE_STYLE_VERSION);
+            }
+            if let Some(paints) = &paints {
+                scene.gradient_stop = paints.selected_stop;
+            }
+            for index in &scene.selected_objects {
+                let object = &mut scene.artwork.objects[*index];
+                if changed_fill {
+                    object.fill = Some(fill);
+                    if let Some(gradient) = &mut object.fill_gradient {
+                        gradient.stops[0].color = fill;
+                    }
+                }
+                if changed_stroke {
+                    object.stroke = stroke;
+                    if stroke.is_none() {
+                        object.stroke_options = None;
+                    }
+                }
+                if let Some(paints) = &paints {
+                    if changed_gradient {
+                        object.fill_gradient = paints.gradient.clone();
+                        if let Some(gradient) = &object.fill_gradient {
+                            object.fill = Some(gradient.stops[0].color);
+                        }
+                    }
+                    if changed_options && object.stroke.is_some() {
+                        object.stroke_options = paints.stroke.clone();
+                    }
+                }
+                if let Some((new, old)) = opacity.filter(|(new, old)| new != old) {
+                    let _ = old;
+                    object.opacity = new;
+                }
+            }
         }
         self.vector_scene_changed(cx);
         cx.notify();
@@ -596,7 +671,7 @@ impl EditorView {
     pub(in crate::ui) fn vector_move(
         &mut self,
         event: &MouseMoveEvent,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         if self.busy || !event.dragging() {
@@ -605,38 +680,32 @@ impl EditorView {
         let Some(point) = self.vector_point(event.position) else {
             return;
         };
+        if self.update_scene_marquee(point, window, cx) {
+            return;
+        }
+        if let Some(origin) = self
+            .vector_draft
+            .as_ref()
+            .and_then(|d| d.scene.as_ref())
+            .and_then(|s| s.drag_origin)
+        {
+            match self.scene_translate_selected(point.x - origin.x, point.y - origin.y, cx) {
+                Ok(()) => {
+                    self.vector_draft
+                        .as_mut()
+                        .unwrap()
+                        .scene
+                        .as_mut()
+                        .unwrap()
+                        .drag_origin = Some(point)
+                }
+                Err(error) => self.status = error.to_string(),
+            }
+            return;
+        }
         let Some(draft) = self.vector_draft.as_mut() else {
             return;
         };
-        if let Some(origin) = draft.scene.as_ref().and_then(|s| s.drag_origin) {
-            let (dx, dy) = (point.x - origin.x, point.y - origin.y);
-            if draft.path.bounds().is_some_and(|(a, b)| {
-                [a.x + dx, a.y + dy, b.x + dx, b.y + dy]
-                    .iter()
-                    .any(|v| v.abs() > 1_000_000.)
-            }) {
-                return;
-            }
-            for subpath in &mut draft.path.subpaths {
-                for anchor in &mut subpath.anchors {
-                    for p in [
-                        Some(&mut anchor.position),
-                        anchor.incoming.as_mut(),
-                        anchor.outgoing.as_mut(),
-                    ]
-                    .into_iter()
-                    .flatten()
-                    {
-                        p.x += dx;
-                        p.y += dy;
-                    }
-                }
-            }
-            draft.scene.as_mut().unwrap().drag_origin = Some(point);
-            self.vector_scene_changed(cx);
-            cx.notify();
-            return;
-        }
         let Some(drag) = draft.drag.clone() else {
             return;
         };
@@ -678,6 +747,7 @@ impl EditorView {
             draft.drag = None;
             if let Some(scene) = draft.scene.as_mut() {
                 scene.drag_origin = None;
+                scene.marquee = None;
             }
         }
         cx.notify();
@@ -1000,6 +1070,10 @@ impl EditorView {
         let selected = draft.selected;
         let as_mask = draft.as_mask;
         let is_scene = draft.is_scene();
+        let arranging = draft
+            .scene
+            .as_ref()
+            .is_some_and(|scene| scene.mode == scene::SceneMode::Select);
         let active_subpath = selected
             .map(|(si, _)| si)
             .or_else(|| draft.path.subpaths.len().checked_sub(1));
@@ -1160,7 +1234,13 @@ impl EditorView {
                 } else {
                     *label
                 };
-                let field = if self.busy {
+                let field = if self.busy
+                    || self
+                        .vector_draft
+                        .as_ref()
+                        .and_then(|d| d.scene.as_ref())
+                        .is_some_and(|s| s.selected_objects.is_empty())
+                {
                     // Keep an in-flight import/export or Apply snapshot stable.
                     div()
                         .w_full()
@@ -1230,35 +1310,43 @@ impl EditorView {
                 )
                 .disabled(self.busy)
                 .debug_selector(|| "vector-style-preview".into())
-                .on_click(cx.listener(|this, _, _, cx| {
+                .on_click(cx.listener(|this, _, window, cx| {
                     if let Err(error) = this.update_vector_style(cx) {
                         this.status = error.to_string();
                         cx.notify();
+                    } else if this.vector_scene_active() {
+                        this.load_scene_style(window, cx);
                     }
                 })),
             );
         }
         div().flex().flex_col().gap_2()
-            .child(
+            .when(!arranging, |view| view.child(
                 div()
                     .id("vector-anchor-status")
                     .debug_selector(|| "vector-anchor-status".into())
                     .text_size(px(11.))
                     .text_color(cx.omarchy().secondary)
                     .child(anchor_status),
-            )
+            ))
             .child(style)
+            .when(is_scene, |view| view.child(self.vector_style_controls(window, cx)))
+            .when(is_scene, |view| view.child(self.vector_text_controls(window, cx)))
             .when(is_scene, |view| view.child(self.vector_scene_controls(cx)))
-            .child(controls)
+            .when(arranging, |view| view.child(self.vector_selection_controls(window, cx)))
+            .when(!arranging, |view| view.child(controls))
             .child(div().flex().flex_wrap().gap_2()
-                .child(button("vector-svg-import", "Import SVG path", ButtonVariant::Outline, cx)
+                .child(button("vector-svg-import", if is_scene { "Import SVG artwork" } else { "Import SVG path" }, ButtonVariant::Outline, cx)
                     .disabled(self.busy).debug_selector(|| "vector-svg-import".into())
                     .on_click(cx.listener(|this, _, window, cx| this.choose_vector_import(window, cx))))
-                .child(button("vector-svg-export", "Export path SVG", ButtonVariant::Outline, cx)
+                .child(button("vector-svg-export", if is_scene { "Export artwork SVG" } else { "Export path SVG" }, ButtonVariant::Outline, cx)
                     .disabled(self.busy).debug_selector(|| "vector-svg-export".into())
-                    .on_click(cx.listener(|this, _, window, cx| this.choose_vector_export(window, cx)))))
+                    .on_click(cx.listener(|this, _, window, cx| this.choose_vector_export(window, cx))))
+                .child(button("vector-pdf-export", "Export vector PDF", ButtonVariant::Outline, cx)
+                    .disabled(self.busy).debug_selector(|| "vector-pdf-export".into())
+                    .on_click(cx.listener(|this, _, window, cx| this.choose_vector_pdf_export(window, cx)))))
             .child(div().text_size(px(11.)).text_color(cx.omarchy().secondary)
-                .child("SVG exchanges the selected path. Save .omuse to keep the complete artwork."))
+                .child(if is_scene { "SVG keeps objects, groups, gradients and strokes; text becomes outlines. Save .omuse to retain text recipes." } else { "SVG exchanges the selected path. Save .omuse to keep the complete artwork." }))
             .into_any_element()
     }
 }

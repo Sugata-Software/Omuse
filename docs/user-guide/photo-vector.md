@@ -7,6 +7,96 @@ when you want a simpler graphic, or use the colour tools to refine a photo.
 [User manual](README.md) · [Photo editing](photo-editing.md) ·
 [Create content](create-content.md) · [Current interface gallery](../releases/v0.7.0-gallery.md)
 
+## New vector workflow — unreleased development build
+
+These controls extend the 0.7.0 instructions below. They are not part of the
+installed 0.7.0 source release. They stay on the same canvas and Layers
+inspector; use **Ctrl+K** to find the new Vector commands.
+See the [development qualification record](../vector-workflow-qualification.md)
+for tested scope and remaining release checks.
+
+### Select, group and arrange
+
+1. Open an artwork layer with **Shift+P**, then press **V**. **Shift-click**
+   objects to add or remove them from the selection. Drag empty canvas to make
+   a marquee; it selects fully enclosed objects. Hold Shift to extend it.
+2. **Ctrl+A** selects visible objects; **Ctrl+D** clears the object selection.
+   Clicking a group selects its members. **Ctrl-click** selects an individual
+   member; double-click opens its points. **A** and **P** work on one active
+   object's geometry.
+3. Drag or use arrow keys to move the selection. **Shift+Arrow** moves ten
+   source pixels. **Ctrl+J** duplicates it. **Ctrl+G** groups; **Ctrl+Shift+G**
+   removes the outer group. Groups organize objects and preserve nested groups;
+   they do not introduce isolated group opacity or effects.
+4. In Move mode (**V**), the inspector's **Move X/Y**, **Scale** and **Rotate** fields apply relative
+   movement, uniform percentage scaling and rotation about the selection
+   centre. **Ctrl+T** opens and reveals these controls. Choose **Transform selection**
+   to apply them. Align controls use the selection bounds; **Space X/Y**
+   distributes three or more selected units with equal gaps. Complete groups
+   are treated as units.
+5. Change a fill, stroke or opacity field to apply that changed property to
+   every selected object. Other properties remain as they were. **Same fill**,
+   **Same stroke** and **Same opacity** find visible objects matching the active
+   object. Stroke matching includes its colour and width.
+
+All these operations participate in draft **Ctrl+Z / Ctrl+Shift+Z**. **Done**
+keeps the entire draft as one document Undo step; **Escape** discards it.
+
+![Vector objects and fill/stroke controls in the compact inspector](../images/vector-workflow/compact-inspector.png)
+
+*The unreleased build at 800×600: fill, stroke and opacity stay above the
+arrangement controls. Ctrl+T scrolls directly to the transform fields.*
+
+### Combine filled shapes
+
+Select at least two closed, filled objects, then use **Unite**, **Subtract**,
+**Intersect**, **Exclude** or **Divide** in the inspector or command search.
+The bottom selected object supplies the result's fill, stroke and opacity.
+Subtract cuts later selected shapes from that bottom object. Divide partitions
+that bottom object with each later cutter; cutter-only areas are discarded.
+Unselected objects remain in the scene.
+
+![An ellipse subtracted from a rectangle beside the arrangement controls](../images/vector-workflow/subtract-and-arrange.png)
+
+*Subtract removes the ellipse from the rectangle, leaving four editable corner
+pieces. The blue mark underneath belongs to the original pixel layer.*
+
+The result is editable geometry. Curves are flattened with a 0.05-source-pixel
+tolerance, so the operation does not preserve the original Bézier handles.
+Undo restores the exact original objects. Open paths and objects without a
+fill are refused. Operations have object, point and output budgets; cancellation
+discards the draft and a stale result cannot replace newer document work.
+
+### Exchange an SVG artwork
+
+Use **Import SVG artwork** to append supported paths and shapes. The SVG
+viewport fits proportionally inside the artwork, keeping empty margins and
+centering the imported content. The import selects the new objects and retains
+existing artwork. **Export artwork SVG** writes the entire scene to a new
+filename; existing files are preserved.
+
+Supported content includes multiple paths/basic shapes, compound fills, solid
+colours, object opacity, organizational groups, names, visibility and supported
+transforms. Strokes must be uniform, solid and round; skewed or nonuniformly
+transformed strokes are refused. Text, gradients, clipping, masks, effects,
+group opacity and external resources remain unsupported in editable exchange.
+General SVG raster import is still available for artwork outside this subset.
+
+### Inspect outlines and zoom
+
+**Ctrl+Y** toggles a geometry-only outline view while editing. It changes the
+view, not saved paint or export. Simple photo/vector documents rerender the
+editing preview at integer zoom levels up to 4×, with a 16-million-pixel budget.
+Large canvases and documents using masks, layer groups, effects or unsupported
+metadata retain the ordinary settled preview. This is a bounded editing
+preview, not unlimited-resolution zoom or a persistent vector tile renderer.
+
+**Compatibility:** grouping upgrades the scene to version 2 and the `.omuse`
+canvas to **format 12**. Omuse 0.7.0 cannot open format 12. Save As before using
+new grouped artwork if you need an older-release copy. Flat legacy scenes
+continue to write format 11; other canvases write format 10. Ungrouping does
+not automatically downgrade a scene's format.
+
 ## Make a product colour more consistent
 
 Target colour uniformity brings nearby hues and saturation closer to a chosen

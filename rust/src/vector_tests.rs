@@ -1,6 +1,11 @@
 use super::*;
 use gpui_kit::{Focusable, Modifiers, TestAppContext, VisualTestContext};
 
+#[path = "vector_selection_tests.rs"]
+mod selection;
+#[path = "vector_style_tests.rs"]
+mod styles;
+
 fn draw(cx: &mut VisualTestContext) {
     cx.update(|window, cx| window.draw(cx).clear(cx));
 }
@@ -1035,7 +1040,11 @@ fn inline_scene_svg_choosers_restore_canvas_preview_focus_and_export_truth(
         let draft = view.vector_draft.as_ref().unwrap();
         assert_eq!(draft.path.subpaths.len(), 2);
         assert_eq!(draft.path.fill_rule, omuse::vector_path::FillRule::EvenOdd);
-        assert!(view.status.contains("SVG path fitted"), "{}", view.status);
+        assert!(
+            view.status.contains("Imported 1 editable SVG objects"),
+            "{}",
+            view.status
+        );
     });
 
     click_inspector_id(cx, "vector-svg-export");
@@ -1062,7 +1071,7 @@ fn inline_scene_svg_choosers_restore_canvas_preview_focus_and_export_truth(
         assert_eq!(view.editor.revision(), revision);
         assert_eq!(view.editor.undo_depth(), depth);
         assert!(
-            view.status.contains("Exported editable path"),
+            view.status.contains("Exported editable SVG"),
             "{}",
             view.status
         );
@@ -1332,14 +1341,14 @@ fn prepared_svg_export_rechecks_staleness_at_publish_and_cancel_after_commit_is_
     assert!(committed_output.exists());
     view.update(cx, |v, _| {
         assert!(v.busy, "finalization keeps the draft fenced");
-        assert!(v.status.contains("Exported editable path"), "{}", v.status);
+        assert!(v.status.contains("Exported editable SVG"), "{}", v.status);
     });
     draw(cx);
     click_id(cx, "cancel-dialog");
     view.update(cx, |v, _| {
         assert!(!v.busy);
         assert!(v.vector_draft.is_none());
-        assert!(v.status.contains("Exported editable path"), "{}", v.status);
+        assert!(v.status.contains("Exported editable SVG"), "{}", v.status);
     });
     published.finish().unwrap();
     assert!(committed_output.exists());

@@ -1,3 +1,5 @@
 # Legal files are verified byte for byte against pinned SHA-256 digests, so
 # Windows checkouts must not convert their line endings.
 rust/licenses/** -text
+# The pinned hexf-parse source is also checked byte for byte against upstream.
+rust/vendor/hexf-parse/** -text

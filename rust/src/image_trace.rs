@@ -8,7 +8,8 @@
 use crate::{
     vector_path::{Anchor, FillRule, Point, Subpath, VectorPath},
     vector_scene::{
-        MAX_SCENE_ANCHORS, MAX_SCENE_SUBPATHS, VECTOR_SCENE_VERSION, VectorObject, VectorScene,
+        MAX_SCENE_ANCHORS, MAX_SCENE_SUBPATHS, VECTOR_SCENE_LEGACY_VERSION, VectorObject,
+        VectorScene,
     },
 };
 use anyhow::{Result, ensure};
@@ -277,7 +278,7 @@ pub fn trace(
     );
     check_cancel(cancel)?;
     let scene = VectorScene {
-        version: VECTOR_SCENE_VERSION,
+        version: VECTOR_SCENE_LEGACY_VERSION,
         width,
         height,
         objects,
@@ -550,10 +551,10 @@ fn neighbours(index: usize, width: usize, height: usize) -> [Option<usize>; 4] {
     let x = index % width;
     let y = index / width;
     [
-        (x > 0).then_some(index - 1),
-        (x + 1 < width).then_some(index + 1),
-        (y > 0).then_some(index - width),
-        (y + 1 < height).then_some(index + width),
+        (x > 0).then(|| index - 1),
+        (x + 1 < width).then(|| index + 1),
+        (y > 0).then(|| index - width),
+        (y + 1 < height).then(|| index + width),
     ]
 }
 
@@ -1119,8 +1120,12 @@ fn vector_object(index: usize, name: String, path: VectorPath, fill: [u8; 4]) ->
         transform: [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
         fill: Some(fill),
         stroke: None,
+        fill_gradient: None,
+        stroke_options: None,
+        text_path: None,
         opacity: 1.0,
         visible: true,
+        groups: Vec::new(),
     }
 }
 

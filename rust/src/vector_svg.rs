@@ -36,6 +36,12 @@ pub struct SvgArtwork {
 /// files are refused so importing cannot unexpectedly traverse another path or
 /// block on a device/FIFO.
 pub fn import(path: &Path) -> Result<SvgArtwork> {
+    decode(&read_bounded(path)?)
+}
+
+/// Read an SVG exchange file using the same no-follow, regular-file and
+/// bounded-read checks as the single-path importer.
+pub(crate) fn read_bounded(path: &Path) -> Result<Vec<u8>> {
     let file = open_read_nofollow_nonblock(path).context("Cannot safely open editable SVG")?;
     let metadata = file
         .metadata()
@@ -63,7 +69,7 @@ pub fn import(path: &Path) -> Result<SvgArtwork> {
         input.len() as u64 == expected_len && final_len == expected_len,
         "Editable SVG changed while it was being read"
     );
-    decode(&input)
+    Ok(input)
 }
 
 /// Decode one editable SVG path from UTF-8 XML.
@@ -292,6 +298,25 @@ fn remove_staging(path: &Path) {
 /// visible. Existing destinations are not touched during preparation.
 pub fn prepare_export(path: &Path, artwork: &SvgArtwork) -> Result<PreparedExport> {
     let encoded = encode(artwork)?;
+    prepare_encoded_export(path, &encoded)
+}
+
+/// Stage already-validated SVG text using the same transactional publication
+/// mechanism as the narrow single-path exporter.
+pub(crate) fn prepare_encoded_export(path: &Path, encoded: &str) -> Result<PreparedExport> {
+    ensure!(
+        encoded.len() <= MAX_INPUT_BYTES as usize,
+        "Encoded editable SVG exceeds the 4 MiB reimport limit"
+    );
+    prepare_bytes_export(path, encoded.as_bytes())
+}
+
+/// Shared no-replace publication for validated SVG and vector PDF output.
+pub(crate) fn prepare_bytes_export(path: &Path, encoded: &[u8]) -> Result<PreparedExport> {
+    ensure!(
+        encoded.len() <= 16 * 1024 * 1024,
+        "Vector export exceeds 16 MiB"
+    );
     let parent = path
         .parent()
         .filter(|parent| !parent.as_os_str().is_empty())
@@ -310,7 +335,7 @@ pub fn prepare_export(path: &Path, artwork: &SvgArtwork) -> Result<PreparedExpor
         parent: parent.to_path_buf(),
         staging,
     };
-    file.write_all(encoded.as_bytes())
+    file.write_all(encoded)
         .context("Cannot write staged editable SVG")?;
     file.sync_all()
         .context("Cannot finish staged editable SVG")?;

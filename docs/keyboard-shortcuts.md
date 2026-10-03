@@ -1,6 +1,6 @@
 # Omuse keyboard shortcuts
 
-This reference is generated from Omuse's command catalog. Press **Ctrl+K** in the editor to search and run any of the 179 commands. 104 commands have a default shortcut; every unbound command remains searchable and executable.
+This reference is generated from Omuse's command catalog. Press **Ctrl+K** in the editor to search and run any of the 200 commands. 106 commands have a default shortcut; every unbound command remains searchable and executable.
 
 Open **Keyboard shortcuts** with **Ctrl+Alt+K** to assign, clear, or reset a binding. Custom bindings are stored per user. Omuse reserves **Super** for Omarchy and other Linux desktop shortcuts, and rejects Linux virtual-terminal chords such as Ctrl+Alt+F3.
 
@@ -70,7 +70,7 @@ Legacy default changes: Export moved from Ctrl+E to **Ctrl+Alt+Shift+S**, Create
 | Select subject | Unbound | Find a foreground subject locally and refine its selection. |
 | Remove background | Unbound | Find a foreground subject locally and remove its background. |
 | Luminosity range | Unbound | Create a selection from a tonal range. |
-| Colour range | Unbound | Create a selection from a colour range. |
+| Colour range | Unbound | Select colours by RGB distance or hue, with softness and grey protection. |
 | Feather selection | Shift+F6 | Soften the edge of the current selection. |
 | Expand selection | Unbound | Expand the current selection by a chosen radius. |
 | Contract selection | Unbound | Contract the current selection by a chosen radius. |
@@ -139,6 +139,32 @@ Legacy default changes: Export moved from Ctrl+E to **Ctrl+Alt+Shift+S**, Create
 | Nudge right 10 pixels | Shift+Right | Move selected layers right by ten pixels. |
 | Nudge up 10 pixels | Shift+Up | Move selected layers up by ten pixels. |
 | Nudge down 10 pixels | Shift+Down | Move selected layers down by ten pixels. |
+
+## Vector
+
+| Command | Default | What it does |
+|---|---:|---|
+| Group vector selection | Unbound | Group selected vector objects. Ctrl+G also groups objects while editing artwork. |
+| Ungroup vector selection | Ctrl+Shift+G | Release selected outer vector groups while retaining object order and geometry. |
+| Toggle vector outline view | Ctrl+Y | Inspect vector contours at the current zoom. This viewing mode does not change exports. |
+| Unite vector shapes | Unbound | Combine selected filled shapes; the bottom shape supplies the style. Undo restores the originals. |
+| Subtract vector shapes | Unbound | Cut upper selected filled shapes out of the bottom selected shape. |
+| Intersect vector shapes | Unbound | Keep the shared filled area of selected shapes. |
+| Exclude vector overlap | Unbound | Keep areas covered by an odd number of selected shapes. |
+| Divide vector shape | Unbound | Partition the bottom selected shape using the upper selected shapes. |
+| Align vectors left | Unbound | Align selected objects or groups to the left edge of the selection. |
+| Centre vectors horizontally | Unbound | Align selected objects or groups to their shared horizontal centre. |
+| Align vectors right | Unbound | Align selected objects or groups to the right edge of the selection. |
+| Align vectors top | Unbound | Align selected objects or groups to the top of the selection. |
+| Centre vectors vertically | Unbound | Align selected objects or groups to their shared vertical centre. |
+| Align vectors bottom | Unbound | Align selected objects or groups to the bottom of the selection. |
+| Space vectors horizontally | Unbound | Distribute three or more objects or groups with equal horizontal gaps. |
+| Space vectors vertically | Unbound | Distribute three or more objects or groups with equal vertical gaps. |
+| Select vectors with same fill | Unbound | Select visible vector objects matching the active object's fill, including alpha. |
+| Select vectors with same stroke | Unbound | Select visible vector objects matching the active object's stroke colour and width. |
+| Select vectors with same opacity | Unbound | Select visible vector objects matching the active object's opacity. |
+| Import editable SVG artwork | Unbound | Add supported solid-paint SVG objects and groups to the current artwork without replacing existing objects. |
+| Export editable SVG artwork | Unbound | Export the complete vector artwork with supported groups, solid paint and opacity. |
 
 ## Image
 
@@ -235,7 +261,7 @@ Legacy default changes: Export moved from Ctrl+E to **Ctrl+Alt+Shift+S**, Create
 | Edit adjustment | Unbound | Edit the selected adjustment layer. |
 | Layer effects | Unbound | Edit nondestructive effects on the active layer. |
 | Delete layer effects | Unbound | Remove every effect from the active layer. |
-| Editable filter stack | Unbound | Build a reorderable stack, including target-colour uniformity. |
+| Editable filter stack | Unbound | Build a reorderable stack, including reference-photo colour matching and colour uniformity. |
 | Dither and halftone | Unbound | Preview ten retro finishes with pixel, cell and palette controls; Apply is one undo step. |
 | Bloom into transparency | Unbound | Preview highlight glow that can spread into existing transparent layer margins. |
 | Vignette overlay | Unbound | Preview a coloured edge overlay, including on an empty paint layer. |
@@ -282,6 +308,10 @@ These temporary gestures are fixed so they remain available while other shortcut
 | Add a vector point without changing its curve | P: click a segment; A: double-click a segment |
 | Close a vector contour | P: click its first anchor |
 | Break vector handle alignment | A: Alt+Drag a handle |
+| Select several vector objects | V: Shift+Click objects, or drag empty canvas to enclose them |
+| Select one object inside a vector group | V: Ctrl+Click the object |
+| Select or clear vector objects | Ctrl+A selects visible artwork; Ctrl+D clears the object selection |
+| Group or duplicate vector objects | Ctrl+G groups; Ctrl+Shift+G ungroups; Ctrl+J duplicates |
 | Constrain vector points and handles | A: Shift+Drag for 45-degree increments |
 | Keep or cancel an image trace | Enter keeps a ready trace; Escape cancels (canvas focused) |
 

@@ -49,7 +49,7 @@ try {
     foreach ($name in 'lib', 'models', 'licenses') { New-Item -ItemType Directory -Force (Join-Path $root $name) | Out-Null }
     $inventory = Join-Path $work 'license-inventory'
     # Inventory the crates this release build compiles, not every optional feature.
-    & python (Join-Path $repoRoot 'scripts\rust-license-inventory.py') $inventory --target x86_64-pc-windows-msvc --release-build
+    & python (Join-Path $repoRoot 'scripts\rust-license-inventory.py') $inventory --target x86_64-pc-windows-msvc --release-build --deny-findings
     if ($LASTEXITCODE -ne 0) { throw 'Rust dependency license inventory failed.' }
 
     Copy-Item -LiteralPath $Binary -Destination (Join-Path $root 'omuse.exe')
@@ -78,8 +78,9 @@ Camera RAW uses LibRaw with libjpeg-turbo and zlib. This software is based in
 part on the work of the Independent JPEG Group. Licences are in the licenses folder.
 
 Settings are stored in %APPDATA%\omuse; data and recovery in %LOCALAPPDATA%\omuse.
-This build is unsigned and is not a release, so Windows SmartScreen may warn
-before the first run. Ask Omuse uses Codex or Claude Code when their official
+This is an unsigned experimental build, so Windows SmartScreen may warn
+before the first run. Automated package checks do not qualify every desktop
+configuration or live AI operation. Ask Omuse uses Codex or Claude Code when their official
 command-line tools are installed and signed in.
 In a terminal, pipe command-line modes so the shell waits for them:
   .\omuse.exe --help | Out-Host

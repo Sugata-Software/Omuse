@@ -15,6 +15,7 @@ pub(super) enum RangeOutput {
 
 pub(super) struct RangeDraft {
     pub color: bool,
+    hue: bool,
     source: Arc<image::RgbaImage>,
     layer: String,
     source_preview: Arc<RenderImage>,
@@ -35,6 +36,29 @@ impl Drop for RangeDraft {
 }
 
 impl EditorView {
+    pub(super) fn set_range_hue_mode(
+        &mut self,
+        hue: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(draft) = self.range_draft.as_mut() else {
+            return;
+        };
+        if !draft.color || draft.hue == hue {
+            return;
+        }
+        draft.hue = hue;
+        for (input, value) in self.detail_inputs.iter().zip(if hue {
+            ["20", "15", "10"]
+        } else {
+            ["10", "15", "0"]
+        }) {
+            input.update(cx, |state, cx| state.set_value(value, window, cx));
+        }
+        self.schedule_range_preview(cx);
+    }
+
     pub(super) fn cancel_range(&mut self, cx: &mut App) {
         if self.range_draft.is_some() {
             self.clear_range(cx);
@@ -112,6 +136,7 @@ impl EditorView {
         );
         self.range_draft = Some(RangeDraft {
             color,
+            hue: false,
             source,
             layer: self.editor.active_layer.clone(),
             source_preview: render_image(&small),
@@ -142,7 +167,18 @@ impl EditorView {
                 .parse::<f32>()
                 .map_err(|_| anyhow::anyhow!("Enter a number for each range setting"))
         };
-        let kind = if draft.color {
+        let kind = if draft.color && draft.hue {
+            RangeKind::Hue {
+                rgb: [
+                    self.dialog_color[0],
+                    self.dialog_color[1],
+                    self.dialog_color[2],
+                ],
+                tolerance_degrees: value(0)?,
+                feather_degrees: value(1)?,
+                minimum_saturation: value(2)? / 100.,
+            }
+        } else if draft.color {
             RangeKind::Color {
                 rgb: [
                     self.dialog_color[0],
@@ -448,19 +484,23 @@ impl EditorView {
                 ),
         );
         if draft.color {
-            controls = controls.child(
-                div()
-                    .flex()
-                    .items_center()
-                    .gap_2()
-                    .child("Sample colour")
-                    .child(color_picker(
-                        "range-color",
-                        &self.dialog_color_picker,
-                        window,
-                        cx,
-                    )),
-            );
+            let mut methods = div().flex().items_center().gap_2();
+            for (id, label, hue) in [
+                ("range-rgb-mode", "RGB distance", false),
+                ("range-hue-mode", "Hue range", true),
+            ] {
+                methods = methods.child(
+                    button(id, label, ButtonVariant::Secondary, cx)
+                        .selected(draft.hue == hue)
+                        .debug_selector(move || id.into())
+                        .on_click(cx.listener(move |this, _, window, cx| {
+                            this.set_range_hue_mode(hue, window, cx);
+                        })),
+                );
+            }
+            controls = controls.child(methods.child(div().flex_1()).child("Sample").child(
+                color_picker("range-color", &self.dialog_color_picker, window, cx),
+            ));
         } else {
             let mut presets = div().flex().gap_2();
             for (id, label, values) in [
@@ -481,7 +521,13 @@ impl EditorView {
             }
             controls = controls.child(presets);
         }
-        let labels: &[&str] = if draft.color {
+        let labels: &[&str] = if draft.color && draft.hue {
+            &[
+                "Hue tolerance (0–180°)",
+                "Softness (0–180°)",
+                "Min. saturation (%)",
+            ]
+        } else if draft.color {
             &["Tolerance (0–100%)", "Softness (0–100%)"]
         } else {
             &["From (0–255)", "To (0–255)", "Softness (0–255)"]
@@ -554,6 +600,11 @@ impl EditorView {
                 "range-subtract",
                 "Subtract",
                 RangeOutput::Selection(SelectionMode::Subtract),
+            ),
+            (
+                "range-intersect",
+                "Intersect",
+                RangeOutput::Selection(SelectionMode::Intersect),
             ),
             ("range-layer-mask", "Layer mask", RangeOutput::LayerMask),
         ] {

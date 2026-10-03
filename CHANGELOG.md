@@ -22,6 +22,32 @@ for numbering, qualification and publication.
   (including npm installs) and native Claude Code, using workspaces only the
   current user can open. Linux behaviour and project formats are unchanged.
 
+- Prevent Image Trace from panicking at image edges in development builds
+  with integer overflow checks enabled.
+
+- Select several vector objects on the main canvas with Shift-click or a
+  marquee. Move, nudge, duplicate, group, ungroup and change their shared style;
+  align, distribute, rotate and scale through the Layers inspector or command
+  search. Nested groups retain their editable children and stacking order.
+- Construct filled shapes with Unite, Subtract, Intersect, Exclude and Divide.
+  Operations run in the background, preserve Undo and refuse unsupported open
+  or stroke-only inputs. Curves become bounded polygonal paths in the result.
+- Import and export multiple editable solid-paint SVG objects with names,
+  organizational groups, supported transforms and object opacity. Main-canvas
+  import appends to existing artwork. Unsupported text, gradients, clipping,
+  group opacity and external resources produce an explicit error.
+- Find objects with matching fill, stroke or opacity; toggle an outline view
+  with Ctrl+Y. Supported simple documents rerender vector editing previews at
+  up to 4× resolution within a 16-million-pixel preview budget.
+- Save grouped artwork using canvas format 12. Legacy flat scenes retain
+  format 11; ordinary canvases retain format 10. Omuse 0.7.0 cannot read format
+  12: use Save As to preserve an older copy. This batch is unreleased.
+
+See the [development qualification record](docs/vector-workflow-qualification.md)
+and [workflow instructions](docs/user-guide/photo-vector.md) for the tested scope
+and remaining limits.
+
+
 ## [0.7.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.7.0) — 2026-10-02
 
 **Photos and vectors, one studio · Arch Linux / Omarchy · x86_64 source pre-release**

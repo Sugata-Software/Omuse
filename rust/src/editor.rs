@@ -161,6 +161,44 @@ pub struct Selection {
     pub mask: Vec<u8>,
 }
 impl Selection {
+    /// Sample soft coverage at a canvas-space pixel centre. Interpolation keeps
+    /// a fractional layer translation/rotation from hardening selection edges.
+    fn sampled_coverage(&self, x: f32, y: f32) -> u8 {
+        if !x.is_finite()
+            || !y.is_finite()
+            || x < 0.
+            || y < 0.
+            || x >= self.width as f32
+            || y >= self.height as f32
+        {
+            return 0;
+        }
+        let (px, py) = (x - 0.5, y - 0.5);
+        let (ix, iy) = (px.floor() as i64, py.floor() as i64);
+        let (fx, fy) = (px - px.floor(), py - py.floor());
+        if fx == 0. && fy == 0. {
+            return self
+                .mask
+                .get(iy as usize * self.width as usize + ix as usize)
+                .copied()
+                .unwrap_or(0);
+        }
+        let mut coverage = 0.;
+        for (ox, oy, weight) in [
+            (0, 0, (1. - fx) * (1. - fy)),
+            (1, 0, fx * (1. - fy)),
+            (0, 1, (1. - fx) * fy),
+            (1, 1, fx * fy),
+        ] {
+            let (sx, sy) = (ix + ox, iy + oy);
+            if sx >= 0 && sy >= 0 && sx < i64::from(self.width) && sy < i64::from(self.height) {
+                let index = sy as usize * self.width as usize + sx as usize;
+                coverage += f32::from(self.mask.get(index).copied().unwrap_or(0)) * weight;
+            }
+        }
+        coverage.round().clamp(0., 255.) as u8
+    }
+
     pub fn contains(&self, x: i32, y: i32) -> bool {
         x >= 0
             && y >= 0
@@ -4447,18 +4485,27 @@ impl Editor {
         let mut mask = RgbaImage::new(w, h);
         for (x, y, pixel) in mask.enumerate_pixels_mut() {
             let (wx, wy) = transform.world(x as f32 + 0.5, y as f32 + 0.5);
-            let value = if selected(&self.selection, wx, wy) == reveal {
-                255
-            } else {
-                0
-            };
+            let coverage = self
+                .selection
+                .as_ref()
+                .map_or(255, |selection| selection.sampled_coverage(wx, wy));
+            let value = if reveal { coverage } else { 255 - coverage };
             *pixel = Rgba([value, value, value, 255]);
         }
+        // A selection has zero coverage beyond its canvas. Preserve this
+        // ground even if a later mask edit grows the bitmap past its edges.
+        let outside = if reveal == self.selection.is_none() {
+            255
+        } else {
+            0
+        };
         let before = self.snapshot();
         let layer = self.document.find_layer_mut(id).unwrap();
         layer.mask = Some(mask.into());
         metadata_bool(layer, "maskEnabled", true);
-        remove_metadata(layer, "maskOutsideCoverage");
+        metadata_bool(layer, "maskLinked", true);
+        remove_metadata(layer, "maskPlacement");
+        layer.metadata["maskOutsideCoverage"] = serde_json::json!(outside);
         self.commit(before);
         true
     }

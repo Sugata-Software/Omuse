@@ -64,6 +64,8 @@ mod selection_outline_ui;
 #[path = "svg_import_ui.rs"]
 mod svg_import_ui;
 use selection_outline_ui::SelectionContourCache;
+#[path = "jpeg_preview_ui.rs"]
+mod jpeg_preview_ui;
 #[cfg(test)]
 #[path = "startup_preparation_tests.rs"]
 mod startup_preparation_tests;
@@ -391,6 +393,7 @@ pub struct EditorView {
     save_confirmation: Option<SaveConfirmation>,
     save_again: bool,
     jpeg_preview: Option<(Arc<RenderImage>, usize, u32, u32)>,
+    jpeg_inspection: jpeg_preview_ui::JpegInspection,
     // Preview work has its own lifecycle.  It must never invalidate a submitted
     // file operation, whose completion is guarded by `dialog_generation`.
     jpeg_preview_generation: u64,
@@ -889,6 +892,7 @@ impl EditorView {
             save_confirmation: None,
             save_again: false,
             jpeg_preview: None,
+            jpeg_inspection: jpeg_preview_ui::JpegInspection::default(),
             jpeg_preview_generation: 0,
             jpeg_preview_task: None,
             lasso: Vec::new(),
@@ -2304,6 +2308,7 @@ impl EditorView {
         }
         if export {
             self.jpeg_preview = None;
+            self.jpeg_inspection = jpeg_preview_ui::JpegInspection::default();
             let dpi = self
                 .editor
                 .document
@@ -3266,6 +3271,13 @@ impl EditorView {
                 self.vector_before_command("vector-nodes", window, cx);
             }
             "vector-mask" => self.open_vector(true, window, cx),
+            id if shortcuts::definition(id)
+                .is_some_and(|definition| definition.category == "Vector") =>
+            {
+                self.status =
+                    "Open vector artwork with Shift+P, then select the objects to edit.".into();
+                cx.notify();
+            }
             "import-report" => {
                 self.import_notes = omuse::import_report::conversion_notes(&self.editor.document);
                 if self.import_notes.is_empty() {
@@ -6013,6 +6025,7 @@ impl EditorView {
         let tiles = display.snapshot();
         let display_dimensions = display.dimensions();
         let vector_overlay = self.vector_canvas_overlay();
+        let vector_outline = self.vector_outline_active();
         let reference = self.display_reference.clone();
         let probe_matte = self.display_probe_matte;
         let textures = self.canvas_textures.clone();
@@ -6167,16 +6180,18 @@ impl EditorView {
                                 }
                             }
                         }
-                        paint_display_tiles(
-                            &tiles,
-                            reference.as_ref(),
-                            &textures,
-                            rect,
-                            display_dimensions,
-                            bounds,
-                            window,
-                            cx,
-                        );
+                        if !vector_outline {
+                            paint_display_tiles(
+                                &tiles,
+                                reference.as_ref(),
+                                &textures,
+                                rect,
+                                display_dimensions,
+                                bounds,
+                                window,
+                                cx,
+                            );
+                        }
                         if safe_areas {
                             let [left, top, right, bottom] = safe_insets;
                             let inset_x = rect.size.width * left;
@@ -7910,26 +7925,7 @@ impl EditorView {
                                 || extension.eq_ignore_ascii_case("jpeg")
                         });
                     if is_jpeg {
-                        for (i, label) in [
-                            "JPEG quality (1–100)",
-                            "JPEG matte red (0–255)",
-                            "JPEG matte green (0–255)",
-                            "JPEG matte blue (0–255)",
-                        ]
-                        .iter()
-                        .enumerate()
-                        {
-                            body = body.child(div().child(*label).child(input(
-                                SharedString::from(format!("export-option-{i}")),
-                                &self.detail_inputs[i],
-                                window,
-                                cx,
-                            )));
-                        }
-                        body = body.child(format!(
-                            "JPEG output: {} × {} px · transparency uses the matte color",
-                            self.editor.document.width, self.editor.document.height
-                        ));
+                        body = body.child(self.jpeg_export_settings(window, cx));
                         body = body.child(
                             button(
                                 "jpeg-preview",
@@ -7950,49 +7946,27 @@ impl EditorView {
                         );
                         if let Some((preview, bytes, width, height)) = self.jpeg_preview.clone() {
                             body = body
-                                .child(format!("Actual encoded size: {bytes} bytes"))
-                                .child(
-                                    canvas(
-                                        |_, _, _| {},
-                                        move |bounds, _, window, _| {
-                                            let scale = (f32::from(bounds.size.width)
-                                                / width as f32)
-                                                .min(f32::from(bounds.size.height) / height as f32);
-                                            let size = size(
-                                                px(width as f32 * scale),
-                                                px(height as f32 * scale),
-                                            );
-                                            let target = Bounds::new(
-                                                point(
-                                                    bounds.origin.x
-                                                        + (bounds.size.width - size.width) / 2.,
-                                                    bounds.origin.y
-                                                        + (bounds.size.height - size.height) / 2.,
-                                                ),
-                                                size,
-                                            );
-                                            let _ = window.paint_image(
-                                                bounds,
-                                                target,
-                                                Corners::default(),
-                                                preview.clone(),
-                                                0,
-                                                false,
-                                            );
-                                        },
-                                    )
-                                    .w_full()
-                                    .h(px(200.)),
-                                );
+                                .child(inspector_ui::panel_note(
+                                    &format!(
+                                        "{} × {} px · {:.1} KB encoded",
+                                        width,
+                                        height,
+                                        bytes as f64 / 1024.
+                                    ),
+                                    cx,
+                                ))
+                                .child(self.jpeg_inspection_panel(preview, width, height, cx));
                         }
                     }
-                    for (i, label) in [(4usize, "Resolution (DPI, 1–9600)")] {
-                        body = body.child(div().child(label).child(input(
-                            SharedString::from(format!("export-option-{i}")),
-                            &self.detail_inputs[i],
-                            window,
-                            cx,
-                        )));
+                    if !is_jpeg {
+                        for (i, label) in [(4usize, "Resolution (DPI, 1–9600)")] {
+                            body = body.child(div().child(label).child(input(
+                                SharedString::from(format!("export-option-{i}")),
+                                &self.detail_inputs[i],
+                                window,
+                                cx,
+                            )));
+                        }
                     }
                 }
                 if self.dialog != Dialog::Rename {
@@ -8109,11 +8083,12 @@ impl EditorView {
         } else {
             560.
         };
-        let dialog_height = if advanced_workspace || self.dialog == Dialog::CameraRaw {
-            (f32::from(window.viewport_size().height) - 48.).clamp(480., 820.)
-        } else {
-            540.
-        };
+        let dialog_height =
+            if advanced_workspace || matches!(self.dialog, Dialog::CameraRaw | Dialog::Export) {
+                (f32::from(window.viewport_size().height) - 48.).clamp(480., 820.)
+            } else {
+                540.
+            };
         let mut dialog = div()
             .id("dialog")
             .debug_selector(|| "dialog".into())
@@ -11951,6 +11926,12 @@ impl EditorView {
                             this.refresh(cx);
                             this.command("fit",window,cx);
                             this.command("image-trace",window,cx);
+                        } else if panel == "jpeg-preview" {
+                            let pixels = image::load_from_memory(include_bytes!("../assets/omuse.png"))?.to_rgba8();
+                            let mut doc=Document::new(pixels.width(),pixels.height());doc.layers[0].image=Some(pixels.into());
+                            this.editor=Editor::new(doc);this.refresh(cx);this.command("fit",window,cx);
+                            this.save_dialog(true,window,cx);
+                            this.path_input.update(cx,|input,cx|input.set_value("Omuse preview.jpg",window,cx));
                         } else if panel == "crop" {
                             this.command("crop",window,cx);
                             if let Some(crop)=&mut this.crop { crop.set_preset(3); }
@@ -11967,20 +11948,30 @@ impl EditorView {
                             this.editor=Editor::new(doc);
                             this.command(&panel,window,cx);
                             this.run_finishing(false,cx);
-                        } else if matches!(panel.as_str(), "filter-stack" | "target-colour" | "blend-if" | "advanced-retouch" | "controlled-removal" | "editable-warp" | "refine-workspace" | "brush-studio" | "smart-source" | "colour-management" | "automation" | "multi-image" | "vector-path" | "vector-scene" | "vector-mask") {
+                        } else if matches!(panel.as_str(), "filter-stack" | "target-colour" | "reference-match" | "blend-if" | "advanced-retouch" | "controlled-removal" | "editable-warp" | "refine-workspace" | "brush-studio" | "smart-source" | "colour-management" | "automation" | "multi-image" | "vector-path" | "vector-scene" | "vector-styles" | "vector-text" | "vector-mask") {
                             let pixels=this.pixels.clone();
                             let mut doc=Document::new(pixels.width(),pixels.height());doc.layers[0].image=Some(pixels.into());
                             this.editor=Editor::new(doc);
                             if matches!(panel.as_str(),"controlled-removal"|"refine-workspace") {this.editor.select_rectangle(120.,100.,160.,180.);}
-                            this.command(if panel=="target-colour" {"filter-stack"} else {&panel},window,cx);
+                            this.command(if matches!(panel.as_str(),"target-colour"|"reference-match") {"filter-stack"} else if matches!(panel.as_str(),"vector-styles"|"vector-text") {"vector-scene"} else {&panel},window,cx);
                             if panel=="target-colour" {this.pro_choose_effect(14,window,cx);}
+                            if panel=="reference-match" {
+                                this.pro_choose_effect(15,window,cx);
+                                let reference=dir.join("Reference-palette.png");
+                                let mut image=image::load_from_memory(include_bytes!("../assets/omuse.png"))?.to_rgba8();
+                                for p in image.pixels_mut() { p[0]=p[0].saturating_add(30);p[2]=p[2].saturating_add(65); }
+                                image.save(&reference)?;this.pro_load_reference(reference,cx);
+                            }
                             if panel=="vector-path" {this.prepare_vector_inspection(window,cx)?;}
                             if panel=="vector-scene" {this.prepare_vector_scene_inspection(window,cx)?;}
-                            if matches!(panel.as_str(),"filter-stack"|"target-colour") {this.pro_add_node(false,cx);} else if this.dialog==Dialog::Pro {this.run_pro(false,cx);}
-                        } else if matches!(panel.as_str(), "luminosity-range" | "color-range") {
+                            if panel=="vector-styles" {this.prepare_vector_styles_inspection(window,cx)?;}
+                            if panel=="vector-text" {this.prepare_vector_text_inspection(window,cx)?;}
+                            if matches!(panel.as_str(),"filter-stack"|"target-colour") {this.pro_add_node(false,cx);} else if this.dialog==Dialog::Pro && panel!="reference-match" {this.run_pro(false,cx);}
+                        } else if matches!(panel.as_str(), "luminosity-range" | "color-range" | "hue-range") {
                             this.inspector_tab=studio_ui::InspectorTab::Selection;
-                            if panel=="color-range" { this.editor.brush.color=[122,162,247,255]; }
-                            this.command(&panel,window,cx);
+                            if matches!(panel.as_str(),"color-range"|"hue-range") { this.editor.brush.color=[122,162,247,255]; }
+                            this.command(if panel=="hue-range" {"color-range"}else{&panel},window,cx);
+                            if panel=="hue-range" {this.set_range_hue_mode(true,window,cx);}
                         } else if panel == "colour-picker" {
                             this.inspector_tab = studio_ui::InspectorTab::Layers;
                             this.tool = Tool::Brush;
@@ -12012,6 +12003,17 @@ impl EditorView {
                     Ok(())
                 })??;
                 cx.update(|window,cx|{window.refresh();window.draw(cx).clear(cx)})?;
+                if omuse::identity::env_var("OMUSE_NATIVE_PANEL").ok().as_deref() == Some("jpeg-preview") {
+                    cx.background_executor().timer(std::time::Duration::from_millis(50)).await;
+                    view.update(cx,|this,cx|this.start_jpeg_preview(cx))?;
+                    let deadline=std::time::Instant::now()+std::time::Duration::from_secs(20);
+                    while view.update(cx,|this,_|this.jpeg_preview_task.is_some())? {
+                        ensure!(std::time::Instant::now()<deadline,"JPEG inspection preview timed out");
+                        cx.background_executor().timer(std::time::Duration::from_millis(20)).await;
+                    }
+                    ensure!(view.update(cx,|this,_|this.jpeg_preview.is_some())?,"JPEG inspection did not produce encoded preview");
+                    cx.update(|window,cx|{window.refresh();window.draw(cx).clear(cx)})?;
+                }
                 if view.update(cx,|this,_|this.dialog==Dialog::RangeMask)? {
                     let deadline=std::time::Instant::now()+std::time::Duration::from_secs(5);
                     while !view.update(cx,|this,_|this.range_preview_ready())? {
@@ -12024,6 +12026,15 @@ impl EditorView {
                 while view.update(cx,|this,_|this.busy)? {
                     ensure!(std::time::Instant::now()<deadline,"inspection workspace preview timed out");
                     cx.background_executor().timer(std::time::Duration::from_millis(20)).await;
+                }
+                if omuse::identity::env_var("OMUSE_NATIVE_PANEL").ok().as_deref() == Some("reference-match") {
+                    view.update(cx,|this,cx|this.pro_add_node(false,cx))?;
+                    let deadline=std::time::Instant::now()+std::time::Duration::from_secs(20);
+                    while view.update(cx,|this,_|this.busy)? {
+                        ensure!(std::time::Instant::now()<deadline,"Reference colour preview timed out");
+                        cx.background_executor().timer(std::time::Duration::from_millis(20)).await;
+                    }
+                    ensure!(view.update(cx,|this,_|this.status.starts_with("Preview"))?,"Reference colour preview failed: {}",view.update(cx,|this,_|this.status.clone())?);
                 }
                 if omuse::identity::env_var("OMUSE_NATIVE_PANEL").ok().as_deref() == Some("image-trace") {
                     let deadline=std::time::Instant::now()+std::time::Duration::from_secs(30);
@@ -12038,10 +12049,10 @@ impl EditorView {
                         Ok::<(),anyhow::Error>(())
                     })??;
                 }
-                if matches!(omuse::identity::env_var("OMUSE_NATIVE_PANEL").ok().as_deref(), Some("vector-scene" | "vector-path")) {
+                if matches!(omuse::identity::env_var("OMUSE_NATIVE_PANEL").ok().as_deref(), Some("vector-scene" | "vector-path" | "vector-styles" | "vector-text")) {
                     let deadline=std::time::Instant::now()+std::time::Duration::from_secs(20);
                     while !view.update(cx,|this,_|this.vector_canvas_ready())? {
-                        ensure!(std::time::Instant::now()<deadline,"main canvas vector preview timed out");
+                        ensure!(std::time::Instant::now()<deadline,"main canvas vector preview timed out: {}", view.update(cx,|this,_|this.status.clone())?);
                         cx.background_executor().timer(std::time::Duration::from_millis(20)).await;
                     }
                     view.update(cx,|this,_| {
@@ -12060,7 +12071,7 @@ impl EditorView {
                 }
                 cx.update(|window,cx|{window.refresh();window.draw(cx).clear(cx)})?;
                 let mut report=serde_json::json!({"status":"passed","renderer":"GPUI native window","checks":["coalesced in-progress stroke preview","pointer painting","undo","redo","unsaved guard","save","reopen pixel equality","light theme retains artwork","system theme following","inline text insert/edit","live adjustment insert/reopen","live effects","live-document save/reopen","luminosity selection and undo","colour range mask save/reopen","16-bit source import retains exact samples","editable filter preview and Apply","editable source save/reopen and undo","16-bit export pixel equality","background photo open","photo adjustment crop resize and undo redo","background photo export pixel equality","command palette keyboard open search execute","palette command keyboard undo and focus restoration"]});
-                if matches!(omuse::identity::env_var("OMUSE_NATIVE_PANEL").ok().as_deref(), Some("vector-scene" | "vector-path")) {
+                if matches!(omuse::identity::env_var("OMUSE_NATIVE_PANEL").ok().as_deref(), Some("vector-scene" | "vector-path" | "vector-styles" | "vector-text")) {
                     for check in ["vector artwork shares main canvas without modal", "vector inspector shares Layers", "settled vector composite and canvas overlay"] {
                         report["checks"].as_array_mut().unwrap().push(serde_json::json!(check));
                     }

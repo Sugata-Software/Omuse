@@ -945,6 +945,9 @@ impl EditorView {
         let mut body = div()
             .id("inspector-content")
             .debug_selector(|| "inspector-content".into())
+            .when_some(self.vector_inspector_scroll(), |view, handle| {
+                view.track_scroll(&handle)
+            })
             .flex_1()
             .min_h_0()
             .overflow_y_scroll()

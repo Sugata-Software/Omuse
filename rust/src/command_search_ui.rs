@@ -486,6 +486,15 @@ impl EditorView {
         if id == "image-trace" {
             return self.trace_unavailable();
         }
+        if shortcuts::definition(id).is_some_and(|definition| definition.category == "Vector") {
+            return (!self.vector_scene_active())
+                .then_some("Open vector artwork with Shift+P first");
+        }
+        if self.vector_scene_active()
+            && matches!(id, "group" | "duplicate" | "deselect" | "transform")
+        {
+            return None;
+        }
         let floating = self.editor.floating_selection_layer().is_some();
         if floating
             && (id.starts_with("tool-")

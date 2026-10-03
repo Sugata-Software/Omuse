@@ -1810,6 +1810,8 @@ fn disk_semantic_document_matches(expected: &Document, reopened: &Document) -> R
         || expected.height != reopened.height
         || expected.name != reopened.name
         || expected.background != reopened.background
+        || !document_scene_inventory_matches(expected)
+        || !document_scene_inventory_matches(reopened)
         || !disk_semantic_json_matches(
             &normalized_document_metadata(&expected.metadata),
             &normalized_document_metadata(&reopened.metadata),
@@ -1819,6 +1821,25 @@ fn disk_semantic_document_matches(expected: &Document, reopened: &Document) -> R
         return Ok(false);
     }
     disk_semantic_layers_match(&expected.layers, &reopened.layers)
+}
+
+/// The writer adds an inventory to the package envelope. It is redundant with
+/// typed scenes, but must be internally consistent before normalization can
+/// ignore its presence on a newly saved document.
+fn document_scene_inventory_matches(document: &Document) -> bool {
+    fn count(layers: &[Layer]) -> u64 {
+        layers
+            .iter()
+            .map(|layer| u64::from(layer.vector_scene.is_some()) + count(&layer.children))
+            .sum()
+    }
+    match document.metadata.get("rustVectorSceneCount") {
+        None => true,
+        Some(value) => {
+            let actual = count(&document.layers);
+            actual > 0 && value.as_u64() == Some(actual)
+        }
+    }
 }
 
 fn disk_semantic_layers_match(expected: &[Layer], reopened: &[Layer]) -> Result<bool> {
@@ -1908,6 +1929,7 @@ fn normalized_document_metadata(metadata: &serde_json::Value) -> serde_json::Val
         "activeLayerID",
         "documentID",
         "compositorRustBackground",
+        "rustVectorSceneCount",
     ] {
         record.remove(key);
     }
@@ -2213,6 +2235,20 @@ mod tests {
         let mut reopened = Project::open(&package)?;
         assert!(disk_semantic_project_matches(&mut expected, &mut reopened)?);
 
+        let mut wrong_inventory = reopened.clone();
+        wrong_inventory.active_document_mut()?.metadata["rustVectorSceneCount"] = 2.into();
+        assert!(!disk_semantic_project_matches(
+            &mut expected,
+            &mut wrong_inventory
+        )?);
+
+        let mut unknown_extension = reopened.clone();
+        unknown_extension.active_document_mut()?.metadata["privateColourGrade"] = "lost".into();
+        assert!(!disk_semantic_project_matches(
+            &mut expected,
+            &mut unknown_extension
+        )?);
+
         let mut content_loss = reopened.clone();
         content_loss.active_document_mut()?.metadata["omuseContent"]["caption"] =
             serde_json::json!("Caption lost after reopen");
@@ -2241,6 +2277,43 @@ mod tests {
             &mut expected,
             &mut scene_loss
         )?);
+        Ok(())
+    }
+
+    #[test]
+    fn scene_inventory_normalization_requires_typed_scene_consistency() -> Result<()> {
+        let mut doc = Document::new(2, 2);
+        assert!(document_scene_inventory_matches(&doc));
+        for count in [
+            serde_json::json!(0),
+            serde_json::json!(1),
+            serde_json::json!("1"),
+            serde_json::Value::Null,
+        ] {
+            doc.metadata["rustVectorSceneCount"] = count;
+            assert!(!document_scene_inventory_matches(&doc));
+        }
+        let mut scene = Layer::paint("Nested scene", 2, 2);
+        scene.vector_scene = Some(std::sync::Arc::new(omuse::vector_scene::VectorScene {
+            version: omuse::vector_scene::VECTOR_SCENE_VERSION,
+            width: 2,
+            height: 2,
+            objects: vec![],
+        }));
+        doc.layers[0].children.push(scene);
+        doc.metadata["rustVectorSceneCount"] = 1.into();
+        assert!(document_scene_inventory_matches(&doc));
+        let before = serde_json::json!({"extension": {"caption": "keep"}});
+        let after =
+            serde_json::json!({"extension": {"caption": "keep"}, "rustVectorSceneCount": 1});
+        assert_eq!(
+            normalized_document_metadata(&before),
+            normalized_document_metadata(&after)
+        );
+        assert_eq!(
+            normalized_document_metadata(&after)["extension"],
+            before["extension"]
+        );
         Ok(())
     }
 

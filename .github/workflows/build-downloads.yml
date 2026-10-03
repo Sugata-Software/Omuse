@@ -1,0 +1,239 @@
+name: Omuse downloadable preview builds
+
+on:
+  push:
+    branches: ["release/**"]
+    paths:
+      - 'rust/**'
+      - 'scripts/build-rust.sh'
+      - 'scripts/build-rust.ps1'
+      - 'scripts/prepare-rust-assets.ps1'
+      - 'scripts/package-rust.ps1'
+      - '.cargo/config.toml'
+      - '.gitattributes'
+      - 'scripts/prepare-rust-assets.sh'
+      - 'scripts/install-rust.sh'
+      - 'install.sh'
+      - 'scripts/install-app.py'
+      - 'scripts/test-install.py'
+      - 'scripts/generate-rust-kernel-fixtures.py'
+      - 'scripts/test-rust.sh'
+      - 'scripts/native-rust-check.py'
+      - 'scripts/native-display-check.py'
+      - 'scripts/rust-release-qualification.py'
+      - 'scripts/create-recovery-check.py'
+      - 'scripts/package-rust.sh'
+      - 'scripts/install-rust-bundle.sh'
+      - 'scripts/test-rust-bundle.py'
+      - 'scripts/rust-license-inventory.py'
+      - 'scripts/test-rust-license-inventory.py'
+      - 'scripts/test-dependency-replacements.py'
+      - 'scripts/fixtures/dependency-replacements.rs'
+      - 'scripts/verify-release-bundle.py'
+      - 'scripts/release-downloads.py'
+      - 'scripts/test-release-downloads.py'
+      - '.github/workflows/build-downloads.yml'
+      - '.github/workflows/publish-downloads.yml'
+      - '.github/workflows/rust-validation.yml'
+      - 'rust-toolchain.toml'
+  workflow_dispatch:
+    inputs:
+      source_revision:
+        description: Exact public source commit with completed Linux and Windows validation
+        required: true
+        type: string
+      validation_run:
+        description: Successful Omuse Rust validation run for that exact source
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: omuse-download-build-${{ inputs.source_revision || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: Verify immutable public build inputs
+    if: >-
+      github.repository == 'Sugata-Software/Omuse' &&
+      ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+       (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release/')))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      source: ${{ steps.plan.outputs.source }}
+      version: ${{ steps.plan.outputs.version }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Test archive and publication contracts offline
+        run: python3 scripts/test-release-downloads.py
+      - name: Resolve the validated source and version
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OMUSE_SOURCE: ${{ inputs.source_revision || github.sha }}
+          OMUSE_VALIDATION: ${{ inputs.validation_run }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == push ]]; then
+            python3 scripts/release-downloads.py --plan-release-push --source "$OMUSE_SOURCE" >> "$GITHUB_OUTPUT"
+          else
+            python3 scripts/release-downloads.py --plan --source "$OMUSE_SOURCE" --validation-run "$OMUSE_VALIDATION" >> "$GITHUB_OUTPUT"
+          fi
+
+  validation:
+    name: Validate exact source
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 125
+    outputs:
+      validation_run: ${{ steps.validation.outputs.validation_run }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Bind completed Linux and Windows validation to this source
+        id: validation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OMUSE_SOURCE: ${{ needs.plan.outputs.source }}
+          OMUSE_VALIDATION: ${{ inputs.validation_run }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == push ]]; then
+            python3 scripts/release-downloads.py --wait-validation --source "$OMUSE_SOURCE" >> "$GITHUB_OUTPUT"
+          else
+            python3 scripts/release-downloads.py --plan --source "$OMUSE_SOURCE" --validation-run "$OMUSE_VALIDATION" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    name: Build ${{ matrix.target }}
+    needs: plan
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-x86_64
+            runner: ubuntu-24.04
+            archive_suffix: tar.gz
+            rust_target: x86_64-unknown-linux-gnu
+          - target: windows-x86_64
+            runner: windows-2025
+            archive_suffix: zip
+            rust_target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    env:
+      CARGO_BUILD_JOBS: '2'
+      CARGO_INCREMENTAL: '0'
+      OMUSE_SOURCE: ${{ needs.plan.outputs.source }}
+      OMUSE_VERSION: ${{ needs.plan.outputs.version }}
+      OMUSE_TARGET: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.plan.outputs.source }}
+          persist-credentials: false
+      - name: Install Linux build and runtime prerequisites
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential pkg-config \
+            libwayland-dev libxkbcommon-dev libxkbcommon-x11-dev libfontconfig1-dev liblcms2-dev \
+            libjpeg-dev zlib1g-dev autoconf automake libtool
+      - name: Install the pinned Rust toolchain
+        shell: bash
+        run: rustup toolchain install 1.98.0 --profile minimal --component rustfmt
+      - name: Cache locked Cargo inputs and build outputs
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+          key: omuse-download-${{ matrix.runner }}-rust-1.98.0-${{ hashFiles('rust/Cargo.lock', '.cargo/config.toml') }}
+          restore-keys: |
+            omuse-download-${{ matrix.runner }}-rust-1.98.0-
+      - name: Fetch locked target sources for the offline notice inventory
+        shell: bash
+        run: cargo fetch --manifest-path rust/Cargo.toml --locked --target "${{ matrix.rust_target }}"
+      - name: Cache pinned runtime assets
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: rust/runtime
+          key: omuse-download-runtime-${{ matrix.runner }}-${{ hashFiles('scripts/prepare-rust-assets.sh', 'scripts/prepare-rust-assets.ps1') }}
+      - name: Prepare and package the Linux editor
+        if: runner.os == 'Linux'
+        run: |
+          scripts/prepare-rust-assets.sh
+          scripts/build-rust.sh
+          scripts/package-rust.sh --binary rust/target/release/omuse --output "dist/omuse-$OMUSE_VERSION-linux-x86_64.tar.gz"
+      - name: Prepare and package the Windows editor
+        if: runner.os == 'Windows'
+        run: |
+          ./scripts/prepare-rust-assets.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./scripts/build-rust.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./scripts/package-rust.ps1 -Binary rust/target/release/omuse.exe -Output "dist/omuse-$env:OMUSE_VERSION-windows-x86_64.zip"
+      - name: Verify the archive and native install, upgrade and rollback paths
+        shell: bash
+        run: >-
+          python scripts/verify-release-bundle.py
+          "dist/omuse-$OMUSE_VERSION-$OMUSE_TARGET.${{ matrix.archive_suffix }}"
+          --target "$OMUSE_TARGET" --source "$OMUSE_SOURCE" --version "$OMUSE_VERSION"
+          --output dist/smoke.json --smoke "$RUNNER_TEMP/omuse-package-smoke"
+      - name: Retain the immutable candidate archive and smoke receipt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: omuse-download-${{ matrix.target }}-attempt-${{ github.run_attempt }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Retain native smoke diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: omuse-download-smoke-${{ matrix.target }}-attempt-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/omuse-package-smoke/*.log
+            ${{ runner.temp }}/omuse-package-smoke/editing-journey/results.json
+            ${{ runner.temp }}/omuse-package-smoke/upgraded-journey/results.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  manifest:
+    name: Assemble immutable download manifest
+    needs: [plan, build, validation]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      OMUSE_SOURCE: ${{ needs.plan.outputs.source }}
+      OMUSE_VERSION: ${{ needs.plan.outputs.version }}
+      OMUSE_VALIDATION: ${{ needs.validation.outputs.validation_run }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Download only this build attempt's target artifacts
+        run: |
+          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "omuse-download-linux-x86_64-attempt-$GITHUB_RUN_ATTEMPT" --dir incoming/linux-x86_64
+          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "omuse-download-windows-x86_64-attempt-$GITHUB_RUN_ATTEMPT" --dir incoming/windows-x86_64
+      - name: Bind verified archives, source, notices and smoke evidence
+        run: >-
+          python3 scripts/release-downloads.py --assemble incoming
+          --source "$OMUSE_SOURCE" --version "$OMUSE_VERSION" --validation-run "$OMUSE_VALIDATION"
+          --build-run "$GITHUB_RUN_ID" --build-attempt "$GITHUB_RUN_ATTEMPT" --workflow-revision "$GITHUB_SHA"
+          --output "dist/omuse-$OMUSE_VERSION-downloads.json"
+      - name: Retain the candidate manifest for review
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: omuse-download-manifest-attempt-${{ github.run_attempt }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30

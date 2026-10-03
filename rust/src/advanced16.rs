@@ -17,6 +17,9 @@ pub fn evaluate(
     let mut output = source.clone();
     match operation {
         AdvancedOperation::CameraRaw(_) | AdvancedOperation::Filter(_) => return Ok(None),
+        AdvancedOperation::ReferenceColourMatch(settings) => {
+            return crate::color_match::apply16(source, settings, cancel).map(Some);
+        }
         AdvancedOperation::Denoise { radius, strength } => {
             if *radius == 0 || *strength == 0. {
                 return Ok(Some(output));

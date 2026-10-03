@@ -102,6 +102,7 @@ impl EditorView {
             active: scene.active,
             selected: draft.selected,
             mode: scene.mode,
+            selected_objects: scene.selected_objects.clone(),
         })
     }
 
@@ -176,7 +177,9 @@ impl EditorView {
         scene.artwork = edit.artwork;
         scene.active = edit.active;
         scene.mode = edit.mode;
+        scene.selected_objects = edit.selected_objects;
         scene.drag_origin = None;
+        scene.marquee = None;
         let object = scene.artwork.objects[scene.active].clone();
         let draft = self.vector_draft.as_mut().unwrap();
         draft.path = object.path;
@@ -208,6 +211,7 @@ impl EditorView {
             draft.drag = None;
             if let Some(scene) = &mut draft.scene {
                 scene.drag_origin = None;
+                scene.marquee = None;
             }
         }
     }
@@ -238,6 +242,22 @@ impl EditorView {
         if self.vector_scene_active() && !self.vector_scene_current() {
             self.clear_vector(cx);
             self.status = "Document changed; the unfinished vector edit was discarded.".into();
+            return;
+        }
+        let scale = self.zoom.ceil().clamp(1., 4.);
+        if let Some(scene) = self
+            .vector_draft
+            .as_mut()
+            .and_then(|draft| draft.scene.as_mut())
+        {
+            if scene.preview_scale != scale {
+                scene.preview_scale = scale;
+                if let Some(cancel) = &scene.preview_cancel {
+                    cancel.store(true, Ordering::Relaxed);
+                }
+                scene.requested = scene.requested.wrapping_add(1);
+                self.start_scene_preview(cx);
+            }
         }
     }
 
@@ -257,10 +277,38 @@ impl EditorView {
     pub(in crate::ui) fn vector_canvas_overlay(&self) -> Option<CanvasVectorOverlay> {
         let draft = self.vector_draft.as_ref()?;
         let scene = draft.scene.as_ref()?;
-        if !scene.artwork.objects[scene.active].visible {
+        if scene.mode != SceneMode::Select && !scene.artwork.objects[scene.active].visible {
             return None;
         }
-        let mut path = draft.path.clone();
+        let mut path = if scene.mode == SceneMode::Select || scene.outline {
+            let mut path = VectorPath::default();
+            for (i, object) in scene.artwork.objects.iter().enumerate() {
+                if object.visible && (scene.outline || scene.selected_objects.contains(&i)) {
+                    let source = if i == scene.active {
+                        &draft.path
+                    } else {
+                        &object.path
+                    };
+                    path.subpaths.extend(source.subpaths.iter().cloned());
+                }
+            }
+            if let Some((a, b, _)) = &scene.marquee {
+                path.subpaths.push(Subpath {
+                    closed: true,
+                    anchors: [(a.x, a.y), (b.x, a.y), (b.x, b.y), (a.x, b.y)]
+                        .into_iter()
+                        .map(|(x, y)| Anchor {
+                            position: VectorPoint { x, y },
+                            incoming: None,
+                            outgoing: None,
+                        })
+                        .collect(),
+                });
+            }
+            path
+        } else {
+            draft.path.clone()
+        };
         if !scene.is_new {
             for sub in &mut path.subpaths {
                 for anchor in &mut sub.anchors {
@@ -282,7 +330,7 @@ impl EditorView {
             path,
             selected: draft.selected,
             dimensions: (self.editor.document.width, self.editor.document.height),
-            show_nodes: scene.mode != SceneMode::Select,
+            show_nodes: scene.mode != SceneMode::Select && !scene.outline,
         })
     }
 
@@ -551,13 +599,31 @@ impl EditorView {
                 .ok()
                 .flatten();
             if let Some(index) = hit {
-                self.select_scene_object(index, window, cx);
+                self.select_scene_members(
+                    index,
+                    event.modifiers.shift,
+                    event.modifiers.control || event.click_count == 2,
+                    !event.modifiers.shift,
+                    window,
+                    cx,
+                );
                 let draft = self.vector_draft.as_mut().unwrap();
-                draft.scene.as_mut().unwrap().drag_origin = Some(p);
+                if !event.modifiers.shift
+                    && !draft.scene.as_ref().unwrap().selected_objects.is_empty()
+                {
+                    draft.scene.as_mut().unwrap().drag_origin = Some(p);
+                }
                 draft.drag = None;
                 // Double click enters node editing without opening another surface.
                 if event.click_count == 2 {
-                    draft.scene.as_mut().unwrap().mode = SceneMode::Nodes;
+                    let scene = draft.scene.as_mut().unwrap();
+                    if scene.artwork.objects[scene.active].text_path.is_none() {
+                        scene.mode = SceneMode::Nodes;
+                    } else {
+                        self.status =
+                            "Edit text in the inspector; convert to outlines to edit glyph nodes"
+                                .into();
+                    }
                 }
             } else if event.modifiers.alt {
                 // Alt-drag explicitly moves the selected object, including a
@@ -570,41 +636,56 @@ impl EditorView {
                     .unwrap()
                     .drag_origin = Some(p);
             } else {
-                self.vector_draft.as_mut().unwrap().selected = None;
+                let base = if event.modifiers.shift {
+                    self.vector_draft
+                        .as_ref()
+                        .unwrap()
+                        .scene
+                        .as_ref()
+                        .unwrap()
+                        .selected_objects
+                        .clone()
+                } else {
+                    Default::default()
+                };
+                self.set_scene_selection(base.clone(), None, window, cx);
+                self.vector_draft
+                    .as_mut()
+                    .unwrap()
+                    .scene
+                    .as_mut()
+                    .unwrap()
+                    .marquee = Some((p, p, base));
             }
         }
         cx.stop_propagation();
         cx.notify();
     }
 
-    fn select_scene_object(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(draft) = self.vector_draft.as_mut() else {
-            return;
-        };
-        draft.store_scene_object();
-        let scene = draft.scene.as_mut().unwrap();
-        let Some(object) = scene.artwork.objects.get(index) else {
-            return;
-        };
-        scene.active = index;
-        scene.drag_origin = None;
-        draft.path = object.path.clone();
-        draft.fill = object.fill.unwrap_or([0; 4]);
-        draft.stroke = object.stroke;
-        draft.selected = None;
-        draft.drag = None;
-        self.load_scene_style(window, cx);
-        cx.notify();
-    }
-
-    fn set_scene_mode(&mut self, mode: SceneMode, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn set_scene_mode(
+        &mut self,
+        mode: SceneMode,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if self.busy {
             return;
         }
         if let Some(draft) = self.vector_draft.as_mut() {
             if let Some(scene) = draft.scene.as_mut() {
+                if mode != SceneMode::Select
+                    && scene.artwork.objects[scene.active].text_path.is_some()
+                {
+                    self.status = "Edit the retained curve or convert text to outlines before editing glyph nodes".into();
+                    cx.notify();
+                    return;
+                }
                 scene.mode = mode;
                 scene.drag_origin = None;
+                scene.marquee = None;
+                if mode != SceneMode::Select {
+                    scene.selected_objects = [scene.active].into_iter().collect();
+                }
             }
             draft.drag = None;
             if mode == SceneMode::Select {
@@ -755,6 +836,9 @@ impl EditorView {
         if !self.vector_scene_active() {
             return false;
         }
+        if self.vector_selection_command(name, window, cx) {
+            return true;
+        }
         match name {
             "undo" | "redo" => {
                 if !self.scene_history_step(name == "undo", window, cx) {
@@ -810,6 +894,21 @@ impl EditorView {
                 } else {
                     (0., step)
                 };
+                if self
+                    .vector_draft
+                    .as_ref()
+                    .unwrap()
+                    .scene
+                    .as_ref()
+                    .unwrap()
+                    .mode
+                    == SceneMode::Select
+                {
+                    if let Err(error) = self.scene_translate_selected(dx, dy, cx) {
+                        self.status = error.to_string();
+                    }
+                    return true;
+                }
                 let draft = self.vector_draft.as_mut().unwrap();
                 if draft.path.bounds().is_some_and(|(a, b)| {
                     [a.x + dx, a.y + dy, b.x + dx, b.y + dy]
@@ -1002,7 +1101,20 @@ impl EditorView {
                 button(
                     SharedString::from(id.clone()),
                     SharedString::from(format!(
-                        "{}{}",
+                        "{}{}{}",
+                        if object.groups.is_empty() {
+                            String::new()
+                        } else {
+                            format!(
+                                "{} / ",
+                                object
+                                    .groups
+                                    .iter()
+                                    .map(|group| group.name.as_str())
+                                    .collect::<Vec<_>>()
+                                    .join(" / ")
+                            )
+                        },
                         object.name,
                         if object.visible { "" } else { " · hidden" }
                     )),
@@ -1010,21 +1122,31 @@ impl EditorView {
                     cx,
                 )
                 .debug_selector(move || id.clone())
-                .selected(index == scene.active)
+                .selected(scene.selected_objects.contains(&index))
                 .disabled(self.busy)
                 .w_full()
                 .h(px(28.))
                 .min_w_0()
                 .overflow_hidden()
-                .on_click(cx.listener(move |this, _, w, cx| {
-                    if let Err(error) = this.update_vector_style(cx) {
-                        this.status = error.to_string();
-                        cx.notify();
-                        return;
-                    }
-                    this.select_scene_object(index, w, cx);
-                    this.focus.focus(w, cx);
-                })),
+                .on_click(cx.listener(
+                    move |this, event: &gpui_kit::ClickEvent, w, cx| {
+                        if let Err(error) = this.update_vector_style(cx) {
+                            this.status = error.to_string();
+                            cx.notify();
+                            return;
+                        }
+                        let modifiers = event.modifiers();
+                        this.select_scene_members(
+                            index,
+                            modifiers.shift,
+                            modifiers.control,
+                            false,
+                            w,
+                            cx,
+                        );
+                        this.focus.focus(w, cx);
+                    },
+                )),
             );
         }
         let mut add = div().flex().gap_1().flex_shrink_0();

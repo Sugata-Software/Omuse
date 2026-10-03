@@ -54,6 +54,12 @@ pub(super) struct ProDraft {
     source: Arc<RenderImage>,
     preview: Option<Arc<RenderImage>>,
     preview_dimensions: (u32, u32),
+    reference: Option<omuse::color_match::Statistics>,
+    reference_image: Option<Arc<RenderImage>>,
+    reference_dimensions: (u32, u32),
+    reference_note: String,
+    reference_path_open: bool,
+    preserve_lightness: bool,
     bounds: Rc<Cell<Bounds<Pixels>>>,
     cancel: Arc<AtomicBool>,
     job: u64,
@@ -87,6 +93,7 @@ const EFFECTS: &[&str] = &[
     "Grayscale",
     "Curves",
     "Target colour uniformity",
+    "Match reference colour",
 ];
 fn effect_fields(kind: usize) -> Vec<(&'static str, &'static str)> {
     match kind {
@@ -141,6 +148,7 @@ fn effect_fields(kind: usize) -> Vec<(&'static str, &'static str)> {
             ("Saturation uniformity (0–1)", "0.5"),
             ("Lightness uniformity (0–1)", "0"),
         ],
+        15 => vec![("Match amount (%)", "70")],
         _ => vec![],
     }
 }
@@ -167,6 +175,9 @@ impl EditorView {
             draft.cancel.store(true, Ordering::Relaxed);
             cx.drop_image(draft.source.clone(), None);
             if let Some(p) = draft.preview.take() {
+                cx.drop_image(p, None);
+            }
+            if let Some(p) = draft.reference_image.take() {
                 cx.drop_image(p, None);
             }
             self.busy = false;
@@ -231,6 +242,12 @@ impl EditorView {
                 source: render_image(&pro_thumbnail(&image)),
                 preview: None,
                 preview_dimensions: image.dimensions(),
+                reference: None,
+                reference_image: None,
+                reference_dimensions: (1, 1),
+                reference_note: "Choose a reference image to borrow its colour palette".into(),
+                reference_path_open: false,
+                preserve_lightness: true,
                 bounds: Rc::new(Cell::new(Bounds::default())),
                 cancel: Arc::new(AtomicBool::new(false)),
                 job: 0,
@@ -336,6 +353,7 @@ impl EditorView {
             self.detail_inputs[i].update(cx, |s, cx| s.set_value(value, window, cx));
         }
         self.detail_inputs[30].update(cx, |s, cx| s.set_value("100", window, cx));
+        self.detail_inputs[29].update(cx, |s, cx| s.set_value("", window, cx));
         self.pro_draft = Some(draft);
         self.dialog_generation = self.dialog_generation.wrapping_add(1);
         self.dialog = Dialog::Pro;
@@ -424,11 +442,23 @@ impl EditorView {
                 saturation_uniformity: n(4)?,
                 lightness_uniformity: n(5)?,
             }),
+            15 => AdvancedOperation::ReferenceColourMatch(omuse::color_match::Settings {
+                version: 1,
+                reference: d
+                    .reference
+                    .clone()
+                    .context("Choose and load a reference image first")?,
+                amount: n(0)? / 100.,
+                preserve_lightness: d.preserve_lightness,
+            }),
             _ => anyhow::bail!("Unknown editable effect"),
         })
     }
 
     pub(super) fn pro_add_node(&mut self, update: bool, cx: &mut Context<Self>) {
+        if self.busy {
+            return;
+        }
         let result = (|| -> Result<()> {
             let operation = self.pro_operation(cx)?;
             let opacity = self.pro_number(30, cx)? / 100.;
@@ -443,6 +473,7 @@ impl EditorView {
                         AdvancedOperation::Filter(_)
                             | AdvancedOperation::Denoise { .. }
                             | AdvancedOperation::TargetColourUniformity(_)
+                            | AdvancedOperation::ReferenceColourMatch(_)
                     ),
                     "Edit this operation in its dedicated workspace; stack order, enable and masks remain editable here"
                 );
@@ -485,6 +516,9 @@ impl EditorView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.busy {
+            return;
+        }
         if let Some(d) = self.pro_draft.as_mut() {
             d.effect = kind;
         }
@@ -495,6 +529,9 @@ impl EditorView {
     }
 
     fn pro_select_node(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
+        if self.busy {
+            return;
+        }
         let Some(node) = self
             .pro_draft
             .as_ref()
@@ -505,6 +542,18 @@ impl EditorView {
         };
         let (kind, values) = operation_values(&node.operation);
         self.pro_choose_effect(kind, window, cx);
+        if let AdvancedOperation::ReferenceColourMatch(settings) = &node.operation {
+            let d = self.pro_draft.as_mut().unwrap();
+            d.reference = Some(settings.reference.clone());
+            d.preserve_lightness = settings.preserve_lightness;
+            d.reference_note = format!(
+                "Embedded palette · {} visible samples · reference file is not needed",
+                settings.reference.samples
+            );
+            if let Some(previous) = d.reference_image.take() {
+                cx.drop_image(previous, None);
+            }
+        }
         for (i, value) in values.iter().enumerate() {
             self.detail_inputs[i].update(cx, |s, cx| s.set_value(value, window, cx));
         }
@@ -516,6 +565,9 @@ impl EditorView {
     }
 
     fn pro_node_action(&mut self, action: &str, cx: &mut Context<Self>) {
+        if self.busy {
+            return;
+        }
         if let Some(d) = self.pro_draft.as_mut() {
             if let Some(i) = d.selected {
                 if i < d.state.recipe.nodes.len() {
@@ -542,6 +594,124 @@ impl EditorView {
                 }
             }
         }
+        cx.notify();
+    }
+
+    fn pro_browse_reference(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.busy {
+            return;
+        }
+        let Some(d) = self
+            .pro_draft
+            .as_mut()
+            .filter(|d| d.kind == Kind::Stack && d.effect == 15)
+        else {
+            return;
+        };
+        d.cancel.store(true, Ordering::Relaxed);
+        d.job = d.job.wrapping_add(1);
+        let job = d.job;
+        let revision = d.revision;
+        let generation = self.dialog_generation;
+        self.busy = true;
+        let task = cx.prompt_for_paths(PathPromptOptions {
+            files: true,
+            directories: false,
+            multiple: false,
+            prompt: Some("Choose colour reference".into()),
+        });
+        cx.spawn_in(window, async move |view, cx| {
+            let result = task.await;
+            let _ = view.update_in(cx, |this, window, cx| {
+                if this.dialog != Dialog::Pro
+                    || this.dialog_generation != generation
+                    || this
+                        .pro_draft
+                        .as_ref()
+                        .is_none_or(|d| d.job != job || d.revision != revision)
+                {
+                    return;
+                }
+                this.busy = false;
+                if this.editor.revision() != revision {
+                    this.status = "Document changed; reopen the colour match draft".into();
+                } else {
+                    match result {
+                        Ok(Ok(Some(paths))) if !paths.is_empty() => {
+                            this.detail_inputs[29].update(cx, |input, cx| {
+                                input.set_value(paths[0].to_string_lossy().to_string(), window, cx)
+                            });
+                            this.pro_load_reference(paths[0].clone(), cx);
+                        }
+                        Ok(Err(error)) => {
+                            if let Some(draft) = this.pro_draft.as_mut() {
+                                draft.reference_path_open = true;
+                            }
+                            this.status = format!(
+                                "File chooser: {error}. Enter a reference path and press Load path."
+                            )
+                        }
+                        _ => {
+                            this.status =
+                                "Reference selection cancelled; artwork is unchanged".into()
+                        }
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+        cx.notify();
+    }
+
+    pub(super) fn pro_load_reference(&mut self, path: PathBuf, cx: &mut Context<Self>) {
+        if self.busy {
+            return;
+        }
+        let Some(d) = self
+            .pro_draft
+            .as_mut()
+            .filter(|d| d.kind == Kind::Stack && d.effect == 15)
+        else {
+            return;
+        };
+        d.cancel.store(true, Ordering::Relaxed);
+        d.cancel = Arc::new(AtomicBool::new(false));
+        d.job = d.job.wrapping_add(1);
+        let job = d.job;
+        let revision = d.revision;
+        let generation = self.dialog_generation;
+        let cancel = d.cancel.clone();
+        self.busy = true;
+        self.status = "Reading reference colours…".into();
+        let task = cx
+            .background_executor()
+            .spawn(async move { omuse::color_match::load_reference(&path, &cancel) });
+        cx.spawn(async move |view, cx| {
+            let result = task.await;
+            let _ = view.update(cx, |this, cx| {
+                if this.dialog != Dialog::Pro || this.dialog_generation != generation
+                    || this.pro_draft.as_ref().is_none_or(|d| d.job != job || d.revision != revision) { return; }
+                this.busy = false;
+                if this.editor.revision() != revision {
+                    this.status = "Document changed; reopen the colour match draft".into();
+                    cx.notify();
+                    return;
+                }
+                match result {
+                    Ok(reference) => {
+                        let d = this.pro_draft.as_mut().unwrap();
+                        d.reference_note = format!("{} × {} · {} visible samples · {}", reference.dimensions.0, reference.dimensions.1, reference.statistics.samples, if reference.profile_applied { "ICC profile converted to sRGB" } else { "Untagged: assumed sRGB" });
+                        d.reference = Some(reference.statistics);
+                        d.reference_dimensions = reference.thumbnail.dimensions();
+                        if let Some(previous) = d.reference_image.replace(render_image(&reference.thumbnail)) { cx.drop_image(previous, None); }
+                        this.status = "Reference ready · Add effect or Update selected effect to preview, then Apply".into();
+                    }
+                    Err(error) => this.status = format!("Reference image: {error:#}"),
+                }
+                cx.notify();
+            });
+        }).detach();
         cx.notify();
     }
 
@@ -700,6 +870,9 @@ fn operation_values(op: &AdvancedOperation) -> (usize, Vec<String>) {
                     settings.lightness_uniformity.to_string(),
                 ],
             );
+        }
+        AdvancedOperation::ReferenceColourMatch(settings) => {
+            return (15, vec![(settings.amount * 100.).to_string()]);
         }
         _ => (0, vec![0.]),
     };
@@ -1294,6 +1467,11 @@ impl EditorView {
         let source = d.source.clone();
         let preview = d.preview.clone();
         let preview_dims = d.preview_dimensions;
+        let reference_image = d.reference_image.clone();
+        let reference_dimensions = d.reference_dimensions;
+        let reference_note = d.reference_note.clone();
+        let reference_path_open = d.reference_path_open;
+        let preserve_lightness = d.preserve_lightness;
         let bounds = d.bounds.clone();
         let corrections = d.corrections.clone();
         let pins = d.pins.clone();
@@ -1524,6 +1702,108 @@ impl EditorView {
                 );
             }
             body = body.child(effects);
+            if effect == 15 {
+                body = body
+                    .child(
+                        div()
+                            .flex()
+                            .flex_wrap()
+                            .gap_2()
+                            .child(
+                                button(
+                                    "pro-reference-browse",
+                                    "Choose reference image…",
+                                    ButtonVariant::Primary,
+                                    cx,
+                                )
+                                .disabled(self.busy)
+                                .debug_selector(|| "pro-reference-browse".into())
+                                .on_click(cx.listener(
+                                    |this, _, window, cx| this.pro_browse_reference(window, cx),
+                                )),
+                            )
+                            .child(
+                                button(
+                                    "pro-reference-lightness",
+                                    if preserve_lightness {
+                                        "✓ Preserve lightness"
+                                    } else {
+                                        "Match reference lightness"
+                                    },
+                                    ButtonVariant::Outline,
+                                    cx,
+                                )
+                                .disabled(self.busy)
+                                .debug_selector(|| "pro-reference-lightness".into())
+                                .on_click(cx.listener(
+                                    |this, _, _, cx| {
+                                        if !this.busy {
+                                            if let Some(d) = this.pro_draft.as_mut() {
+                                                d.preserve_lightness = !d.preserve_lightness;
+                                            }
+                                        }
+                                        cx.notify();
+                                    },
+                                )),
+                            ),
+                    )
+                    .child(reference_note)
+                    .child(inspector_ui::panel_note(
+                        "Borrow the overall palette. Similar subjects work best.",
+                        cx,
+                    ))
+                    .child(
+                        button(
+                            "pro-reference-toggle-path",
+                            if reference_path_open {
+                                "Hide file path"
+                            } else {
+                                "Enter a file path…"
+                            },
+                            ButtonVariant::Outline,
+                            cx,
+                        )
+                        .disabled(self.busy)
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            if let Some(draft) = this.pro_draft.as_mut() {
+                                draft.reference_path_open = !draft.reference_path_open;
+                            }
+                            cx.notify();
+                        })),
+                    );
+                if reference_path_open {
+                    body = body
+                        .child(input(
+                            "pro-reference-path",
+                            &self.detail_inputs[29],
+                            window,
+                            cx,
+                        ))
+                        .child(
+                            button(
+                                "pro-reference-load-path",
+                                "Load path",
+                                ButtonVariant::Outline,
+                                cx,
+                            )
+                            .disabled(self.busy)
+                            .debug_selector(|| "pro-reference-load-path".into())
+                            .on_click(cx.listener(|this, _, _, cx| {
+                                let path =
+                                    PathBuf::from(this.detail_inputs[29].read(cx).value().as_ref());
+                                this.pro_load_reference(path, cx);
+                            })),
+                        );
+                }
+                if reference_image.is_some() {
+                    body = body.child(range_ui::range_image(
+                        "pro-reference-image",
+                        reference_image,
+                        reference_dimensions,
+                        None,
+                    ));
+                }
+            }
         }
         if kind == Kind::Retouch {
             let mut choices = div().flex().flex_wrap().gap_2();

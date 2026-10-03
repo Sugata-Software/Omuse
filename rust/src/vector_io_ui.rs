@@ -2,6 +2,12 @@
 use super::*;
 use anyhow::{Context as _, Result, ensure};
 use omuse::vector_svg::{self, SvgArtwork};
+use omuse::{vector_scene::VectorScene, vector_svg_scene};
+
+enum EditableSvg {
+    Path(SvgArtwork),
+    Scene(VectorScene),
+}
 
 pub(super) struct Guard {
     cancel: Arc<AtomicBool>,
@@ -83,6 +89,69 @@ fn fit_artwork(mut artwork: SvgArtwork, dimensions: (u32, u32)) -> Result<SvgArt
 }
 
 impl EditorView {
+    pub(super) fn import_vector_scene_artwork(
+        &mut self,
+        mut imported: VectorScene,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Result<()> {
+        imported.validate()?;
+        let draft = self
+            .vector_draft
+            .as_ref()
+            .context("Vector artwork closed")?;
+        let mut artwork = draft.scene_snapshot()?;
+        let scale = (artwork.width as f32 / imported.width as f32)
+            .min(artwork.height as f32 / imported.height as f32);
+        let dx = (artwork.width as f32 - imported.width as f32 * scale) / 2.;
+        let dy = (artwork.height as f32 - imported.height as f32 * scale) / 2.;
+        let mut groups = std::collections::HashMap::new();
+        for object in &mut imported.objects {
+            let old = object.transform;
+            object.transform = [
+                old[0] * scale,
+                old[1] * scale,
+                old[2] * scale,
+                old[3] * scale,
+                old[4] * scale + dx,
+                old[5] * scale + dy,
+            ];
+            object.id = uuid::Uuid::new_v4().to_string();
+            for group in &mut object.groups {
+                group.id = groups
+                    .entry(group.id.clone())
+                    .or_insert_with(|| uuid::Uuid::new_v4().to_string())
+                    .clone();
+            }
+        }
+        if artwork.objects.len() == 1
+            && artwork.objects[0]
+                .path
+                .subpaths
+                .iter()
+                .all(|s| s.anchors.is_empty())
+        {
+            artwork.objects.clear();
+        }
+        let first = artwork.objects.len();
+        artwork.version = artwork.version.max(imported.version);
+        artwork.objects.extend(imported.objects);
+        let count = artwork.objects.len() - first;
+        let selected = (first..artwork.objects.len()).collect();
+        self.replace_scene_artwork(artwork, selected, window, cx)?;
+        if let Some(scene) = self
+            .vector_draft
+            .as_mut()
+            .and_then(|draft| draft.scene.as_mut())
+        {
+            scene.mode = super::scene::SceneMode::Select;
+        }
+        self.status = format!(
+            "Imported {count} editable SVG objects · Existing artwork retained · Ctrl+Z to undo"
+        );
+        Ok(())
+    }
+
     fn vector_exchange_finished(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.vector_scene_active() {
             // A preview completion may have been suppressed while the native
@@ -197,13 +266,21 @@ impl EditorView {
                 // until directory sync and staged-file cleanup finish, while
                 // making Cancel accurately describe the already-created file.
                 self.vector_export_published();
-                self.status = format!("Exported editable path: {}", destination.display());
+                let label = if destination
+                    .extension()
+                    .is_some_and(|e| e.eq_ignore_ascii_case("pdf"))
+                {
+                    "vector PDF"
+                } else {
+                    "editable SVG"
+                };
+                self.status = format!("Exported {label}: {}", destination.display());
                 cx.notify();
                 Some(published)
             }
             Err(error) => {
                 self.busy = false;
-                self.status = format!("SVG path export: {error:#}");
+                self.status = format!("SVG export: {error:#}");
                 cx.notify();
                 None
             }
@@ -214,15 +291,28 @@ impl EditorView {
         let Some(guard) = self.vector_io_guard(cx) else {
             return;
         };
+        let scene = self.vector_scene_active();
         let task = cx.prompt_for_paths(PathPromptOptions {
             files: true,
             directories: false,
             multiple: false,
-            prompt: Some("Import editable SVG path".into()),
+            prompt: Some(
+                if scene {
+                    "Import editable SVG artwork"
+                } else {
+                    "Import editable SVG path"
+                }
+                .into(),
+            ),
         });
         self.busy = true;
         self.modal_focus.focus(window, cx);
-        self.status = "Choose a solid-colour SVG path to fit into this layer.".into();
+        self.status = if scene {
+            "Choose SVG artwork to add as editable objects."
+        } else {
+            "Choose a solid-colour SVG path to fit into this layer."
+        }
+        .into();
         cx.spawn_in(window, async move |view, cx| {
             let chosen = task.await;
             let current = view
@@ -236,7 +326,11 @@ impl EditorView {
                         cx.background_executor()
                             .spawn(async move {
                                 ensure!(!cancel.load(Ordering::Relaxed), "SVG import cancelled");
-                                let artwork = vector_svg::import(&path)?;
+                                let artwork = if scene {
+                                    EditableSvg::Scene(vector_svg_scene::import_scene(&path)?)
+                                } else {
+                                    EditableSvg::Path(vector_svg::import(&path)?)
+                                };
                                 ensure!(!cancel.load(Ordering::Relaxed), "SVG import cancelled");
                                 Ok(artwork)
                             })
@@ -252,13 +346,16 @@ impl EditorView {
                 }
                 match result {
                     Some(result) => {
-                        if let Err(error) = result
-                            .and_then(|artwork| this.import_vector_artwork(artwork, window, cx))
-                        {
+                        if let Err(error) = result.and_then(|artwork| match artwork {
+                            EditableSvg::Path(path) => this.import_vector_artwork(path, window, cx),
+                            EditableSvg::Scene(scene) => {
+                                this.import_vector_scene_artwork(scene, window, cx)
+                            }
+                        }) {
                             this.status = format!("Editable SVG import: {error:#}");
                         }
                     }
-                    None => this.status = "SVG import cancelled; the path is unchanged.".into(),
+                    None => this.status = "SVG import cancelled; artwork is unchanged.".into(),
                 }
                 this.vector_exchange_finished(window, cx);
                 cx.notify();
@@ -269,13 +366,44 @@ impl EditorView {
     }
 
     pub(super) fn choose_vector_export(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.choose_vector_export_format(false, window, cx);
+    }
+
+    pub(super) fn choose_vector_pdf_export(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.choose_vector_export_format(true, window, cx);
+    }
+
+    fn choose_vector_export_format(
+        &mut self,
+        pdf: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let format = if pdf { "PDF" } else { "SVG" };
+        let label = if pdf { "vector PDF" } else { "editable SVG" };
+        let dpi = self
+            .editor
+            .document
+            .metadata
+            .get("resolution")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(72.) as f32;
         let Some(guard) = self.vector_io_guard(cx) else {
             return;
         };
-        let artwork = match self.vector_artwork(cx) {
+        let artwork = match (|| -> Result<EditableSvg> {
+            if self.vector_scene_active() {
+                self.update_vector_style(cx)?;
+                let scene = self.vector_draft.as_ref().unwrap().scene_snapshot()?;
+                vector_svg_scene::encode_scene(&scene)?;
+                Ok(EditableSvg::Scene(scene))
+            } else {
+                Ok(EditableSvg::Path(self.vector_artwork(cx)?))
+            }
+        })() {
             Ok(artwork) => artwork,
             Err(error) => {
-                self.status = format!("SVG path export: {error:#}");
+                self.status = format!("{format} export: {error:#}");
                 cx.notify();
                 return;
             }
@@ -284,10 +412,19 @@ impl EditorView {
             omuse::identity::home_dir().unwrap_or_else(|| PathBuf::from("/tmp")),
             omuse::identity::MediaFolder::Pictures,
         );
-        let task = cx.prompt_for_new_path(&directory, Some("Omuse path.svg"));
+        let task = cx.prompt_for_new_path(
+            &directory,
+            Some(if pdf {
+                "Omuse artwork.pdf"
+            } else if self.vector_scene_active() {
+                "Omuse artwork.svg"
+            } else {
+                "Omuse path.svg"
+            }),
+        );
         self.busy = true;
         self.modal_focus.focus(window, cx);
-        self.status = "Choose a new SVG filename for this path.".into();
+        self.status = format!("Choose a new {format} filename for this vector artwork layer.");
         cx.spawn_in(window, async move |view, cx| {
             let chosen = task.await;
             let current = view
@@ -296,23 +433,48 @@ impl EditorView {
             let result = match chosen {
                 Ok(Ok(Some(mut path))) if current => {
                     if path.extension().is_none() {
-                        path.set_extension("svg");
+                        path.set_extension(if pdf { "pdf" } else { "svg" });
                     }
                     let cancel = guard.cancel.clone();
                     Some(
                         cx.background_executor()
                             .spawn(async move {
-                                ensure!(!cancel.load(Ordering::Relaxed), "SVG export cancelled");
+                                ensure!(
+                                    !cancel.load(Ordering::Relaxed),
+                                    "{format} export cancelled"
+                                );
                                 ensure!(
                                     path.extension()
                                         .and_then(|extension| extension.to_str())
-                                        .is_some_and(
-                                            |extension| extension.eq_ignore_ascii_case("svg")
-                                        ),
-                                    "Choose a filename ending in .svg"
+                                        .is_some_and(|extension| extension
+                                            .eq_ignore_ascii_case(if pdf { "pdf" } else { "svg" })),
+                                    "Choose a filename ending in .{}",
+                                    if pdf { "pdf" } else { "svg" }
                                 );
-                                let prepared = vector_svg::prepare_export(&path, &artwork)?;
-                                ensure!(!cancel.load(Ordering::Relaxed), "SVG export cancelled");
+                                let prepared = match &artwork {
+                                    EditableSvg::Path(artwork) => {
+                                        if pdf {
+                                            omuse::vector_pdf::prepare_path_export(
+                                                &path, artwork, dpi,
+                                            )?
+                                        } else {
+                                            vector_svg::prepare_export(&path, artwork)?
+                                        }
+                                    }
+                                    EditableSvg::Scene(scene) => {
+                                        if pdf {
+                                            omuse::vector_pdf::prepare_scene_export(
+                                                &path, scene, dpi,
+                                            )?
+                                        } else {
+                                            vector_svg_scene::prepare_scene_export(&path, scene)?
+                                        }
+                                    }
+                                };
+                                ensure!(
+                                    !cancel.load(Ordering::Relaxed),
+                                    "{format} export cancelled"
+                                );
                                 Ok(prepared)
                             })
                             .await,
@@ -333,7 +495,7 @@ impl EditorView {
                     }
                     Some(Err(error)) => {
                         if guard.finish(this, cx) {
-                            this.status = format!("SVG path export: {error:#}");
+                            this.status = format!("{format} export: {error:#}");
                             this.vector_exchange_finished(window, cx);
                             cx.notify();
                         }
@@ -341,7 +503,8 @@ impl EditorView {
                     }
                     None => {
                         if guard.finish(this, cx) {
-                            this.status = "SVG export cancelled; the document is unchanged.".into();
+                            this.status =
+                                format!("{format} export cancelled; the document is unchanged.");
                             this.vector_exchange_finished(window, cx);
                             cx.notify();
                         }
@@ -366,9 +529,9 @@ impl EditorView {
                 }
                 this.busy = false;
                 this.status = match finished {
-                    Ok(_) => format!("Exported editable path: {}", destination.display()),
+                    Ok(_) => format!("Exported {label}: {}", destination.display()),
                     Err(error) => format!(
-                        "Exported editable path: {}; directory sync warning: {error:#}",
+                        "Exported {label}: {}; directory sync warning: {error:#}",
                         destination.display()
                     ),
                 };

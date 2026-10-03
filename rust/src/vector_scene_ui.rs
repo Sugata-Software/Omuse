@@ -18,7 +18,18 @@ pub(super) struct SceneDraft {
     pub(super) pending_checkpoint: bool,
     pub(super) svg_exported: bool,
     pub(super) drag_origin: Option<VectorPoint>,
-    requested: u64,
+    pub(super) selected_objects: std::collections::BTreeSet<usize>,
+    pub(super) marquee: Option<(VectorPoint, VectorPoint, std::collections::BTreeSet<usize>)>,
+    pub(super) outline: bool,
+    pub(super) preview_scale: f32,
+    pub(super) inspector_scroll: gpui_kit::ScrollHandle,
+    pub(super) transform_anchor: gpui_kit::ScrollAnchor,
+    pub(super) text_controls_open: bool,
+    pub(super) text_fields_initialized: bool,
+    pub(super) updating_text: bool,
+    pub(super) gradient_stop_loaded_color: Option<[u8; 4]>,
+    pub(super) gradient_stop: usize,
+    pub(super) requested: u64,
     pub(super) running: bool,
 }
 
@@ -34,6 +45,7 @@ pub(super) struct SceneEdit {
     pub(super) active: usize,
     pub(super) selected: Option<(usize, usize)>,
     pub(super) mode: SceneMode,
+    pub(super) selected_objects: std::collections::BTreeSet<usize>,
 }
 
 pub(super) enum AfterScene {
@@ -57,8 +69,14 @@ impl VectorDraft {
             .objects
             .get_mut(draft.active)
             .context("Select an object")?;
+        ensure!(
+            object.text_path.is_none() || object.path == self.path,
+            "Convert text to outlines before editing glyph nodes; the original curve remains editable"
+        );
         object.path = self.path.clone();
-        object.fill = if object.fill.is_none() && self.fill == [0; 4] {
+        object.fill = if let Some(gradient) = &object.fill_gradient {
+            Some(gradient.stops[0].color)
+        } else if object.fill.is_none() && self.fill == [0; 4] {
             None
         } else {
             Some(self.fill)
@@ -72,8 +90,12 @@ impl VectorDraft {
         if let Some(scene) = self.scene.as_mut()
             && let Some(object) = scene.artwork.objects.get_mut(scene.active)
         {
-            object.path = self.path.clone();
-            object.fill = if object.fill.is_none() && self.fill == [0; 4] {
+            if object.text_path.is_none() || object.path == self.path {
+                object.path = self.path.clone();
+            }
+            object.fill = if let Some(gradient) = &object.fill_gradient {
+                Some(gradient.stops[0].color)
+            } else if object.fill.is_none() && self.fill == [0; 4] {
                 None
             } else {
                 Some(self.fill)
@@ -83,7 +105,7 @@ impl VectorDraft {
     }
 }
 
-fn new_object(name: &str, path: VectorPath, color: [u8; 4]) -> VectorObject {
+pub(super) fn new_object(name: &str, path: VectorPath, color: [u8; 4]) -> VectorObject {
     VectorObject {
         id: uuid::Uuid::new_v4().to_string(),
         name: name.into(),
@@ -91,8 +113,12 @@ fn new_object(name: &str, path: VectorPath, color: [u8; 4]) -> VectorObject {
         transform: [1., 0., 0., 1., 0., 0.],
         fill: Some(color),
         stroke: None,
+        fill_gradient: None,
+        stroke_options: None,
+        text_path: None,
         opacity: 1.,
         visible: true,
+        groups: Vec::new(),
     }
 }
 
@@ -180,7 +206,7 @@ fn shape_path(kind: &str, width: u32, height: u32) -> VectorPath {
 
 // The node editor works in scene coordinates. Baking a supported transform
 // into a disposable draft keeps the original scene unchanged until Apply.
-fn bake_transforms(artwork: &mut VectorScene) -> Result<()> {
+pub(super) fn bake_transforms(artwork: &mut VectorScene) -> Result<()> {
     artwork.validate()?;
     for object in &mut artwork.objects {
         let [a, b, c, d, e, f] = object.transform;
@@ -202,6 +228,15 @@ fn bake_transforms(artwork: &mut VectorScene) -> Result<()> {
         }
         if let Some(stroke) = &mut object.stroke {
             stroke.width *= a.hypot(b);
+        }
+        if let Some(gradient) = &mut object.fill_gradient {
+            gradient.bake_transform(object.transform);
+        }
+        if let Some(options) = &mut object.stroke_options {
+            options.scale(a.hypot(b));
+        }
+        if let Some(text) = &mut object.text_path {
+            text.bake_transform(object.transform);
         }
         object.transform = [1., 0., 0., 1., 0., 0.];
     }
@@ -267,6 +302,8 @@ impl EditorView {
         self.clear_vector(cx);
         self.dialog_generation = self.dialog_generation.wrapping_add(1);
         let object = &artwork.objects[0];
+        let inspector_scroll = gpui_kit::ScrollHandle::default();
+        let transform_anchor = gpui_kit::ScrollAnchor::for_handle(inspector_scroll.clone());
         self.vector_draft = Some(VectorDraft {
             layer: self.editor.active_layer.clone(),
             revision: self.editor.revision(),
@@ -300,12 +337,24 @@ impl EditorView {
                 is_new,
                 display: None,
                 preview_cancel: None,
+                preview_scale: self.zoom.ceil().clamp(1., 4.),
+                inspector_scroll,
+                transform_anchor,
                 drag_origin: None,
+                selected_objects: [0].into_iter().collect(),
+                marquee: None,
+                outline: false,
+                text_controls_open: false,
+                text_fields_initialized: false,
+                updating_text: false,
+                gradient_stop_loaded_color: None,
+                gradient_stop: 0,
                 requested: 0,
                 running: false,
             }),
         });
         self.load_scene_style(window, cx);
+        self.reset_scene_transform_inputs(window, cx);
         self.dialog = Dialog::None;
         self.tool = Tool::Move;
         self.inspector_tab = studio_ui::InspectorTab::Layers;
@@ -322,14 +371,18 @@ impl EditorView {
     }
 
     pub(super) fn load_scene_style(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(draft) = self.vector_draft.as_ref() else {
+        let Some(draft) = self.vector_draft.as_mut() else {
             return;
         };
         let Some(scene) = draft.scene.as_ref() else {
             return;
         };
         let hex = |c: [u8; 4]| format!("#{:02X}{:02X}{:02X}{:02X}", c[0], c[1], c[2], c[3]);
-        let opacity = scene.artwork.objects[scene.active].opacity;
+        let active = &scene.artwork.objects[scene.active];
+        if let Some(gradient) = &active.fill_gradient {
+            draft.fill = gradient.stops[0].color;
+        }
+        let opacity = active.opacity;
         for (input, value) in self.detail_inputs.iter().zip([
             hex(draft.fill),
             hex(draft.stroke.map_or(self.editor.brush.color, |s| s.color)),
@@ -338,6 +391,8 @@ impl EditorView {
         ]) {
             input.update(cx, |input, cx| input.set_value(value, window, cx));
         }
+        self.load_advanced_vector_style(window, cx);
+        self.load_vector_text_fields(window, cx);
     }
 
     pub(super) fn vector_scene_changed(&mut self, cx: &mut Context<Self>) {
@@ -374,6 +429,7 @@ impl EditorView {
             }
         };
         let requested = scene.requested;
+        let preview_scale = scene.preview_scale;
         let identity = (draft.identity, draft.revision);
         let layer = (!scene.is_new).then(|| draft.layer.clone());
         let document = self.editor.document.clone();
@@ -386,10 +442,11 @@ impl EditorView {
         let task = cx.background_executor().spawn(async move {
             // Coalesce rapid pointer/style changes. All expensive work stays off
             // the UI thread; the main canvas wireframe follows the pointer immediately.
-            let pixels = omuse::vector_scene_preview::composite(
+            let pixels = omuse::vector_scene_preview::composite_at_scale(
                 &document,
                 layer.as_deref(),
                 &artwork,
+                preview_scale,
                 &cancel,
             )?;
             if proof.enabled {
@@ -458,6 +515,9 @@ impl EditorView {
             cx.notify();
             return;
         }
+        if self.scene_selection_action(action, window, cx) {
+            return;
+        }
         if !matches!(action, "previous" | "next") {
             self.scene_checkpoint();
         }
@@ -488,6 +548,7 @@ impl EditorView {
                 scene.artwork.objects[0].path =
                     shape_path("path", draft.dimensions.0, draft.dimensions.1);
                 scene.artwork.objects[0].name = "Path 1".into();
+                scene.artwork.objects[0].text_path = None;
                 scene.mode = SceneMode::Pen;
             }
             "visibility" => {
@@ -524,7 +585,15 @@ impl EditorView {
                         draft.fill,
                     )
                 };
-                let at = if reuse_empty { 0 } else { scene.active + 1 };
+                let at = if reuse_empty {
+                    0
+                } else {
+                    super::vector_selection::group_members(&scene.artwork, scene.active)
+                        .last()
+                        .copied()
+                        .unwrap_or(scene.active)
+                        + 1
+                };
                 if reuse_empty {
                     scene.artwork.objects[0] = object;
                 } else {
@@ -535,6 +604,8 @@ impl EditorView {
             _ => {}
         }
         let object = &scene.artwork.objects[scene.active];
+        scene.selected_objects = [scene.active].into_iter().collect();
+        scene.marquee = None;
         draft.path = object.path.clone();
         draft.fill = object.fill.unwrap_or([0; 4]);
         draft.stroke = object.stroke;
@@ -551,6 +622,7 @@ impl EditorView {
         }
         self.load_scene_style(window, cx);
         self.vector_scene_changed(cx);
+        self.focus.focus(window, cx);
         cx.notify();
     }
 
@@ -593,8 +665,18 @@ impl EditorView {
             let id = format!("scene-{action}");
             let disabled = self.busy
                 || match action {
-                    "previous" | "backward" => active == 0,
-                    "next" | "forward" => active + 1 == count,
+                    "previous" => active == 0,
+                    "next" => active + 1 == count,
+                    "backward" => scene
+                        .selected_objects
+                        .iter()
+                        .copied()
+                        .eq(0..scene.selected_objects.len()),
+                    "forward" => scene
+                        .selected_objects
+                        .iter()
+                        .copied()
+                        .eq(count - scene.selected_objects.len()..count),
                     "path" | "rectangle" | "ellipse" | "duplicate" => {
                         count >= omuse::vector_scene::MAX_SCENE_OBJECTS
                     }
@@ -677,16 +759,22 @@ impl EditorView {
         cx.spawn(async move |view, cx| {
             let result = task.await;
             let _ = view.update(cx, |this, cx| {
-                if !this.vector_scene_current()
-                    || (this.editor.instance_id(), this.create.epoch) != identity
-                    || !this
-                        .vector_draft
-                        .as_ref()
-                        .is_some_and(|draft| Arc::ptr_eq(&draft.cancel, &token))
+                if !this
+                    .vector_draft
+                    .as_ref()
+                    .is_some_and(|draft| Arc::ptr_eq(&draft.cancel, &token))
                 {
                     return;
                 }
                 this.busy = false;
+                if !this.vector_scene_current()
+                    || (this.editor.instance_id(), this.create.epoch) != identity
+                {
+                    this.status =
+                        "Document changed; the unfinished vector result was discarded.".into();
+                    cx.notify();
+                    return;
+                }
                 let applied = result.and_then(|(artwork, pixels)| {
                     if is_new {
                         this.editor

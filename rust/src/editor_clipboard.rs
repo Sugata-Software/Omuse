@@ -420,6 +420,7 @@ impl PayloadBudget {
                 | AdvancedOperation::FrequencySeparation(_)
                 | AdvancedOperation::DodgeBurn(_)
                 | AdvancedOperation::ContentAwareReplace(_)
+                | AdvancedOperation::ReferenceColourMatch(_)
                 | AdvancedOperation::TargetColourUniformity(_) => {}
             }
         }

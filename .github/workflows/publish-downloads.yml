@@ -1,0 +1,66 @@
+name: Omuse versioned download publication
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Reviewed version from docs/releases/downloads/vX.Y.Z.json
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: omuse-versioned-download-publication
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check the reviewed download declaration
+    if: github.repository == 'Sugata-Software/Omuse' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      manifest: ${{ steps.path.outputs.manifest }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Select a numbered manifest
+        id: path
+        env:
+          OMUSE_VERSION: ${{ inputs.version }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import os, re
+          version = os.environ['OMUSE_VERSION']
+          if not re.fullmatch(r'(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)', version):
+              raise SystemExit('Use a numbered major.minor.patch version')
+          print(f'manifest=docs/releases/downloads/v{version}.json')
+          PY
+      - name: Verify offline publication and archive contracts
+        env:
+          OMUSE_MANIFEST: ${{ steps.path.outputs.manifest }}
+        run: |
+          python3 scripts/test-release-downloads.py
+          python3 scripts/test-release-notes.py
+          python3 scripts/release-downloads.py --check "$OMUSE_MANIFEST"
+
+  publish:
+    name: Attach immutable unsigned preview downloads
+    needs: check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Verify exact CI, source, notices and smoke checks before uploading
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OMUSE_MANIFEST: ${{ needs.check.outputs.manifest }}
+        run: python3 scripts/release-downloads.py --publish "$OMUSE_MANIFEST"

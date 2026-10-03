@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "sourceRepository": "https://github.com/lifthrasiir/hexf",
+  "sourceRevision": "41f0018229c1ee3d6fd813b6808d1ad1f506554c",
+  "licenseExpression": "0BSD",
+  "files": [
+    {
+      "path": "Cargo.toml",
+      "sourcePath": "parse/Cargo.toml",
+      "sha256": "2e5ba11329105c8d4b2518730fb03d48a41be9cc84dc489cada2412fd9776497"
+    },
+    {
+      "path": "src/lib.rs",
+      "sourcePath": "parse/src/lib.rs",
+      "sha256": "d5e571be666a6ee0b17e31a5897bfb8903ad276ca2fa2a098e75dfc05f7c1662"
+    },
+    {
+      "path": "LICENSE",
+      "sourcePath": "LICENSE",
+      "sha256": "3662a9adfe6feddb077f96dfad3cb30408540a2a3eae5a656b7ff4375e622be0"
+    }
+  ]
+}

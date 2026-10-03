@@ -262,6 +262,51 @@ fn range_layer_mask_apply_is_one_undo_and_keeps_source_pixels(cx: &mut TestAppCo
 }
 
 #[gpui_kit::test]
+fn hue_range_controls_preview_and_apply_a_reversible_soft_mask(cx: &mut TestAppContext) {
+    let (view, cx, _recovery) = setup(cx);
+    view.update(cx, |view, cx| {
+        view.editor.document.layers[0].image = Some(
+            image::RgbaImage::from_fn(128, 64, |x, _| {
+                image::Rgba(match x / 32 {
+                    0 => [80, 0, 0, 255],
+                    1 => [255, 30, 0, 255],
+                    2 => [128, 128, 128, 255],
+                    _ => [0, 0, 255, 255],
+                })
+            })
+            .into(),
+        );
+        view.editor.brush.color = [255, 0, 0, 255];
+        view.refresh(cx);
+    });
+    let original = view.update(cx, |view, _| view.editor.document.layers[0].image.clone());
+    click(cx, "color-range");
+    click(cx, "range-hue-mode");
+    complete_preview(&view, cx);
+    view.update(cx, |view, _| {
+        assert!(view.range_draft.as_ref().unwrap().hue)
+    });
+    click(cx, "range-layer-mask");
+    click(cx, "confirm-dialog");
+    cx.run_until_parked();
+    view.update(cx, |view, _| {
+        let layer = &view.editor.document.layers[0];
+        assert_eq!(layer.image, original);
+        let mask = layer.mask.as_ref().unwrap();
+        assert_eq!(
+            [0, 40, 80, 120].map(|x| mask.get_pixel(x, 0)[0]),
+            [255, 255, 0, 0]
+        );
+        assert_eq!(view.editor.undo_depth(), 1);
+    });
+    cx.simulate_keystrokes("ctrl-z");
+    view.update(cx, |view, _| {
+        assert!(view.editor.document.layers[0].mask.is_none());
+        assert_eq!(view.editor.document.layers[0].image, original);
+    });
+}
+
+#[gpui_kit::test]
 fn range_cancel_stops_pending_apply_and_late_work_cannot_own_next_dialog(cx: &mut TestAppContext) {
     let (view, cx, _recovery) = setup(cx);
     click(cx, "luminosity-range");

@@ -27,6 +27,7 @@ CATEGORY_ORDER = [
     "Layer",
     "Mask",
     "Object",
+    "Vector",
     "Image",
     "View",
     "Tools",
