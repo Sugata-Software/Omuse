@@ -28,6 +28,7 @@ on:
       - 'scripts/rust-license-inventory.py'
       - 'scripts/test-rust-license-inventory.py'
       - 'scripts/test-dependency-replacements.py'
+      - 'scripts/test-dependency-replacement-harness.py'
       - 'scripts/fixtures/dependency-replacements.rs'
       - 'scripts/verify-release-bundle.py'
       - 'scripts/release-downloads.py'

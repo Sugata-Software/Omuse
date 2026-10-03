@@ -28,6 +28,7 @@ on:
       - 'scripts/rust-license-inventory.py'
       - 'scripts/test-rust-license-inventory.py'
       - 'scripts/test-dependency-replacements.py'
+      - 'scripts/test-dependency-replacement-harness.py'
       - 'scripts/fixtures/dependency-replacements.rs'
       - 'scripts/verify-release-bundle.py'
       - 'scripts/release-downloads.py'
@@ -63,6 +64,7 @@ on:
       - 'scripts/rust-license-inventory.py'
       - 'scripts/test-rust-license-inventory.py'
       - 'scripts/test-dependency-replacements.py'
+      - 'scripts/test-dependency-replacement-harness.py'
       - 'scripts/fixtures/dependency-replacements.rs'
       - 'scripts/verify-release-bundle.py'
       - 'scripts/release-downloads.py'
@@ -93,6 +95,7 @@ jobs:
           python3 scripts/test-install.py
           python3 scripts/test-rust-bundle.py
           python3 scripts/test-release-downloads.py
+          python3 scripts/test-dependency-replacement-harness.py
           python3 scripts/generate-rust-kernel-fixtures.py
           git diff --exit-code -- rust/tests/fixtures
 
@@ -301,6 +304,8 @@ jobs:
 
       - name: Verify Windows dependency replacements and notice gates
         run: |
+          python scripts/test-dependency-replacement-harness.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/test-dependency-replacements.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/test-rust-license-inventory.py
