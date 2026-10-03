@@ -280,9 +280,10 @@ impl EditorView {
                 return;
             }
         };
-        let directory = omuse::identity::home_dir()
-            .unwrap_or_else(|| PathBuf::from("/tmp"))
-            .join("Pictures");
+        let directory = omuse::identity::media_dir(
+            omuse::identity::home_dir().unwrap_or_else(|| PathBuf::from("/tmp")),
+            omuse::identity::MediaFolder::Pictures,
+        );
         let task = cx.prompt_for_new_path(&directory, Some("Omuse path.svg"));
         self.busy = true;
         self.modal_focus.focus(window, cx);

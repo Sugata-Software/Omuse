@@ -27,6 +27,11 @@ roxmltree = "=0.21.1"
 [target.'cfg(windows)'.dependencies]
 lcms2-sys = { version = "=4.0.7", default-features = false, features = ["static"] }
 dunce = "=1.0.5"
+dirs = "=6.0.0"
+
+# Windows: embed the application icon and version information (see build.rs).
+[target.'cfg(windows)'.build-dependencies]
+embed-resource = "=3.0.11"
 
 [dev-dependencies]
 tempfile = "3"

@@ -1,0 +1,34 @@
+// Windows resources for omuse.exe. GPUI loads icon 1 for its windows and the
+// taskbar; the manifest comes from GPUI's own resource script.
+// omuse.ico is generated from ../omuse.png at 16-256 px (see rust/README.md).
+#include <winver.h>
+
+1 ICON "omuse.ico"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION OMUSE_VERSION_MAJOR, OMUSE_VERSION_MINOR, OMUSE_VERSION_PATCH, 0
+PRODUCTVERSION OMUSE_VERSION_MAJOR, OMUSE_VERSION_MINOR, OMUSE_VERSION_PATCH, 0
+FILEFLAGSMASK VS_FFI_FILEFLAGSMASK
+FILEFLAGS 0
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_APP
+FILESUBTYPE VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName", "Sugata Software"
+            VALUE "FileDescription", "Omuse"
+            VALUE "FileVersion", OMUSE_VERSION
+            VALUE "InternalName", "omuse"
+            VALUE "OriginalFilename", "omuse.exe"
+            VALUE "ProductName", "Omuse"
+            VALUE "ProductVersion", OMUSE_VERSION
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 1200
+    END
+END

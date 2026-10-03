@@ -1755,9 +1755,10 @@ impl EditorView {
             MotionFormat::Mp4 => "mp4",
             MotionFormat::Gif => "gif",
         };
-        let directory = omuse::identity::home_dir()
-            .unwrap_or_default()
-            .join("Videos");
+        let directory = omuse::identity::media_dir(
+            omuse::identity::home_dir().unwrap_or_default(),
+            omuse::identity::MediaFolder::Videos,
+        );
         let task = cx.prompt_for_new_path(&directory, Some(&format!("Omuse motion.{extension}")));
         cx.spawn_in(window, async move |view, cx| {
             let result = task.await;
@@ -1837,9 +1838,10 @@ impl EditorView {
         if self.create.job.is_some() {
             return;
         }
-        let directory = omuse::identity::home_dir()
-            .unwrap_or_default()
-            .join("Videos");
+        let directory = omuse::identity::media_dir(
+            omuse::identity::home_dir().unwrap_or_default(),
+            omuse::identity::MediaFolder::Videos,
+        );
         let task = cx.prompt_for_new_path(&directory, Some("Omuse prepared clip.mp4"));
         cx.spawn_in(window, async move |view, cx| {
             let result = task.await;
@@ -1858,9 +1860,10 @@ impl EditorView {
         if self.create.job.is_some() {
             return;
         }
-        let directory = omuse::identity::home_dir()
-            .unwrap_or_default()
-            .join("Videos");
+        let directory = omuse::identity::media_dir(
+            omuse::identity::home_dir().unwrap_or_default(),
+            omuse::identity::MediaFolder::Videos,
+        );
         let task = cx.prompt_for_new_path(&directory, Some("Omuse split clips"));
         cx.spawn_in(window, async move |view, cx| {
             let result = task.await;

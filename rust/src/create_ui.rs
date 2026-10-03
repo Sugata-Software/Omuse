@@ -1329,9 +1329,10 @@ impl EditorView {
             return;
         }
         self.finish_interaction(cx);
-        let dir = omuse::identity::home_dir()
-            .unwrap_or_default()
-            .join("Pictures");
+        let dir = omuse::identity::media_dir(
+            omuse::identity::home_dir().unwrap_or_default(),
+            omuse::identity::MediaFolder::Pictures,
+        );
         let task = cx.prompt_for_new_path(&dir, Some("Omuse content pack"));
         cx.spawn_in(window, async move |view, cx| {
             let result = task.await;

@@ -39,9 +39,12 @@ Windows support is being brought up in stages and is not a release target.
 On Windows 11 x86_64 the editor opens, edits, saves and reopens canvases and
 Create collections, keeps settings and shortcuts, runs recovery, develops
 Camera RAW, selects subjects locally and exports MP4/GIF motion. Ask Omuse does
-not work there yet. Linux remains the reference platform, and Omarchy theme
-following has no Windows equivalent; the window uses the built-in Tokyo Night
-theme. Tablet pressure is Linux-only.
+not work there yet. Linux remains the reference platform; Omarchy theme
+following and tablet pressure are Linux-only.
+
+On Windows the window follows the system light or dark app setting, using
+gpui-omarchy's Tokyo Night and Flexoki Light themes, and save dialogs start in
+the Pictures or Videos known folder, which may be redirected into OneDrive.
 
 Settings are stored in `%APPDATA%\omuse`; data, recovery and state are in
 `%LOCALAPPDATA%\omuse`. Set the `XDG_*` variables to override either, as the
@@ -67,7 +70,9 @@ rust\target\release\omuse.exe
 
 `prepare-rust-assets.ps1` downloads the pinned u2netp model and ONNX Runtime
 1.23.2 Windows archive, verifies their SHA-256 digests, and builds LibRaw 0.22.2
-from its pinned source with MSVC and a static C runtime. The editor looks for
+with libjpeg-turbo 3.2.0 and zlib 1.3.2 from pinned sources, using MSVC and a
+static C runtime. Those libraries let LibRaw decode lossy and deflate-compressed
+DNG files, as the Linux build does with the system copies. The editor looks for
 `lib\libraw.dll`, `lib\onnxruntime.dll` and `models\u2netp.onnx` beside the
 executable; `OMUSE_LIBRAW`, `OMUSE_ONNX_RUNTIME` and `OMUSE_SUBJECT_MODEL`
 point a development build at `rust\runtime` instead. Microsoft's

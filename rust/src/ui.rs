@@ -2224,9 +2224,10 @@ impl EditorView {
             })
             .detach();
         } else {
-            let dir = omuse::identity::home_dir()
-                .unwrap_or_else(|| PathBuf::from("/tmp"))
-                .join("Pictures");
+            let dir = omuse::identity::media_dir(
+                omuse::identity::home_dir().unwrap_or_else(|| PathBuf::from("/tmp")),
+                omuse::identity::MediaFolder::Pictures,
+            );
             let name = if mode == Dialog::Export {
                 "Untitled.png"
             } else {
@@ -2278,14 +2279,15 @@ impl EditorView {
                 }
             })
             .unwrap_or_else(|| {
-                omuse::identity::home_dir()
-                    .unwrap_or_default()
-                    .join("Pictures")
-                    .join(if export {
-                        "Untitled.png"
-                    } else {
-                        "Untitled.omuse"
-                    })
+                omuse::identity::media_dir(
+                    omuse::identity::home_dir().unwrap_or_default(),
+                    omuse::identity::MediaFolder::Pictures,
+                )
+                .join(if export {
+                    "Untitled.png"
+                } else {
+                    "Untitled.omuse"
+                })
             });
         self.path_input.update(cx, |state, cx| {
             state.set_placeholder("File path", window, cx);

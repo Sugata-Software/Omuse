@@ -40,6 +40,32 @@ pub fn home_dir() -> Option<PathBuf> {
         .map(PathBuf::from)
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MediaFolder {
+    Pictures,
+    Videos,
+}
+
+/// Where save dialogs start for pictures or videos: that folder under `home`.
+/// Windows uses its known folder instead, which may be redirected, for example
+/// into OneDrive.
+pub fn media_dir(home: PathBuf, folder: MediaFolder) -> PathBuf {
+    #[cfg(windows)]
+    {
+        let known = match folder {
+            MediaFolder::Pictures => dirs::picture_dir(),
+            MediaFolder::Videos => dirs::video_dir(),
+        };
+        if let Some(known) = known {
+            return known;
+        }
+    }
+    home.join(match folder {
+        MediaFolder::Pictures => "Pictures",
+        MediaFolder::Videos => "Videos",
+    })
+}
+
 fn non_empty_var(name: &str) -> Option<OsString> {
     std::env::var_os(name).filter(|value| !value.is_empty())
 }
