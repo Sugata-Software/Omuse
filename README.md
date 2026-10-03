@@ -1,6 +1,6 @@
 # Omuse
 
-### A native creative studio for Linux.
+### A native creative studio for photos, vectors and content.
 
 <p align="center">
   <img src="rust/assets/omuse.svg" alt="Omuse logo" width="144">
@@ -8,11 +8,13 @@
 
 [![Rust validation](https://github.com/Sugata-Software/Omuse/actions/workflows/rust-validation.yml/badge.svg)](https://github.com/Sugata-Software/Omuse/actions/workflows/rust-validation.yml)
 
-**Omuse is available to install on Omarchy and Arch Linux.** The one-command
-installer builds a tested source revision and adds the normal **Omuse** app.
-Downloadable binaries are still undergoing [release qualification](docs/public-release-readiness.md).
+**Built for Omarchy and Arch Linux, with an experimental Windows build.**
+The Linux installer builds the tested source release and adds **Omuse** to your
+application launcher. Windows x64 users can download a portable development ZIP.
 
-**Current source pre-release: [0.7.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.7.0)**
+**[Install on Linux](#linux)** · **[Download for Windows](#windows-experimental)**
+
+**Current Linux source pre-release: [0.7.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.7.0)**
 — integrated vector editing, local Image Trace, colour uniformity and higher-quality photo sampling. Read the [release notes](docs/releases/v0.7.0.md)
 or browse the [changelog](CHANGELOG.md) for changes and known limitations.
 [See ten screenshots of the current interface](docs/releases/v0.7.0-gallery.md).
@@ -39,16 +41,17 @@ branded pages, native motion and content exports. The film combines actual
 application captures and Omuse-rendered artwork with editorial animation.
 Its AI segment is an offline interface tour.
 
-Omuse is a native image editor for Linux, built in Rust with GPUI and designed
+Omuse is a native image editor built in Rust with GPUI and designed
 to feel at home on Omarchy. It combines a compact studio interface with layered
 editing, painting, selections, live adjustments, editable text and shapes,
 Camera RAW support, colour-managed export, and advanced non-destructive
 workflows. The Create workspace adds editable branded pages, templates,
 carousels, content packs and motion, with an optional in-app AI assistant.
 
-The application follows the current Omarchy theme through
+On Omarchy, the application follows the current desktop theme through
 [`gpui-omarchy`](https://github.com/huacnlee/gpui-omarchy), while keeping artwork
 colours and the transparency checkerboard independent of desktop styling.
+The Windows development build follows the system light or dark app setting.
 Editing and local subject selection run on your machine. Optional AI requests
 send the selected context to the connection you choose; the assistant identifies
 the subscription route and its usage. Separate API billing is currently disabled.
@@ -60,6 +63,8 @@ Omuse does not change the desktop theme.
 [Photo workflow](docs/user-guide/photo-editing.md) · [Image credit](docs/media/README.md).*
 
 ## Install
+
+### Linux
 
 On **Omarchy or Arch Linux (x86_64)**, open a terminal and run:
 
@@ -79,7 +84,7 @@ script itself is downloaded from `main`.
 
 **The current installer builds from source.** Allow time for the first build
 and about 12 GB of free disk space. Later installs reuse the build cache.
-Prebuilt downloads will follow release qualification. You can
+Prebuilt Linux downloads will follow release qualification. You can
 [inspect the installer](install.sh) before running it.
 
 | Task | Command |
@@ -94,6 +99,43 @@ Uninstall keeps your projects, settings and recovery files. The installer does
 not change your Omarchy theme or shell configuration. See the
 [installation guide](docs/install.md) for custom locations, cached downloads
 and troubleshooting.
+
+### Windows (experimental)
+
+**[Download the reviewed Windows build](https://github.com/Sugata-Software/Omuse/actions/runs/37071077286)** ·
+[Browse recent builds](https://github.com/Sugata-Software/Omuse/actions/workflows/rust-validation.yml)
+
+The portable **Windows x64** package targets Windows 10 and 11; current desktop
+checks were performed on Windows 11. You do not need Rust or Visual Studio to
+run the downloaded application.
+
+1. Sign into GitHub and open the build page above. Under **Artifacts**, download
+   **omuse-windows-x86_64-unsigned**.
+2. Extract the downloaded ZIP, then extract **omuse-windows-x86_64.zip** inside it
+   to a folder of your choice.
+3. Open that folder and run **omuse.exe**. Keep the **lib**, **models** and
+   **licenses** folders alongside it.
+
+Build artifacts are retained for **14 days**. If the reviewed download has
+expired, use **Browse recent builds** and choose a successful run with the
+Windows artifact, preferably from `main`. A running build may not have uploaded
+its package yet. To update, download and extract a newer package into a separate
+folder, then close the old application and launch the new one.
+
+Photo editing and Camera RAW are included. These features have extra requirements:
+
+| Feature | Setup |
+| --- | --- |
+| Local subject selection | Install Microsoft's [Visual C++ Redistributable (x64)](https://aka.ms/vs/17/release/vc_redist.x64.exe) |
+| MP4 / GIF export | Install FFmpeg, for example `winget install Gyan.FFmpeg`, and make sure `ffmpeg.exe` and `ffprobe.exe` are on `PATH` |
+| Ask Omuse | Install the official Codex CLI or the native Claude Code CLI, then open **Ask Omuse → Connections** to connect your account |
+
+The Windows ZIP includes development changes beyond the Linux 0.7.0 source
+release. It is **experimental and unsigned**, so Windows SmartScreen may show a
+warning. Live Windows AI generation/editing, clean-machine acceptance and a
+dependency notice remain outstanding; there is no Windows installer or binary
+on the Releases page yet. See the [Windows build notes](rust/README.md#build-on-windows-in-development)
+for connection requirements and known limits.
 
 ## Highlights
 
@@ -183,11 +225,12 @@ scripts/build-rust.sh
 rust/target/release/omuse
 ```
 
-The [Linux development guide](rust/README.md) covers build prerequisites,
-tests and the source map. A Windows build is in development; see
+The [development guide](rust/README.md) covers Linux build prerequisites,
+tests and the source map. Windows users can [download the portable build](#windows-experimental)
+or compile it from source; see
 [Build on Windows](rust/README.md#build-on-windows-in-development) for its
 current limits. Start with [CONTRIBUTING.md](CONTRIBUTING.md) for a
-fix or contribution. Omuse uses Rust and native Linux libraries.
+fix or contribution. Omuse uses Rust with native platform integrations.
 
 ## Projects and user data
 
@@ -213,9 +256,11 @@ location if you need to retain a version 1 copy for an earlier release. The
 [compatibility contract](docs/omuse-rename.md) explains the preserved layer
 format and migration behavior.
 
-New settings and application data use the XDG locations
+On Linux, settings and application data use the XDG locations
 `$XDG_CONFIG_HOME/omuse` and `$XDG_DATA_HOME/omuse` (normally
-`~/.config/omuse` and `~/.local/share/omuse`). The rename keeps compatibility
+`~/.config/omuse` and `~/.local/share/omuse`). On Windows, settings use
+`%APPDATA%\omuse`; data and recovery use `%LOCALAPPDATA%\omuse`, unless XDG
+locations are explicitly set. The rename keeps compatibility
 with earlier settings, shortcuts, brushes and recovery data. See the
 [rename compatibility contract](docs/omuse-rename.md) for the migration rules.
 
@@ -246,8 +291,9 @@ evaluating Omuse.
 Omuse grew from [Robbie Tilton's Compositor](https://github.com/robbietilton/Compositor)
 and [its earlier Linux fork](https://github.com/chiddekel/Compositor). We retain
 their original copyright notices and credit their contribution to the project
-format and editing foundations. Omuse is now developed as a native Linux
-application with its own interface, workflows and release path.
+format and editing foundations. Omuse has its own Rust/GPUI interface,
+workflows and release path, with Linux as its reference platform and Windows
+support in development.
 
 See [acknowledgements and source provenance](docs/source-provenance.md) for
 upstream credits and the archived implementations.
