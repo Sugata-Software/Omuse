@@ -181,19 +181,35 @@ fn scene_project_binds_geometry_to_cache_and_ordinary_projects_remain_v10() {
         serde_json::from_slice(&std::fs::read(ordinary_path.join("manifest.json")).unwrap())
             .unwrap();
     assert_eq!(ordinary_manifest["version"], 10);
-    let mut invalid_v11 = ordinary_manifest.clone();
-    invalid_v11["version"] = json!(11);
+    // External format 11 also carries ordinary raster/font-run projects.
+    // Reading those must preserve their cached pixels without inventing a scene.
+    let mut external_v11 = ordinary_manifest.clone();
+    external_v11["version"] = json!(11);
     std::fs::write(
         ordinary_path.join("manifest.json"),
-        serde_json::to_vec_pretty(&invalid_v11).unwrap(),
+        serde_json::to_vec_pretty(&external_v11).unwrap(),
     )
     .unwrap();
-    assert!(
-        document::open(&ordinary_path)
-            .unwrap_err()
-            .to_string()
-            .contains("requires at least one vector scene")
-    );
+    let reopened_ordinary = document::open(&ordinary_path).unwrap();
+    assert_eq!(reopened_ordinary.layers[0].image, ordinary.layers[0].image);
+    assert!(reopened_ordinary.layers[0].vector_scene.is_none());
+
+    // Omuse's grouped/styled/text scene formats still require real scene data.
+    for version in 12..=14 {
+        let mut invalid_scene = ordinary_manifest.clone();
+        invalid_scene["version"] = json!(version);
+        std::fs::write(
+            ordinary_path.join("manifest.json"),
+            serde_json::to_vec_pretty(&invalid_scene).unwrap(),
+        )
+        .unwrap();
+        assert!(
+            document::open(&ordinary_path)
+                .unwrap_err()
+                .to_string()
+                .contains("require at least one vector scene")
+        );
+    }
 
     let mut editor = Editor::new(Document::new(24, 18));
     let id = insert_scene(&mut editor, [11, 91, 201, 173]);

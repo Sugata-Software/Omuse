@@ -74,6 +74,9 @@ mod startup_preparation_tests;
 mod studio_tests;
 #[path = "studio_ui.rs"]
 mod studio_ui;
+#[cfg(all(test, feature = "ui-test"))]
+#[path = "subject_refine_ui_tests.rs"]
+mod subject_refine_ui_tests;
 #[path = "tablet_ui.rs"]
 mod tablet_ui;
 #[path = "vector_ui.rs"]
@@ -2585,7 +2588,7 @@ impl EditorView {
                     Err(e) => self.status = format!("Development settings: {e:#}"),
                 }
             }
-            Dialog::SubjectRefine => self.run_subject_refine(true, cx),
+            Dialog::SubjectRefine => self.run_subject_refine(true, window, cx),
             Dialog::RangeMask => self.run_range(true, cx),
             Dialog::VectorPath => self.apply_vector(cx),
             Dialog::Workflow => self.run_workflow(true, window, cx),
@@ -4832,8 +4835,8 @@ impl EditorView {
             shift: values[2],
         })
     }
-    fn run_subject_refine(&mut self, apply: bool, cx: &mut Context<Self>) {
-        if self.busy {
+    fn run_subject_refine(&mut self, apply: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if self.busy || self.dialog != Dialog::SubjectRefine {
             return;
         }
         let (Some(mask), Some(guide), Some(id)) = (
@@ -4865,9 +4868,9 @@ impl EditorView {
         let task = cx
             .background_executor()
             .spawn(async move { omuse::matte::refine(&mask, &guide, settings) });
-        cx.spawn(async move |view, cx| {
+        cx.spawn_in(window, async move |view, cx| {
             let result = task.await;
-            let _ = view.update(cx, |this, cx| {
+            let _ = view.update_in(cx, |this, window, cx| {
                 if !this.finish_background_job(generation, Dialog::SubjectRefine) {
                     cx.notify();
                     return;
@@ -4920,6 +4923,10 @@ impl EditorView {
                                 cx.notify();
                             }
                         }
+                    }
+                    if this.dialog == Dialog::None {
+                        this.dialog_generation = this.dialog_generation.wrapping_add(1);
+                        this.focus.focus(window, cx);
                     }
                 } else {
                     this.preview_subject_mask(&id, &refined, as_selection, cx);
@@ -6892,7 +6899,9 @@ impl EditorView {
                 body = body
                     .child(
                         button("subject-preview", "Preview", ButtonVariant::Outline, cx).on_click(
-                            cx.listener(|this, _, _, cx| this.run_subject_refine(false, cx)),
+                            cx.listener(|this, _, window, cx| {
+                                this.run_subject_refine(false, window, cx)
+                            }),
                         ),
                     )
                     .child("Inference used the visible canvas. Preview and Cancel leave the document and undo history unchanged.");
@@ -7920,51 +7929,20 @@ impl EditorView {
                     body = body.child("Sampling").child(choices);
                 }
             } else {
-                body = body.child(input("path", &self.path_input, window, cx));
-                if self.dialog == Dialog::Export {
-                    let export_path = PathBuf::from(self.path_input.read(cx).value().as_ref());
-                    let is_jpeg = export_path
+                let export_path = PathBuf::from(self.path_input.read(cx).value().as_ref());
+                let is_jpeg = self.dialog == Dialog::Export
+                    && export_path
                         .extension()
                         .and_then(|extension| extension.to_str())
                         .is_some_and(|extension| {
                             extension.eq_ignore_ascii_case("jpg")
                                 || extension.eq_ignore_ascii_case("jpeg")
                         });
-                    if is_jpeg {
-                        body = body.child(self.jpeg_export_settings(window, cx));
-                        body = body.child(
-                            button(
-                                "jpeg-preview",
-                                if self.jpeg_preview_task.is_some() {
-                                    "Encoding preview…"
-                                } else {
-                                    "Preview JPEG"
-                                },
-                                ButtonVariant::Outline,
-                                cx,
-                            )
-                            .disabled(
-                                self.jpeg_preview_task.is_some()
-                                    || self.busy
-                                    || self.photo_io.is_some(),
-                            )
-                            .on_click(cx.listener(|this, _, _, cx| this.start_jpeg_preview(cx))),
-                        );
-                        if let Some((preview, bytes, width, height)) = self.jpeg_preview.clone() {
-                            body = body
-                                .child(inspector_ui::panel_note(
-                                    &format!(
-                                        "{} × {} px · {:.1} KB encoded",
-                                        width,
-                                        height,
-                                        bytes as f64 / 1024.
-                                    ),
-                                    cx,
-                                ))
-                                .child(self.jpeg_inspection_panel(preview, width, height, cx));
-                        }
-                    }
-                    if !is_jpeg {
+                if is_jpeg {
+                    body = body.gap_2().child(self.jpeg_export_form(window, cx));
+                } else {
+                    body = body.child(input("path", &self.path_input, window, cx));
+                    if self.dialog == Dialog::Export {
                         for (i, label) in [(4usize, "Resolution (DPI, 1–9600)")] {
                             body = body.child(div().child(label).child(input(
                                 SharedString::from(format!("export-option-{i}")),
@@ -7974,16 +7952,16 @@ impl EditorView {
                             )));
                         }
                     }
-                }
-                if self.dialog != Dialog::Rename {
-                    body = body.child(
-                        button("browse", "Browse…", ButtonVariant::Outline, cx)
-                            .disabled(self.photo_io.is_some())
-                            .on_click(
-                                cx.listener(|this, _, window, cx| this.native_browse(window, cx)),
-                            ),
-                    );
-                    body=body.child(div().text_sm().text_color(t.secondary).child(match self.dialog{Dialog::Export=>"PNG · JPEG · WebP · TIFF. Choose the format using the file extension.",Dialog::Save=>"Omuse project folder (.omuse). Layers and collection pages remain editable. The extension is added automatically.",Dialog::Open=>"Choose an .omuse project, an image, or an older .comp project.",_=>"The image will be added as a new layer."}));
+                    if self.dialog != Dialog::Rename {
+                        body = body.child(
+                            button("browse", "Browse…", ButtonVariant::Outline, cx)
+                                .disabled(self.photo_io.is_some())
+                                .on_click(cx.listener(|this, _, window, cx| {
+                                    this.native_browse(window, cx)
+                                })),
+                        );
+                        body=body.child(div().text_sm().text_color(t.secondary).child(match self.dialog{Dialog::Export=>"PNG · JPEG · WebP · TIFF. Choose the format using the file extension.",Dialog::Save=>"Omuse project folder (.omuse). Layers and collection pages remain editable. The extension is added automatically.",Dialog::Open=>"Choose an .omuse project, an image, or an older .comp project.",_=>"The image will be added as a new layer."}));
+                    }
                 }
             }
             footer = Some(

@@ -104,6 +104,34 @@ fn reference_grade_preserves_original_precision_masks_and_one_undo_through_reope
 }
 
 #[test]
+fn alpha_preserving_nodes_round_midpoints_identically_at_every_alpha() {
+    // Half-strength inversion is exactly the midpoint of the 16-bit channel
+    // range. A colour-only adjustment must round it up for every alpha,
+    // including hidden RGB, without an alpha-dependent one-unit bias.
+    let pixels = Rgba16Image::from_fn(256, 256, |x, y| {
+        Rgba([28003, 9003, 33011, (y * 256 + x) as u16])
+    });
+    let mut state = LayerState::from_rgba16(&pixels, "Every alpha").unwrap();
+    state.recipe.nodes.push(FilterNode {
+        id: "half-invert".into(),
+        name: "Half-strength invert".into(),
+        enabled: true,
+        opacity: 0.5,
+        operation: AdvancedOperation::Filter(omuse::filters::Filter::Invert),
+        soft_mask: None,
+    });
+    let result = state.evaluate(&AtomicBool::new(false)).unwrap();
+    for (index, pixel) in result.result.to_rgba16().pixels().enumerate() {
+        assert_eq!(
+            pixel.0,
+            [32768, 32768, 32768, index as u16],
+            "half-strength inversion at alpha {index}"
+        );
+    }
+    assert_eq!(state.source.to_rgba16(), pixels);
+}
+
+#[test]
 fn cancelling_or_rejecting_a_reference_draft_never_changes_pixels_or_history() {
     let source = Rgba16Image::from_pixel(2, 2, Rgba([10001, 20003, 30007, 50001]));
     let state = LayerState::from_rgba16(&source, "Original").unwrap();

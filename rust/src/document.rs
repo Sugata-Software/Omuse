@@ -868,7 +868,7 @@ pub fn open(path: &Path) -> Result<Document> {
     }
     ensure!(
         version < PROJECT_SCENE_VERSION || vector_scene_count > 0,
-        "Project formats 12–13 require at least one vector scene"
+        "Project formats 12–14 require at least one vector scene"
     );
     if let Some(count) = manifest.get("rustVectorSceneCount") {
         ensure!(
