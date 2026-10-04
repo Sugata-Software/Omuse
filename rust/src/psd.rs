@@ -48,6 +48,7 @@ struct RawLayer {
     channels: Vec<(i16, usize)>,
     extra: HashMap<String, Vec<u8>>,
     mask_rect: [i32; 4],
+    mask_default: u8,
     mask_disabled: bool,
     mask_linked: bool,
     mask_rendered: bool,
@@ -500,10 +501,18 @@ fn read_record(c: &mut Cursor<'_>, psb: bool) -> Result<RawLayer> {
     let mask_len = usize::try_from(c.u32()?)?;
     let mask_end = c.pos.checked_add(mask_len).context("PSD mask overflow")?;
     ensure!(mask_end <= extra_end, "truncated PSD mask record");
+    ensure!(
+        mask_len == 0 || mask_len >= 20,
+        "invalid PSD mask record length"
+    );
     if mask_len >= 20 {
         l.has_mask = true;
         l.mask_rect = [c.i32()?, c.i32()?, c.i32()?, c.i32()?];
-        let _default = c.u8()?;
+        l.mask_default = c.u8()?;
+        ensure!(
+            matches!(l.mask_default, 0 | 255),
+            "invalid PSD mask default colour"
+        );
         let flags = c.u8()?;
         l.mask_disabled = flags & 2 != 0;
         l.mask_linked = flags & 1 == 0;
@@ -816,6 +825,7 @@ fn assemble(raw: Vec<RawLayer>, width: u32, height: u32) -> Result<Vec<Record>> 
             layer.mask = Some(mask.into());
             layer.metadata["maskEnabled"] = json!(!l.mask_disabled);
             layer.metadata["maskLinked"] = json!(l.mask_linked);
+            layer.metadata["maskOutsideCoverage"] = json!(l.mask_default);
             let [top, left, bottom, right] = l.mask_rect;
             layer.metadata["maskPlacement"] = json!({"origin":[left,top], "size":[right-left,bottom-top], "rotation":0, "flipX":false, "flipY":false, "sampling":"Nearest"});
         }
@@ -887,7 +897,24 @@ fn conversion_notes(l: &RawLayer, is_group: bool) -> Result<Vec<String>> {
             notes.push(label.to_owned());
         }
     }
-    let known = ["levl", "curv", "hue2", "hue "];
+    if let Some(data) = l.extra.get("hue2").or_else(|| l.extra.get("hue ")) {
+        // Parsing validates the record before these documented range offsets
+        // are used. Omuse's master HSL controls do not represent six Photoshop
+        // selective-colour bands, so never silently claim those were retained.
+        hue(data)?;
+        if data[2] == 0
+            && (0..6).any(|range| {
+                data[24 + range * 14..30 + range * 14]
+                    .iter()
+                    .any(|v| *v != 0)
+            })
+        {
+            notes.push("Photoshop selective Hue/Saturation ranges were not imported. The master adjustment remains editable; the appearance may differ.".into());
+        }
+        if data[2] == 0 && data[12..16].iter().any(|value| *value != 0) {
+            notes.push("Photoshop master saturation and lightness were mapped to Omuse's HSL controls; the appearance may differ.".into());
+        }
+    }
     let adjustment_keys = [
         "expA", "grdm", "brit", "blnc", "nvrt", "thrs", "post", "mixr", "selc", "blwh", "phfl",
         "vibA",
@@ -898,7 +925,6 @@ fn conversion_notes(l: &RawLayer, is_group: bool) -> Result<Vec<String>> {
             nonempty_name(&l.name)
         );
     }
-    let _ = known;
     Ok(notes)
 }
 
@@ -1047,13 +1073,32 @@ fn base_adjustment() -> Value {
         .expect("static adjustment defaults")
 }
 fn levels(d: &[u8]) -> Result<Value> {
-    ensure!(d.len() >= 42, "truncated PSD levels descriptor");
+    // The documented version-2 block contains all 29 records even though an
+    // RGB import consumes only the master and the first three channels.
+    ensure!(d.len() >= 292, "truncated PSD levels descriptor");
+    ensure!(be_u16(d, 0) == 2, "unsupported PSD levels version");
     let mut v = base_adjustment();
     v["kind"] = json!("Levels");
     let mut ranges = vec![];
     for channel in 0..4 {
         let b = 2 + channel * 10;
-        ranges.push(json!({"black":be_u16(d,b),"white":be_u16(d,b+2),"outputBlack":be_u16(d,b+4),"outputWhite":be_u16(d,b+6),"gamma":f64::from(be_u16(d,b+8))/256.}));
+        let (black, white, output_black, output_white, gamma) = (
+            be_u16(d, b),
+            be_u16(d, b + 2),
+            be_u16(d, b + 4),
+            be_u16(d, b + 6),
+            be_u16(d, b + 8),
+        );
+        ensure!(
+            black < white
+                && white <= 255
+                && output_black <= 255
+                && output_white <= 255
+                && (10..=999).contains(&gamma),
+            "invalid PSD levels range"
+        );
+        // Adobe stores gamma in hundredths, not 8.8 fixed point.
+        ranges.push(json!({"black":black,"white":white,"outputBlack":output_black,"outputWhite":output_white,"gamma":f64::from(gamma)/100.}));
     }
     v["levels"] = json!({"channel":"RGB","ranges":ranges});
     Ok(v)
@@ -1091,13 +1136,37 @@ fn curves(d: &[u8]) -> Result<Value> {
     Ok(v)
 }
 fn hue(d: &[u8]) -> Result<Value> {
-    ensure!(d.len() >= 10, "truncated PSD hue/saturation descriptor");
+    ensure!(d.len() >= 2, "truncated PSD hue/saturation descriptor");
+    ensure!(be_u16(d, 0) == 2, "unsupported PSD hue/saturation version");
+    // Version 2 is a four-byte header, two triples, then six 14-byte ranges.
+    // In particular, bytes 4..10 are colorization, not the master adjustment.
+    ensure!(d.len() >= 100, "truncated PSD hue/saturation descriptor");
+    ensure!(d[2] <= 1, "invalid PSD hue/saturation colorize flag");
+    let signed = |offset| i16::from_be_bytes([d[offset], d[offset + 1]]);
+    for (offset, colorize) in [(4, true), (10, false)] {
+        ensure!(
+            (-180..=180).contains(&signed(offset))
+                && (-100..=100).contains(&signed(offset + 4))
+                && (if colorize { 0 } else { -100 }..=100).contains(&signed(offset + 2)),
+            "invalid PSD hue/saturation settings"
+        );
+    }
+    for range in 0..6 {
+        let offset = 24 + range * 14;
+        ensure!(
+            (-180..=180).contains(&signed(offset))
+                && (-100..=100).contains(&signed(offset + 2))
+                && (-100..=100).contains(&signed(offset + 4)),
+            "invalid PSD selective hue/saturation settings"
+        );
+    }
+    let offset = if d[2] == 1 { 4 } else { 10 };
     let mut v = base_adjustment();
     v["kind"] = json!("Hue/Saturation");
     v["colorize"] = json!(d[2] != 0);
-    v["hue"] = json!(i16::from_be_bytes([d[4], d[5]]));
-    v["saturation"] = json!(i16::from_be_bytes([d[6], d[7]]));
-    v["lightness"] = json!(i16::from_be_bytes([d[8], d[9]]));
+    v["hue"] = json!(signed(offset));
+    v["saturation"] = json!(signed(offset + 2));
+    v["lightness"] = json!(signed(offset + 4));
     Ok(v)
 }
 

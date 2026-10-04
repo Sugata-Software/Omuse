@@ -1,6 +1,6 @@
 [package]
 name = "omuse"
-version = "0.7.0"
+version = "0.8.0"
 edition = "2024"
 license = "MIT"
 
@@ -15,6 +15,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 uuid = { version = "1", features = ["v4", "serde"] }
 anyhow = "1"
+i_overlay = { version = "=1.9.4", default-features = false }
 cosmic-text = "0.19"
 libloading = "=0.8.9"
 flate2 = "=1.1.10"
@@ -22,6 +23,7 @@ png = "=0.18.1"
 tiff = "=0.11.3"
 resvg = { version = "=0.46.0", default-features = false, features = ["text", "system-fonts", "raster-images"] }
 roxmltree = "=0.21.1"
+svg2pdf = { version = "=0.13.0", default-features = false }
 
 # Windows has no system LittleCMS; compile the crate's bundled copy statically.
 [target.'cfg(windows)'.dependencies]
@@ -47,3 +49,6 @@ debug-assertions = true
 [patch.crates-io]
 gpui-pre = { path = "vendor/gpui-pre" }
 gpui-pre-linux = { path = "vendor/gpui-pre-linux" }
+# Complete provenance and regression coverage: docs/rust-license-findings.md.
+hexf-parse = { path = "vendor/hexf-parse" }
+mac = { path = "vendor/mac-compat" }

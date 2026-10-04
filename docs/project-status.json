@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "snapshotDate": "2026-10-02",
+  "snapshotDate": "2026-10-03",
   "project": "Omuse",
   "releaseScope": "Native Rust/GPUI application for Arch/Omarchy Linux x86_64",
-  "releaseState": "Omuse 0.7.0 qualified source pre-release: photo/vector editing, image tracing, editable SVG and shared control polish; no public binary is attached and hardware gates remain open",
+  "releaseState": "Omuse 0.8.0 qualified candidate: source and asset publication pending; installed source release remains 0.7.0",
   "visualizationMirror": "omuse-project-guide.html",
   "statusDefinitions": [
     {
@@ -33,6 +33,12 @@
     }
   ],
   "releaseSnapshot": [
+    {
+      "label": "Qualified source candidate",
+      "value": "0.8.0 — publication pending",
+      "detail": "Photo fidelity, reference palette matching, hue masks, multiselection/groups, gradient and stroke styling, retained curved text, vector PDF and downloadable archives. Candidate source eb558dc updates only dependency-helper checks and workflow wiring over the b47/d2 Rust tree. Local 1,352-case acceptance, final photo/recovery evidence, b47 cross-version installation and Linux/Windows app suites passed. The repaired helper passed 20 Rust and 4 Python checks plus Windows metadata; exact-source validation run 37161936414 and download run 37161936378 completed successfully. Installed 0.7.0 is preserved; source and asset publication remain pending.",
+      "status": "implemented-needs-qualification"
+    },
     {
       "label": "Editing update released",
       "value": "Omuse 0.6.0",
@@ -78,7 +84,7 @@
     {
       "label": "Public-release blockers",
       "value": "Open gates",
-      "detail": "No public binary is attached. Dependency notices, clean-machine and broader hardware/accessibility acceptance remain open. Runtime 5b3daefbb5258afff4a74a2ff3db5247b074972d passed local and exact-source CI, 13 native/gallery journeys, installation and rollback.",
+      "detail": "The 0.8.0 candidate is qualified on the recorded source, local, native and package evidence. Source and asset publication remain pending. Local 1,352-case acceptance, 16/16 photo, d2 recovery, b47 cross-version and bounded Subject Refine keyboard evidence passed. The native compact-resize capture remains unavailable; clean-machine, broader hardware/accessibility and live Windows AI acceptance remain open. No 0.8 tag or asset is published and installed 0.7.0 is preserved.",
       "status": "blocked-deferred"
     }
   ],
@@ -303,16 +309,17 @@
         },
         {
           "id": "photo-retouch-fidelity",
-          "name": "Smudge trail and Liquify sharpness follow-up",
-          "status": "planned",
-          "current": "Source review found the older carried-colour Smudge algorithm and repeated per-dab Liquify resampling in the current release. Recommended next work: reproduce fading-dot trails and forward/back line-art/photo cases, then evaluate revised Smudge spacing/carry and a bounded CPU displacement-field Liquify.",
-          "boundary": "No quality regression has been independently measured in this watch and no fix is shipped. Preserve soft selections, alpha, placement, cancellation and exact Undo. Denser dabs and offset fields need explicit work/memory budgets and timings. Upstream GPU measurements are not Omuse results.",
+          "name": "Smudge, Liquify and brush-region blur",
+          "status": "implemented-needs-qualification",
+          "current": "The 0.8 candidate samples Liquify from the original stroke source, carries a continuous fading Smudge trail, and limits Blur work to the affected area plus its sampling halo. Focused kernel/transaction tests and isolated CPU comparisons accompany the implementation.",
+          "boundary": "Isolated 8MP kernel measurements are not end-to-end pointer latency. Broad photographic retouch quality and large transformed-layer work remain separate qualification.",
           "evidence": [
-            "docs/omaphoto-comparison.md"
+            "docs/omaphoto-comparison.md",
+            "docs/release-080-qualification.md"
           ],
           "modules": [
             "rust/src/retouch_brush.rs",
-            "rust/tests/stroke_damage.rs"
+            "rust/tests/retouch_fidelity.rs"
           ]
         },
         {
@@ -350,7 +357,7 @@
           "name": "Complete photo precision and export fidelity",
           "status": "planned",
           "current": "Approved P01/P02: the development branch passed bounded sampling, alpha/mask and cancellation checks for the new 16-bit renderer. Removing the Camera Raw 8-bit bottleneck and extending full-precision effects remain planned.",
-          "boundary": "Installed/public 0.6.0 is unchanged. Reduced masked detail can still differ between the 8-bit canvas and 16-bit export. Complete high-precision editing and independent photographic quality remain unqualified.",
+          "boundary": "Installed/public 0.7.0 is unchanged. Reduced masked detail can still differ between the 8-bit canvas and 16-bit export. Complete high-precision editing and independent photographic quality remain unqualified.",
           "evidence": [
             "docs/photo-vector-roadmap.md",
             "docs/photo-vector-foundations-qualification.md"
@@ -370,14 +377,19 @@
         },
         {
           "id": "photo-colour-uniformity-matching",
-          "name": "Reference-look matching and campaign colour",
-          "status": "planned",
-          "current": "Approved P06/P12: editable reference-look matching and consistent product/campaign recipes, building on the new development target-colour node.",
-          "boundary": "Preserve texture, alpha and high-bit-depth data. Reference matching must return reviewable adjustments; no quality or cross-photo consistency is yet qualified.",
+          "name": "Reference-photo colour matching",
+          "status": "implemented-needs-qualification",
+          "current": "An editable Match reference colour filter borrows a reference palette with amount and preserve-lightness controls, native file selection, preview, masks and Undo. Native 16-bit sRGB, linear and Display P3 sources retain their precision.",
+          "boundary": "Global statistics transfer, not semantic object or lighting correspondence. Stores bounded statistics, not the reference image/path. References are bounded to 16MP and 128MiB. Campaign-wide consistency needs broader photographic review.",
           "evidence": [
-            "docs/photo-vector-roadmap.md"
+            "docs/photo-vector-roadmap.md",
+            "docs/release-080-qualification.md"
           ],
-          "modules": []
+          "modules": [
+            "rust/src/color_match.rs",
+            "rust/tests/color_match_kernel.rs",
+            "rust/tests/color_match_transactions.rs"
+          ]
         },
         {
           "id": "photo-learned-restoration",
@@ -428,6 +440,20 @@
             "rust/src/advanced_ops.rs",
             "rust/src/advanced16.rs",
             "rust/src/advanced_ui.rs"
+          ]
+        },
+        {
+          "id": "photo-jpeg-inspection",
+          "name": "Inspect the actual JPEG before export",
+          "status": "implemented-needs-qualification",
+          "current": "Fit/100% physical-pixel views and drag/arrow panning inspect the actual encoded JPEG. Compact quality, resolution and matte RGB controls include a live swatch.",
+          "boundary": "JPEG preview supports its existing pixel/work limits and does not change the saved document. Compact JPEG behavior passes GPUI; the b47 full-size native screenshot is retained, while a new compact-window resize capture was unavailable.",
+          "evidence": [
+            "docs/release-080-qualification.md"
+          ],
+          "modules": [
+            "rust/src/image_inspection.rs",
+            "rust/src/jpeg_preview_ui.rs"
           ]
         }
       ]
@@ -506,18 +532,19 @@
         },
         {
           "id": "layers-range-refinement",
-          "name": "Range masks and edge refinement",
-          "status": "locally-tested",
-          "current": "Luminosity/colour ranges can replace, add or subtract selections or produce layer masks; refinement supports correction strokes, edge controls and multiple inspection backgrounds.",
-          "boundary": "Range parameters are not persisted as a live parametric mask recipe, and refined cut-outs bake the correction result.",
+          "name": "Hue, colour and luminosity range masks",
+          "status": "implemented-needs-qualification",
+          "current": "The 0.8 candidate adds circular hue selection across changing brightness, saturation protection for greys and softness, alongside RGB distance and luminosity ranges. Replace/Add/Subtract/Intersect and layer-mask outputs preserve soft coverage.",
+          "boundary": "Mask pixels are persisted, not a reopenable range recipe. Existing refinement correction strokes still bake their results.",
           "evidence": [
             "docs/rust-range-masks.md",
-            "docs/rust-advanced-workflows.md"
+            "docs/rust-advanced-workflows.md",
+            "docs/release-080-qualification.md"
           ],
           "modules": [
             "rust/src/range_mask.rs",
-            "rust/src/refinement.rs",
-            "rust/src/range_ui.rs"
+            "rust/src/range_ui.rs",
+            "rust/tests/hue_range.rs"
           ]
         },
         {
@@ -718,57 +745,79 @@
         {
           "id": "design-canvas-pen-nodes",
           "name": "Direct canvas Pen and Node workflow",
-          "status": "planned",
-          "current": "Approved V01: canvas path editing, node insertion/split/join, corner/smooth controls and snapping/nudging. First improve the current draft editor alongside SVG path exchange.",
-          "boundary": "The existing bounded dialog is not a complete direct-canvas tool. Every gesture needs one reversible transaction, cancellation and keyboard coverage.",
+          "status": "locally-tested",
+          "current": "Released in 0.7: P draws curves, A edits nodes and handles, V selects/moves, with exact insertion, linked/broken handles, angle constraints and local draft Undo on the shared canvas.",
+          "boundary": "Split/join and broader snapping remain future work. Current 0.8 additions are being requalified against the combined Windows source.",
           "evidence": [
-            "docs/photo-vector-roadmap.md"
+            "docs/photo-vector-roadmap.md",
+            "docs/release-080-qualification.md"
           ],
-          "modules": []
+          "modules": [
+            "rust/src/vector_canvas_ui.rs",
+            "rust/src/vector_tests.rs"
+          ]
         },
         {
           "id": "design-shape-builder",
-          "name": "Shape Builder and compound geometry",
-          "status": "planned",
-          "current": "Approved V02: union, subtraction, intersection, exclusion/division and compound-path authoring with a visual construction tool.",
-          "boundary": "Not implemented. Holes, tangencies, self-intersections, fill rules and degenerate geometry require independent correctness and workload tests.",
+          "name": "Boolean construction, groups and multiselection",
+          "status": "implemented-needs-qualification",
+          "current": "Shift-select or marquee several canvas objects; move, arrange, align, distribute, group and ungroup. Background Unite/Subtract/Intersect/Exclude/Divide preserve Undo and unselected objects.",
+          "boundary": "Boolean curves become bounded polygonal paths. Interactive Shape Builder and retained live boolean recipes remain planned. Live text requires explicit outline conversion first.",
           "evidence": [
-            "docs/photo-vector-roadmap.md"
+            "docs/photo-vector-roadmap.md",
+            "docs/release-080-qualification.md"
           ],
-          "modules": []
+          "modules": [
+            "rust/src/vector_boolean.rs",
+            "rust/src/vector_selection_ui.rs"
+          ]
         },
         {
           "id": "design-vector-styling",
-          "name": "Advanced editable vector strokes and fills",
-          "status": "planned",
-          "current": "Approved V03/V08: gradients, caps/joins/dashes, variable-width strokes, stroke expansion, offsets, corners and later mesh/pattern fills, repeats and blends.",
-          "boundary": "Retained paths currently expose solid fill and uniform stroke. Broader illustration operations require versioned persistence and explicit complexity budgets.",
+          "name": "Editable gradients, caps, joins and dashes",
+          "status": "implemented-needs-qualification",
+          "current": "Linear/radial gradients with 2–16 alpha stops, geometry, Pad/Repeat/Reflect, stroke caps/joins and dash controls are implemented on the shared canvas. Zoom previews retain paint placement and use a bounded settled fallback.",
+          "boundary": "Style scenes use project format 13. Variable width, stroke expansion, offsets, mesh/pattern fills and symbols remain planned.",
           "evidence": [
-            "docs/photo-vector-roadmap.md"
+            "docs/photo-vector-roadmap.md",
+            "docs/release-080-qualification.md"
           ],
-          "modules": []
+          "modules": [
+            "rust/src/vector_style.rs",
+            "rust/src/vector_style_ui.rs",
+            "rust/tests/vector_styles.rs"
+          ]
         },
         {
           "id": "design-path-type-outlines",
-          "name": "Path typography and text outlines",
-          "status": "planned",
-          "current": "Approved V04: text on a path, outline copies retaining original text, improved per-selection inline styling and clear font fallback reporting.",
-          "boundary": "Unusual fonts, non-Latin shaping, native IME and exported font fidelity require qualification. Current editable text is not outlined/path typography.",
+          "name": "Editable text on curves and portable outlines",
+          "status": "implemented-needs-qualification",
+          "current": "Retained text content/font/size/tracking/position/alignment follows an editable guide on the main canvas. Update text, replace its guide, report font fallbacks and explicitly convert to editable glyph outlines.",
+          "boundary": "Project format 14. One line up to 512 characters on one bounded guide; unsupported colour/bitmap glyphs and text that does not fit are refused. SVG/PDF export outlines rather than live text recipes.",
           "evidence": [
-            "docs/photo-vector-roadmap.md"
+            "docs/photo-vector-roadmap.md",
+            "docs/release-080-qualification.md"
           ],
-          "modules": []
+          "modules": [
+            "rust/src/vector_text_path.rs",
+            "rust/src/vector_text_ui.rs",
+            "rust/tests/vector_text_document.rs"
+          ]
         },
         {
           "id": "design-image-tracing",
           "name": "Editable logo and sketch tracing",
-          "status": "planned",
-          "current": "Approved V05: preview bitmap-to-vector results with palette, detail and smoothing controls, node counts and retained original artwork.",
-          "boundary": "Not implemented. Bound tracing complexity and do not promise lossless photographic reconstruction; independently review logo and line-art fixtures.",
+          "status": "locally-tested",
+          "current": "Released in 0.7: Colour/Gray/B&W local tracing, presets, detail/smoothing/corners/noise/point limits, Source/Trace preview, retained original, saved settings and editable paths.",
+          "boundary": "Solid-colour approximations do not reproduce every photograph. Broader topology/photographic/hardware qualification remains open.",
           "evidence": [
-            "docs/photo-vector-roadmap.md"
+            "docs/photo-vector-roadmap.md",
+            "docs/release-080-qualification.md"
           ],
-          "modules": []
+          "modules": [
+            "rust/src/image_trace.rs",
+            "docs/image-trace-qualification.md"
+          ]
         },
         {
           "id": "design-path-draft-tools",
@@ -1353,25 +1402,33 @@
         },
         {
           "id": "formats-editable-svg",
-          "name": "Multi-object editable SVG documents",
-          "status": "planned",
-          "current": "Approved V06 expansion beyond the new single-path route: multiple objects, hierarchy, transforms, text, gradients and supported clipping.",
-          "boundary": "Requires the versioned procedural vector scene and bounded tile-cache checkpoint in Q01/Q02 before expansion. The development single-path importer is a separate bounded feature; general Open/Import rasterizes SVG. Full document round-trip is not implemented.",
+          "name": "Multiple editable SVG objects and styles",
+          "status": "implemented-needs-qualification",
+          "current": "The 0.8 candidate exchanges supported paths, organizational groups, transforms, names, opacity, linear/radial gradients and dashed strokes. Exported curved text is portable outline geometry.",
+          "boundary": "Arbitrary live SVG text import, clipping, filters, external resources and group opacity remain explicitly unsupported.",
           "evidence": [
-            "docs/photo-vector-roadmap.md"
+            "docs/photo-vector-roadmap.md",
+            "docs/release-080-qualification.md"
           ],
-          "modules": []
+          "modules": [
+            "rust/src/vector_svg_scene.rs",
+            "rust/tests/vector_svg_scene.rs",
+            "rust/tests/vector_styles.rs"
+          ]
         },
         {
           "id": "formats-vector-pdf-ai",
-          "name": "Vector PDF and bounded Illustrator interchange",
-          "status": "planned",
-          "current": "Approved V07/V09: retain supported geometry/text in PDF, declare raster-effect fallbacks and font handling, then investigate PDF-compatible AI import.",
-          "boundary": "Current multipage raster PDF is not vector-preserving PDF. Full proprietary Illustrator document round-trip remains a separate research item.",
+          "name": "Vector PDF export",
+          "status": "implemented-needs-qualification",
+          "current": "The 0.8 candidate exports selected artwork scenes as vector PDF with curves, gradient fills, strokes, transparency and text outlines at document DPI. Independent SVG/Poppler comparisons have been retained.",
+          "boundary": "Pad gradients only; Repeat/Reflect produce an explicit error. Not full mixed-document vector PDF, PDF editing, proprietary Illustrator interchange or print/CMYK qualification.",
           "evidence": [
-            "docs/photo-vector-roadmap.md"
+            "docs/photo-vector-roadmap.md",
+            "docs/release-080-qualification.md"
           ],
-          "modules": []
+          "modules": [
+            "rust/src/vector_pdf.rs"
+          ]
         },
         {
           "id": "formats-professional-print",
@@ -1736,7 +1793,7 @@
           "name": "Windows development build",
           "status": "experimental",
           "current": "The editor opens, edits, saves and reopens canvases and Create collections on Windows 11 x86_64 with MSVC, develops Camera RAW through LibRaw (including lossy and deflate-compressed DNG), selects subjects with local ONNX Runtime inference and exports MP4/GIF motion through FFmpeg on PATH. Settings use %APPDATA%\\omuse; data, recovery and state use %LOCALAPPDATA%\\omuse unless XDG variables are set. omuse.exe is a GUI-subsystem program with a static C runtime. scripts/prepare-rust-assets.ps1 fetches the pinned model and ONNX Runtime and builds LibRaw; scripts/package-rust.ps1 creates a zip with runtime assets, notices and a Windows dependency inventory. The windows CI job runs the test suite and the editing, Create, template catalog and motion journeys, then keeps the unsigned zip as a 14-day workflow artifact. omuse.exe carries the Omuse icon and version information, follows the Windows light or dark app mode, starts save dialogs in the Pictures or Videos known folder (including OneDrive redirection) and accepts long paths; package moves retry for up to 10 seconds while a sync client or scanner holds a file. Ask Omuse finds codex.exe or claude.exe on PATH, recognises npm's Codex launcher and runs its native binary, gives job, sign-in and probe workspaces an access list for the current user only, hard-links Codex credentials into its isolated home and passes Windows' essential environment to providers.",
-          "boundary": "Not a release target and not qualified. On Windows 11 Pro the full suite passed with --test-threads=1 including real u2netp inference; the self-test, Create acceptance with motion, media acceptance, all 80 template variants and a Nikon D90 NEF photo journey (also from a Unicode path) passed, and the packaged build selected a subject in the native window. A native click-through on Windows 11 covered the Save As dialog, saving and overwriting a project, reopening, recent projects, copying a PNG to and pasting a bitmap from the Windows clipboard, dropping a file onto the canvas margin and the second monitor; an Adobe lossy DNG opened only with the new LibRaw build. OneDrive itself was not written to; a held-file test simulates a sync client. Windows has no atomic directory exchange: replacing a project moves the previous package to a hidden sibling between two renames. Subject selection needs the Visual C++ 2015-2022 Redistributable for Microsoft's onnxruntime.dll; FFmpeg is not bundled. The zip is unsigned; its release-build dependency inventory has one open notice finding, mac 0.1.1, shared with Linux. Ask Omuse discovery on Windows 11 verified the npm-installed Codex CLI (run as its native codex.exe) as signed in with its allowance, and found the native Claude Code CLI not signed in; no AI request was sent, so no Windows capability is qualified yet. Tablet pressure and Omarchy theme following are not available on Windows. Light-mode switching, non-US keyboards (AltGr), mixed-DPI displays, physical tablets and a clean machine were not checked. Linux behaviour and project formats are unchanged.",
+          "boundary": "Not a release target and not qualified. On Windows 11 Pro the full suite passed with --test-threads=1 including real u2netp inference; the self-test, Create acceptance with motion, media acceptance, all 80 template variants and a Nikon D90 NEF photo journey (also from a Unicode path) passed, and the packaged build selected a subject in the native window. A native click-through on Windows 11 covered the Save As dialog, saving and overwriting a project, reopening, recent projects, copying a PNG to and pasting a bitmap from the Windows clipboard, dropping a file onto the canvas margin and the second monitor; an Adobe lossy DNG opened only with the new LibRaw build. OneDrive itself was not written to; a held-file test simulates a sync client. Windows has no atomic directory exchange: replacing a project moves the previous package to a hidden sibling between two renames. Subject selection needs the Visual C++ 2015-2022 Redistributable for Microsoft's onnxruntime.dll; FFmpeg is not bundled. The zip is unsigned; the 0.8 candidate replaces the unresolved notice dependencies and its Windows target inventory has zero findings; actual native package checks are running. Ask Omuse discovery on Windows 11 verified the npm-installed Codex CLI (run as its native codex.exe) as signed in with its allowance, and found the native Claude Code CLI not signed in; no AI request was sent, so no Windows capability is qualified yet. Tablet pressure and Omarchy theme following are not available on Windows. Light-mode switching, non-US keyboards (AltGr), mixed-DPI displays, physical tablets and a clean machine were not checked. Linux behaviour and project formats are unchanged.",
           "evidence": [
             "rust/README.md",
             "rust/vendor/README.md",
@@ -1862,25 +1919,26 @@
         },
         {
           "id": "release-legal",
-          "name": "Dependency notice gate",
-          "status": "blocked-deferred",
-          "current": "Exact upstream texts were recovered for `seahash` and `simd_helpers`; `hexf-parse 0.2.1` and `mac 0.1.1` remain unresolved.",
-          "boundary": "The two missing legal texts keep the public-binary notice gate open; generic licence boilerplate is intentionally rejected.",
+          "name": "Dependency notices and embedded-profile provenance",
+          "status": "locally-tested",
+          "current": "Unresolved hexf-parse/mac dependencies were replaced with tested local compatible implementations. Combined 73a2d6b inventories report zero findings: 619 broad Linux, 536 Linux release and 417 Windows target packages. Exact svg2pdf ICC CC0 notice is retained.",
+          "boundary": "Final native package jobs regenerate notices for their exact source/target. This is documented provenance/inventory evidence, not a legal opinion.",
           "evidence": [
             "docs/rust-license-findings.md",
-            "docs/public-release-readiness.md"
+            "docs/public-release-readiness.md",
+            "docs/release-080-qualification.md"
           ],
           "modules": [
             "scripts/rust-license-inventory.py",
-            "rust/licenses/dependency-overrides/overrides.json"
+            "docs/rust-license-findings.md"
           ]
         },
         {
           "id": "release-ci-github",
-          "name": "Public source and remote CI",
-          "status": "locally-tested",
-          "current": "Runtime 5b3daefbb5258afff4a74a2ff3db5247b074972d passed exact-source GitHub validation 36910650216 with conclusion success: https://github.com/Sugata-Software/Omuse/actions/runs/36910650216.",
-          "boundary": "CI does not establish clean-machine installation, complete live-provider quality or portable binary qualification. The 0.7.0 qualification record covers those separate local gates.",
+          "name": "Public candidate and Linux/Windows CI",
+          "status": "implemented-needs-qualification",
+          "current": "The public source candidate eb558dc59ccdf88a3d62dfc2d706a6b836da1eda (tree 68e406316b92d5817abfe810fbdc7840e57b5d17) carries the b47/d2 Rust tree plus dependency-helper and workflow wiring. The b47 Linux/Windows application suites and journeys passed. The repaired helper passed 20 Rust and 4 Python checks plus Windows metadata resolution; validation run 37161936414 and download run 37161936378 completed successfully. The earlier f40d37d GUI failures and a0 16-bit blend failures remain historical checkpoints.",
+          "boundary": "Neither run is yet qualified. Source promotion and permanent asset publication require successful exact-source checks and reviewed package receipts.",
           "evidence": [
             "docs/release-060-qualification.md",
             "docs/release-070-qualification.md",
@@ -1896,9 +1954,13 @@
             "docs/ai-experience-qualification.md",
             "docs/ai-image-editing-qualification.md",
             "docs/editing-workflows-qualification.md",
-            "docs/ai-claude-qualification.md"
+            "docs/ai-claude-qualification.md",
+            "docs/release-080-qualification.md"
           ],
-          "modules": []
+          "modules": [
+            ".github/workflows/rust-validation.yml",
+            ".github/workflows/build-downloads.yml"
+          ]
         },
         {
           "id": "release-artifact",
@@ -2033,15 +2095,33 @@
         },
         {
           "id": "release-photo-vector-quality",
-          "name": "Photo/vector quality, performance and compatibility",
-          "status": "planned",
-          "current": "Approved Q01/Q02/Q04/Q06/Q07: versioned .omuse data, a procedural vector scene and capped visible-tile caches before multi-object illustration, bounded jobs, font/export comparisons, independent images and long-session/resource tests.",
-          "boundary": "Partial Q01/Q02 slice locally tested at source 4e1da33: bounded procedural scenes and temporary tile rendering remove per-object full-canvas buffers; one full RGBA8 compatibility cache remains per scene. The five-object 4K allocation example accounts for 64.002 MiB versus 320.125 MiB for independent raster-backed source/result/proxy buffers. Persistent visible/damaged-tile caches, high-precision scene rendering and latency/peak-memory qualification are still planned.",
+          "name": "Photo/vector correctness and release qualification",
+          "status": "implemented-needs-qualification",
+          "current": "Candidate eb558dc carries the b47/d2 corrected PSD levels/gamma/masks, antialiased selection-to-mask mapping, safe external UTF16 font runs, retouch improvements, colour matching and gradient/type/PDF fidelity checks, plus the compact JPEG, focus and 16-bit blend fixes.",
+          "boundary": "Local 1,352-case acceptance, final 16/16 photo, d2 recovery, b47 cross-version installation, Camera Raw keyboard Undo/Redo and bounded installed Subject Refine Apply/Undo/Redo passed. Compact JPEG passes GPUI; native compact-resize capture is an optional broader-evidence gap. Validation and download CI completed successfully. Live Windows AI, clean-machine, accessibility and broader camera/hardware acceptance are still unverified.",
           "evidence": [
             "docs/photo-vector-roadmap.md",
-            "docs/vector-scene-qualification.md"
+            "docs/vector-scene-qualification.md",
+            "docs/release-080-qualification.md"
           ],
-          "modules": []
+          "modules": [
+            "docs/release-080-qualification.md"
+          ]
+        },
+        {
+          "id": "release-versioned-downloads",
+          "name": "Permanent Linux and Windows preview downloads",
+          "status": "implemented-needs-qualification",
+          "current": "Exact-source candidate workflows build Linux/Windows archives, verify all members/notices, run native editing/install/reinstall/rollback smoke checks, and bind their hashes into a reviewed publication manifest.",
+          "boundary": "Pipeline tests passed using synthetic runtime fixtures; the b47 Linux cross-version report passed four installed-launcher journeys. Linux and Windows eb558dc package checks completed successfully with zero notice findings (619 and 421 dependency entries). Source and assets remain unpublished; initial packages are unsigned experimental previews.",
+          "evidence": [
+            "docs/downloadable-releases.md",
+            "docs/release-080-qualification.md"
+          ],
+          "modules": [
+            "scripts/release-downloads.py",
+            "scripts/verify-release-bundle.py"
+          ]
         }
       ]
     }

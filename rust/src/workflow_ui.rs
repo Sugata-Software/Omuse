@@ -538,6 +538,25 @@ impl EditorView {
             WorkflowKind::Colour => {
                 body = body
                     .child(
+                        button(
+                            "workflow-match-reference",
+                            "Match reference colour…",
+                            ButtonVariant::Outline,
+                            cx,
+                        )
+                        .disabled(self.busy)
+                        .debug_selector(|| "workflow-match-reference".into())
+                        .on_click(cx.listener(|this, _, window, cx| {
+                            if this.busy {
+                                return;
+                            }
+                            this.clear_workflow(cx);
+                            this.dialog_generation = this.dialog_generation.wrapping_add(1);
+                            this.open_pro(super::advanced_ui::Kind::Stack, window, cx);
+                            this.pro_choose_effect(15, window, cx);
+                        })),
+                    )
+                    .child(
                         if self
                             .workflow_draft
                             .as_ref()

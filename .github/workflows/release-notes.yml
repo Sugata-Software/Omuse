@@ -7,6 +7,9 @@ on:
       - 'docs/releases/**'
       - 'scripts/release-notes.py'
       - 'scripts/test-release-notes.py'
+      - 'scripts/release-downloads.py'
+      - 'scripts/verify-release-bundle.py'
+      - 'scripts/test-release-downloads.py'
       - '.github/workflows/release-notes.yml'
       - 'rust/Cargo.toml'
       - 'install.sh'
@@ -16,6 +19,9 @@ on:
       - 'docs/releases/**'
       - 'scripts/release-notes.py'
       - 'scripts/test-release-notes.py'
+      - 'scripts/release-downloads.py'
+      - 'scripts/verify-release-bundle.py'
+      - 'scripts/test-release-downloads.py'
       - '.github/workflows/release-notes.yml'
       - 'rust/Cargo.toml'
       - 'install.sh'
@@ -44,7 +50,9 @@ jobs:
       - name: Check source pin, package version and release notes offline
         run: python3 scripts/release-notes.py --check
       - name: Test fail-closed publication and idempotence
-        run: python3 scripts/test-release-notes.py
+        run: |
+          python3 scripts/test-release-notes.py
+          python3 scripts/test-release-downloads.py
       - name: Determine whether this reviewed push requests publication
         id: intent
         run: python3 scripts/release-notes.py --publication-requested >> "$GITHUB_OUTPUT"

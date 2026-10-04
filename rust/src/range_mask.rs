@@ -36,6 +36,14 @@ pub enum RangeKind {
         tolerance: f32,
         feather: f32,
     },
+    /// Circular hue distance, independent of lightness. Saturation protection
+    /// fades over the final five percentage points below `minimum_saturation`.
+    Hue {
+        rgb: [u8; 3],
+        tolerance_degrees: f32,
+        feather_degrees: f32,
+        minimum_saturation: f32,
+    },
 }
 
 /// Settings for producing a bounded range mask.
@@ -69,6 +77,25 @@ pub fn validate(settings: RangeSettings) -> Result<()> {
                     && (0.0..=1.0).contains(&tolerance)
                     && (0.0..=1.0).contains(&feather),
                 "invalid color range settings"
+            );
+        }
+        RangeKind::Hue {
+            rgb,
+            tolerance_degrees,
+            feather_degrees,
+            minimum_saturation,
+        } => {
+            ensure!(
+                [tolerance_degrees, feather_degrees]
+                    .iter()
+                    .all(|value| value.is_finite() && (0. ..=180.).contains(value))
+                    && minimum_saturation.is_finite()
+                    && (0. ..=1.).contains(&minimum_saturation),
+                "Hue range needs 0–180 degree tolerance/softness and 0–100% saturation"
+            );
+            ensure!(
+                hue_saturation(rgb).is_some(),
+                "Choose a coloured sample for Hue range; grey has no hue"
             );
         }
     }
@@ -114,6 +141,10 @@ pub fn mask_cancellable(
     let source_rows = source.as_raw().chunks_exact(row_bytes);
     let output_bytes: &mut [u8] = output.as_mut();
     let output_rows = output_bytes.chunks_exact_mut(width_usize);
+    let target_hue = match settings.kind {
+        RangeKind::Hue { rgb, .. } => hue_saturation(rgb).map(|value| value.0).unwrap_or(0.),
+        _ => 0.,
+    };
 
     for (source_row, output_row) in source_rows.zip(output_rows) {
         ensure!(!cancelled.load(Ordering::Relaxed), "range mask cancelled");
@@ -133,6 +164,29 @@ pub fn mask_cancellable(
                     tolerance,
                     feather,
                 } => color_coverage(red, green, blue, rgb, tolerance, feather),
+                RangeKind::Hue {
+                    tolerance_degrees,
+                    feather_degrees,
+                    minimum_saturation,
+                    ..
+                } => {
+                    if let Some((hue, saturation)) = hue_saturation([red, green, blue]) {
+                        let distance = (hue - target_hue).abs();
+                        let distance = distance.min(360. - distance);
+                        let hue_coverage = if distance <= tolerance_degrees {
+                            1.
+                        } else if feather_degrees == 0. {
+                            0.
+                        } else {
+                            smoothstep(
+                                (tolerance_degrees + feather_degrees - distance) / feather_degrees,
+                            )
+                        };
+                        hue_coverage * smoothstep((saturation - minimum_saturation + 0.05) / 0.05)
+                    } else {
+                        0.
+                    }
+                }
             };
             if settings.invert {
                 coverage = 1.0 - coverage;
@@ -147,6 +201,27 @@ pub fn mask_cancellable(
 fn smoothstep(value: f32) -> f32 {
     let value = value.clamp(0.0, 1.0);
     value * value * (3.0 - 2.0 * value)
+}
+
+fn hue_saturation(rgb: [u8; 3]) -> Option<(f32, f32)> {
+    let [r, g, b] = rgb.map(|value| f32::from(value) / 255.);
+    let high = r.max(g).max(b);
+    let low = r.min(g).min(b);
+    let delta = high - low;
+    if delta <= f32::EPSILON {
+        return None;
+    }
+    let hue = if high == r {
+        (g - b) / delta
+    } else if high == g {
+        (b - r) / delta + 2.
+    } else {
+        (r - g) / delta + 4.
+    };
+    Some((
+        hue.rem_euclid(6.) * 60.,
+        delta / (1. - (high + low - 1.).abs()).max(f32::EPSILON),
+    ))
 }
 
 fn luminosity_coverage(red: u8, green: u8, blue: u8, low: f32, high: f32, feather: f32) -> f32 {

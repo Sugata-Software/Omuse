@@ -1,9 +1,10 @@
 # Omuse user manual
 
 **Make, retouch and finish images on Linux.** This manual describes the Omuse
-0.7.0 source pre-release for Arch/Omarchy x86_64, including integrated vector
-editing, local Image Trace and the existing photo, Create and optional AI
-workflows.
+0.8.0 source pre-release for Arch/Omarchy x86_64, including reference colour
+matching, soft hue masks, richer vector artwork and text on curves, alongside
+local Image Trace, Create and optional AI workflows. Windows packages remain
+unsigned experimental previews with separate desktop and live AI limits.
 Start with a photo, keep an editable project, and export a copy when it is ready.
 
 [Install Omuse](../install.md) · [Remove objects](remove-objects.md) ·
@@ -108,11 +109,13 @@ choose **Keep editing**, **Save a copy**, or explicitly discard local edits and
 reload. A conflicting ordinary Save never overwrites the other version.
 Repeated **Ctrl+S** queues the newest edits behind a save already in progress.
 
-Ordinary canvases and collection pages use **format 10**. A canvas containing
-editable vector scenes uses **format 11**; **Omuse 0.6.0 cannot read format-11
-scenes or projects containing Target Colour Uniformity**. Use Save As to retain
-an older compatible copy when needed; reinstalling an older app does not convert
-the file.
+Ordinary canvases and collection pages use **format 10**. Flat legacy vector
+scenes use **11**, grouped scenes **12**, gradients and advanced strokes **13**,
+and editable text on curves **14**. **Omuse 0.7.0 cannot read formats 12–14 or
+the new reference-colour recipe.** Omuse 0.6.0 also cannot read format 11 or
+Target Colour Uniformity. Use **Save As** to keep an older original before adding
+new features. Removing a feature or reinstalling an older app does not
+automatically downgrade the file.
 
 ## AI is optional
 

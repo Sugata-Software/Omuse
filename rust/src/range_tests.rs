@@ -234,6 +234,85 @@ fn range_color_sampling_and_add_subtract_affect_only_selection(cx: &mut TestAppC
 }
 
 #[gpui_kit::test]
+fn range_output_changes_preview_the_combined_soft_selection(cx: &mut TestAppContext) {
+    let (view, cx, _recovery) = setup(cx);
+    view.update(cx, |view, _| view.editor.select_rectangle(0., 0., 32., 64.));
+    click(cx, "luminosity-range");
+    complete_preview(&view, cx);
+    let raw = view.update(cx, |view, _| {
+        view.range_draft
+            .as_ref()
+            .unwrap()
+            .computed
+            .as_ref()
+            .unwrap()
+            .1
+            .clone()
+    });
+    let partial = raw.get_pixel(40, 0)[0];
+    assert!(partial > 0 && partial < 255);
+    for (id, expected) in [
+        ("range-add", [255, partial, 255]),
+        ("range-subtract", [255, 0, 0]),
+        ("range-intersect", [0, 0, 0]),
+        ("range-replace", [0, partial, 255]),
+        ("range-intersect", [0, 0, 0]),
+    ] {
+        click(cx, id);
+        cx.run_until_parked();
+        draw(cx);
+        view.update(cx, |view, _| {
+            assert!(!view.busy, "{}", view.status);
+            let draft = view.range_draft.as_ref().unwrap();
+            assert!(
+                Arc::ptr_eq(&draft.computed.as_ref().unwrap().1, &raw),
+                "Changing output should reuse the raw range computation"
+            );
+            let pixels = draft.preview.as_ref().unwrap().as_bytes(0).unwrap();
+            assert_eq!([0, 40, 127].map(|x| pixels[x * 4]), expected, "{id}");
+            assert_eq!(
+                view.editor.selection.as_ref().unwrap().mask[0],
+                255,
+                "Preview must not mutate the real selection"
+            );
+        });
+    }
+    click(cx, "confirm-dialog");
+    view.update(cx, |view, _| {
+        assert_eq!(view.dialog, Dialog::None);
+        assert!(
+            view.editor
+                .selection
+                .as_ref()
+                .unwrap()
+                .mask
+                .iter()
+                .all(|&v| v == 0)
+        );
+    });
+    cx.simulate_keystrokes("ctrl-z");
+    view.update(cx, |view, _| {
+        assert_eq!(view.editor.selection.as_ref().unwrap().mask[0], 255);
+    });
+}
+
+#[gpui_kit::test]
+fn range_rejects_a_selection_changed_since_its_preview(cx: &mut TestAppContext) {
+    let (view, cx, _recovery) = setup(cx);
+    click(cx, "luminosity-range");
+    complete_preview(&view, cx);
+    view.update(cx, |view, _| view.editor.select_rectangle(0., 0., 32., 64.));
+    click(cx, "confirm-dialog");
+    view.update(cx, |view, _| {
+        assert_eq!(view.dialog, Dialog::RangeMask);
+        assert!(view.status.contains("selection changed"));
+        assert_eq!(view.editor.selection.as_ref().unwrap().mask[0], 255);
+        assert_eq!(view.editor.selection.as_ref().unwrap().mask[127], 0);
+        assert_eq!(view.editor.undo_depth(), 0);
+    });
+}
+
+#[gpui_kit::test]
 fn range_layer_mask_apply_is_one_undo_and_keeps_source_pixels(cx: &mut TestAppContext) {
     let (view, cx, _recovery) = setup(cx);
     let before = cx.update(|_, cx| view.read(cx).editor.document.layers[0].image.clone());
@@ -258,6 +337,59 @@ fn range_layer_mask_apply_is_one_undo_and_keeps_source_pixels(cx: &mut TestAppCo
         assert!(view.editor.document.layers[0].mask.is_none());
         assert_eq!(view.editor.document.layers[0].image, before);
         assert!(!view.editor.is_dirty());
+    });
+}
+
+#[gpui_kit::test]
+fn hue_range_controls_preview_and_apply_a_reversible_soft_mask(cx: &mut TestAppContext) {
+    let (view, cx, _recovery) = setup(cx);
+    view.update(cx, |view, cx| {
+        view.editor.document.layers[0].image = Some(
+            image::RgbaImage::from_fn(128, 64, |x, _| {
+                image::Rgba(match x / 32 {
+                    0 => [80, 0, 0, 255],
+                    1 => [255, 30, 0, 255],
+                    2 => [128, 128, 128, 255],
+                    _ => [0, 0, 255, 255],
+                })
+            })
+            .into(),
+        );
+        view.editor.brush.color = [255, 0, 0, 255];
+        view.refresh(cx);
+    });
+    let original = view.update(cx, |view, _| view.editor.document.layers[0].image.clone());
+    click(cx, "color-range");
+    click(cx, "range-hue-mode");
+    complete_preview(&view, cx);
+    let body = cx.debug_bounds("dialog-body").unwrap();
+    for id in ["range-value-2", "range-intersect", "range-layer-mask"] {
+        let bounds = cx.debug_bounds(id).unwrap();
+        assert!(
+            bounds.origin.y >= body.origin.y && bounds.bottom_right().y <= body.bottom_right().y,
+            "Hue control {id} must be visible at the minimum window size: {bounds:?}, body {body:?}"
+        );
+    }
+    view.update(cx, |view, _| {
+        assert!(view.range_draft.as_ref().unwrap().hue)
+    });
+    click(cx, "range-layer-mask");
+    click(cx, "confirm-dialog");
+    cx.run_until_parked();
+    view.update(cx, |view, _| {
+        let layer = &view.editor.document.layers[0];
+        assert_eq!(layer.image, original);
+        let mask = layer.mask.as_ref().unwrap();
+        assert_eq!(
+            [0, 40, 80, 120].map(|x| mask.get_pixel(x, 0)[0]),
+            [255, 255, 0, 0]
+        );
+        assert_eq!(view.editor.undo_depth(), 1);
+    });
+    cx.simulate_keystrokes("ctrl-z");
+    view.update(cx, |view, _| {
+        assert!(view.editor.document.layers[0].mask.is_none());
+        assert_eq!(view.editor.document.layers[0].image, original);
     });
 }
 
@@ -313,8 +445,9 @@ fn range_invalid_or_changed_canvas_is_never_applied(cx: &mut TestAppContext) {
     cx.update(|_, cx| {
         let view = view.read(cx);
         assert_eq!(view.dialog, Dialog::RangeMask);
-        assert!(view.status.contains("canvas changed"));
+        assert!(view.status.contains("canvas or selection changed"));
         assert_eq!(view.editor.undo_depth(), 0);
+        assert!(view.editor.selection.is_none());
     });
 }
 

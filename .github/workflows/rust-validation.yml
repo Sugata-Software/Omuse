@@ -27,6 +27,14 @@ on:
       - 'scripts/test-rust-bundle.py'
       - 'scripts/rust-license-inventory.py'
       - 'scripts/test-rust-license-inventory.py'
+      - 'scripts/test-dependency-replacements.py'
+      - 'scripts/test-dependency-replacement-harness.py'
+      - 'scripts/fixtures/dependency-replacements.rs'
+      - 'scripts/verify-release-bundle.py'
+      - 'scripts/release-downloads.py'
+      - 'scripts/test-release-downloads.py'
+      - '.github/workflows/build-downloads.yml'
+      - '.github/workflows/publish-downloads.yml'
       - '.github/workflows/rust-validation.yml'
       - 'rust-toolchain.toml'
   pull_request:
@@ -55,6 +63,14 @@ on:
       - 'scripts/test-rust-bundle.py'
       - 'scripts/rust-license-inventory.py'
       - 'scripts/test-rust-license-inventory.py'
+      - 'scripts/test-dependency-replacements.py'
+      - 'scripts/test-dependency-replacement-harness.py'
+      - 'scripts/fixtures/dependency-replacements.rs'
+      - 'scripts/verify-release-bundle.py'
+      - 'scripts/release-downloads.py'
+      - 'scripts/test-release-downloads.py'
+      - '.github/workflows/build-downloads.yml'
+      - '.github/workflows/publish-downloads.yml'
       - '.github/workflows/rust-validation.yml'
       - 'rust-toolchain.toml'
   workflow_dispatch: {}
@@ -78,6 +94,8 @@ jobs:
           bash -n install.sh scripts/install-rust.sh scripts/install-rust-bundle.sh scripts/prepare-rust-assets.sh
           python3 scripts/test-install.py
           python3 scripts/test-rust-bundle.py
+          python3 scripts/test-release-downloads.py
+          python3 scripts/test-dependency-replacement-harness.py
           python3 scripts/generate-rust-kernel-fixtures.py
           git diff --exit-code -- rust/tests/fixtures
 
@@ -173,10 +191,12 @@ jobs:
 
       - name: Verify dependency notice overrides
         run: |
+          python3 scripts/test-dependency-replacements.py
           python3 scripts/test-rust-license-inventory.py
-          python3 scripts/rust-license-inventory.py "$RUNNER_TEMP/omuse-notices"
+          python3 scripts/rust-license-inventory.py "$RUNNER_TEMP/omuse-notices" --deny-findings
 
       - name: Retain dependency review evidence
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: omuse-dependency-notices
@@ -281,6 +301,15 @@ jobs:
 
       - name: Build the Windows editor
         run: ./scripts/build-rust.ps1
+
+      - name: Verify Windows dependency replacements and notice gates
+        run: |
+          python scripts/test-dependency-replacement-harness.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/test-dependency-replacements.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/test-rust-license-inventory.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Package the Windows development build
         run: ./scripts/package-rust.ps1 -Binary rust/target/release/omuse.exe -Output dist/omuse-windows-x86_64.zip

@@ -1,11 +1,263 @@
 # Draw, trace and refine artwork
 
-**Omuse 0.7.0** keeps photos and editable vector artwork on the same canvas.
+**Omuse 0.8.0** keeps photos and editable vector artwork on the same canvas.
 Use **P** to draw, **A** to refine points and **V** to move objects. Trace a bitmap
 when you want a simpler graphic, or use the colour tools to refine a photo.
 
 [User manual](README.md) · [Photo editing](photo-editing.md) ·
-[Create content](create-content.md) · [Current interface gallery](../releases/v0.7.0-gallery.md)
+[Create content](create-content.md) · [Current interface gallery](../releases/v0.8.0-gallery.md)
+
+## Photo and vector tools in 0.8.0
+
+Vector tools stay on the same canvas and Layers inspector; use **Ctrl+K** to
+find their commands. These instructions cover the 0.8.0 additions, including
+reference matching and soft hue selections. Keep older project copies before
+using the new scene formats.
+See the [release qualification](../release-080-qualification.md) for tested
+scope and the remaining Windows desktop, hardware and interchange limits.
+
+### Select, group and arrange
+
+1. Open an artwork layer with **Shift+P**, then press **V**. **Shift-click**
+   objects to add or remove them from the selection. Drag empty canvas to make
+   a marquee; it selects fully enclosed objects. Hold Shift to extend it.
+2. **Ctrl+A** selects visible objects; **Ctrl+D** clears the object selection.
+   Clicking a group selects its members. **Ctrl-click** selects an individual
+   member; double-click opens its points. **A** and **P** work on one active
+   object's geometry.
+3. Drag or use arrow keys to move the selection. **Shift+Arrow** moves ten
+   source pixels. **Ctrl+J** duplicates it. **Ctrl+G** groups; **Ctrl+Shift+G**
+   removes the outer group. Groups organize objects and preserve nested groups;
+   they do not introduce isolated group opacity or effects.
+4. In Move mode (**V**), the inspector's **Move X/Y**, **Scale** and **Rotate** fields apply relative
+   movement, uniform percentage scaling and rotation about the selection
+   centre. **Ctrl+T** opens and reveals these controls. Choose **Transform selection**
+   to apply them. Align controls use the selection bounds; **Space X/Y**
+   distributes three or more selected units with equal gaps. Complete groups
+   are treated as units.
+5. Change a fill, stroke or opacity field to apply that changed property to
+   every selected object. Other properties remain as they were. **Same fill**,
+   **Same stroke** and **Same opacity** find visible objects matching the active
+   object. Stroke matching includes its colour and width.
+
+All these operations participate in draft **Ctrl+Z / Ctrl+Shift+Z**. **Done**
+keeps the entire draft as one document Undo step; **Escape** discards it.
+
+### Combine filled shapes
+
+Select at least two closed, filled objects, then use **Unite**, **Subtract**,
+**Intersect**, **Exclude** or **Divide** in the inspector or command search.
+For text objects, duplicate an editable backup and **Convert to outlines** first.
+The bottom selected object supplies the result's fill, stroke and opacity.
+Subtract cuts later selected shapes from that bottom object. Divide partitions
+that bottom object with each later cutter; cutter-only areas are discarded.
+Unselected objects remain in the scene.
+
+The result is editable geometry. Curves are flattened with a 0.05-source-pixel
+tolerance, so the operation does not preserve the original Bézier handles.
+Undo restores the exact original objects. Open paths and objects without a
+fill are refused. Operations have object, point and output budgets; cancellation
+discards the draft and a stale result cannot replace newer document work.
+
+### Exchange an SVG artwork
+
+Use **Import SVG artwork** to append supported paths and shapes. The SVG
+viewport fits proportionally inside the artwork, keeping empty margins and
+centering the imported content. The import selects the new objects and retains
+existing artwork. **Export artwork SVG** writes the entire scene to a new
+filename; existing files are preserved.
+
+Supported content includes multiple paths/basic shapes, compound fills, solid
+or linear/radial gradient fills, object opacity, organizational groups, names,
+visibility and supported transforms. Uniform-width strokes retain supported
+caps, joins, dashes and offsets; skewed or nonuniformly transformed strokes are
+refused. Gradients can use Pad, Repeat or Reflect.
+
+SVG text import, gradient/pattern strokes, clipping, masks, effects, group
+opacity and external resources remain unsupported. Omuse's text-on-curve
+objects export as glyph outlines, so another editor receives paths rather than
+editable text. Keep the `.omuse` file for its text recipe. General SVG raster
+import is still available for artwork outside the editable subset.
+
+### Set gradient fills and precise strokes
+
+1. Select an object in **Vector artwork**, then use **Fill paint → Linear** or
+   **Radial** in Layers. **Solid** returns to a flat fill.
+2. Select a stop by its percentage/swatch. Set **Stop · %** and **Stop colour**
+   (`#RRGGBB` or `#RRGGBBAA`), then choose **Apply paint settings**. Use **Add
+   stop**, **Remove** or **Reverse**; a gradient has 2–16 ordered stops.
+3. Set Start/End for a linear gradient, or Centre/Focus/Radius for a radial
+   gradient. Coordinates are local to the artwork object. **Fit gradient to
+   shape** supplies a useful starting geometry; a radial focus must stay inside
+   its radius. Choose **Pad**, **Repeat** or **Reflect** for the spread.
+4. Enable a stroke with a nonzero width. **Stroke geometry** provides
+   Butt/Round/Square caps, Miter/Round/Bevel joins, solid/dashed style,
+   **Dash, gap · px**, **Dash offset · px** and **Miter limit**. Use up to eight
+   dash/gap pairs, or clear the field for a solid stroke. Apply the settings to
+   the selected objects.
+
+Use draft Undo to compare, and **Done** to keep the artwork session. Stops can
+carry transparency. Variable-width strokes, stroke expansion, live offsets,
+mesh gradients and pattern fills are still planned.
+
+### Put editable text on a curve
+
+![Curved text in the shared vector inspector](../releases/images/v0.8.0/01-curved-text.png)
+
+1. Draw one curve with **P**, then select it with **V**. Open **Text on a path**
+   in Layers. Enter a single line, font family, size, tracking and curve position.
+2. Choose **Start**, **Centre** or **End** alignment, then **Create text on
+   curve**. The original guide stays as a separate editable object. If text
+   does not fit, shorten it, reduce size/tracking, adjust its position or extend
+   the guide; Omuse refuses a result that would silently omit glyphs.
+3. Select the new text object to revise its fields and choose **Update text**.
+   **Reverse curve** changes the text direction. Apply pending text fields
+   before finishing or leaving the draft.
+4. To reshape the guide, select the original curve and use **A** to move/add
+   nodes and handles. Then **Shift-select** the curve and its text object and
+   choose **Use selected curve for text**. The text updates explicitly; it is
+   not a live link that follows every guide drag.
+5. For direct glyph-node editing, duplicate the text object if you want an
+   editable-text backup, then choose **Convert to outlines**. The resulting
+   paths can be edited with **A**; Undo restores the recipe.
+
+The current tool accepts one line of 1–512 characters on one guide of 2–512
+anchors, within the overall vector geometry budget. It reports resolved fonts;
+missing families may fall back to an installed font or bundled Outfit. Missing
+glyphs and unsupported colour/bitmap glyphs are refused. Saved outlines keep
+the current appearance when reopening on another machine; editing the text
+reshapes it with that machine's available fonts. This does not provide paragraph
+flow, styled spans along a curve, or arbitrary SVG text import.
+
+### Export vector artwork as PDF
+
+Open the artwork and choose **Export vector PDF**. For a scene this exports its
+vector objects in layer-source coordinates; the legacy path dialog exports its
+path. Use a new `.pdf` filename. The page's physical size follows the document
+DPI, and existing destination files are preserved.
+
+Supported curves, object transparency and **Pad** gradients remain vector
+content. **Repeat** and **Reflect** are refused: switch to Pad or export SVG to
+retain their spread. Text uses saved glyph outlines, with no embedded editable
+text or font dependency. Surrounding photos, layer placement, layer masks and
+effects are not exported by this artwork command. For a complete composition,
+use the existing content/page export workflow, whose PDF pages are rasterized.
+
+This bounded export is not PDF/Illustrator import, tagged/selectable-text PDF,
+PDF/X, CMYK, spot-colour or overprint support. It caps PDF output at 16 MiB and
+page edges at 200 inches; increase document DPI if a page exceeds that size.
+
+### Inspect outlines and zoom
+
+**Ctrl+Y** toggles a geometry-only outline view while editing. It changes the
+view, not saved paint or export. Simple photo/vector documents rerender the
+editing preview at integer zoom levels up to 4×, with a 16-million-pixel budget.
+Large canvases and documents using masks, layer groups, effects or unsupported
+metadata retain the ordinary settled preview. This is a bounded editing
+preview, not unlimited-resolution zoom or a persistent vector tile renderer.
+
+**Compatibility:** save a separate original before trying new features.
+
+| Artwork retained in the development build | Scene version | Canvas format |
+| --- | --- | --- |
+| Legacy flat vector objects | 1 | 11 |
+| Organizational groups | 2 | 12 |
+| Gradients or advanced stroke settings | 3 | 13 |
+| Editable text on curves | 4 | 14 |
+
+Other canvases still write format 10. Omuse 0.7.0 cannot read formats 12–14.
+Ungrouping, clearing paint or outlining text does not automatically downgrade
+an already-upgraded scene. **Save As** preserves an older compatible original;
+it does not convert a new project back to an older format.
+
+### Import Photoshop adjustments and external text more safely
+
+Open an 8-bit RGB PSD/PSB and review its **Import report** before saving a new
+`.omuse` copy. Levels now reads the stored gamma correctly. Hue/Saturation
+separates the master adjustment from Colorize, and the report identifies
+selective colour bands or saturation/lightness mapping that can differ from
+Photoshop. Imported masks retain whether pixels outside their bitmap are
+hidden or revealed. Truncated or invalid records produce an error.
+
+The existing [Photoshop import limits](photo-editing.md#import-photoshop-or-svg-artwork)
+still apply, including refusal of embedded ICC profiles and 16/32-bit or CMYK
+files. This does not add complete PSD round-trip or mixed-style Photoshop text.
+
+Supported external format-11 projects can also contain UTF-16 font runs alongside
+colour runs. Opening converts valid ranges to Omuse text spans without
+rerendering the cached image. Font and colour runs can cover the same text;
+overlaps within either run type, split Unicode characters, conflicting encodings
+and excessive ranges are refused. The next text edit uses local fonts; keep the
+original project when font fidelity matters. External text format 11 and native
+vector scene version 1 are separate compatibility paths.
+
+### Keep soft masks and select by hue
+
+![Hue range and selection-mask preview](../releases/images/v0.8.0/03-hue-range.png)
+
+When making a reveal/hide layer mask from a feathered selection, intermediate
+coverage now remains soft, including on fractionally placed or rotated layers.
+The mask remains editable and Undo can restore the prior state.
+
+For a colour-specific mask, open **Select → Colour range** and choose **Hue
+range**. Click the visible-canvas preview to sample a colour, or choose it in
+the picker. Set **Hue tolerance**, **Softness** and **Min. saturation**; increasing
+minimum saturation helps exclude neutral greys. Inspect the mask preview and
+use **Invert** when needed. Choose **Selection**, **Add**, **Subtract**,
+**Intersect** or **Layer mask**, then **Apply**. Layer mask replaces the selected
+layer's mask. A neutral grey sample has no hue; sample a coloured pixel instead.
+
+Hue uses circular colour distance, so reds near 0°/360° stay neighbours.
+Coverage follows the visible canvas alpha; these are colour-based masks, not
+semantic subject recognition. Saved layer masks retain their pixels, not a
+reopenable hue-range recipe. The existing 16-million-pixel limit remains.
+
+### Match the palette of a reference image
+
+1. Select an unlocked photo layer, optionally making a selection first. Open
+   **Develop → Filter stack → Match reference colour**, or **Precision & colour
+   → Match reference colour…**.
+2. Choose **Choose reference image…**, or expand **Enter a file path…**, enter
+   a reference path and choose **Load path**. The path section opens if the file
+   chooser fails. Check the thumbnail and ICC/untagged status. Supported
+   references are PNG, JPEG, TIFF, WebP, BMP and GIF's first frame, up to 16 MP
+   and 128 MiB. Untagged images use sRGB; invalid profiles are refused.
+3. Set **Match amount (%)**. Keep **Preserve lightness** enabled to retain source
+   lightness, or switch to **Match reference lightness** for tonal transfer too.
+4. Choose **Add effect**, or **Update selected effect** when revising a node.
+   Optionally use **Use selection mask**, inspect **Refresh preview**, then
+   **Apply** to commit one Undo step. Reopen the stack to adjust the result.
+
+The match transfers global, alpha-weighted Oklab colour statistics from at most
+65,536 samples. Similar subjects and framing work best. It does not identify
+skin/products, copy local lighting, calibrate cameras or reproduce an HDR look.
+Flat channels use a mean shift; variance expansion and gamut mapping are bounded.
+Both ordinary 8-bit and retained 16-bit sRGB/Display P3 sources are supported,
+without making the whole editor or its display a wide-gamut/HDR pipeline.
+
+The saved effect keeps compact reference statistics, Amount and the lightness
+choice, not the reference pixels or path. It therefore remains usable if the
+reference file moves, but reopening the node does not restore its thumbnail.
+Older releases cannot read this new operation; retain a separate older project.
+
+### Inspect JPEG detail and refine raster strokes
+
+![Encoded JPEG preview and export controls](../releases/images/v0.8.0/02-jpeg-preview.png)
+
+Export to a `.jpg`/`.jpeg` filename, set quality, DPI and matte, then choose
+**Preview JPEG**. **Fit** shows the encoded image; **100%** uses one image pixel
+per screen pixel. Drag the preview or use its arrow buttons to inspect another
+area. Adjusting export settings invalidates the old preview: generate a fresh
+one before comparing. Preview is limited to 16 MP and does not alter artwork.
+
+Blur, Smudge and Liquify keep the existing tools and Undo workflow. Their
+fractional brush footprints and spacing now follow the stroke path more
+consistently: Smudge carries the evolving paint, while Liquify accumulates
+displacement and samples the untouched source once per stroke. Duplicate and
+rasterize a photo copy for direct retouch if the original holds RAW/16-bit data.
+Use shorter strokes with very large brushes when a work budget is reached.
+These remain bounded raster tools; they do not replace retained RAW processing
+or establish quality on every real photograph.
 
 ## Make a product colour more consistent
 
@@ -93,18 +345,19 @@ pixels, with additional rendering-work and document budgets. Complex artwork
 can reach a budget before the object count. Previews run in the background and
 keep only the newest requested update.
 
-Save as **`.omuse`** to retain objects, styles and their order. A canvas containing
-this artwork uses **format 11**, which **0.6.0 cannot open**.
+Save as **`.omuse`** to retain objects, styles and their order. In the 0.7.0
+baseline shown here, a canvas containing this artwork uses **format 11**, which
+**0.6.0 cannot open**. The 0.8.0 features above can require formats 12–14.
 Use **Save As** to keep a compatible original. Other canvases still use format
 10. **Rasterize** explicitly converts the layer to pixels before painting or
 destructive filters; Undo can restore its editable objects. Layer placement,
 masks and supported layer effects remain available around the shared artwork.
 
-The scene still uses an 8-bit display cache. Gradients, boolean construction,
-text objects inside the scene, a persistent visible-tile cache and complete
-multi-object SVG exchange remain unavailable. Exporting artwork through the
-16-bit path promotes its existing 8-bit cache; it does not create additional
-colour precision.
+The scene still uses an 8-bit display cache. The 0.8.0 controls above add
+gradients, booleans, text on curves and a supported multi-object SVG subset;
+they are absent from the 0.7.0 baseline. Persistent visible-tile caching and
+complete SVG interchange remain open. Exporting artwork through the 16-bit
+path promotes its existing 8-bit cache; it does not create additional precision.
 
 ![Multiple editable objects in one vector artwork layer](../releases/images/v0.7.0/02-vector-artwork.png)
 
@@ -215,8 +468,9 @@ pixel contours. Point reduction is a geometry count, not a visual-quality
 score. Logos, silhouettes and flat illustrations are the best starting
 material. Photo art produces solid-colour shapes, not a lossless photograph,
 editable text, gradients or a reconstruction of the original design.
-The current canvas preview uses the source image's pixel dimensions; zooming
+The 0.7.0 canvas preview uses the source image's pixel dimensions; zooming
 into a small source can look pixelated even though the retained curves are editable.
+The 0.8.0 editing preview above rerenders admitted simple documents up to 4×.
 
 Tracing accepts source layers up to **16,777,216 pixels**. Processing is bounded
 at four megapixels, two million raw contour edges, 100,000 anchors and 4,096

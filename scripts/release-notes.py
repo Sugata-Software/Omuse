@@ -10,6 +10,7 @@ import argparse
 import base64
 import datetime
 import json
+import importlib.util
 import os
 from pathlib import Path
 import re
@@ -157,8 +158,10 @@ class GitHub:
         return parse_json(body)
 
 
-def remote_file(api, path, revision, limit=1_000_000):
-    response = api.request(f"{API_ROOT}/contents/{path}?ref={revision}")
+def remote_file(api, path, revision, limit=1_000_000, *, missing_ok=False):
+    response = api.request(f"{API_ROOT}/contents/{path}?ref={revision}", missing_ok=missing_ok)
+    if response is None and missing_ok:
+        return None
     require(isinstance(response, dict) and response.get("type") == "file"
             and response.get("encoding") == "base64", f"Unexpected remote file: {path}")
     try:
@@ -202,15 +205,32 @@ def existing_release(api, tag):
     raise ReleaseError("Release listing exceeded its limit; inspect existing versions before publishing")
 
 
-def check_existing(release, manifest, notes, target):
+def check_existing(release, manifest, notes, target, download_manifest=None):
     require(target == manifest["sourceRevision"], "Existing tag points to a different source commit")
     expected = {
         "tag_name": manifest["tag"], "target_commitish": manifest["sourceRevision"],
         "name": manifest["title"], "body": notes, "draft": False,
-        "prerelease": manifest["prerelease"], "assets": [],
+        "prerelease": manifest["prerelease"],
     }
     for field, value in expected.items():
         require(release.get(field) == value, f"Existing release differs in {field}; published versions are never overwritten")
+    if download_manifest is None:
+        require(release.get("assets") == [], "Existing release has undeclared assets; published versions are never overwritten")
+    else:
+        require(download_manifest["sourceRevision"] == manifest["sourceRevision"]
+                and download_manifest["version"] == manifest["version"], "Download declaration differs from the source release")
+        downloads = download_module()
+        try:
+            downloads.check_remote_assets(release.get("assets"), download_manifest)
+        except downloads.DownloadError as error:
+            raise ReleaseError(str(error)) from error
+
+
+def download_module():
+    spec = importlib.util.spec_from_file_location("release_downloads", Path(__file__).with_name("release-downloads.py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def verify_remote(api, manifest, notes):
@@ -260,7 +280,17 @@ def verify_remote(api, manifest, notes):
     require(target is None or target == source, "Existing tag points to a different source commit")
     release = existing_release(api, manifest["tag"])
     if release is not None:
-        check_existing(release, manifest, notes, target)
+        declared_downloads = None
+        if release.get("assets"):
+            downloads = download_module()
+            text = remote_file(api, downloads.manifest_path(manifest["version"]), head, 32_768, missing_ok=True)
+            require(text is not None, "Existing release has no reviewed download manifest")
+            try:
+                declared_downloads = downloads.validate_manifest(parse_json(text))
+                require(text.encode("utf-8") == downloads.canonical(declared_downloads), "Download manifest bytes are not canonical")
+            except downloads.DownloadError as error:
+                raise ReleaseError(str(error)) from error
+        check_existing(release, manifest, notes, target, declared_downloads)
     return release
 
 

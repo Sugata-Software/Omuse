@@ -41,6 +41,11 @@ def arguments() -> argparse.Namespace:
             "feature resolver never enables"
         ),
     )
+    parser.add_argument(
+        "--deny-findings",
+        action="store_true",
+        help="write the review evidence, then fail if any dependency still has findings",
+    )
     return parser.parse_args()
 
 
@@ -646,6 +651,13 @@ def main() -> int:
     print(
         f"Recorded {len(records)} dependencies and {len(review_findings)} review findings in {output}"
     )
+    if args.deny_findings and review_findings:
+        print(
+            "Unresolved dependency notice findings prevent packaging; "
+            "see inventory.json for the retained evidence.",
+            file=sys.stderr,
+        )
+        return 1
     return 0
 
 

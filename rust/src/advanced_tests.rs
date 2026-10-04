@@ -609,3 +609,126 @@ fn brush_apply_cancel_and_dirty_close_cancel_pending_job(cx: &mut TestAppContext
         assert!(view.focus.is_focused(window));
     });
 }
+
+#[gpui_kit::test]
+fn reference_picker_preview_edit_mask_apply_and_undo_are_a_single_transaction(
+    cx: &mut TestAppContext,
+) {
+    let (view, cx, _recovery) = setup(cx);
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("reference.png");
+    RgbaImage::from_pixel(6, 4, Rgba([214, 156, 91, 255]))
+        .save(&path)
+        .unwrap();
+    let original = source_pixels(&view, cx);
+    view.update(cx, |view, _| view.editor.select_rectangle(0., 0., 16., 24.));
+    open(&view, cx, Kind::Stack);
+    click(cx, "pro-effect-15");
+    click(cx, "pro-reference-browse");
+    assert!(cx.did_prompt_for_paths());
+    cx.simulate_path_prompt_response(|options| {
+        assert!(options.files && !options.directories && !options.multiple);
+        Some(vec![path.clone()])
+    });
+    cx.run_until_parked();
+    draw(cx);
+    view.update(cx, |view, _| {
+        assert!(!view.busy, "{}", view.status);
+        assert!(
+            view.pro_draft.as_ref().unwrap().reference.is_some(),
+            "{}",
+            view.status
+        );
+        assert_eq!(view.editor.undo_depth(), 0);
+    });
+    set_input(&view, cx, 0, "63");
+    click(cx, "pro-add-effect");
+    cx.run_until_parked();
+    draw(cx);
+    click(cx, "pro-node-mask");
+    click(cx, "pro-reference-lightness");
+    click(cx, "pro-update-effect");
+    cx.run_until_parked();
+    draw(cx);
+    assert_eq!(source_pixels(&view, cx), original);
+    view.update(cx, |view, _| {
+        let d = view.pro_draft.as_ref().unwrap();
+        assert!(d.preview.is_some(), "{}", view.status);
+        assert_eq!(d.state.recipe.nodes.len(), 1);
+        let AdvancedOperation::ReferenceColourMatch(settings) = &d.state.recipe.nodes[0].operation
+        else {
+            panic!("wrong node");
+        };
+        assert!((settings.amount - 0.63).abs() < 1e-6);
+        assert!(!settings.preserve_lightness);
+        assert!(d.state.recipe.nodes[0].soft_mask.is_some());
+        assert_eq!(view.editor.undo_depth(), 0);
+    });
+    std::fs::remove_file(&path).unwrap();
+    apply(&view, cx);
+    assert_ne!(source_pixels(&view, cx), original);
+    view.update(cx, |view, _| assert_eq!(view.editor.undo_depth(), 1));
+    open(&view, cx, Kind::Stack);
+    click(cx, "pro-node-0");
+    view.update(cx, |view, _| {
+        let d = view.pro_draft.as_ref().unwrap();
+        assert_eq!(d.effect, 15);
+        assert!(d.reference.is_some());
+        assert!(!d.preserve_lightness);
+        assert!(d.reference_note.contains("reference file is not needed"));
+    });
+    click(cx, "cancel-dialog");
+    view.update(cx, |view, _| assert!(view.editor.undo()));
+    assert_eq!(source_pixels(&view, cx), original);
+}
+
+#[gpui_kit::test]
+fn late_reference_picker_and_load_cannot_replace_a_new_or_changed_draft(cx: &mut TestAppContext) {
+    let (view, cx, _recovery) = setup(cx);
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("reference.png");
+    RgbaImage::from_pixel(2, 2, Rgba([150, 95, 60, 255]))
+        .save(&path)
+        .unwrap();
+    open(&view, cx, Kind::Stack);
+    click(cx, "pro-effect-15");
+    click(cx, "pro-reference-browse");
+    assert!(cx.did_prompt_for_paths());
+    // Reopening invalidates the chooser even if its response arrives later.
+    open(&view, cx, Kind::Stack);
+    click(cx, "pro-effect-15");
+    cx.simulate_path_prompt_response(|_| Some(vec![path.clone()]));
+    cx.run_until_parked();
+    draw(cx);
+    view.update(cx, |view, _| {
+        assert!(view.pro_draft.as_ref().unwrap().reference.is_none());
+        assert!(!view.busy);
+    });
+    view.update(cx, |view, cx| {
+        view.pro_load_reference(path.clone(), cx);
+        view.editor.add_layer("Intervening edit");
+    });
+    cx.run_until_parked();
+    draw(cx);
+    view.update(cx, |view, _| {
+        assert!(view.pro_draft.as_ref().unwrap().reference.is_none());
+        assert!(view.status.contains("Document changed"), "{}", view.status);
+        assert!(!view.busy);
+        assert_eq!(view.editor.undo_depth(), 1);
+    });
+    open(&view, cx, Kind::Stack);
+    click(cx, "pro-effect-15");
+    let cancelled = view.update(cx, |view, cx| {
+        view.pro_load_reference(path, cx);
+        let cancel = view.pro_draft.as_ref().unwrap().cancel.clone();
+        view.clear_pro(cx);
+        view.dialog = Dialog::None;
+        cancel
+    });
+    cx.run_until_parked();
+    assert!(cancelled.load(Ordering::Relaxed));
+    view.update(cx, |view, _| {
+        assert!(view.pro_draft.is_none());
+        assert_eq!(view.editor.undo_depth(), 1);
+    });
+}

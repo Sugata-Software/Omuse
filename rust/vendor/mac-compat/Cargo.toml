@@ -1,0 +1,11 @@
+[package]
+name = "mac"
+version = "0.1.1+omuse.1"
+edition = "2021"
+publish = false
+license = "MIT"
+description = "Independently implemented macro compatibility for Omuse's locked HTML dependencies"
+repository = "https://github.com/Sugata-Software/Omuse"
+
+[lib]
+path = "src/lib.rs"

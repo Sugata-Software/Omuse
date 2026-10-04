@@ -30,7 +30,10 @@ impl VectorScene {
             if !object.visible || object.opacity <= 0. {
                 continue;
             }
-            let fill_visible = object.fill.is_some_and(|color| color[3] > 0);
+            let fill_visible = object.fill_gradient.as_ref().map_or_else(
+                || object.fill.is_some_and(|color| color[3] > 0),
+                |gradient| gradient.stops.iter().any(|stop| stop.color[3] > 0),
+            );
             let visible_stroke = object.stroke.filter(|stroke| stroke.color[3] > 0);
             let stroke_visible = visible_stroke.is_some();
             if !fill_visible && !stroke_visible {
@@ -45,7 +48,15 @@ impl VectorScene {
                 Some(stroke) => stroke.width * object.similarity_scale()? * 0.5,
                 None => 0.,
             };
-            let padding = tolerance + stroke_radius;
+            let padding = tolerance
+                + stroke_radius
+                    * object.stroke_options.as_ref().map_or(1., |s| {
+                        if s.join == super::StrokeJoin::Miter {
+                            s.miter_limit
+                        } else {
+                            1.5
+                        }
+                    });
             if !bounds_can_hit(&path, point, padding) {
                 continue;
             }
@@ -68,8 +79,62 @@ impl VectorScene {
             if fill_visible && fill_matches(&flat, path.fill_rule, point, tolerance) {
                 return Ok(Some(index));
             }
-            if stroke_visible && edge_matches(&flat, point, tolerance + stroke_radius, false, 2) {
-                return Ok(Some(index));
+            if stroke_visible {
+                if let Some(options) = &object.stroke_options {
+                    let length: f64 = flat
+                        .iter()
+                        .map(|s| {
+                            s.points
+                                .windows(2)
+                                .map(|p| f64::from((p[1].x - p[0].x).hypot(p[1].y - p[0].y)))
+                                .sum::<f64>()
+                                + if s.closed && s.points.len() > 1 {
+                                    let a = s.points[0];
+                                    let b = *s.points.last().unwrap();
+                                    f64::from((b.x - a.x).hypot(b.y - a.y))
+                                } else {
+                                    0.
+                                }
+                        })
+                        .sum();
+                    let scale = object.similarity_scale()?;
+                    if !options.dashes.is_empty() {
+                        ensure!(
+                            length / f64::from(options.dashes.iter().sum::<f32>() * scale)
+                                * options.dashes.len() as f64
+                                + object_points as f64
+                                <= 100_000.,
+                            "Dashed hit test exceeds work limit"
+                        );
+                    }
+                    if let Some(mut sk_path) = super::style::path(&path) {
+                        let stroke = options.stroke(stroke_radius * 2., scale);
+                        if let Some(dash) = &stroke.dash {
+                            sk_path = sk_path
+                                .dash(dash, 1.)
+                                .ok_or_else(|| anyhow::anyhow!("Cannot prepare dashed hit test"))?;
+                        }
+                        if let Some(outline) = sk_path.stroke(&stroke, 1.) {
+                            let outline = crate::vector_svg_scene::convert_path(
+                                &outline,
+                                resvg::tiny_skia::Transform::identity(),
+                            )?;
+                            let outline = outline.flatten(HIT_FLATTEN_TOLERANCE, || false)?;
+                            flattened_points = flattened_points.saturating_add(
+                                outline.iter().map(|s| s.points.len()).sum::<usize>(),
+                            );
+                            ensure!(
+                                flattened_points <= MAX_HIT_FLAT_POINTS,
+                                "Vector stroke hit test exceeds work limit"
+                            );
+                            if fill_matches(&outline, FillRule::NonZero, point, tolerance) {
+                                return Ok(Some(index));
+                            }
+                        }
+                    }
+                } else if edge_matches(&flat, point, tolerance + stroke_radius, false, 2) {
+                    return Ok(Some(index));
+                }
             }
         }
         Ok(None)

@@ -1,6 +1,7 @@
 //! A disposable colour/tonal selection draft. Only Apply mutates the editor.
 use super::inspector_ui::panel_button as button;
 use super::*;
+use anyhow::Context as _;
 use omuse::range_mask::{RangeKind, RangeSettings};
 use std::sync::atomic::{AtomicBool, Ordering};
 #[cfg(all(test, feature = "ui-test"))]
@@ -15,7 +16,9 @@ pub(super) enum RangeOutput {
 
 pub(super) struct RangeDraft {
     pub color: bool,
+    hue: bool,
     source: Arc<image::RgbaImage>,
+    selection: Option<Arc<Selection>>,
     layer: String,
     source_preview: Arc<RenderImage>,
     preview: Option<Arc<RenderImage>>,
@@ -35,6 +38,29 @@ impl Drop for RangeDraft {
 }
 
 impl EditorView {
+    pub(super) fn set_range_hue_mode(
+        &mut self,
+        hue: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(draft) = self.range_draft.as_mut() else {
+            return;
+        };
+        if !draft.color || draft.hue == hue {
+            return;
+        }
+        draft.hue = hue;
+        for (input, value) in self.detail_inputs.iter().zip(if hue {
+            ["20", "15", "10"]
+        } else {
+            ["10", "15", "0"]
+        }) {
+            input.update(cx, |state, cx| state.set_value(value, window, cx));
+        }
+        self.schedule_range_preview(cx);
+    }
+
     pub(super) fn cancel_range(&mut self, cx: &mut App) {
         if self.range_draft.is_some() {
             self.clear_range(cx);
@@ -52,14 +78,16 @@ impl EditorView {
 
     pub(super) fn set_range_output(&mut self, output: RangeOutput, cx: &mut Context<Self>) {
         if let Some(draft) = self.range_draft.as_mut() {
+            if draft.output == output {
+                return;
+            }
             draft.output = output;
-        }
-        // Changing the destination while Apply is running invalidates it.
-        if self.busy {
-            self.schedule_range_preview(cx);
         } else {
-            cx.notify();
+            return;
         }
+        // Reuse the computed range, but preview the actual combined selection.
+        // Starting a new job also invalidates an in-flight Apply request.
+        self.run_range(false, cx);
     }
 
     pub(super) fn clear_range(&mut self, cx: &mut App) {
@@ -112,7 +140,9 @@ impl EditorView {
         );
         self.range_draft = Some(RangeDraft {
             color,
+            hue: false,
             source,
+            selection: self.editor.selection.clone().map(Arc::new),
             layer: self.editor.active_layer.clone(),
             source_preview: render_image(&small),
             preview: None,
@@ -142,7 +172,18 @@ impl EditorView {
                 .parse::<f32>()
                 .map_err(|_| anyhow::anyhow!("Enter a number for each range setting"))
         };
-        let kind = if draft.color {
+        let kind = if draft.color && draft.hue {
+            RangeKind::Hue {
+                rgb: [
+                    self.dialog_color[0],
+                    self.dialog_color[1],
+                    self.dialog_color[2],
+                ],
+                tolerance_degrees: value(0)?,
+                feather_degrees: value(1)?,
+                minimum_saturation: value(2)? / 100.,
+            }
+        } else if draft.color {
             RangeKind::Color {
                 rgb: [
                     self.dialog_color[0],
@@ -237,7 +278,15 @@ impl EditorView {
         let generation = self.dialog_generation;
         let cancel = draft.cancel.clone();
         let source = draft.source.clone();
+        let selection = draft.selection.clone();
         let output = draft.output;
+        let cached = draft
+            .computed
+            .as_ref()
+            .and_then(|(previous, mask)| (*previous == settings).then(|| mask.clone()));
+        if let Some(image) = draft.preview.take() {
+            cx.drop_image(image, None);
+        }
         self.busy = true;
         self.status = if apply {
             "Preparing range mask…"
@@ -246,16 +295,41 @@ impl EditorView {
         }
         .into();
         let task = cx.background_executor().spawn(async move {
-            let mask = omuse::range_mask::mask_cancellable(&source, settings, &cancel)?;
+            let mask = match cached {
+                Some(mask) => mask,
+                None => Arc::new(omuse::range_mask::mask_cancellable(
+                    &source, settings, &cancel,
+                )?),
+            };
             anyhow::ensure!(!cancel.load(Ordering::Relaxed), "Range preview cancelled");
             let (w, h) = thumbnail_size(mask.width(), mask.height());
-            let small = image::imageops::resize(&mask, w, h, image::imageops::FilterType::Triangle);
+            let combined;
+            let visible_mask = if let RangeOutput::Selection(mode) = output
+                && mode != SelectionMode::Replace
+            {
+                let incoming = Selection {
+                    width: mask.width(),
+                    height: mask.height(),
+                    mask: mask.as_raw().clone(),
+                };
+                let selected =
+                    omuse::selection_tools::combine(selection.as_deref(), &incoming, mode);
+                combined =
+                    image::GrayImage::from_raw(selected.width, selected.height, selected.mask)
+                        .context("Range selection dimensions changed")?;
+                &combined
+            } else {
+                &*mask
+            };
+            anyhow::ensure!(!cancel.load(Ordering::Relaxed), "Range preview cancelled");
+            let small =
+                image::imageops::resize(visible_mask, w, h, image::imageops::FilterType::Triangle);
             anyhow::ensure!(!cancel.load(Ordering::Relaxed), "Range preview cancelled");
             let preview = image::RgbaImage::from_fn(w, h, |x, y| {
                 let v = small.get_pixel(x, y)[0];
                 image::Rgba([v, v, v, 255])
             });
-            Ok::<_, anyhow::Error>((Arc::new(mask), preview))
+            Ok::<_, anyhow::Error>((mask, preview))
         });
         cx.spawn(async move |view, cx| {
             let result = task.await;
@@ -307,9 +381,12 @@ impl EditorView {
         };
         if mask.dimensions() != self.pixels.dimensions()
             || *draft.source != self.pixels
+            || (matches!(draft.output, RangeOutput::Selection(_))
+                && draft.selection.as_deref() != self.editor.selection.as_ref())
             || self.editor.floating_selection_layer().is_some()
         {
-            self.status = "The canvas changed; close this draft and open the range again".into();
+            self.status =
+                "The canvas or selection changed; close this draft and open the range again".into();
             cx.notify();
             return;
         }
@@ -406,12 +483,18 @@ impl EditorView {
         };
         let t = cx.omarchy().clone();
         let mut controls = div().flex().flex_col().gap_2().text_sm();
+        let preview_height = if f32::from(window.viewport_size().height) < 720. {
+            96.
+        } else {
+            128.
+        };
         let source = range_image(
             "range-source-preview",
             Some(draft.source_preview.clone()),
             draft.source.dimensions(),
             Some(draft.sample_bounds.clone()),
         )
+        .h(px(preview_height))
         .on_mouse_down(
             MouseButton::Left,
             cx.listener(|this, event: &MouseDownEvent, window, cx| {
@@ -435,32 +518,35 @@ impl EditorView {
                         .child(source),
                 )
                 .child(
-                    div()
-                        .flex_1()
-                        .min_w_0()
-                        .child("Selection mask")
-                        .child(range_image(
+                    div().flex_1().min_w_0().child("Selection mask").child(
+                        range_image(
                             "range-mask-preview",
                             draft.preview.clone(),
                             draft.source.dimensions(),
                             None,
-                        )),
+                        )
+                        .h(px(preview_height)),
+                    ),
                 ),
         );
         if draft.color {
-            controls = controls.child(
-                div()
-                    .flex()
-                    .items_center()
-                    .gap_2()
-                    .child("Sample colour")
-                    .child(color_picker(
-                        "range-color",
-                        &self.dialog_color_picker,
-                        window,
-                        cx,
-                    )),
-            );
+            let mut methods = div().flex().items_center().gap_2();
+            for (id, label, hue) in [
+                ("range-rgb-mode", "RGB distance", false),
+                ("range-hue-mode", "Hue range", true),
+            ] {
+                methods = methods.child(
+                    button(id, label, ButtonVariant::Secondary, cx)
+                        .selected(draft.hue == hue)
+                        .debug_selector(move || id.into())
+                        .on_click(cx.listener(move |this, _, window, cx| {
+                            this.set_range_hue_mode(hue, window, cx);
+                        })),
+                );
+            }
+            controls = controls.child(methods.child(div().flex_1()).child("Sample").child(
+                color_picker("range-color", &self.dialog_color_picker, window, cx),
+            ));
         } else {
             let mut presets = div().flex().gap_2();
             for (id, label, values) in [
@@ -481,7 +567,13 @@ impl EditorView {
             }
             controls = controls.child(presets);
         }
-        let labels: &[&str] = if draft.color {
+        let labels: &[&str] = if draft.color && draft.hue {
+            &[
+                "Hue tolerance (0–180°)",
+                "Softness (0–180°)",
+                "Min. saturation (%)",
+            ]
+        } else if draft.color {
             &["Tolerance (0–100%)", "Softness (0–100%)"]
         } else {
             &["From (0–255)", "To (0–255)", "Softness (0–255)"]
@@ -554,6 +646,11 @@ impl EditorView {
                 "range-subtract",
                 "Subtract",
                 RangeOutput::Selection(SelectionMode::Subtract),
+            ),
+            (
+                "range-intersect",
+                "Intersect",
+                RangeOutput::Selection(SelectionMode::Intersect),
             ),
             ("range-layer-mask", "Layer mask", RangeOutput::LayerMask),
         ] {

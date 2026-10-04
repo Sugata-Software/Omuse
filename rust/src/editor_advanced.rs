@@ -59,9 +59,9 @@ impl Editor {
     }
 
     pub fn selection_for_layer(&self, id: &str) -> Result<Option<crate::advanced_ops::SoftMask>> {
-        if self.selection.is_none() {
+        let Some(selection) = self.selection.as_ref() else {
             return Ok(None);
-        }
+        };
         let layer = self.document.find_layer(id).context("Layer not found")?;
         let image = layer.image.as_ref().context("Choose a pixel layer")?;
         let transform =
@@ -75,7 +75,7 @@ impl Editor {
         for y in 0..image.height() {
             for x in 0..image.width() {
                 let (wx, wy) = transform.world(x as f32 + 0.5, y as f32 + 0.5);
-                data.push((selection_coverage(&self.selection, wx, wy) * 255.).round() as u8);
+                data.push(selection.sampled_coverage(wx, wy));
             }
         }
         Ok(Some(crate::advanced_ops::SoftMask::new(

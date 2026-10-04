@@ -8,7 +8,9 @@ import importlib.util
 import json
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 import unittest
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -225,6 +227,59 @@ class DependencyOverrideTests(unittest.TestCase):
             source.write_bytes(b"changed\n")
             with self.assertRaises(ValueError):
                 INVENTORY.validate_override_origin(package, override)
+
+
+class PackagingNoticeGateTests(unittest.TestCase):
+    def run_inventory(self, directory: Path, *, deny: bool, legal_text: bool):
+        repo = directory / "repo"
+        package = repo / "rust" / "vendor" / "fixture"
+        package.mkdir(parents=True)
+        manifest = package / "Cargo.toml"
+        manifest.write_text('[package]\nname="fixture"\nversion="1.0.0"\nlicense="MIT"\n')
+        (repo / "rust" / "Cargo.lock").write_text('[[package]]\nname="fixture"\nversion="1.0.0"\n')
+        if legal_text:
+            (package / "LICENSE").write_text("Exact fixture license text\n")
+        metadata = {
+            "packages": [{
+                "id": "fixture", "name": "fixture", "version": "1.0.0",
+                "manifest_path": str(manifest), "license": "MIT", "source": None,
+            }],
+            "resolve": {"root": "omuse", "nodes": [
+                {"id": "omuse", "deps": [{"pkg": "fixture", "dep_kinds": [{"kind": None}]}]},
+                {"id": "fixture", "deps": []},
+            ]},
+        }
+        output = directory / "notices"
+        args = SimpleNamespace(output=output, target="x86_64-unknown-linux-gnu", release_build=False, deny_findings=deny)
+        with (
+            mock.patch.object(INVENTORY, "__file__", str(repo / "scripts" / "inventory.py")),
+            mock.patch.object(INVENTORY, "arguments", return_value=args),
+            mock.patch.object(INVENTORY, "load_overrides", return_value={}),
+            mock.patch.object(INVENTORY.subprocess, "run", return_value=SimpleNamespace(stdout=json.dumps(metadata))),
+        ):
+            result = INVENTORY.main()
+        return result, output
+
+    def test_packaging_rejects_missing_text_and_preserves_its_review_receipt(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            result, output = self.run_inventory(Path(temporary), deny=True, legal_text=False)
+            self.assertEqual(result, 1)
+            record = json.loads((output / "inventory.json").read_text())
+            self.assertEqual(record["reviewFindings"], [{"name": "fixture", "version": "1.0.0", "findings": ["no_legal_text_found"]}])
+            self.assertTrue((output / "THIRD_PARTY_NOTICES.txt").is_file())
+
+    def test_review_mode_keeps_findings_visible_without_blocking_inventory(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            result, output = self.run_inventory(Path(temporary), deny=False, legal_text=False)
+            self.assertEqual(result, 0)
+            self.assertTrue(json.loads((output / "inventory.json").read_text())["reviewFindings"])
+
+    def test_complete_notices_pass_the_packaging_gate(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            result, output = self.run_inventory(Path(temporary), deny=True, legal_text=True)
+            self.assertEqual(result, 0)
+            self.assertEqual(json.loads((output / "inventory.json").read_text())["reviewFindings"], [])
+            self.assertIn("Exact fixture license text", (output / "THIRD_PARTY_NOTICES.txt").read_text())
 
 
 if __name__ == "__main__":

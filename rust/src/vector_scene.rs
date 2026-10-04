@@ -4,8 +4,16 @@
 //! straight-alpha RGBA8 compatibility cache, one bounded tile at a time; it
 //! never allocates a full-canvas intermediate for each object.
 
+#[path = "vector_style.rs"]
+pub mod style;
+#[path = "vector_text_path.rs"]
+pub mod text;
+pub use text::{TextOnPath, TextPathAlignment};
 #[path = "vector_scene_hit.rs"]
 mod vector_scene_hit;
+pub use style::{
+    GradientFill, GradientKind, GradientSpread, GradientStop, StrokeCap, StrokeJoin, StrokeOptions,
+};
 
 use crate::{
     model::{PixelRect, valid_dimensions},
@@ -20,11 +28,17 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
 };
 
-pub const VECTOR_SCENE_VERSION: u32 = 1;
+/// Current scene format. Flat scenes may continue using the legacy v1 form.
+pub const VECTOR_SCENE_VERSION: u32 = 4;
+pub const VECTOR_SCENE_TEXT_VERSION: u32 = 4;
+pub const VECTOR_SCENE_STYLE_VERSION: u32 = 3;
+pub const VECTOR_SCENE_LEGACY_VERSION: u32 = 1;
+pub const VECTOR_SCENE_GROUP_VERSION: u32 = 2;
 pub const MAX_SCENE_OBJECTS: usize = 1_024;
 pub const MAX_SCENE_ANCHORS: usize = 100_000;
 pub const MAX_SCENE_SUBPATHS: usize = 4_096;
 pub const MAX_SCENE_PIXELS: u64 = 16_777_216;
+pub const MAX_SCENE_GROUP_DEPTH: usize = 32;
 const MAX_OBJECT_NAME_BYTES: usize = 16_384;
 const MAX_OBJECT_ID_BYTES: usize = 128;
 // Leave room for the largest legal tile translation before VectorPath's own
@@ -56,8 +70,25 @@ pub struct VectorObject {
     pub transform: [f32; 6],
     pub fill: Option<[u8; 4]>,
     pub stroke: Option<StrokeStyle>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fill_gradient: Option<GradientFill>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stroke_options: Option<StrokeOptions>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text_path: Option<TextOnPath>,
     pub opacity: f32,
     pub visible: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub groups: Vec<VectorGroup>,
+}
+
+/// A group path entry. Objects sharing the same entry belong to that group;
+/// entries are ordered from the outermost group inward.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct VectorGroup {
+    pub id: String,
+    pub name: String,
 }
 
 impl VectorScene {
@@ -70,7 +101,7 @@ impl VectorScene {
         stroke: Option<StrokeStyle>,
     ) -> Result<Self> {
         let scene = Self {
-            version: VECTOR_SCENE_VERSION,
+            version: VECTOR_SCENE_LEGACY_VERSION,
             width,
             height,
             objects: vec![VectorObject::new(name, path, fill, stroke)],
@@ -81,7 +112,7 @@ impl VectorScene {
 
     pub fn validate(&self) -> Result<()> {
         ensure!(
-            self.version == VECTOR_SCENE_VERSION,
+            (VECTOR_SCENE_LEGACY_VERSION..=VECTOR_SCENE_VERSION).contains(&self.version),
             "unsupported vector scene version"
         );
         ensure!(
@@ -94,10 +125,71 @@ impl VectorScene {
             "vector scene has too many objects"
         );
         let mut ids = HashSet::with_capacity(self.objects.len());
+        let mut groups: std::collections::HashMap<
+            uuid::Uuid,
+            (&str, Vec<uuid::Uuid>, usize, usize),
+        > = std::collections::HashMap::new();
         let mut anchors = 0usize;
         let mut subpaths = 0usize;
-        for object in &self.objects {
+        for (object_index, object) in self.objects.iter().enumerate() {
             object.validate()?;
+            ensure!(
+                self.version >= VECTOR_SCENE_TEXT_VERSION || object.text_path.is_none(),
+                "Retained text on a path requires scene version 4"
+            );
+            ensure!(
+                self.version >= VECTOR_SCENE_STYLE_VERSION
+                    || (object.fill_gradient.is_none() && object.stroke_options.is_none()),
+                "Vector gradients and advanced strokes require scene version 3"
+            );
+            ensure!(
+                self.version != VECTOR_SCENE_LEGACY_VERSION || object.groups.is_empty(),
+                "vector scene version 1 cannot contain groups"
+            );
+            ensure!(
+                object.groups.len() <= MAX_SCENE_GROUP_DEPTH,
+                "vector scene group nesting is too deep"
+            );
+            let mut path_ids = Vec::with_capacity(object.groups.len());
+            for group in &object.groups {
+                let group_id =
+                    uuid::Uuid::parse_str(&group.id).context("invalid vector group UUID")?;
+                ensure!(
+                    !group.name.trim().is_empty() && group.name.len() <= MAX_OBJECT_NAME_BYTES,
+                    "invalid vector group name"
+                );
+                path_ids.push(group_id);
+            }
+            ensure!(
+                path_ids.windows(2).all(|pair| pair[0] != pair[1])
+                    && path_ids.iter().collect::<HashSet<_>>().len() == path_ids.len(),
+                "vector group paths cannot repeat a group"
+            );
+            for (depth, group) in object.groups.iter().enumerate() {
+                let group_id = path_ids[depth];
+                if let Some((name, parent, _first, last)) = groups.get_mut(&group_id) {
+                    ensure!(*name == group.name, "vector group names must be consistent");
+                    ensure!(
+                        parent.as_slice() == &path_ids[..depth],
+                        "vector group parents must be consistent"
+                    );
+                    ensure!(
+                        *last + 1 == object_index,
+                        "vector group members must be contiguous"
+                    );
+                    *last = object_index;
+                } else {
+                    groups.insert(
+                        group_id,
+                        (
+                            &group.name,
+                            path_ids[..depth].to_vec(),
+                            object_index,
+                            object_index,
+                        ),
+                    );
+                }
+            }
             let id = uuid::Uuid::parse_str(&object.id).context("invalid vector object UUID")?;
             ensure!(ids.insert(id), "vector object identities must be unique");
             subpaths = subpaths.saturating_add(object.path.subpaths.len());
@@ -134,6 +226,35 @@ impl VectorScene {
                     total
                         .saturating_add(object.id.capacity())
                         .saturating_add(object.name.capacity())
+                        .saturating_add(
+                            object
+                                .text_path
+                                .as_ref()
+                                .map_or(0, TextOnPath::retained_bytes),
+                        )
+                        .saturating_add(
+                            object
+                                .fill_gradient
+                                .as_ref()
+                                .map_or(0, |g| g.stops.capacity() * size_of::<GradientStop>()),
+                        )
+                        .saturating_add(
+                            object
+                                .stroke_options
+                                .as_ref()
+                                .map_or(0, |s| s.dashes.capacity() * size_of::<f32>()),
+                        )
+                        .saturating_add(
+                            object
+                                .groups
+                                .capacity()
+                                .saturating_mul(size_of::<VectorGroup>()),
+                        )
+                        .saturating_add(object.groups.iter().fold(0usize, |bytes, group| {
+                            bytes
+                                .saturating_add(group.id.capacity())
+                                .saturating_add(group.name.capacity())
+                        }))
                         .saturating_add(
                             object
                                 .path
@@ -235,7 +356,18 @@ impl VectorScene {
                 }
                 None => None,
             };
-            let pad = stroke.map_or(1., |stroke| stroke.width * 0.5 + 1.);
+            let pad = stroke.map_or(1., |stroke| {
+                stroke.width
+                    * 0.5
+                    * object.stroke_options.as_ref().map_or(1., |s| {
+                        if s.join == StrokeJoin::Miter {
+                            s.miter_limit
+                        } else {
+                            1.5
+                        }
+                    })
+                    + 1.
+            });
             let Some(bounds) = path_bounds(&path, output_width, output_height, pad) else {
                 continue;
             };
@@ -252,6 +384,38 @@ impl VectorScene {
                     }
                 })
                 .sum::<usize>() as u64;
+            let mut stroke_segments = segments;
+            if let Some(options) = &object.stroke_options {
+                if !options.dashes.is_empty() {
+                    // Bound dash expansion before tiny-skia allocates a dashed path.
+                    let length: f64 = flattened
+                        .iter()
+                        .map(|sub| {
+                            let mut length = sub
+                                .points
+                                .windows(2)
+                                .map(|p| f64::from((p[1].x - p[0].x).hypot(p[1].y - p[0].y)))
+                                .sum::<f64>();
+                            if sub.closed && sub.points.len() > 1 {
+                                let a = sub.points[0];
+                                let b = *sub.points.last().unwrap();
+                                length += f64::from((b.x - a.x).hypot(b.y - a.y));
+                            }
+                            length
+                        })
+                        .sum();
+                    let cycle = f64::from(
+                        options.dashes.iter().sum::<f32>() * object.similarity_scale()? * scale,
+                    );
+                    let dashed_segments =
+                        length / cycle * options.dashes.len() as f64 + segments as f64;
+                    ensure!(
+                        dashed_segments <= 100_000.,
+                        "Dashed stroke exceeds segment budget"
+                    );
+                    stroke_segments = dashed_segments.ceil() as u64;
+                }
+            }
             let area = u64::from(bounds.width) * u64::from(bounds.height);
             let tile_columns = u64::from(bounds.width.div_ceil(TILE_EDGE));
             let tile_rows = u64::from(bounds.height.div_ceil(TILE_EDGE));
@@ -271,7 +435,25 @@ impl VectorScene {
                 );
             }
             if stroke.is_some() {
-                work = work.saturating_add(area.saturating_mul(16).saturating_mul(segments.max(1)));
+                if object.fill_gradient.is_some() || object.stroke_options.is_some() {
+                    // Styled strokes are scan-converted by tiny-skia, rather
+                    // than testing every segment at every pixel. Reserve a
+                    // conservative outline expansion for caps and joins and
+                    // account for dashes in every tile's scanline workload.
+                    let outline_segments = stroke_segments.max(1).saturating_mul(32);
+                    work = work
+                        .saturating_add(area.saturating_mul(16))
+                        .saturating_add(outline_segments.saturating_mul(tile_count))
+                        .saturating_add(
+                            u64::from(bounds.height)
+                                .saturating_mul(4)
+                                .saturating_mul(outline_segments)
+                                .saturating_mul(tile_columns),
+                        );
+                } else {
+                    work = work
+                        .saturating_add(area.saturating_mul(16).saturating_mul(segments.max(1)));
+                }
             }
             ensure!(
                 work <= MAX_SCENE_RENDER_WORK,
@@ -301,15 +483,40 @@ impl VectorScene {
                         .min(prepared.bounds.y + prepared.bounds.height - tile_y)
                         .min(output_height - tile_y);
                     let path = translated_path(&prepared.path, -(tile_x as f32), -(tile_y as f32));
-                    let tile = rasterize_rgba(
-                        &path,
-                        tile_width,
-                        tile_height,
-                        prepared.object.fill,
-                        prepared.stroke,
-                        0.25,
-                        || cancel.load(Ordering::Relaxed),
-                    )
+                    let tile = if prepared.object.fill_gradient.is_some()
+                        || prepared.object.stroke_options.is_some()
+                    {
+                        let [a, b, c, d, e, f] = prepared.object.transform;
+                        style::render_tile(
+                            prepared.object,
+                            &path,
+                            tile_width,
+                            tile_height,
+                            resvg::tiny_skia::Transform::from_row(
+                                a * scale,
+                                b * scale,
+                                c * scale,
+                                d * scale,
+                                (e - region.x as f32) * scale - tile_x as f32,
+                                (f - region.y as f32) * scale - tile_y as f32,
+                            ),
+                            if prepared.stroke.is_some() {
+                                prepared.object.similarity_scale()? * scale
+                            } else {
+                                scale
+                            },
+                        )
+                    } else {
+                        rasterize_rgba(
+                            &path,
+                            tile_width,
+                            tile_height,
+                            prepared.object.fill,
+                            prepared.stroke,
+                            0.25,
+                            || cancel.load(Ordering::Relaxed),
+                        )
+                    }
                     .with_context(|| {
                         format!("Cannot render vector object {}", prepared.object.name)
                     })?;
@@ -349,8 +556,12 @@ impl VectorObject {
             transform: [1., 0., 0., 1., 0., 0.],
             fill,
             stroke,
+            fill_gradient: None,
+            stroke_options: None,
+            text_path: None,
             opacity: 1.,
             visible: true,
+            groups: Vec::new(),
         }
     }
 
@@ -466,6 +677,23 @@ impl VectorObject {
             "invalid vector object name"
         );
         self.path.validate()?;
+        if let Some(text) = &self.text_path {
+            text.validate()?;
+        }
+        if let Some(gradient) = &self.fill_gradient {
+            ensure!(
+                self.fill.is_some(),
+                "Gradient fill requires a fallback fill color"
+            );
+            gradient.validate()?;
+        }
+        if let Some(options) = &self.stroke_options {
+            ensure!(
+                self.stroke.is_some(),
+                "Advanced stroke settings require a stroke"
+            );
+            options.validate()?;
+        }
         ensure!(
             self.fill.is_some() || self.stroke.is_some(),
             "vector object must have a fill or stroke"

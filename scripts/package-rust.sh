@@ -73,7 +73,7 @@ trap 'rm -rf -- "$work"' EXIT HUP INT TERM
 root=$work/omuse-bundle
 mkdir -p "$root/bin" "$root/lib" "$root/models" "$root/licenses" "$root/share/icons"
 inventory=$work/license-inventory
-python3 "$repo_root/scripts/rust-license-inventory.py" "$inventory"
+python3 "$repo_root/scripts/rust-license-inventory.py" "$inventory" --deny-findings
 [ -f "$inventory/inventory.json" ] && [ -f "$inventory/THIRD_PARTY_NOTICES.txt" ] || {
     printf '%s\n' 'Rust dependency license inventory is incomplete.' >&2; exit 1;
 }

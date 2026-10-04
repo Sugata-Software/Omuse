@@ -81,7 +81,7 @@ define_commands! {
     command!("select-subject", "Select subject", "", "Selection", "foreground person object automatic local", "Find a foreground subject locally and refine its selection.");
     command!("remove-background", "Remove background", "", "Selection", "subject foreground cutout transparency automatic", "Find a foreground subject locally and remove its background.");
     command!("luminosity-range", "Luminosity range", "", "Selection", "brightness tonal highlights shadows mask", "Create a selection from a tonal range.");
-    command!("color-range", "Colour range", "", "Selection", "color colour sampled mask", "Create a selection from a colour range.");
+    command!("color-range", "Colour range", "", "Selection", "color colour hue saturation sampled mask", "Select colours by RGB distance or hue, with softness and grey protection.");
     command!("feather-selection", "Feather selection", "shift-f6", "Selection", "soften edge blur", "Soften the edge of the current selection.");
     command!("grow-selection", "Expand selection", "", "Selection", "grow enlarge", "Expand the current selection by a chosen radius.");
     command!("shrink-selection", "Contract selection", "", "Selection", "shrink reduce", "Contract the current selection by a chosen radius.");
@@ -126,8 +126,29 @@ define_commands! {
     command!("rasterize", "Rasterize object", "", "Object", "convert pixels bake", "Convert an editable object to pixels; Undo restores it.");
     command!("image-trace", "Image trace / retrace", "", "Object", "bitmap vectorize convert logo outline palette colours simplify points", "Convert an image into editable vector artwork on the main canvas. Compare Source/Trace, adjust detail and point limits, then Keep vectors. The original image is retained.");
     command!("vector-path", "Vector pen tool", "p", "Object", "bezier pen curves nodes svg import export", "Click to place corners; drag to draw smooth curves. Click the first anchor to close. Click a segment to add a point. A edits nodes; V moves objects.");
-    command!("vector-scene", "Vector artwork on canvas", "shift-p", "Object", "illustration objects scene rectangle ellipse bezier svg", "Draw and edit objects on the main canvas with the shared layer stack. Enter keeps edits; Escape discards them.");
+    command!("vector-scene", "Vector artwork on canvas", "shift-p", "Object", "illustration objects scene rectangle ellipse bezier svg pdf gradient stroke dash text curve typography", "Draw and edit objects on the main canvas with the shared layer stack. Enter keeps edits; Escape discards them.");
     command!("vector-nodes", "Vector node tool", "a", "Object", "direct selection bezier handles curves anchors", "Drag anchors or handles on the main canvas. Double-click a segment to add a point; Alt frees a handle, Shift constrains to 45 degrees. Delete removes points.");
+    command!("vector-group", "Group vector selection", "", "Vector", "objects folder collect", "Group selected vector objects. Ctrl+G also groups objects while editing artwork.");
+    command!("vector-ungroup", "Ungroup vector selection", "ctrl-shift-g", "Vector", "objects folder release", "Release selected outer vector groups while retaining object order and geometry.");
+    command!("vector-outline", "Toggle vector outline view", "ctrl-y", "Vector", "wireframe paths precision", "Inspect vector contours at the current zoom. This viewing mode does not change exports.");
+    command!("vector-union", "Unite vector shapes", "", "Vector", "boolean union pathfinder combine", "Combine selected filled shapes; the bottom shape supplies the style. Undo restores the originals.");
+    command!("vector-subtract", "Subtract vector shapes", "", "Vector", "boolean difference cut pathfinder", "Cut upper selected filled shapes out of the bottom selected shape.");
+    command!("vector-intersect", "Intersect vector shapes", "", "Vector", "boolean overlap pathfinder", "Keep the shared filled area of selected shapes.");
+    command!("vector-exclude", "Exclude vector overlap", "", "Vector", "boolean xor pathfinder", "Keep areas covered by an odd number of selected shapes.");
+    command!("vector-divide", "Divide vector shape", "", "Vector", "boolean split pathfinder", "Partition the bottom selected shape using the upper selected shapes.");
+    command!("vector-align-left", "Align vectors left", "", "Vector", "objects arrange", "Align selected objects or groups to the left edge of the selection.");
+    command!("vector-align-center-x", "Centre vectors horizontally", "", "Vector", "objects align horizontal center", "Align selected objects or groups to their shared horizontal centre.");
+    command!("vector-align-right", "Align vectors right", "", "Vector", "objects arrange", "Align selected objects or groups to the right edge of the selection.");
+    command!("vector-align-top", "Align vectors top", "", "Vector", "objects arrange", "Align selected objects or groups to the top of the selection.");
+    command!("vector-align-center-y", "Centre vectors vertically", "", "Vector", "objects align vertical center", "Align selected objects or groups to their shared vertical centre.");
+    command!("vector-align-bottom", "Align vectors bottom", "", "Vector", "objects arrange", "Align selected objects or groups to the bottom of the selection.");
+    command!("vector-distribute-x", "Space vectors horizontally", "", "Vector", "objects distribute horizontal gaps", "Distribute three or more objects or groups with equal horizontal gaps.");
+    command!("vector-distribute-y", "Space vectors vertically", "", "Vector", "objects distribute vertical gaps", "Distribute three or more objects or groups with equal vertical gaps.");
+    command!("vector-same-fill", "Select vectors with same fill", "", "Vector", "matching color colour appearance", "Select visible vector objects matching the active object's fill, including alpha.");
+    command!("vector-same-stroke", "Select vectors with same stroke", "", "Vector", "matching outline width appearance", "Select visible vector objects matching the active object's stroke colour and width.");
+    command!("vector-same-opacity", "Select vectors with same opacity", "", "Vector", "matching transparency appearance", "Select visible vector objects matching the active object's opacity.");
+    command!("vector-import-svg", "Import editable SVG artwork", "", "Vector", "objects groups paths file", "Add supported solid-paint SVG objects and groups to the current artwork without replacing existing objects.");
+    command!("vector-export-svg", "Export editable SVG artwork", "", "Vector", "objects groups paths file", "Export the complete vector artwork with supported groups, solid paint and opacity.");
     command!("rotate", "Rotate layer 90 degrees", "", "Object", "turn clockwise", "Rotate the active layer clockwise by 90 degrees.");
     command!("flip", "Flip layer horizontally", "", "Object", "mirror horizontal", "Flip the active layer horizontally.");
     command!("nudge-left", "Nudge left", "left", "Object", "move one pixel", "Move selected layers left by one pixel.");
@@ -218,7 +239,7 @@ define_commands! {
     command!("edit-adjustment", "Edit adjustment", "", "Adjustments", "nondestructive layer settings", "Edit the selected adjustment layer.");
     command!("effects", "Layer effects", "", "Adjustments", "shadow glow stroke overlay", "Edit nondestructive effects on the active layer.");
     command!("clear-effects", "Delete layer effects", "", "Adjustments", "remove styles", "Remove every effect from the active layer.");
-    command!("filter-stack", "Editable filter stack", "", "Adjustments", "nondestructive blur sharpen nodes target colour color uniformity", "Build a reorderable stack, including target-colour uniformity.");
+    command!("filter-stack", "Editable filter stack", "", "Adjustments", "nondestructive blur sharpen nodes target colour color uniformity reference match palette", "Build a reorderable stack, including reference-photo colour matching and colour uniformity.");
     command!("dither", "Dither and halftone", "", "Adjustments", "retro print pixel atkinson floyd steinberg bayer dots lines diamonds patterns ascii", "Preview ten retro finishes with pixel, cell and palette controls; Apply is one undo step.");
     command!("bloom-glow", "Bloom into transparency", "", "Adjustments", "highlight glow bloom margin transparent", "Preview highlight glow that can spread into existing transparent layer margins.");
     command!("vignette-overlay", "Vignette overlay", "", "Adjustments", "vignette blank empty layer frame edge colour", "Preview a coloured edge overlay, including on an empty paint layer.");
@@ -282,6 +303,22 @@ pub const GESTURES: &[(&str, &str)] = &[
     ),
     ("Close a vector contour", "P: click its first anchor"),
     ("Break vector handle alignment", "A: Alt+Drag a handle"),
+    (
+        "Select several vector objects",
+        "V: Shift+Click objects, or drag empty canvas to enclose them",
+    ),
+    (
+        "Select one object inside a vector group",
+        "V: Ctrl+Click the object",
+    ),
+    (
+        "Select or clear vector objects",
+        "Ctrl+A selects visible artwork; Ctrl+D clears the object selection",
+    ),
+    (
+        "Group or duplicate vector objects",
+        "Ctrl+G groups; Ctrl+Shift+G ungroups; Ctrl+J duplicates",
+    ),
     (
         "Constrain vector points and handles",
         "A: Shift+Drag for 45-degree increments",

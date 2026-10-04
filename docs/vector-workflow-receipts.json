@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-02",
+  "status": "local development qualification passed; unreleased",
+  "baseCommit": "c902b7245332775a5fd815cef3ecc17df010f1d8",
+  "branch": "feature/photo-vector-studio",
+  "sourceState": "Working-tree implementation; no new immutable release or exact-source CI",
+  "rustSourceManifest": {
+    "files": 477,
+    "sha256": "5952caa638ff5eed604d70327cbaaddba8551fb39d193ab59628272c0dd1fd03"
+  },
+  "build": {
+    "profile": "release",
+    "features": [
+      "ui-test"
+    ],
+    "locked": true,
+    "executableSha256": "04afaaa4e93e09a68ecee28634a7ea82776622db6404a4ae0b91c169327a13b8"
+  },
+  "automated": {
+    "libraryPassed": 495,
+    "uiPassed": 364,
+    "integrationPassed": 395,
+    "totalPassed": 1254,
+    "failed": 0,
+    "ignoredManualBenchmarks": 4,
+    "editingJourney": "passed",
+    "createJourney": "passed",
+    "motionMp4Gif": "passed",
+    "editableTemplateVariants": 80,
+    "fullLogSha256": "137050629674b1d9b83cfee7f1f5eb017efb076203d03356a221790b1080ec1f"
+  },
+  "native": [
+    {
+      "backend": "Wayland",
+      "theme": "dark",
+      "logicalViewport": [
+        800.0,
+        600.0
+      ],
+      "checksPassed": 27,
+      "status": "passed"
+    },
+    {
+      "backend": "XWayland",
+      "theme": "light",
+      "logicalViewport": [
+        800.0,
+        600.0
+      ],
+      "checksPassed": 27,
+      "status": "passed"
+    }
+  ],
+  "cua": {
+    "version": "0.29.1",
+    "backend": "XWayland",
+    "verifiedChecks": 10,
+    "originalPackageUnchanged": true,
+    "ownedWindowClosed": true,
+    "sessionEnded": true
+  },
+  "dependencies": {
+    "lockedPackages": 613,
+    "newOverlayLicences": "MIT, texts retained",
+    "existingBinaryNoticeFindings": [
+      "hexf-parse 0.2.1",
+      "mac 0.1.1"
+    ]
+  },
+  "releaseState": {
+    "installedRelease": "0.7.0 unchanged",
+    "publicRelease": "0.7.0 unchanged",
+    "normalFeatureProductionBuild": "not run for this batch",
+    "exactSourceCi": "not run for this batch",
+    "published": false
+  },
+  "screenshots": [
+    {
+      "path": "docs/images/vector-workflow/compact-inspector.png",
+      "sha256": "2338d662355c141923787d3a7423a391be497d5d5f375afe5f24b4214030dab6"
+    },
+    {
+      "path": "docs/images/vector-workflow/subtract-and-arrange.png",
+      "sha256": "883df64cd02fd56ac28589251a7240ff66a1ab028afde2c2b2dfc795919aed63"
+    }
+  ]
+}

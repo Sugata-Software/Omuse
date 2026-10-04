@@ -87,6 +87,7 @@ class FakeGitHub:
             ]},
             TAG_PATH: None,
             LIST_PATH: [],
+            f"{ROOT}/contents/docs/releases/downloads/v0.1.0.json?ref={MAIN}": None,
         }
 
     def request(self, endpoint, *, method="GET", payload=None, missing_ok=False):

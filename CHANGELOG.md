@@ -6,6 +6,12 @@ for numbering, qualification and publication.
 
 ## Unreleased
 
+No additional changes recorded.
+
+## [0.8.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.8.0) — 2026-10-04
+
+**Colour, curves and control · Linux / Omarchy source pre-release · unsigned experimental Windows**
+
 - Build and use the editor on Windows 11 x86_64 from source with
   `scripts/build-rust.ps1`: open, edit, save and reopen canvases and Create
   collections, with settings in `%APPDATA%\omuse`, data and recovery in
@@ -13,14 +19,104 @@ for numbering, qualification and publication.
   selection and MP4/GIF motion export work with `scripts/prepare-rust-assets.ps1`
   and FFmpeg on `PATH`, including lossy and deflate-compressed DNG files;
   `omuse.exe` opens without a console window, carries the Omuse icon and needs
-  no Visual C++ Redistributable. The window follows the Windows light or dark
-  app mode, save dialogs start in the Pictures or Videos folder (also when it is
-  redirected into OneDrive), long paths are supported, and saves wait for sync
-  clients and scanners that briefly hold project files. CI runs the test suite and editing and motion
-  journeys on Windows and keeps an unsigned package zip. This is an
-  in-development build, not a release. Ask Omuse runs on Windows with Codex
+  no Visual C++ Redistributable for the core editor. The optional ONNX subject
+  runtime still needs its documented Visual C++ runtime. The window follows
+  the Windows light or dark app mode, save dialogs start in the Pictures or
+  Videos folder (also when redirected into OneDrive), long paths are supported,
+  and saves wait for sync clients and scanners that briefly hold project files.
+  CI runs the test suite and editing and motion journeys on Windows and keeps
+  an unsigned package zip. This is an
+  unsigned experimental build. Ask Omuse runs on Windows with Codex
   (including npm installs) and native Claude Code, using workspaces only the
-  current user can open. Linux behaviour and project formats are unchanged.
+  current user can open. The Windows port uses the same project formats as
+  Linux. Native desktop and live-provider qualification remain separate from CI.
+
+- Prevent Image Trace from panicking at image edges in development builds
+  with integer overflow checks enabled.
+
+- Select several vector objects on the main canvas with Shift-click or a
+  marquee. Move, nudge, duplicate, group, ungroup and change their shared style;
+  align, distribute, rotate and scale through the Layers inspector or command
+  search. Nested groups retain their editable children and stacking order.
+- Construct filled shapes with Unite, Subtract, Intersect, Exclude and Divide.
+  Operations run in the background, preserve Undo and refuse unsupported open
+  or stroke-only inputs. Curves become bounded polygonal paths in the result.
+- Add editable linear/radial fills with 2–16 colour/alpha stops, geometry,
+  Pad/Repeat/Reflect spread and gradient fitting. Strokes gain butt/round/square
+  caps, miter/round/bevel joins, dash/gap patterns, offsets and miter limits.
+  Controls apply in the shared Layers inspector; variable widths, stroke
+  expansion, pattern and mesh fills remain planned.
+- Import and export multiple SVG objects with supported gradients and stroke
+  settings, names, organizational groups, transforms and object opacity.
+  Main-canvas import appends to existing artwork. SVG text import, clipping,
+  group opacity, paint-server strokes and external resources remain unsupported.
+- Create editable text along a single curve in the Layers inspector, with font,
+  size, tracking, start position, alignment and reverse direction. Retain the
+  source curve, update text from a separately edited curve, or explicitly
+  convert the text to glyph outlines. Saved outlines preserve appearance;
+  subsequent text edits can use available fallback fonts. SVG/PDF export keeps
+  the outlines, not an editable text recipe.
+- Export the active vector artwork or legacy path as a vector PDF at document
+  DPI. The bounded exporter preserves supported paths, transparency and Pad
+  gradients, and refuses Repeat/Reflect rather than changing their appearance.
+  It does not export the complete mixed photo composition, embed editable text,
+  import PDF/AI files, or establish print-ready CMYK output.
+- Find objects with matching fill, stroke or opacity; toggle an outline view
+  with Ctrl+Y. Supported simple documents rerender vector editing previews at
+  up to 4× resolution within a 16-million-pixel preview budget.
+- Preserve soft selection coverage when making reveal/hide masks, including
+  fractional or rotated layer placement, and when masking editable filters.
+  New group/adjustment masks retain the correct canvas extent without moving
+  their children. Imported PSD masks retain their
+  outside coverage. Read Photoshop Levels gamma correctly, distinguish master
+  Hue/Saturation from Colorize and report unsupported selective bands; malformed
+  adjustment/mask records fail explicitly.
+- Read external format-11 UTF-16 font runs alongside colour runs without
+  changing cached artwork on open. Invalid or split-character ranges and
+  overlaps within the same run type are refused. This does not add mixed-style
+  Photoshop text conversion.
+- Add **Hue range** beside RGB distance in Colour range: sampled hue, tolerance,
+  softness, minimum saturation and inversion, with selection, add, subtract,
+  intersect or editable layer-mask output. The saved mask retains pixels;
+  the hue settings are not a persistent mask-generation recipe.
+  The preview shows the combined selection for Add/Subtract/Intersect and
+  refuses a draft if the underlying selection has changed.
+- Inspect the actual encoded JPEG with **Fit** and **100%** views, drag/arrow
+  panning, quality, DPI and matte controls. Preview stays bounded to 16 MP and
+  does not change the working image. Compact controls keep the preview and
+  export actions visible at the minimum supported window size.
+- Restore editor keyboard focus after applying Camera Raw or a refined subject
+  selection/mask, so **Ctrl+Z / Ctrl+Shift+Z** work immediately. A cancelled or
+  failed background operation does not steal focus from the current control.
+- Preserve exact 16-bit blend rounding when a masked edit keeps the original
+  alpha, including partially transparent pixels and hidden colour values.
+- Improve Blur, Smudge and Liquify strokes with fractional footprints and
+  consistent spacing. Smudge carries the evolving paint; Liquify samples the
+  untouched stroke source through accumulated displacement. Work limits reject
+  excessive strokes without committing partial results. These remain raster
+  tools, with broader real-photo quality evaluation still required.
+- Add **Match reference colour** to the editable Filter stack and Precision &
+  colour workspace. Load a bounded raster reference, set Amount and Preserve
+  lightness, and retain the result as a reversible recipe with optional node
+  masking. Alpha-weighted Oklab statistics support 8-bit and retained 16-bit
+  sRGB/Display P3 evaluation; saved recipes keep statistics rather than the
+  reference filename or pixels. This is global palette transfer, not semantic
+  matching, camera calibration or HDR look matching.
+- Save grouped scenes as canvas format **12**, gradients/advanced strokes as
+  **13**, and editable text on curves as **14**. Flat legacy scenes retain
+  format 11; ordinary canvases retain format 10. Formats 12–14 require this
+  0.8.0 reader. Older releases also cannot read the new reference-match
+  operation; use **Save As** to preserve a compatible original.
+
+The exact-source Linux/Windows validation passed, alongside local photo,
+recovery and native checks. Preview downloads have their own reviewed manifest
+and publication step; interactive Windows, live Windows AI and broader hardware
+qualification remain open.
+
+See the [development qualification record](docs/vector-workflow-qualification.md)
+and [workflow instructions](docs/user-guide/photo-vector.md) for the tested scope
+and remaining limits.
+
 
 ## [0.7.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.7.0) — 2026-10-02
 

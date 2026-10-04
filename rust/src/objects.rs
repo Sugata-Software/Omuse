@@ -1788,12 +1788,12 @@ mod tests {
         assert!(
             image
                 .pixels()
-                .any(|pixel| pixel[3] > 0 && pixel[0] > pixel[2] * 2)
+                .any(|pixel| pixel[3] > 0 && u16::from(pixel[0]) > u16::from(pixel[2]) * 2)
         );
         assert!(
             image
                 .pixels()
-                .any(|pixel| pixel[3] > 0 && pixel[2] > pixel[0] * 2)
+                .any(|pixel| pixel[3] > 0 && u16::from(pixel[2]) > u16::from(pixel[0]) * 2)
         );
 
         let mut document = crate::model::Document::new(400, 140);

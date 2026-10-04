@@ -8,6 +8,7 @@ pub enum SelectionMode {
     Replace,
     Add,
     Subtract,
+    Intersect,
 }
 
 pub fn combine(base: Option<&Selection>, incoming: &Selection, mode: SelectionMode) -> Selection {
@@ -28,6 +29,7 @@ pub fn combine(base: Option<&Selection>, incoming: &Selection, mode: SelectionMo
                 SelectionMode::Subtract => {
                     ((u16::from(old) * (255 - u16::from(value)) + 127) / 255) as u8
                 }
+                SelectionMode::Intersect => ((u16::from(old) * u16::from(value) + 127) / 255) as u8,
             }
         })
         .collect();
@@ -288,6 +290,40 @@ mod tests {
         assert_eq!(
             combine(Some(&a), &b, SelectionMode::Subtract).mask,
             vec![64]
+        );
+        assert_eq!(
+            combine(Some(&a), &b, SelectionMode::Intersect).mask,
+            vec![64]
+        );
+    }
+    #[test]
+    fn intersection_retains_only_overlapping_soft_coverage() {
+        let base = Selection {
+            width: 6,
+            height: 1,
+            mask: vec![0, 255, 128, 64, 255, 128],
+        };
+        let incoming = Selection {
+            width: 6,
+            height: 1,
+            mask: vec![255, 0, 128, 255, 64, 192],
+        };
+        assert_eq!(
+            combine(Some(&base), &incoming, SelectionMode::Intersect).mask,
+            [0, 0, 64, 64, 64, 96]
+        );
+        assert_eq!(
+            combine(None, &incoming, SelectionMode::Intersect).mask,
+            [0; 6]
+        );
+        let incompatible = Selection {
+            width: 1,
+            height: 1,
+            mask: vec![255],
+        };
+        assert_eq!(
+            combine(Some(&incompatible), &incoming, SelectionMode::Intersect).mask,
+            [0; 6]
         );
     }
     #[test]

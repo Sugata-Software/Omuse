@@ -121,6 +121,7 @@ pub enum AdvancedOperation {
     DodgeBurn(DodgeBurn),
     ContentAwareReplace(ContentAwareReplace),
     TargetColourUniformity(TargetColourUniformity),
+    ReferenceColourMatch(crate::color_match::Settings),
 }
 
 impl AdvancedOperation {
@@ -396,6 +397,7 @@ pub fn validate_operation_dimensions(
     match operation {
         AdvancedOperation::Filter(filter) => filters::validate(filter),
         AdvancedOperation::CameraRaw(settings) => camera_raw::validate(settings),
+        AdvancedOperation::ReferenceColourMatch(settings) => settings.validate(),
         AdvancedOperation::Denoise { radius, strength } => {
             ensure!(
                 *radius <= MAX_DENOISE_RADIUS,
@@ -610,6 +612,10 @@ fn apply_operation(
         }
         AdvancedOperation::TargetColourUniformity(settings) => {
             apply_target_colour_uniformity(candidate, settings, cancelled)
+        }
+        AdvancedOperation::ReferenceColourMatch(settings) => {
+            *candidate = crate::color_match::apply8(current, settings, cancelled)?;
+            Ok(())
         }
     }
 }

@@ -1,4 +1,4 @@
-# Omuse for Linux
+# Omuse Rust application
 
 Omuse is a native Rust/GPUI image editor for Linux, with direct Omarchy theme
 integration. This guide is for building and contributing to the application.
@@ -35,12 +35,12 @@ For an offline installation of an already built candidate, see [the runtime bund
 
 ## Build on Windows (in development)
 
-Windows support is being brought up in stages and is not a release target.
-On Windows 11 x86_64 the editor opens, edits, saves and reopens canvases and
-Create collections, keeps settings and shortcuts, runs recovery, develops
-Camera RAW, selects subjects locally, exports MP4/GIF motion and runs Ask Omuse.
-Linux remains the reference platform; Omarchy theme following and tablet
-pressure are Linux-only.
+Windows remains an unsigned experimental target. The source includes canvas
+and collection editing/saving, settings, recovery, Camera RAW, local subject
+selection, MP4/GIF motion export and Ask Omuse integration. Native Windows
+10/11 interaction, mixed-DPI and live provider qualification remain separate
+from automated Windows builds. Linux remains the reference platform; Omarchy
+theme following and tablet pressure are Linux-only.
 
 Ask Omuse finds `codex.exe` or `claude.exe` on `PATH`. npm installs Codex as a
 `codex.cmd` launcher; Omuse recognises that exact package layout and runs its
@@ -106,8 +106,12 @@ The `windows` job in `.github/workflows/rust-validation.yml` prepares the
 runtime assets, installs pinned FFmpeg 9.0.2, runs the test suite, the editing
 self-test and the Create, template catalog and motion journeys, then keeps the
 unsigned package zip as a 14-day workflow artifact. The package carries a
-Windows dependency inventory; its remaining licence findings are recorded in
-[the dependency notice review](../docs/rust-license-findings.md). Put platform
+Windows dependency inventory and packaging fails on unresolved notice findings;
+see [the dependency notice review](../docs/rust-license-findings.md). A separate
+[versioned-download pipeline](../docs/downloadable-releases.md) builds exact
+Linux/Windows candidates, checks native archive/install/upgrade/rollback paths
+and prepares immutable manifests for review. Its presence does not mean that
+a candidate has passed or its downloads have been published. Put platform
 differences behind `cfg` attributes so Linux behaviour and file formats stay
 unchanged.
 
@@ -128,7 +132,7 @@ A [Sunset Muse launch screen](../docs/branding/omuse-splash.md) paints before ba
 
 The [Studio interface](../docs/rust-studio-design.md) provides a compact icon tool dock, contextual options, layer thumbnails and four inspector tabs: Layers, Develop, Select and Canvas. The top-right panel button expands the canvas by hiding the inspector. Hover over an icon for its action and current shortcut; the keyboard button in the status bar opens shortcut settings.
 
-The Select tab includes [luminosity and colour ranges](../docs/rust-range-masks.md): sample a colour or tonal interval, preview soft coverage, then create/combine a selection or replace a layer mask. Cancel preserves the document; Apply has undo support. Generated layer masks remain editable after saving and reopening.
+The Select tab includes [luminosity and colour ranges](../docs/rust-range-masks.md): sample a colour or tonal interval, preview soft coverage, then create/combine a selection or replace a layer mask. The unreleased Hue range mode adds circular hue distance, softness and saturation protection alongside RGB distance. Cancel preserves the document; Apply has undo support. Generated layer masks retain editable pixels after saving, not a persistent range-generation recipe.
 
 The Develop and Select inspectors also expose [advanced editing workspaces](../docs/rust-advanced-workflows.md): editable filter stacks, source/backdrop Blend If, 16-bit masters and PNG/TIFF export, working/display colour controls, embedded and linked sources, editable RAW, Bézier paths and vector masks, retouch layers, controlled removal, brush dynamics, mesh/pin warp, recipes and multi-image merges. That guide states each workflow's limits. Physical tablet and calibrated-display qualification remain outstanding.
 
@@ -148,11 +152,62 @@ Image Size changes pixel dimensions, document DPI and interpolation together. Re
 
 Connected subject selects the detected foreground component under a click using the wand's active/all-layer sampling choice. It runs locally and Escape discards a pending result. Touching subjects may be joined because U2NETP supplies a foreground matte rather than Apple's per-instance labels. Use Select Subject and Refine for soft edges.
 
-Press `Ctrl+K` to search and execute commands by name, category or current binding. There are 171 catalogued commands and 101 default shortcuts, with Photoshop-inspired tools, photo adjustments, layers, brush controls and navigation. `Ctrl+Alt+K` records, clears and restores custom shortcuts; the [generated keyboard reference](../docs/keyboard-shortcuts.md) includes every command and gesture. Tooltips show the effective binding after customization. Scroll zooms; Shift-scroll pans. Native file dialogs have an explicit path-entry fallback. New windows request a maximized desktop view, with an 800×600 minimum, so dense tiling does not leave the canvas unusable.
+Press `Ctrl+K` to search and execute commands by name, category or current binding, including Photoshop-inspired tools, photo adjustments, layers, vector artwork, brush controls and navigation. `Ctrl+Alt+K` records, clears and restores custom shortcuts; the [generated keyboard reference](../docs/keyboard-shortcuts.md) is the current command/binding inventory. Tooltips show the effective binding after customization. Scroll zooms; Shift-scroll pans. Native file dialogs have an explicit path-entry fallback. New windows request a maximized desktop view, with an 800×600 minimum, so dense tiling does not leave the canvas unusable.
 
 An `.omuse` project is a directory package identified by its manifest: `manifest.json` for a single canvas, `project.json` for a Create collection. Copy the whole directory. Layer manifests retain the `com.compositor.project` wire identifier, including live text/shape source records, adjustment layers, effects, groups, transforms, opacity, blend modes, linked/unlinked masks and live clipping sources. Unknown metadata is preserved; malformed or unsupported visual semantics fail explicitly. Live text and shapes stay editable until you choose Rasterize or resize the entire image. Layered 8-bit RGB PSD import preserves supported records and retains cached pixels with conversion notes for selected unsupported objects.
 
 Legacy `.comp` projects still open; the first UI Save offers an `.omuse` copy and keeps the original. New collection saves use schema version 2 with nested `.omuse` pages/components. Version 1 collections can be read, but saving upgrades them; earlier releases cannot open version 2. Choose Save As to a new location when retaining an older-release copy. See the [compatibility contract](../docs/omuse-rename.md).
+
+## Unreleased photo and vector work
+
+The development tree extends the 0.7.0 baseline; these are implementation
+descriptions, not new release or platform qualification claims. Practical
+steps and boundaries are in the [photo/vector guide](../docs/user-guide/photo-vector.md).
+
+- Main-canvas scenes support multiple-object selection, groups, relative
+  transforms, arrangement and bounded boolean construction. Linear/radial
+  fills retain 2–16 alpha-capable stops and Pad/Repeat/Reflect spread. Stroke
+  settings retain caps, joins, dash/gap patterns, offset and miter limit.
+  Variable widths, expansion, pattern/mesh fills and isolated group compositing
+  remain outside this subset.
+- A single-line text-on-curve recipe retains its guide, content/font/layout
+  settings, resolved-font names and generated outlines. Updating a separate
+  edited guide is explicit. Outlining removes the text recipe from that object;
+  Undo restores it. Opening uses saved outlines, while a text edit reshapes
+  with available fonts and can fall back. Missing or colour/bitmap glyphs and
+  overflow along a short guide fail visibly.
+- Scene SVG exchange preserves supported styles and organizational groups;
+  text exports as outlines and SVG text import remains unsupported. Vector PDF
+  exports a scene or legacy path at document DPI, with outlined text and Pad
+  gradients only. Repeat/Reflect, complete mixed photo compositions, PDF/AI
+  import, editable PDF text and print-colour standards are not provided.
+- PSD import now reads Levels gamma and master HSL/Colorize records correctly,
+  reports selective-band/mapping differences, and retains mask outside
+  coverage. Reveal/hide masks preserve soft selection edges on transformed
+  layers. External format-11 UTF-16 font/colour spans convert to native UTF-8
+  runs without rerendering cached artwork; invalid boundaries fail explicitly.
+- Match reference colour adds a versioned Filter-stack operation with Amount,
+  Preserve lightness and optional node masking. Alpha-weighted Oklab statistics
+  are bounded to 65,536 samples; references are limited to 16 MP/128 MiB.
+  ICC/orientation handling occurs on load, and only compact statistics are
+  saved. Evaluation supports ordinary 8-bit and retained 16-bit sRGB/Display P3
+  sources. This is global palette transfer, not semantic matching, calibrated
+  camera processing or a complete wide-gamut/HDR pipeline.
+- JPEG export inspection displays encoded pixels at Fit/100%, with drag/arrow
+  panning and matte/quality/DPI controls. Blur/Smudge/Liquify use fractional
+  footprints and consistent spacing; Smudge carries evolving paint and Liquify
+  samples the unchanged stroke source through accumulated displacement. These
+  remain bounded raster operations requiring broader photographic evaluation.
+
+Scene versions **1/2/3/4** require canvas formats **11/12/13/14** respectively:
+flat artwork, groups, advanced paint/strokes, and text-on-curve recipes. Other
+canvases continue to write format 10. Upgraded scenes do not automatically
+downgrade when features are removed. Omuse 0.7.0 cannot read formats 12–14 or
+the new reference-match operation; **Save As** preserves an older original
+rather than converting new semantics backwards. External text format-11
+support is distinct from the native scene schema.
+
+## Runtime assets and recovery
 
 Camera RAW and local subject tools require the optional assets described in [runtime setup](../docs/rust-runtime-assets.md). Run `scripts/prepare-rust-assets.sh` before installation to include LibRaw, ONNX Runtime and U2NETP. Your images are processed locally. Camera Raw is also available as an adjustment to ordinary raster layers; preview/cancel does not change source pixels. These Linux backends are not pixel-identical substitutes for Apple RAW/Vision.
 
@@ -191,15 +246,20 @@ Headless GPUI interaction tests exercise real element hit-testing and event disp
 | `advanced.rs`, `advanced16.rs`, `advanced_ops.rs`, `editor_advanced.rs` | Retained source recipes, bounded operations and editor transactions |
 | `precision.rs`, `raster16.rs`, `proofing.rs` | Tiled 16-bit masters, document compositing/export and display-only ICC proofing |
 | `smart_source.rs`, `vector_path.rs`, `refinement.rs` | Embedded/linked sources, editable paths and selection edge correction |
+| `vector_scene.rs`, `vector_scene_ops.rs`, `vector_style.rs` | Procedural scene storage/rendering, grouping/geometry operations, gradient fills and stroke styles |
+| `vector_text_path.rs`, `vector_svg_scene.rs`, `vector_pdf.rs` | Retained text shaping/outlines, bounded editable SVG exchange and vector-only PDF |
+| `color_match.rs`, `range_mask.rs`, `retouch_brush.rs` | Reference statistics/transfer, tonal/RGB/hue coverage and transactional raster retouch |
 | `brush_dynamics.rs`, `editor_dynamics.rs`, `tablet_ui.rs` | Custom brush stamps, pressure/tilt and Wayland stylus adapter |
 | `recipes.rs`, `multiframe.rs` | Portable batch recipes and bounded multi-image processing |
 | `advanced_ui.rs`, `workflow_ui.rs`, `vector_ui.rs` | Advanced editing workspaces |
 | `objects.rs` | Editable source-compatible text/shapes and cached rasterization |
+| `project_text.rs`, `psd_text.rs` | External UTF-16 project run conversion and bounded Photoshop text conversion |
 | `camera_raw.rs` | Camera Raw settings and ordered development pipeline |
 | `effects.rs` | Non-destructive layer effects and adjustments |
 | `segmentation.rs`, `matte.rs` | Local ONNX inference and bounded guided mask refinement |
 | `raw_import.rs`, `psd.rs`, `color_management.rs` | Camera RAW, layered PSD and ICC conversion |
 | `ui.rs` | Native GPUI window, controls, gestures, dialogs and image presentation |
+| `vector_style_ui.rs`, `vector_text_ui.rs`, `jpeg_preview_ui.rs` | Shared-inspector paint/text controls and encoded-JPEG detail inspection |
 | `startup.rs` | First-frame splash, background document preparation and accessible handoff |
 | `recovery.rs` | Separate background recovery snapshots |
 | `create_project.rs`, `create.rs`, `create_history.rs`, `save_guard.rs` | Multi-page `.omuse` packages, version 1 migration, brand/layout operations, collection undo and guarded saves |

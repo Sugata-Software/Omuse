@@ -26,8 +26,11 @@ const MAX_DEPTH: usize = 64;
 // Explicit mask outside coverage cannot be represented losslessly by v9's
 // inferred border rule. Old readers must reject rather than change artwork.
 pub const PROJECT_WRITE_VERSION: u64 = 10;
-pub const PROJECT_SCENE_VERSION: u64 = 11;
-pub const PROJECT_MAX_READ_VERSION: u64 = PROJECT_SCENE_VERSION;
+pub const PROJECT_LEGACY_SCENE_VERSION: u64 = 11;
+pub const PROJECT_SCENE_VERSION: u64 = 12;
+pub const PROJECT_STYLE_VERSION: u64 = 13;
+pub const PROJECT_TEXT_VERSION: u64 = 14;
+pub const PROJECT_MAX_READ_VERSION: u64 = PROJECT_TEXT_VERSION;
 const VECTOR_SCENE_FORMAT_VERSION: u32 = 1;
 const MAX_VECTOR_SCENE_COMPRESSED: u64 = 32 * 1024 * 1024;
 const MAX_VECTOR_SCENE_JSON: u64 = 64 * 1024 * 1024;
@@ -709,8 +712,8 @@ pub fn open(path: &Path) -> Result<Document> {
             .filter(|value| !value.is_null())
         {
             ensure!(
-                version == PROJECT_SCENE_VERSION,
-                "Vector scenes require project format 11"
+                (PROJECT_LEGACY_SCENE_VERSION..=PROJECT_MAX_READ_VERSION).contains(&version),
+                "Vector scenes require project format 11–14"
             );
             ensure!(
                 !is_group
@@ -726,6 +729,21 @@ pub fn open(path: &Path) -> Result<Document> {
                 image.as_ref(),
                 MAX_VECTOR_SCENE_DOCUMENT_JSON.saturating_sub(vector_scene_expanded),
             )?;
+            ensure!(
+                version >= PROJECT_SCENE_VERSION
+                    || scene.version == crate::vector_scene::VECTOR_SCENE_LEGACY_VERSION,
+                "Grouped vector scenes require project format 12"
+            );
+            ensure!(
+                version >= PROJECT_STYLE_VERSION
+                    || scene.version < crate::vector_scene::VECTOR_SCENE_STYLE_VERSION,
+                "Gradient and advanced stroke scenes require project format 13"
+            );
+            ensure!(
+                version >= PROJECT_TEXT_VERSION
+                    || scene.version < crate::vector_scene::VECTOR_SCENE_TEXT_VERSION,
+                "Editable text on curves requires project format 14"
+            );
             vector_scene_expanded = vector_scene_expanded.saturating_add(expanded_bytes);
             vector_scene_used = vector_scene_used.saturating_add(scene.retained_bytes());
             ensure!(
@@ -735,6 +753,17 @@ pub fn open(path: &Path) -> Result<Document> {
             vector_scene_count += 1;
             Some(scene)
         } else {
+            // External format 11 adds font runs, whereas Omuse also used that
+            // number for flat vector scenes. Admit ordinary external projects
+            // without silently discarding an orphaned native scene asset.
+            ensure!(
+                version < PROJECT_LEGACY_SCENE_VERSION
+                    || !path
+                        .join("images")
+                        .join(format!("{id}.vector-scene.json.z"))
+                        .try_exists()?,
+                "Unreferenced vector scene asset on layer {name}"
+            );
             None
         };
         ensure!(
@@ -838,9 +867,17 @@ pub fn open(path: &Path) -> Result<Document> {
         );
     }
     ensure!(
-        version != PROJECT_SCENE_VERSION || vector_scene_count > 0,
-        "Project format 11 requires at least one vector scene"
+        version < PROJECT_SCENE_VERSION || vector_scene_count > 0,
+        "Project formats 12–14 require at least one vector scene"
     );
+    if let Some(count) = manifest.get("rustVectorSceneCount") {
+        ensure!(
+            count.as_u64() == Some(vector_scene_count as u64)
+                && version >= PROJECT_LEGACY_SCENE_VERSION
+                && vector_scene_count > 0,
+            "Vector scene inventory does not match the project layers"
+        );
+    }
     for id in &order {
         let mut visited = HashSet::from([id.as_str()]);
         let mut parent = parents[id].as_deref();
@@ -1083,7 +1120,27 @@ where
     let mut records = vec![];
     let has_vector_scene = flat.iter().any(|(layer, _)| layer.vector_scene.is_some());
     let write_version = if has_vector_scene {
-        PROJECT_SCENE_VERSION
+        if flat.iter().any(|(layer, _)| {
+            layer.vector_scene.as_ref().is_some_and(|scene| {
+                scene.version >= crate::vector_scene::VECTOR_SCENE_TEXT_VERSION
+            })
+        }) {
+            PROJECT_TEXT_VERSION
+        } else if flat.iter().any(|(layer, _)| {
+            layer.vector_scene.as_ref().is_some_and(|scene| {
+                scene.version >= crate::vector_scene::VECTOR_SCENE_STYLE_VERSION
+            })
+        }) {
+            PROJECT_STYLE_VERSION
+        } else if flat.iter().any(|(layer, _)| {
+            layer.vector_scene.as_ref().is_some_and(|scene| {
+                scene.version == crate::vector_scene::VECTOR_SCENE_GROUP_VERSION
+            })
+        }) {
+            PROJECT_SCENE_VERSION
+        } else {
+            PROJECT_LEGACY_SCENE_VERSION
+        }
     } else {
         PROJECT_WRITE_VERSION
     };
@@ -1249,6 +1306,18 @@ where
     };
     manifest.insert("format".into(), json!("com.compositor.project"));
     manifest.insert("version".into(), json!(write_version));
+    if has_vector_scene {
+        manifest.insert(
+            "rustVectorSceneCount".into(),
+            json!(
+                flat.iter()
+                    .filter(|(layer, _)| layer.vector_scene.is_some())
+                    .count()
+            ),
+        );
+    } else {
+        manifest.remove("rustVectorSceneCount");
+    }
     manifest.insert("colorSpace".into(), json!("sRGB"));
     manifest.insert("width".into(), json!(doc.width));
     manifest.insert("height".into(), json!(doc.height));
@@ -1608,6 +1677,109 @@ mod tests {
             .into(),
         );
         doc
+    }
+
+    #[test]
+    fn vector_scene_versions_choose_legacy_or_grouped_project_format() {
+        let dir = tempdir().unwrap();
+        let scene = crate::vector_scene::VectorScene::from_path(
+            4,
+            3,
+            "Flat",
+            crate::vector_path::VectorPath {
+                subpaths: vec![crate::vector_path::Subpath {
+                    anchors: vec![
+                        crate::vector_path::Anchor {
+                            position: crate::vector_path::Point { x: 0., y: 0. },
+                            incoming: None,
+                            outgoing: None,
+                        },
+                        crate::vector_path::Anchor {
+                            position: crate::vector_path::Point { x: 3., y: 0. },
+                            incoming: None,
+                            outgoing: None,
+                        },
+                        crate::vector_path::Anchor {
+                            position: crate::vector_path::Point { x: 3., y: 2. },
+                            incoming: None,
+                            outgoing: None,
+                        },
+                    ],
+                    closed: true,
+                }],
+                fill_rule: crate::vector_path::FillRule::NonZero,
+            },
+            Some([255, 0, 0, 255]),
+            None,
+        )
+        .unwrap();
+        let mut flat = patterned();
+        flat.layers[0].image = Some(
+            scene
+                .render(&std::sync::atomic::AtomicBool::new(false))
+                .unwrap()
+                .into(),
+        );
+        flat.layers[0].vector_scene = Some(std::sync::Arc::new(scene.clone()));
+        let flat_path = dir.path().join("Flat.omuse");
+        save(&flat, &flat_path).unwrap();
+        assert_eq!(
+            read_manifest(&flat_path)["version"],
+            json!(PROJECT_LEGACY_SCENE_VERSION)
+        );
+        assert_eq!(
+            open(&flat_path).unwrap().layers[0]
+                .vector_scene
+                .as_ref()
+                .unwrap()
+                .version,
+            crate::vector_scene::VECTOR_SCENE_LEGACY_VERSION
+        );
+        // Format 12 remains able to read a flat legacy scene; the format
+        // upgrade is about admitting grouped metadata, not rewriting v1 data.
+        edit_manifest(&flat_path, |manifest| {
+            manifest["version"] = json!(PROJECT_SCENE_VERSION)
+        });
+        assert_eq!(
+            open(&flat_path).unwrap().layers[0]
+                .vector_scene
+                .as_ref()
+                .unwrap()
+                .version,
+            crate::vector_scene::VECTOR_SCENE_LEGACY_VERSION
+        );
+
+        let mut grouped_scene = scene;
+        grouped_scene.version = crate::vector_scene::VECTOR_SCENE_GROUP_VERSION;
+        grouped_scene.objects[0].groups = vec![crate::vector_scene::VectorGroup {
+            id: uuid::Uuid::new_v4().to_string(),
+            name: "Marks".into(),
+        }];
+        grouped_scene.validate().unwrap();
+        flat.layers[0].vector_scene = Some(std::sync::Arc::new(grouped_scene));
+        let grouped_path = dir.path().join("Grouped.omuse");
+        save(&flat, &grouped_path).unwrap();
+        assert_eq!(
+            read_manifest(&grouped_path)["version"],
+            json!(PROJECT_SCENE_VERSION)
+        );
+        assert_eq!(
+            open(&grouped_path).unwrap().layers[0]
+                .vector_scene
+                .as_ref()
+                .unwrap()
+                .version,
+            crate::vector_scene::VECTOR_SCENE_GROUP_VERSION
+        );
+        edit_manifest(&grouped_path, |manifest| {
+            manifest["version"] = json!(PROJECT_LEGACY_SCENE_VERSION)
+        });
+        assert!(
+            open(&grouped_path)
+                .unwrap_err()
+                .to_string()
+                .contains("format 12")
+        );
     }
 
     #[test]

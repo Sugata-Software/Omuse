@@ -718,6 +718,18 @@ pub fn apply_adjustment(image: &RgbaImage, v: &Value) -> Result<RgbaImage> {
         .get("kind")
         .and_then(Value::as_str)
         .context("adjustment kind missing")?;
+    if kind == "Levels" {
+        return apply_levels(image, o.get("levels").context("Levels settings missing")?);
+    }
+    if kind == "Hue/Saturation" {
+        ensure!(
+            o.get("colorize").is_none_or(Value::is_boolean),
+            "Colorize must be a boolean"
+        );
+        if o.get("colorize").and_then(Value::as_bool) == Some(true) {
+            return apply_colorize(image, o);
+        }
+    }
     if let Some(result) = crate::adjustment_kernels::apply(image, v)? {
         return Ok(result);
     }
@@ -743,20 +755,6 @@ pub fn apply_adjustment(image: &RgbaImage, v: &Value) -> Result<RgbaImage> {
             saturation: o.get("saturation").and_then(Value::as_f64).unwrap_or(0.0) as f32 / 100.0,
             lightness: o.get("lightness").and_then(Value::as_f64).unwrap_or(0.0) as f32 / 100.0,
         }),
-        "Levels" => {
-            let r = o
-                .get("levels")
-                .and_then(|v| v.get("ranges"))
-                .and_then(Value::as_array)
-                .and_then(|v| v.first())
-                .and_then(Value::as_object)
-                .context("invalid Levels settings")?;
-            Some(Filter::Levels {
-                black: r.get("black").and_then(Value::as_f64).unwrap_or(0.0) as f32 / 255.0,
-                white: r.get("white").and_then(Value::as_f64).unwrap_or(255.0) as f32 / 255.0,
-                gamma: r.get("gamma").and_then(Value::as_f64).unwrap_or(1.0) as f32,
-            })
-        }
         "Curves" => {
             let points = o
                 .get("curves")
@@ -833,6 +831,148 @@ pub fn apply_adjustment(image: &RgbaImage, v: &Value) -> Result<RgbaImage> {
         }
     }
     Ok(out)
+}
+
+#[derive(Clone, Copy, PartialEq, Deserialize)]
+#[serde(default, deny_unknown_fields, rename_all = "camelCase")]
+struct LevelsRange {
+    black: f32,
+    white: f32,
+    gamma: f32,
+    output_black: f32,
+    output_white: f32,
+}
+
+impl Default for LevelsRange {
+    fn default() -> Self {
+        Self {
+            black: 0.,
+            white: 255.,
+            gamma: 1.,
+            output_black: 0.,
+            output_white: 255.,
+        }
+    }
+}
+
+impl LevelsRange {
+    fn validate(self) -> Result<()> {
+        ensure!(
+            [self.black, self.white, self.output_black, self.output_white]
+                .into_iter()
+                .all(|v| v.is_finite() && (0. ..=255.).contains(&v))
+                && self.white > self.black
+                && self.gamma.is_finite()
+                && (0.05..=20.).contains(&self.gamma),
+            "invalid Levels range"
+        );
+        Ok(())
+    }
+
+    fn map(self, value: f32) -> f32 {
+        if self == Self::default() {
+            return value;
+        }
+        // Keep the existing master-only recipe's operation order and rounding.
+        // Reversed output points are valid: they intentionally invert the range.
+        let black = self.black / 255.;
+        let white = self.white / 255.;
+        let adjusted = ((value - black) / (white - black))
+            .clamp(0., 1.)
+            .powf(1. / self.gamma);
+        adjusted * ((self.output_white - self.output_black) / 255.) + self.output_black / 255.
+    }
+}
+
+fn apply_levels(image: &RgbaImage, settings: &Value) -> Result<RgbaImage> {
+    let settings = settings.as_object().context("invalid Levels settings")?;
+    ensure!(
+        settings
+            .keys()
+            .all(|key| matches!(key.as_str(), "channel" | "ranges")),
+        "unknown Levels setting"
+    );
+    let raw = settings
+        .get("ranges")
+        .and_then(Value::as_array)
+        .context("invalid Levels ranges")?;
+    ensure!(
+        (1..=4).contains(&raw.len()),
+        "Levels needs one to four ranges"
+    );
+    let mut ranges = [LevelsRange::default(); 4];
+    for (range, value) in ranges.iter_mut().zip(raw) {
+        *range = serde_json::from_value(value.clone()).context("invalid Levels range")?;
+        range.validate()?;
+    }
+    // Photoshop Levels first applies each channel's range, then the master.
+    // Three tiny tables avoid powers and metadata parsing in the pixel loop.
+    let table = std::array::from_fn::<[u8; 256], 3, _>(|channel| {
+        std::array::from_fn(|value| {
+            let adjusted = ranges[0].map(ranges[channel + 1].map(value as f32 / 255.));
+            (adjusted.clamp(0., 1.) * 255.).round() as u8
+        })
+    });
+    let mut output = image.clone();
+    for pixel in output.pixels_mut().filter(|pixel| pixel[3] != 0) {
+        for channel in 0..3 {
+            pixel[channel] = table[channel][pixel[channel] as usize];
+        }
+    }
+    Ok(output)
+}
+
+fn apply_colorize(
+    image: &RgbaImage,
+    settings: &serde_json::Map<String, Value>,
+) -> Result<RgbaImage> {
+    let number = |key: &str| -> Result<f32> {
+        let value = settings
+            .get(key)
+            .map_or(Some(0.), Value::as_f64)
+            .context("invalid Colorize setting")? as f32;
+        ensure!(value.is_finite(), "invalid Colorize setting");
+        Ok(value)
+    };
+    let (hue, saturation, lightness) =
+        (number("hue")?, number("saturation")?, number("lightness")?);
+    ensure!(
+        (-360. ..=360.).contains(&hue)
+            && (0. ..=100.).contains(&saturation)
+            && (-100. ..=100.).contains(&lightness),
+        "invalid Colorize settings"
+    );
+    let hue = hue.rem_euclid(360.) / 60.;
+    let saturation = saturation / 100.;
+    let lightness = lightness / 100.;
+    let mut output = image.clone();
+    for pixel in output.pixels_mut().filter(|pixel| pixel[3] != 0) {
+        let brightest = pixel.0[..3].iter().copied().max().unwrap() as f32;
+        let darkest = pixel.0[..3].iter().copied().min().unwrap() as f32;
+        let mut pixel_lightness = (brightest + darkest) / 510.;
+        // Colorize replaces hue and saturation. Its lightness moves toward
+        // white/black; ordinary relative HSL recipes retain their old path.
+        pixel_lightness = if lightness < 0. {
+            pixel_lightness * (1. + lightness)
+        } else {
+            pixel_lightness + (1. - pixel_lightness) * lightness
+        };
+        let chroma = (1. - (2. * pixel_lightness - 1.).abs()) * saturation;
+        let middle = chroma * (1. - (hue.rem_euclid(2.) - 1.).abs());
+        let rgb = match hue as u32 {
+            0 => [chroma, middle, 0.],
+            1 => [middle, chroma, 0.],
+            2 => [0., chroma, middle],
+            3 => [0., middle, chroma],
+            4 => [middle, 0., chroma],
+            _ => [chroma, 0., middle],
+        };
+        for (channel, value) in rgb.into_iter().enumerate() {
+            pixel[channel] =
+                ((value + pixel_lightness - chroma / 2.).clamp(0., 1.) * 255.).round() as u8;
+        }
+    }
+    Ok(output)
 }
 pub fn validate_layer_metadata(v: &Value) -> Result<()> {
     if let Some(x) = v.get("effects").filter(|v| !v.is_null()) {

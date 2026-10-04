@@ -34,6 +34,7 @@ pub(super) struct CameraPreviewState {
     next_id: u64,
     active: Option<Arc<Request>>,
     queued: Option<Arc<Request>>,
+    window: Option<gpui_kit::AnyWindowHandle>,
 }
 impl Drop for CameraPreviewState {
     fn drop(&mut self) {
@@ -149,6 +150,7 @@ impl EditorView {
         self.cancel_camera_raw();
         self.dialog_generation = self.dialog_generation.wrapping_add(1);
         self.dialog = Dialog::CameraRaw;
+        self.camera_preview.window = Some(window.window_handle());
         self.camera_draft = serde_json::to_value(Settings::default()).unwrap();
         self.camera_section = 0;
         self.camera_clip_shadows = false;
@@ -406,6 +408,23 @@ impl EditorView {
                     }
                     .into();
                     self.changed(cx);
+                    // Apply completes after confirm_dialog has returned, so its
+                    // synchronous focus restoration cannot run for this modal.
+                    if let Some(window) = self.camera_preview.window.take() {
+                        let view = cx.entity().downgrade();
+                        let generation = self.dialog_generation;
+                        cx.defer(move |cx| {
+                            let _ = cx.update_window(window, |_, window, cx| {
+                                let _ = view.update(cx, |this, cx| {
+                                    if this.dialog == Dialog::None
+                                        && this.dialog_generation == generation
+                                    {
+                                        this.focus.focus(window, cx);
+                                    }
+                                });
+                            });
+                        });
+                    }
                 }
                 Err(error) => self.status = error.to_string(),
             },
@@ -418,7 +437,7 @@ impl EditorView {
 #[cfg(all(test, feature = "ui-test"))]
 mod tests {
     use super::*;
-    use gpui_kit::{TestAppContext, VisualTestContext};
+    use gpui_kit::{Modifiers, TestAppContext, VisualTestContext};
 
     fn settings(exposure: f32) -> Settings {
         Settings {
@@ -554,6 +573,75 @@ mod tests {
     }
 
     #[gpui_kit::test]
+    fn camera_curve_apply_restores_editor_focus_for_immediate_keyboard_undo_redo(
+        cx: &mut TestAppContext,
+    ) {
+        let (view, cx, _recovery) = setup(cx);
+        cx.update(|_, cx| {
+            install_shortcuts(&Shortcuts::default(), &Shortcuts::default(), cx);
+        });
+        cx.simulate_resize(size(px(1200.), px(900.)));
+        let original = view.update_in(cx, |view, window, cx| {
+            view.camera_section = crate::camera_controls::SECTIONS
+                .iter()
+                .position(|section| section.0 == "curve")
+                .unwrap();
+            view.camera_curve_channel = 0;
+            view.load_camera_form(window, cx);
+            view.pixels.clone()
+        });
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        let graph = cx.debug_bounds("camera-curve-editor").unwrap();
+        let midpoint = point(
+            graph.origin.x + graph.size.width * 0.5,
+            graph.origin.y + graph.size.height * 0.35,
+        );
+        cx.simulate_mouse_down(midpoint, MouseButton::Left, Modifiers::default());
+        cx.simulate_mouse_up(midpoint, MouseButton::Left, Modifiers::default());
+        cx.update(|window, cx| {
+            let view = view.read(cx);
+            let curve = view.camera_draft["curve"]["rgb"].as_array().unwrap();
+            assert_eq!(curve.len(), 3);
+            assert!(curve[1]["y"].as_f64().unwrap() > 0.6);
+            assert_eq!(view.pixels, original);
+            assert_eq!(view.editor.undo_depth(), 0);
+            window.draw(cx).clear(cx);
+        });
+        let apply = cx.debug_bounds("confirm-dialog").unwrap().center();
+        cx.simulate_mouse_down(apply, MouseButton::Left, Modifiers::default());
+        cx.update(|window, cx| {
+            let view = view.read(cx);
+            assert!(view.modal_focus.contains_focused(window, cx));
+            assert!(!view.focus.is_focused(window));
+        });
+        cx.simulate_mouse_up(apply, MouseButton::Left, Modifiers::default());
+        cx.run_until_parked();
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        let developed = cx.update(|window, cx| {
+            let view = view.read(cx);
+            assert_eq!(view.dialog, Dialog::None);
+            assert!(!view.busy);
+            assert!(view.focus.is_focused(window));
+            assert_ne!(view.pixels, original);
+            assert_eq!(view.editor.undo_depth(), 1);
+            view.pixels.clone()
+        });
+        // No direct history call, focus assignment or canvas click after Apply.
+        cx.simulate_keystrokes("ctrl-z");
+        cx.update(|_, cx| {
+            let view = view.read(cx);
+            assert_eq!(view.pixels, original);
+            assert_eq!(view.editor.undo_depth(), 0);
+        });
+        cx.simulate_keystrokes("ctrl-shift-z");
+        cx.update(|_, cx| {
+            let view = view.read(cx);
+            assert_eq!(view.pixels, developed);
+            assert_eq!(view.editor.undo_depth(), 1);
+        });
+    }
+
+    #[gpui_kit::test]
     fn camera_apply_rejects_selection_revision_and_editor_replacement(cx: &mut TestAppContext) {
         let (view, cx, _recovery) = setup(cx);
         for change in 0..3 {
@@ -596,7 +684,7 @@ mod tests {
         cx: &mut TestAppContext,
     ) {
         let (view, cx, _recovery) = setup(cx);
-        view.update(cx, |view, cx| {
+        view.update_in(cx, |view, window, cx| {
             view.start_camera_raw(settings(1.), true, cx);
             view.start_camera_raw(settings(2.), false, cx);
             view.cancel_camera_raw();
@@ -605,14 +693,17 @@ mod tests {
             view.dialog = Dialog::RawImport;
             view.busy = true;
             view.status = "Later import".into();
+            view.modal_focus.focus(window, cx);
         });
         cx.run_until_parked();
-        cx.update(|_, cx| {
+        cx.update(|window, cx| {
             let view = view.read(cx);
             assert!(view.busy);
             assert_eq!(view.status, "Later import");
             assert_eq!(view.editor.undo_depth(), 0);
             assert!(view.camera_preview.active.is_none());
+            assert!(view.modal_focus.is_focused(window));
+            assert!(!view.focus.is_focused(window));
         });
     }
 

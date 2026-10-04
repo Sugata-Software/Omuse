@@ -285,6 +285,20 @@ impl LayerState {
                         .soft_mask
                         .as_ref()
                         .map_or(1., |mask| mask.data[index] as f32 / 255.);
+                if dst[3] == src[3] {
+                    // Equal alpha cancels from the straight-colour blend.
+                    // Avoid premultiplying and dividing by it: that round trip
+                    // can move an exact half-channel value just below .5 and
+                    // make identical colour edits depend on source opacity.
+                    // This also retains hidden RGB when both alphas are zero.
+                    let t = f64::from(amount);
+                    for c in 0..3 {
+                        dst[c] = (f64::from(dst[c]) * (1. - t) + f64::from(src[c]) * t)
+                            .round()
+                            .clamp(0., 65535.) as u16;
+                    }
+                    continue;
+                }
                 let a0 = dst[3] as f64 / 65535.;
                 let a1 = src[3] as f64 / 65535.;
                 let t = amount as f64;
