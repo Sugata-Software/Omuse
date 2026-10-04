@@ -790,6 +790,16 @@ impl EditorView {
                     window,
                     cx,
                 ));
+            if self.tool == Tool::BlurBrush {
+                bar = bar.child(rule(cx)).child(self.numeric_row(
+                    "blur-radius",
+                    "Radius px",
+                    numeric_ui::Target::BlurRadius,
+                    numeric_ui::BLUR_RADIUS,
+                    window,
+                    cx,
+                ));
+            }
             if matches!(self.tool, Tool::Brush | Tool::Eraser) {
                 bar = bar.child(rule(cx)).child(self.numeric_row(
                     "brush-smoothing",
@@ -1421,6 +1431,27 @@ impl EditorView {
                     .child(
                         panel_section("View & alignment", cx)
                             .child(self.studio_toggle("grid", "Pixel grid", self.show_grid, cx))
+                            .child(
+                                self.control(
+                                    "grid-spacing",
+                                    &format!("Grid spacing · {} px", self.preferences.grid_spacing),
+                                    cx,
+                                )
+                                .disabled(self.studio_controls_blocked())
+                                .w_full(),
+                            )
+                            .child(
+                                self.control(
+                                    "grid-subdivisions",
+                                    &format!(
+                                        "Grid subdivisions · {}",
+                                        self.preferences.grid_subdivisions
+                                    ),
+                                    cx,
+                                )
+                                .disabled(self.studio_controls_blocked())
+                                .w_full(),
+                            )
                             .child(self.studio_toggle("guides", "Guides", self.show_guides, cx))
                             .child(self.studio_toggle(
                                 "rulers",

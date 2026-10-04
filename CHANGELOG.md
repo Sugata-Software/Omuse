@@ -6,7 +6,14 @@ for numbering, qualification and publication.
 
 ## Unreleased
 
-No additional changes recorded.
+- Preserve a valid long stroke when mouse-up repeats its last recorded point;
+  refuse an over-limit path explicitly before altering artwork.
+- Preview installed fonts on selected letters in the canvas text editor, search
+  font names, commit with Enter or restore the original with Escape.
+- Publish the reviewed 0.8.0 Linux and experimental Windows archives with
+  permanent checksums and a completed anonymous-download verification.
+
+The next editing candidate is under integration and qualification.
 
 ## [0.8.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.8.0) — 2026-10-04
 

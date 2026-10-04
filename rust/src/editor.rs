@@ -20,6 +20,8 @@ mod editor_history;
 mod image_trace;
 #[path = "editor_mask_growth.rs"]
 mod mask_growth;
+#[path = "editor_ungroup.rs"]
+mod ungroup;
 pub use editor_clipboard::LayerClipboard;
 #[path = "raster_patch.rs"]
 mod raster_patch;
@@ -83,6 +85,8 @@ pub struct Brush {
     pub size: f32,
     pub opacity: f32,
     pub hardness: f32,
+    /// Retouch Blur Gaussian sigma in canvas pixels, independent of brush size.
+    pub blur_radius: f32,
     /// Brush/eraser pulled-string length in screen points. Zero preserves unsmoothed input exactly.
     pub smoothing: f32,
 }
@@ -93,6 +97,7 @@ impl Default for Brush {
             size: 16.0,
             opacity: 1.0,
             hardness: 0.85,
+            blur_radius: 2.0,
             smoothing: 0.0,
         }
     }
@@ -3536,93 +3541,176 @@ impl Editor {
         Ok(true)
     }
 
-    /// Apply one canvas-space Blur, Smudge, or Liquify stroke to the active
-    /// raster layer and map the result back through its transform in one undo step.
+    /// Retouch native layer pixels, with canvas-space dabs and one exact Undo.
     pub fn retouch_stroke(
         &mut self,
         points: &[(f32, f32)],
         mode: RetouchMode,
     ) -> anyhow::Result<bool> {
+        self.retouch_stroke_cancellable(points, mode, &std::sync::atomic::AtomicBool::new(false))
+    }
+
+    pub fn retouch_stroke_cancellable(
+        &mut self,
+        points: &[(f32, f32)],
+        mode: RetouchMode,
+        cancelled: &std::sync::atomic::AtomicBool,
+    ) -> anyhow::Result<bool> {
+        crate::retouch_brush::check_cancelled(cancelled)?;
         self.finish_stroke();
         let Some(layer) = self.editable_layer() else {
             return Ok(false);
         };
-        anyhow::ensure!(
-            u64::from(self.document.width) * u64::from(self.document.height) <= 16_777_216,
-            "Retouch strokes support canvases up to 16 million pixels"
-        );
-        anyhow::ensure!(
-            points.len() <= 100_000,
-            "Retouch stroke has too many points"
-        );
+        let original = layer.image.as_ref().unwrap().clone();
         let transform = Transform::for_layer(&self.document, &self.active_layer)
             .ok_or_else(|| anyhow::anyhow!("Invalid layer transform"))?;
-        let original_pixels = layer.image.as_ref().unwrap().clone();
-        anyhow::ensure!(
-            u64::from(original_pixels.width()) * u64::from(original_pixels.height()) <= 16_777_216,
-            "Retouch strokes support layers up to 16 million pixels"
-        );
-        let mut projected = shallow_layer(layer);
-        projected.mask = None;
-        projected.opacity = 1.0;
-        projected.visible = true;
-        projected.blend_mode = "normal".into();
-        projected.metadata = serde_json::json!({});
-        let canvas_before = crate::raster::composite(&Document {
-            width: self.document.width,
-            height: self.document.height,
-            name: String::new(),
-            background: [0; 4],
-            layers: vec![projected],
-            metadata: serde_json::Value::Null,
-        });
-        let stroke_points: Vec<_> = points
-            .iter()
-            .map(|&(x, y)| crate::retouch_brush::StrokePoint { x, y })
-            .collect();
-        let canvas_after = crate::retouch_brush::apply(
-            &canvas_before,
-            &stroke_points,
-            self.brush.size,
-            self.brush.hardness.min(0.98),
-            self.brush.opacity,
+        let Some(output) = self.native_retouch_output(
+            &original,
+            points,
             mode,
-        )?;
-        let mut output = original_pixels.clone();
-        let mut changed = false;
-        for (x, y, pixel) in output.enumerate_pixels_mut() {
-            let (wx, wy) = transform.world(x as f32 + 0.5, y as f32 + 0.5);
-            let coverage = selection_coverage(&self.selection, wx, wy);
-            if coverage <= 0.0 {
-                continue;
-            }
-            let (cx, cy) = (wx.floor() as i32, wy.floor() as i32);
-            if cx < 0
-                || cy < 0
-                || cx as u32 >= self.document.width
-                || cy as u32 >= self.document.height
-            {
-                continue;
-            }
-            let before = canvas_before.get_pixel(cx as u32, cy as u32).0;
-            let after = canvas_after.get_pixel(cx as u32, cy as u32).0;
-            if before == after {
-                continue;
-            }
-            let next = blend_coverage(pixel.0, after, coverage);
-            changed |= next != pixel.0;
-            pixel.0 = next;
-        }
-        if !changed {
+            transform,
+            crate::retouch_brush::EdgeMode::Constant([0; 4]),
+            0,
+            cancelled,
+        )?
+        else {
             return Ok(false);
-        }
-        let before = self.snapshot();
+        };
+        let before = self.retouch_snapshot()?;
+        crate::retouch_brush::check_cancelled(cancelled)?;
         self.document
             .find_layer_mut(&self.active_layer)
             .unwrap()
             .image = Some(output.into());
         self.commit(before);
         Ok(true)
+    }
+
+    /// Selection limits writes, never the sampling source. This preserves the
+    /// established ability to pull neighbouring colour across a selection edge.
+    fn native_retouch_output(
+        &self,
+        source: &RgbaImage,
+        points: &[(f32, f32)],
+        mode: RetouchMode,
+        transform: Transform,
+        edge: crate::retouch_brush::EdgeMode,
+        reserved_bytes: usize,
+        cancelled: &std::sync::atomic::AtomicBool,
+    ) -> anyhow::Result<Option<RgbaImage>> {
+        anyhow::ensure!(
+            points.len() <= 100_000,
+            "Retouch stroke has too many points"
+        );
+        anyhow::ensure!(
+            self.selection.as_ref().is_none_or(|selection| {
+                selection.width == self.document.width
+                    && selection.height == self.document.height
+                    && selection.mask.len()
+                        == self.document.width as usize * self.document.height as usize
+            }),
+            "Selection dimensions do not match the canvas"
+        );
+        let mut stroke_points = Vec::new();
+        crate::retouch_brush::reserve(&mut stroke_points, points.len(), "stroke points")?;
+        stroke_points.extend(
+            points
+                .iter()
+                .map(|&(x, y)| crate::retouch_brush::StrokePoint { x, y }),
+        );
+        let reserved_bytes = reserved_bytes
+            .saturating_add(
+                stroke_points.capacity() * std::mem::size_of::<crate::retouch_brush::StrokePoint>(),
+            )
+            .saturating_add(self.selection.as_ref().map_or(0, |s| s.mask.len()));
+        let mut output = crate::retouch_brush::apply_native_cancellable(
+            source,
+            &stroke_points,
+            self.brush.size,
+            self.brush.hardness.min(0.98),
+            self.brush.opacity,
+            mode,
+            crate::retouch_brush::NativeOptions {
+                transform: [
+                    transform.a,
+                    transform.b,
+                    transform.c,
+                    transform.d,
+                    transform.tx,
+                    transform.ty,
+                ],
+                blur_radius: self.brush.blur_radius,
+                edge,
+                reserved_bytes,
+            },
+            cancelled,
+        )?;
+        let mut changed = false;
+        for y in 0..output.height() {
+            crate::retouch_brush::check_cancelled(cancelled)?;
+            for x in 0..output.width() {
+                let (wx, wy) = transform.world(x as f32 + 0.5, y as f32 + 0.5);
+                let original = source.get_pixel(x, y).0;
+                let pixel = output.get_pixel_mut(x, y);
+                if pixel.0 == original {
+                    continue;
+                }
+                let coverage = if wx < 0.
+                    || wy < 0.
+                    || wx >= self.document.width as f32
+                    || wy >= self.document.height as f32
+                {
+                    0.
+                } else {
+                    self.selection
+                        .as_ref()
+                        .map_or(1., |s| f32::from(s.sampled_coverage(wx, wy)) / 255.)
+                };
+                // Keep hidden RGB byte-exact outside the edited coverage.
+                pixel.0 = if coverage == 0. {
+                    original
+                } else {
+                    blend_coverage(original, pixel.0, coverage)
+                };
+                changed |= pixel.0 != original;
+            }
+        }
+        crate::retouch_brush::check_cancelled(cancelled)?;
+        Ok(changed.then_some(output))
+    }
+
+    /// Pixel snapshots are shared, while the potentially large selection and
+    /// history slot are reserved fallibly before document mutation.
+    fn retouch_snapshot(&mut self) -> anyhow::Result<Snapshot> {
+        let selection = self
+            .selection
+            .as_ref()
+            .map(|selection| -> anyhow::Result<Selection> {
+                let mut mask = Vec::new();
+                crate::retouch_brush::reserve(
+                    &mut mask,
+                    selection.mask.len(),
+                    "selection history",
+                )?;
+                mask.extend_from_slice(&selection.mask);
+                Ok(Selection {
+                    width: selection.width,
+                    height: selection.height,
+                    mask,
+                })
+            })
+            .transpose()?;
+        self.undo
+            .try_reserve(1)
+            .map_err(|_| anyhow::anyhow!("Not enough memory for retouch Undo history"))?;
+        let selection_bytes = selection.as_ref().map_or(0, |s| s.mask.capacity());
+        Ok(Snapshot {
+            document: self.document.clone(),
+            active_layer: self.active_layer.clone(),
+            selection,
+            revision: self.revision,
+            bytes: document_bytes(&self.document).saturating_add(selection_bytes),
+        })
     }
 
     /// Apply the preserved source-free Spot Healing kernel in one undo step.
@@ -4836,10 +4924,123 @@ impl Editor {
         points: &[(f32, f32)],
         mode: RetouchMode,
     ) -> anyhow::Result<bool> {
-        let before = self.snapshot();
-        let mut work = self.mask_work_editor(id)?;
-        let changed = work.retouch_stroke(points, mode)?;
-        Ok(changed && self.commit_mask_work(id, work, before))
+        self.retouch_mask_stroke_cancellable(
+            id,
+            points,
+            mode,
+            &std::sync::atomic::AtomicBool::new(false),
+        )
+    }
+
+    pub fn retouch_mask_stroke_cancellable(
+        &mut self,
+        id: &str,
+        points: &[(f32, f32)],
+        mode: RetouchMode,
+        cancelled: &std::sync::atomic::AtomicBool,
+    ) -> anyhow::Result<bool> {
+        crate::retouch_brush::check_cancelled(cancelled)?;
+        self.finish_stroke();
+        anyhow::ensure!(
+            !locked_in_tree(&self.document.layers, id, false),
+            "Mask layer is locked"
+        );
+        let layer = self
+            .document
+            .find_layer(id)
+            .ok_or_else(|| anyhow::anyhow!("Layer not found"))?;
+        let original = layer
+            .mask
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Layer has no mask"))?
+            .clone();
+        anyhow::ensure!(
+            u64::from(original.width()) * u64::from(original.height()) <= 16_777_216,
+            "Retouch supports masks up to 16 million pixels"
+        );
+        let transform = Transform::for_mask(&self.document, id)
+            .ok_or_else(|| anyhow::anyhow!("Invalid mask placement"))?;
+        let outside = crate::effects::mask_outside_coverage(&layer.metadata, &original);
+        // Pinning a legacy folder's ground must not activate an unrelated,
+        // previously ignored image-layer maskPlacement record.
+        let preserve_grid = if (layer.is_group() || layer.image.is_none())
+            && layer.metadata.get("maskOutsideCoverage").is_none()
+            && layer.metadata.get("maskPlacement").is_some()
+        {
+            self.mask_placement(id).map(|placement| {
+                let sampling = layer
+                    .metadata
+                    .pointer("/transform/sampling")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("High quality")
+                    .to_owned();
+                (placement, sampling)
+            })
+        } else {
+            None
+        };
+        // Imported masks may encode coverage with alpha or coloured RGB. Work
+        // on coverage but preserve untouched source bytes and the stored ground.
+        let normalized = if original
+            .pixels()
+            .all(|p| p[0] == p[1] && p[1] == p[2] && p[3] == 255)
+        {
+            None
+        } else {
+            let mut image = crate::retouch_brush::copy_image(&original)?;
+            for (i, p) in image.pixels_mut().enumerate() {
+                if i & 4095 == 0 {
+                    crate::retouch_brush::check_cancelled(cancelled)?;
+                }
+                let gray = ((0.2126 * f32::from(p[0])
+                    + 0.7152 * f32::from(p[1])
+                    + 0.0722 * f32::from(p[2]))
+                    * f32::from(p[3])
+                    / 255.)
+                    .round() as u8;
+                *p = Rgba([gray, gray, gray, 255]);
+            }
+            Some(image)
+        };
+        let source = normalized.as_ref().unwrap_or(&original);
+        let Some(mut output) = self.native_retouch_output(
+            source,
+            points,
+            mode,
+            transform,
+            crate::retouch_brush::EdgeMode::Constant([outside, outside, outside, 255]),
+            normalized.as_ref().map_or(0, |i| i.as_raw().len()),
+            cancelled,
+        )?
+        else {
+            return Ok(false);
+        };
+        if normalized.is_some() {
+            for (i, ((pixel, old), coverage)) in output
+                .pixels_mut()
+                .zip(original.pixels())
+                .zip(source.pixels())
+                .enumerate()
+            {
+                if i & 4095 == 0 {
+                    crate::retouch_brush::check_cancelled(cancelled)?;
+                }
+                if pixel == coverage {
+                    *pixel = *old;
+                }
+            }
+        }
+        let before = self.retouch_snapshot()?;
+        crate::retouch_brush::check_cancelled(cancelled)?;
+        let layer = self.document.find_layer_mut(id).unwrap();
+        layer.mask = Some(output.into());
+        if let Some((placement, sampling)) = preserve_grid {
+            set_metadata_placement(layer, "maskPlacement", placement);
+            layer.metadata["maskPlacement"]["sampling"] = sampling.into();
+        }
+        layer.metadata["maskOutsideCoverage"] = serde_json::json!(outside);
+        self.commit(before);
+        Ok(true)
     }
     pub fn clone_mask_stroke(
         &mut self,
@@ -6790,4 +6991,133 @@ fn reconcile_drop_clipping(
     }
     let changed = adopt(layers, &inserted, &mut candidates, false)?;
     Ok(release(layers, &candidates, false)? || changed)
+}
+
+#[cfg(test)]
+mod native_retouch_failure_tests {
+    use super::*;
+    use crate::retouch_brush::failpoint::Guard;
+    use std::sync::atomic::AtomicBool;
+
+    fn fixture() -> Editor {
+        let mut document = Document::new(32, 24);
+        document.layers[0].image = Some(
+            RgbaImage::from_fn(32, 24, |x, y| {
+                Rgba([(x * 31) as u8, (y * 17) as u8, 53, 127])
+            })
+            .into(),
+        );
+        document.layers[0].mask = Some(
+            RgbaImage::from_fn(32, 24, |x, y| {
+                Rgba([(x * 23) as u8, (y * 19) as u8, 113, 127])
+            })
+            .into(),
+        );
+        let mut editor = Editor::new(document);
+        editor.selection = Some(Selection {
+            width: 32,
+            height: 24,
+            mask: vec![128; 32 * 24],
+        });
+        editor.brush.size = 8.;
+        editor.brush.hardness = 0.5;
+        editor
+    }
+    fn edit(editor: &mut Editor, mask: bool, mode: RetouchMode) -> anyhow::Result<bool> {
+        let path = [(8.5, 12.5), (18.5, 12.5)];
+        if mask {
+            let id = editor.active_layer.clone();
+            editor.retouch_mask_stroke(&id, &path, mode)
+        } else {
+            editor.retouch_stroke(&path, mode)
+        }
+    }
+    #[test]
+    fn allocation_failures_through_commit_preparation_leave_document_and_history_exact() {
+        for mask in [false, true] {
+            for mode in [RetouchMode::Blur, RetouchMode::Smudge, RetouchMode::Liquify] {
+                let mut failures = 0;
+                for fail_after in 0..12 {
+                    let mut editor = fixture();
+                    let before = format!("{:?}", editor.document);
+                    let selection = editor.selection.clone();
+                    let revision = editor.revision;
+                    let guard = Guard::allocation_after(fail_after);
+                    let result = edit(&mut editor, mask, mode);
+                    drop(guard);
+                    match result {
+                        Ok(changed) => {
+                            assert!(changed);
+                            break;
+                        }
+                        Err(error) => {
+                            failures += 1;
+                            assert!(error.to_string().contains("memory"), "{error}");
+                            assert_eq!(
+                                format!("{:?}", editor.document),
+                                before,
+                                "{mode:?}, mask {mask}, failure {fail_after}"
+                            );
+                            assert_eq!(editor.selection, selection);
+                            assert_eq!(editor.revision, revision);
+                            assert_eq!(editor.undo_depth(), 0);
+                            assert_eq!(editor.redo_depth(), 0);
+                            assert!(edit(&mut editor, mask, mode).unwrap());
+                            assert_eq!(editor.undo_depth(), 1);
+                            assert!(editor.undo());
+                            assert_eq!(format!("{:?}", editor.document), before);
+                            assert_eq!(editor.selection, selection);
+                        }
+                    }
+                }
+                // Includes caller points, native result and the selection snapshot,
+                // as well as each tool's own working buffers (and mask normalization).
+                assert!(
+                    failures >= 4,
+                    "{mode:?}, mask {mask}: only {failures} allocations exercised"
+                );
+            }
+        }
+    }
+    #[test]
+    fn cancellation_after_raster_work_starts_leaves_history_and_mask_metadata_exact() {
+        for mask in [false, true] {
+            for mode in [RetouchMode::Blur, RetouchMode::Smudge, RetouchMode::Liquify] {
+                let mut editor = fixture();
+                let before = format!("{:?}", editor.document);
+                let revision = editor.revision;
+                let guard = Guard::cancel_after(20);
+                assert!(
+                    edit(&mut editor, mask, mode)
+                        .unwrap_err()
+                        .to_string()
+                        .contains("cancelled")
+                );
+                drop(guard);
+                assert_eq!(format!("{:?}", editor.document), before);
+                assert_eq!(editor.revision, revision);
+                assert_eq!(editor.undo_depth(), 0);
+                let cancelled = AtomicBool::new(true);
+                let id = editor.active_layer.clone();
+                assert!(
+                    editor
+                        .retouch_stroke_cancellable(&[(8., 12.), (18., 12.)], mode, &cancelled)
+                        .is_err()
+                );
+                assert!(
+                    editor
+                        .retouch_mask_stroke_cancellable(
+                            &id,
+                            &[(8., 12.), (18., 12.)],
+                            mode,
+                            &cancelled
+                        )
+                        .is_err()
+                );
+                assert!(edit(&mut editor, mask, mode).unwrap());
+                assert!(editor.undo());
+                assert_eq!(format!("{:?}", editor.document), before);
+            }
+        }
+    }
 }

@@ -1,5 +1,350 @@
 # OmaPhoto comparison and improvement plan
 
+## Latest release review — OmaPhoto 1.4.5, 4 October 2026
+
+[OmaPhoto 1.4.5](https://github.com/ZacharyZhang-NY/OmaPhoto/releases/tag/v1.4.5)
+was published at **05:10 UTC / 13:10 Perth**. The annotated tag resolves to
+`4c7d98b17f80c3cbaecc17ac75c27af74f2f703b`, also the observed main head.
+This supersedes the earlier 01:16 UTC review below, when 1.4.5 was unreleased.
+
+The [new range](https://github.com/ZacharyZhang-NY/OmaPhoto/compare/28f6337d13f402378d025850accce04026a6df2b...4c7d98b17f80c3cbaecc17ac75c27af74f2f703b)
+contains **four commits and 34 changed paths**, including three new acceptance
+programs, commit-continuation regressions, picker fixes and refreshed screenshots.
+Five Linux packages are attached: Arch x86_64, Ubuntu 24.04/26.04 and Fedora 43/44,
+plus SHA256SUMS. The [release workflow](https://github.com/ZacharyZhang-NY/OmaPhoto/actions/runs/37178698737)
+has seven successful jobs. The workflow runs packaging, not ctest; those green
+jobs do not independently confirm the separately reported distro test results.
+There are now five tags and five releases; every
+older note hash and asset fingerprint matches the preceding watch baseline.
+
+### What matters for Omuse
+
+The comparison uses **Omuse 0.8.0**, installed runtime
+[`eb558dc`](https://github.com/Sugata-Software/Omuse/tree/eb558dc59ccdf88a3d62dfc2d706a6b836da1eda)
+and the same Rust source in integration `4888b00`. The older dirty worktree
+is preserved, not used to judge the current application's features.
+
+| Area | OmaPhoto 1.4.5 and current Omuse position | Useful next work |
+| --- | --- | --- |
+| Native-resolution retouch | OmaPhoto's brush tools operate on layer-resolution rasters. Omuse already has carried Smudge colour, untouched-source Liquify and bounded Blur regions, but its Blur/Smudge/Liquify path composites at canvas resolution and maps back. Ordinary paint and Clone already use local layer pixels. | Preserve fine detail on scaled-down/rotated layers, with fractional coordinates, masks, soft selections and exact Undo. Give Blur an independent radius; do not mistake the 0.8 algorithm improvements for full resolution parity. |
+| Grid and snapping | OmaPhoto adds spacing, subdivisions and style controls, plus guide/grid snapping for selections and shapes with temporary bypass. Omuse has grid/guide snapping in Move/transform, but `ui.rs:6261` displays 64-pixel lines below 100% while `ui.rs:8496` still snaps to 8 pixels. | Use one grid model for display and snapping; add settings and selection/shape coverage. The mismatch is source-derived, not a reproduced native-GUI failure. |
+| Masks and layer folders | OmaPhoto adds Alt-click mask-only inspection and ordinary folder Ungroup. Omuse already preserves soft selection coverage, PSD mask ground and growing/linked masks. It has vector Ungroup and layer Unnest, not an equivalent folder-dissolve command. | Add mask-only inspection and an ordinary Ungroup that preserves order, placement, locks and mask/effect semantics or explains unsupported cases. |
+| Typography | OmaPhoto previews font choices on selected letters and restores the draft when the menu closes. Omuse supports per-range fonts/sizes through Rich Typography and live text rendering. | Make selected-letter font changes direct, with mixed-style feedback and reversible hover preview. Escape, outside-click and document changes must not lose later typing. |
+| Curves and blending | OmaPhoto changes Camera Raw curves, Refine Saturation, Soft Light and clipping toward its Photoshop reference. Omuse's existing recipe and Soft Light formula differ. | Use independent reference pixels and version changed recipe semantics. Do not silently alter the appearance of saved artwork or claim Photoshop parity from release wording. |
+| Selection, presets and JPEG | Colour-range selection, new-canvas presets and JPEG preview zoom feature in the release. Omuse already has these capabilities, including hue/luminosity ranges and encoded JPEG Fit/100% pan inspection. | Qualify interaction details; these are not missing whole features. |
+| Retro finishes | OmaPhoto adds separate ASCII text-size control and Scanlines/CRT. Omuse has ten deterministic finishes, including ASCII, with cell-size controls. | Separate glyph size from cell size and add a distinct CRT finish; halftone lines are not the same effect. |
+| Project navigation and previews | OmaPhoto adds draggable tabs/overflow and saves a QuickLook preview. Omuse has searchable recents and Create pages. | Design project tabs around dirty-document/recovery safety; add bounded saved previews and qualify Linux file-manager discovery separately. An embedded preview alone is not desktop thumbnail integration. |
+
+Mask inspection was checked separately from mask editing: the current mask badge
+(`ui.rs:5303`) selects the paint target without inspecting Alt, `refresh`
+(`ui.rs:1055`) composites the artwork, and `canvas_view` (`ui.rs:6032`) selects
+trace/vector/artwork displays without a mask-only route. The command catalogue
+and mask controls have no isolation command. This supports the narrower missing
+Alt-click/whole-canvas mask-view comparison; it does not question existing mask
+painting or the subject-refinement preview.
+
+Omuse's vector scope remains broader in the reviewed source: editable Pen/nodes,
+image tracing, boolean construction, groups, gradients, advanced strokes, text
+on curves and vector PDF. Its transparent-fill/stroked rectangle and ellipse
+workflow already addresses the capability requested in new upstream
+[issue #15](https://github.com/ZacharyZhang-NY/OmaPhoto/issues/15). That issue is
+open; it is not a feature shipped in OmaPhoto 1.4.5. Omuse's in-app AI and content
+creation workflows are also a separate focus. Breadth does not establish
+higher photographic quality or better performance.
+
+### Stability and release lessons
+
+The new [commit-continuation fix](https://github.com/ZacharyZhang-NY/OmaPhoto/commit/8bd3fc3264d1d400b23b42cc2b6cc66614c35a77)
+keeps a completed raster edit's follow-up work in the same event turn. Previously
+the project could appear free while a gradient remained pending, or a chained
+operation could read a newly selected layer. Omuse should test Apply followed
+immediately by a new tool, layer selection, another command, Undo or close.
+Its existing transaction/stale-result guards and Apply-to-keyboard-Undo tests
+are useful coverage, not proof that this entire sequence matrix passes.
+
+The [picker fix](https://github.com/ZacharyZhang-NY/OmaPhoto/commit/c854e42116ff6c82b72d614de2c40ec8bd087ff7)
+responds to newer Qt sending highlight signals while closed and dismissing a
+popup without the old callback. Omuse uses GPUI, so the Qt patch is not a port
+target. The portable lesson is to tie previews to visible popup lifetime and
+restore state safely on every exit.
+
+Pinned [TASKS](https://github.com/ZacharyZhang-NY/OmaPhoto/blob/4c7d98b17f80c3cbaecc17ac75c27af74f2f703b/TASKS.md)
+reports repeated parallel runs, six acceptance programs and 334/334 suites on
+five distro checks. These are upstream reports, not tests executed here.
+The original five parallel failures did not recur, but their cause remains
+unknown; heavy 2-CPU/`-j32` stress still has timeout and one allocation-test
+anomaly. Production test scripts remain serial. Passing suite counts are not
+comparable to Omuse's individual test-case count.
+
+The six acceptance programs exercise real controls and check pixels/state/files
+under Qt offscreen; they are stronger evidence than screenshots alone. They
+are still mostly synthetic scenarios, not native compositor, broad photographic
+or hardware qualification.
+At the release commit, fresh GitHub-package installs and the final checklist
+remain unchecked. The live release/build evidence closes publication despite
+the stale unchecked tag row; it does not close fresh-install acceptance.
+
+Omuse's [0.8.0 release](https://github.com/Sugata-Software/Omuse/releases/tag/v0.8.0)
+was checked again: it remains a source prerelease with **no permanent binary
+attachments**, despite qualified CI archives. Public downloadable packages are
+a clear delivery gap against OmaPhoto's release. Clean-machine acceptance,
+signing and broader hardware remain separate gates.
+
+The earlier captured-stroke endpoint defect and recoverable-memory work remain
+planned and unfixed by this review. Prioritize them and native-resolution
+retouch, then grid consistency/mask inspection, before cosmetic effects.
+No app source, installed runtime, release tag or changelog was changed here.
+
+### Watch scope
+
+All five release/tag records, one branch, four PRs, eleven non-PR issues and ten
+Actions runs were inventoried. The four PR records and previous ten issue
+records are unchanged. OmaStore #14 and AppImage #8 remain open/unmerged;
+neither is a shipped distribution channel. Upstream dependency locks, installer
+and release recipes did not change in this four-commit range. The review is
+source/test/release inspection, not an executed application comparison or
+speed benchmark. Planned follow-ups remain visibly separate from shipped work.
+
+
+## Historical source review — 4 October 2026, 01:16 UTC
+
+The exact [6ccff8a → 28f6337 range](https://github.com/ZacharyZhang-NY/OmaPhoto/compare/6ccff8a9d79438d93ac7376341e5a54fbe6194e6...28f6337d13f402378d025850accce04026a6df2b)
+contains **six commits and 49 changed paths**: 44 test files, one application
+source file, two documentation files, `.gitignore` and `flake.nix`. The only
+application change simplifies guarded document/mask reads in Blur sampling.
+The Nix source filter now excludes the local Compositor reference checkout.
+Dependency locks, release workflows, installer and distro recipes are unchanged.
+
+**OmaPhoto 1.4.5 remains merged development work, not a published release.**
+The four tags and four releases, including every release-note hash and asset
+name, size, timestamp and digest, match the previous baseline. Latest remains
+[v1.3.3](https://github.com/ZacharyZhang-NY/OmaPhoto/releases/tag/v1.3.3).
+There is one active branch, four PRs and ten non-PR issues; issue metadata and
+all nine Actions run records are unchanged. PR #14 is the new proposal below.
+
+The upstream [status record](https://github.com/ZacharyZhang-NY/OmaPhoto/blob/28f6337d13f402378d025850accce04026a6df2b/TASKS.md)
+now reports a fresh build, targeted tests and mutation checks, and 330/330
+suites at `-j8` before the last gesture-test commit. These are the author's
+reports, not independently executed results or a new Actions run. Full `-j16`
+isolation, acceptance screenshots, distro checks, packaging and live installs
+remain unchecked in that record. The new tests use checked optional access,
+correct two stale selection-mask expectations, exercise allocation failures,
+and distinguish a second click from the first rather than clicking the same
+position twice. No performance was measured here.
+
+### Comparison with the current Omuse release
+
+This review uses the clean integration source at `4888b00` before documentation
+updates, with the same Rust tree as public runtime
+[`eb558dc`](https://github.com/Sugata-Software/Omuse/tree/eb558dc59ccdf88a3d62dfc2d706a6b836da1eda).
+The normal installed command and source receipt report **Omuse 0.8.0**. The
+older dirty `feature/photo-vector-studio` checkout is preserved; its source
+state is not treated as the released implementation.
+
+Several high-priority findings from the historical 3 October review are now
+implemented in 0.8.0: PSD Levels gamma/channel ranges and explicit mask ground,
+soft selection-to-mask coverage, external format-11 font runs, retouch carry
+and untouched-source Liquify, bounded Blur work, and Fit/100% encoded JPEG
+inspection. The [0.8 qualification record](https://github.com/Sugata-Software/Omuse/blob/8f7526f1acee22de7068e143e65a7c4541c88b0c/docs/release-080-qualification.md)
+retains its own 1,352-test, photo and native evidence. No application test or
+benchmark was rerun during this scheduled review.
+
+| Priority | Concrete Omuse follow-up and current evidence |
+| --- | --- |
+| Fix the captured-stroke endpoint limit | In `rust/src/ui.rs:1740`, pointer collection stops at 100,000 points, but mouse release appends another at line 1863. `rust/src/editor.rs:3555` rejects more than 100,000. A retouch stroke reaching that cap is therefore rejected on release. This is a source-derived defect, not an interactive reproduction. Reserve an endpoint slot or replace the last captured point; test 99,999/100,000 boundaries, endpoint retention and unchanged pixels/history on refusal. Inspect Spot Heal's analogous capture path too. |
+| Make memory-pressure failures recoverable | The new upstream [WarpFailureTests](https://github.com/ZacharyZhang-NY/OmaPhoto/blob/28f6337d13f402378d025850accce04026a6df2b/tests/WarpFailureTests.cpp) pin failed Smudge carry, failed Liquify offsets, and scratch failure followed by recovery. Omuse already bounds pixels/work and commits successful results atomically, but `retouch_brush.rs:415,470,485` still allocates through `vec!` and `extend_from_slice`, with image clones elsewhere. Its core API accepts a 4096-pixel brush whose carried-colour buffer alone is about 256 MiB; this is an allocation estimate, not observed RSS or a reproduced crash. Add derived-buffer admission, fallible allocation and isolated failure injection proving the document and Undo remain intact. |
+| Exercise actual focus transitions | [MoveBarPressTests](https://github.com/ZacharyZhang-NY/OmaPhoto/blob/28f6337d13f402378d025850accce04026a6df2b/tests/MoveBarPressTests.cpp) now types X then clicks Y without a canvas press. Omuse's numeric handler commits changed values on Blur and guards editor/layer identity; its visible typing test covers Enter and leaving an unchanged value. Add changed-value field-to-field clicks, immediate canvas presses, stale targets and exactly one Undo for artwork values. This is a coverage gap, not a reproduced input bug. |
+| Strengthen gesture boundaries without copying unrelated mechanics | Omuse already cancels lost-button scrubs and stale Camera Raw gestures. Add successive curve clicks at different positions and direct path-walker tests for exact spacing, duplicates and corners. Upstream tab-drag and committed-point thinning tests concern different workspace/history designs; Omuse commits raster retouch results, so those mechanisms do not need a literal port. |
+| Qualify parallel tests separately | `scripts/test-rust.sh` gives the run disposable XDG directories and uses `--test-threads=1`. Existing passing results do not establish concurrent settings isolation. Inventory mutable settings, isolate them per test/process, and run controlled parallel comparisons before changing CI concurrency. Upstream's `-j8` report does not close its own `-j16` gate or prove an Omuse speedup. |
+
+The Blur cleanup needs no direct port: Omuse's mask-retouch path already selects
+the mask explicitly. Translated/rotated mask Blur with black versus white
+outside coverage is a useful additional fixture. Changed Camera Raw recipe
+semantics, native-resolution retouch and broader photographic quality remain
+separate work; old saved grades should retain their appearance.
+
+### New store proposal and relocation lesson
+
+[OmaStore PR #14](https://github.com/ZacharyZhang-NY/OmaPhoto/pull/14) is **open
+and unmerged**, replacing closed/unmerged #12. Its only change is a 16-line
+manifest for the existing x86_64 Arch package; the old manifest's meaningful
+fields match, with an updated store URL in a comment. PR #8 remains open and
+#10 remains closed/unmerged. Bot summaries do not establish a live listing.
+
+The model-location concern in #14's review is supported by source inspection:
+OmaPhoto uses `QStandardPaths::GenericDataLocation` for `omaphoto/u2net.onnx`.
+OmaStore's pinned [extractor](https://github.com/KitsuneForgering/OmaStore/blob/9bcc8012b1ff121a61d93512be65652b769ec676/backend/internal/install/extract.go#L337)
+preserves package `usr/` paths inside a per-version directory, and its
+[launcher](https://github.com/KitsuneForgering/OmaStore/blob/9bcc8012b1ff121a61d93512be65652b769ec676/backend/internal/install/launcher.go#L18)
+directly executes the relocated binary without adding a data search path.
+Under ordinary data paths, a separately installed model could mask this
+relocation gap. This review did not install either upstream application or
+reproduce the store failure.
+
+Omuse's `segmentation.rs:419` resolves its default runtime/model beside the
+actual executable, and the earlier installed local-model journey has its own
+receipt. Retain a clean-home, arbitrary-directory model/RAW/launcher test before
+any store listing. Omuse's 0.8.0 release still has no permanent binary attachments
+at this check; no listing, topic, release or package was published here.
+
+Only local watch/comparison/guide documents changed. The integration guide is
+the private dashboard's source so the installed 0.8.0 state is retained; the
+canonical watch baseline is synchronized without replacing its older work.
+Recommendations are planned work, not new shipped features or changelog fixes.
+
+
+## Historical review — 3 October 2026, 01:10 UTC
+
+OmaPhoto advanced from `802ae82` to
+[`6ccff8a`](https://github.com/ZacharyZhang-NY/OmaPhoto/tree/6ccff8a9d79438d93ac7376341e5a54fbe6194e6):
+**55 commits, 275 distinct changed paths** in the exact Git range. The full
+path inventory includes 148 source files, 108 test files and eight kernel files.
+Focused implementation and regression-test review covered editing, interaction,
+file compatibility, export and packaging. No upstream code or installer was run.
+
+**1.4.5 is now merged development work, still not a published release.**
+The four tags and four releases retain identical note hashes and all asset names,
+sizes, timestamps and digests; latest remains
+[v1.3.3](https://github.com/ZacharyZhang-NY/OmaPhoto/releases/tag/v1.3.3).
+There is one active branch and no new Actions run: all nine workflow records are
+unchanged. The version bump in CMake, Arch and Nix metadata does not qualify a
+release. Dependency lock, installer and workflow files did not change.
+
+The upstream [status note](https://github.com/ZacharyZhang-NY/OmaPhoto/blob/6ccff8a9d79438d93ac7376341e5a54fbe6194e6/TASKS.md#L460-L469)
+explicitly leaves final review commits unbuilt/untested, reports five suites
+failing together but passing separately, and leaves acceptance, distro checks,
+packages and live installs pending. These are upstream reports, not failures
+reproduced here. Existing screenshots are not fresh 1.4.5 acceptance evidence.
+
+### Concrete fixes to prioritize in Omuse
+
+These findings use the actual dirty `feature/photo-vector-studio` worktree at
+`c902b72`, not an assumed release checkout. Installed Omuse reports **0.7.0**, with
+public runtime receipt `5b3daefbb5258afff4a74a2ff3db5247b074972d`. The PSD parser,
+external text normalizer and retouch engine are byte-identical in that runtime,
+current public main `c2f2df7` and the inspected worktree. No application suite or
+native editing journey was executed during this review.
+
+| Priority | Source finding and next verification |
+| --- | --- |
+| High — PSD adjustment fidelity | `rust/src/psd.rs:1056` divides Levels gamma by 256; the format stores hundredths, so 100 should import as 1.0, not 0.390625. `hue()` at lines 1093–1100 always reads offsets 4/6/8, which are colorization values; ordinary version-2 master values begin at byte 10 and selective bands follow. This contradicts [Adobe's file-format specification](https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/). OmaPhoto's [parser correction](https://github.com/ZacharyZhang-NY/OmaPhoto/commit/cb85b86d589a862422b464dc94e4fe78b5eaeacb) and `PSDAdjustmentTests` supply useful cases. Correct version-aware parsing, retain or explicitly report selective-band limitations, and add independently authored PSD/PSB pixel references plus malformed-input cases. |
+| High — PSD mask ground | Omuse discards the PSD mask default byte at `psd.rs:506`, then stores placement without `maskOutsideCoverage` at lines 815–820. Rendering infers the ground from border pixels (`effects.rs:892`), which can contradict the file's explicit default. Preserve the default; test white patches on black ground and the inverse, offset masks, adjustment masks, save/reopen and exact rendered edges. The same upstream commit adds `maskPatchSitsWhereItIsOnTheCanvas`; it is source evidence, not our executed fixture. |
+| High — soft selection to mask | Omuse already creates masks from selections, but `Editor::add_mask` (`editor.rs:4430`) turns every selected sample into either 0 or 255 through `Selection::contains`, losing partial coverage. Keep actual selection coverage and invert it for Hide Selection. Add feathered and antialiased edges on rotated/scaled layers, and save/reopen/Undo cases. OmaPhoto's [mask change](https://github.com/ZacharyZhang-NY/OmaPhoto/commit/0b0d36a7dffa20b0c67872e248724ae1232cf1e7) and `SelectionEditTests` explicitly cover soft edges. |
+| High — external format-11 imports | OmaPhoto now writes ordinary version-11 projects with optional UTF-16 `text.fontRuns` ([format change](https://github.com/ZacharyZhang-NY/OmaPhoto/commit/dcedfea53f5775d25dec1de658d2c6c432505678)). Omuse's `document.rs:845` requires a vector scene for version 11/12, so these ordinary projects are refused. `project_text.rs` converts only `colorRuns`; the existing format-10 regression intentionally rejects plain version 11. Separate external format semantics from Omuse vector extensions; validate and merge overlapping colour/font ranges into native runs, preserve cached pixels and the original file, and retain fail-closed vector-sidecar checks. A shared version number is not interoperability. |
+| Retouch quality and speed | The previously identified Smudge carry/spacing and repeated Liquify resampling gaps now have a [CPU implementation upstream](https://github.com/ZacharyZhang-NY/OmaPhoto/commit/cbd8612014568f633536321071f6856d675c80c8). Compare fading trails and repeated forward/back warps using untouched-source displacement sampling. Review bounded blur patches and clone tile reuse separately. Preserve alpha, soft selections, cancellation and Undo, and measure time/RSS before any speed claim. |
+| Camera Raw compatibility | [New curve semantics](https://github.com/ZacharyZhang-NY/OmaPhoto/commit/a77cce459861278a477150694f9aeaf72d01394b) add smooth parametric bends, per-channel master curves and different Refine Saturation behavior. Omuse still uses its older recipe. Add reference pixels and graph-gesture tests; version any changed saved-recipe meaning so existing grades keep their appearance. |
+| JPEG inspection | OmaPhoto's [preview change](https://github.com/ZacharyZhang-NY/OmaPhoto/commit/64ebd1cdf9208d21d4e085a288a1992d6f86ee96) adds Fit/100%, pan and remapped zoom keys. Omuse already previews genuinely encoded bytes with stale-result guards, but `ui.rs:7961` fits them into a fixed preview without inspection zoom and limits preview to 16 MP. Add bounded zoom/pan and a shared matte picker; keep encoded-byte, stale-result and export-independence regressions. |
+
+Retouch resolution needs a specific comparison: ordinary paint and Clone already
+use layer-local pixels in Omuse. Blur/Smudge/Liquify composite at canvas resolution
+and map back (`editor.rs:3527`), so prioritize scaled-down detailed sources and
+bounded blur regions. Broader native-resolution parity is not established by a
+scaled-up-source Undo test. Levels also needs channel-rendering coverage:
+`effects.rs:746` currently uses the master range only.
+
+Other useful interaction work is configurable grid spacing/subdivisions/style,
+broader resize/shape snapping with temporary bypass, mask-only inspection,
+selected-text font hover previews and a distinct Scanlines/CRT finish. These are
+not blanket feature absences: Omuse already has grid/guide snapping, colour-range
+selection, rich text runs, vector grouping/ungrouping, ten Dither styles, inline text
+Undo and pending-edit guards. Project-tab dragging is a workspace design choice;
+Qt event-filter mechanics should not be copied into GPUI. Ordinary layer-folder
+ungrouping is separate from vector ungrouping. A common close/quit matrix should
+exercise text, gradients, floating pixels, transform drafts, modal jobs and a
+save in progress through both Ctrl+Q and the window close button.
+
+Do not mechanically replace Soft Light: upstream now uses a square-root bright
+branch while Omuse's 8/16-bit renderers use the piecewise cubic/square-root
+variant. Independent reference pixels and an explicit compatibility decision
+should come before changing saved artwork. Upstream clipping-stack, adjustment,
+canvas and export consistency tests are useful regression designs, not proof
+of either editor's superiority.
+
+### Repository proposals and qualification signals
+
+- [Issue #13](https://github.com/ZacharyZhang-NY/OmaPhoto/issues/13) reports RAW
+  files missing from File → Import while drag/drop works. The upstream picker
+  already includes RAW globs from the system MIME database; cause is unconfirmed.
+  Omuse's native picker sets no image-extension filter and its RAW detector is
+  case-insensitive. Add paired chooser/drop checks for upper/lowercase extensions
+  and Unicode paths on a clean target; do not label this a reproduced Omuse bug.
+- [OmaStore PR #12](https://github.com/ZacharyZhang-NY/OmaPhoto/pull/12) is now
+  **closed without merging**. No manifest landed on main. AppImage PR #8 remains
+  open; #10 remains closed/unmerged. Ten non-PR issues were inventoried; only #13
+  is new or changed since the baseline.
+- The five upstream parallel-test failures are a reminder to isolate mutable
+  settings per test/process. Omuse's passing serial CI does not prove its tests
+  can safely run concurrently. Test parallel isolation before using it to claim
+  faster validation.
+- `QuickLook/Preview.jpg` is a new optional upstream save artifact, bounded to
+  a 1024-pixel long edge and omitted for large/unrenderable canvases. On Linux,
+  prioritize file-manager thumbnails and Omuse's recent-project gallery rather
+  than treating a Finder-specific folder as required parity.
+
+Only this comparison, its reviewed baseline and the project guide were updated.
+Recommendations are not changelog entries for shipped fixes. No source commit,
+release, repository setting, desktop configuration or installed app was changed.
+
+## Historical review — 1 October 2026, 01:12 UTC
+
+Since `e94fd73`, OmaPhoto has two new default-branch commits. The first,
+[`39dcbc7`](https://github.com/ZacharyZhang-NY/OmaPhoto/commit/39dcbc770568af3772c1ee44a6dfaa883e3052c2),
+changes `AGENTS.md` and `TASKS.md`: a survey and planned port through Compositor
+1.4.5. The second, [`802ae82`](https://github.com/ZacharyZhang-NY/OmaPhoto/commit/802ae82f72be1b6799098d521d940c4fa2e34407),
+adds README guidance for garbled NVIDIA/Hyprland cursors and marks that
+documentation task complete. **No application, test, dependency, build or packaging
+implementation changed on main. OmaPhoto 1.4.5 is a plan, not a release.** The
+four tags, four releases (including note hashes and every asset's metadata),
+existing PRs and nine workflow results match the previous baseline.
+
+[Issue #9](https://github.com/ZacharyZhang-NY/OmaPhoto/issues/9#issuecomment-5922636193)
+is now closed with a software-cursor workaround, distinguishing current Lua
+configuration from older `.conf` setups. This is a documented user workaround,
+not an app-side fallback or an independently reproduced fix. It leaves Omuse's
+NVIDIA/fractional-scale acceptance check open; no desktop settings were changed.
+
+Two new proposals were inspected:
+
+- [PR #12](https://github.com/ZacharyZhang-NY/OmaPhoto/pull/12) adds only
+  `omastore.toml`, identifying an x86_64 release package, executable, icon and
+  screenshots. It is **open and unmerged**. The author's install/checksum claim
+  was not independently rerun; an automated summary saying the app is already
+  listed is not merge or installation evidence.
+- [Issue #11](https://github.com/ZacharyZhang-NY/OmaPhoto/issues/11) requests a
+  Bézier pen tool. It contains no implementation. Omuse already has editable
+  cubic paths, draggable anchors/handles, smooth-node editing, vector masks,
+  Apply/Undo and persistence tests in `vector_ui.rs`, `vector_path.rs` and
+  `vector_tests.rs`. A Photoshop-style direct canvas tool remains a separate
+  interaction comparison.
+
+### Most useful follow-up work for Omuse
+
+Current Omuse source is `66f41b0`; its Rust subtree is identical to released
+runtime `a8b7ac7`, and the installed command reports **0.6.0**. The following are
+recommendations from source inspection, **not newly shipped fixes or reproduced
+quality measurements**. Linked Compositor code/tests were read, not executed.
+
+| Priority | Finding in Omuse and concrete next work |
+| --- | --- |
+| Smudge trail quality | `retouch_brush.rs` still uses 8%-diameter dab spacing and retains older carried colour. The [Compositor change](https://github.com/robbietilton/Compositor/commit/ad9ad7c94fe706f04bb930dcf576d95f77d0686a) changes both CPU/GPU spacing and carry, with a fading-dot-trail regression. Reproduce that visual case locally, then evaluate the smaller spacing and revised strength/carry together. Keep stroke-work limits, soft selections, alpha and Undo tests; tighter spacing increases work. |
+| Liquify sharpness | Omuse `push()` repeatedly samples the previous dab's pixels. [Compositor's Metal change](https://github.com/robbietilton/Compositor/commit/7164dd49055f57828e59315887f4779ac954de21) moves offsets and resamples untouched source pixels. Evaluate a bounded CPU displacement field for Omuse using forward/back strokes on line art and real photos. The upstream GPU measurement does not establish an Omuse improvement or require adopting Metal. |
+| Camera Raw curve behaviour | Omuse still applies a piecewise parametric lift to luminance before channel curves. The [new Compositor implementation and tests](https://github.com/robbietilton/Compositor/commit/60d9117907704443b991d7855a3ea454a535ee6e) use smoother parametric bends and an RGB master curve with changed Refine Saturation meaning. Add independent references and an explicit recipe/version migration so old saved grades retain their appearance. Omuse already captures point drags and preserves point order; parametric region/divider gestures and a selected-point readout are the remaining UI comparison. |
+| Rendering regression coverage | Expand preview/Apply/export references for clipping stacks, fractional alpha, placed masks and transformed paint. Omuse's 8/16-bit Soft Light already uses the piecewise cubic/square-root formula; the roadmap is not evidence that it needs replacement. Compare actual pixels before changing compositing. |
+| Everyday editing polish | Omuse already has colour-range selections and per-range font overrides in Rich Typography. Direct inline selection-to-font controls with mixed-style feedback remain useful. Dither currently lists ten styles; a distinct Scanlines/CRT mode is absent. These are proposals, not 0.6.0 features. |
+
+OmaStore could become a discovery channel after Omuse has a qualified downloadable
+package. The proposed manifest targets a package asset; Omuse currently publishes
+source pre-releases. Finish dependency notices and clean-machine package checks
+before listing it. This review makes no store submission, repository-setting
+change or installation change.
+
+The source audit also corrected stale guide entries: PSB/supported Photoshop text
+and live text previews are implemented in 0.6.0, and format-10 regressions completed
+the recorded release suite. The [0.6.0 qualification](release-060-qualification.md)
+retains its own test scope; no application test suite was rerun for this review.
+
+## Historical v1.3.3 release review
+
 Reviewed 1 October 2026 against [OmaPhoto v1.3.3](https://github.com/ZacharyZhang-NY/OmaPhoto/releases/tag/v1.3.3),
 published 30 September at exact tag commit
 [`190414451148d9627e902ded53082dc3b3019913`](https://github.com/ZacharyZhang-NY/OmaPhoto/tree/190414451148d9627e902ded53082dc3b3019913).

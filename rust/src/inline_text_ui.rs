@@ -78,6 +78,12 @@ impl EditorView {
         if draft.style.content == content {
             return Ok(false);
         }
+        // A content edit invalidates a hovered font; restore style only, then
+        // reconcile the current input so later typing can never disappear.
+        if let Some(edit) = draft.font_edit.take() {
+            draft.style = edit.original;
+            draft.typing_font = edit.typing;
+        }
         let mut candidate = draft
             .restore_text_history
             .then(|| {
@@ -93,14 +99,14 @@ impl EditorView {
         draft.restore_text_history = false;
         if candidate.content != content {
             let inserted = objects::edit_text_content(&mut candidate, content)?;
-            if !inserted.is_empty()
-                && let Some(color) = draft.typing_color
+            if !inserted.is_empty() && (draft.typing_color.is_some() || draft.typing_font.is_some())
             {
                 objects::apply_rich_text_patch(
                     &mut candidate,
                     inserted,
                     objects::RichTextPatch {
-                        color: Some(color),
+                        color: draft.typing_color,
+                        font_name: draft.typing_font.clone(),
                         ..Default::default()
                     },
                 )?;
@@ -128,12 +134,14 @@ impl EditorView {
         let Some(draft) = &mut self.inline_text else {
             return;
         };
-        if draft.color.read(cx).is_open() || draft.color_edit.is_some() {
+        if draft.color.read(cx).is_open() || draft.color_edit.is_some() || draft.font_edit.is_some()
+        {
             return;
         }
         let selection = draft.input.read(cx).selected_range();
         if !content_changed && draft.last_selection != selection {
             draft.typing_color = None;
+            draft.typing_font = None;
         }
         draft.last_selection = selection.clone();
         let color = draft
@@ -156,6 +164,13 @@ impl EditorView {
     }
 
     pub(super) fn inline_color_changed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self
+            .inline_text
+            .as_ref()
+            .is_some_and(|draft| draft.color.read(cx).is_open())
+        {
+            self.cancel_inline_font(window, cx);
+        }
         if self.sync_inline_text(cx).is_err() {
             return;
         }

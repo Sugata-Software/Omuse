@@ -21,8 +21,8 @@ or browse the [interface gallery](docs/releases/v0.8.0-gallery.md).
 
 [Explore what’s new](#new-in-080) ·
 [Follow the photo and vector workflows](docs/user-guide/photo-vector.md#photo-and-vector-tools-in-080).
-Linux and Windows archives are qualified as **unsigned experimental previews**;
-source and binary publication are separate steps, as described below.
+Linux and Windows downloads are available as **unsigned experimental previews**
+on the [0.8.0 release page](https://github.com/Sugata-Software/Omuse/releases/tag/v0.8.0).
 
 **[Read the user manual](docs/user-guide/README.md)** ·
 [Edit a photo](docs/user-guide/photo-editing.md) ·
@@ -89,9 +89,10 @@ script itself is downloaded from `main`.
 
 **The current installer builds from source.** Allow time for the first build
 and about 12 GB of free disk space. Later installs reuse the build cache.
-Reviewed unsigned Linux archives are listed on the
-[release page](https://github.com/Sugata-Software/Omuse/releases/tag/v0.8.0) when
-binary publication completes. The curl command remains the source installer.
+The [reviewed Linux archive](https://github.com/Sugata-Software/Omuse/releases/download/v0.8.0/omuse-0.8.0-linux-x86_64.tar.gz)
+and [checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.8.0/omuse-0.8.0-SHA256SUMS)
+are also available. See the [archive installation guide](docs/downloadable-releases.md).
+The curl command remains the source installer.
 You can [inspect it](install.sh) before running it.
 
 | Task | Command |
@@ -116,17 +117,11 @@ The portable **Windows x64** preview needs neither Rust nor Visual Studio.
 The 0.8.0 package passed automated checks on Windows Server 2025; interactive
 Windows 10/11 qualification is still separate.
 
-1. When application assets appear on the release page, download
-   **omuse-0.8.0-windows-x86_64.zip**. GitHub’s automatic source archives are not
-   application downloads.
+1. Download [omuse-0.8.0-windows-x86_64.zip](https://github.com/Sugata-Software/Omuse/releases/download/v0.8.0/omuse-0.8.0-windows-x86_64.zip)
+   and verify it against the [checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.8.0/omuse-0.8.0-SHA256SUMS).
 2. Extract the complete ZIP into a new folder.
 3. Run **omuse.exe**, keeping **lib**, **models** and **licenses** alongside it.
 
-If binary publication is still pending, sign into GitHub and use the reviewed
-build link above. Under **Artifacts**, download
-**omuse-download-windows-x86_64-attempt-1**, then extract its inner
-**omuse-0.8.0-windows-x86_64.zip**. These build artifacts are retained for
-**30 days**; published release assets do not have that artifact expiry.
 To update, keep the old complete folder, close the old app and launch the new
 folder’s executable. The [reviewed manifest](docs/releases/downloads/v0.8.0.json)
 records the source, native checks and archive hashes.

@@ -12,6 +12,7 @@ pub(super) enum Target {
     BrushOpacity,
     BrushHardness,
     BrushSmoothing,
+    BlurRadius,
     LayerOpacity,
     Detail(usize),
 }
@@ -497,6 +498,8 @@ mod tests {
     }
 }
 
+pub(super) const BLUR_RADIUS: Spec = Spec::new(0.25, 128., 0.25, 2., 2);
+
 #[derive(Clone, Copy, Debug)]
 pub(super) struct Spec {
     pub min: f64,
@@ -857,6 +860,7 @@ impl EditorView {
             Target::BrushOpacity => f64::from(self.editor.brush.opacity) * 100.,
             Target::BrushHardness => f64::from(self.editor.brush.hardness) * 100.,
             Target::BrushSmoothing => f64::from(self.editor.brush.smoothing),
+            Target::BlurRadius => f64::from(self.editor.brush.blur_radius),
             Target::LayerOpacity => {
                 if let Some(scrub) = self.numeric.borrow().scrub.as_ref()
                     && scrub.target == target
@@ -1206,6 +1210,7 @@ impl EditorView {
             Target::BrushOpacity => self.editor.brush.opacity = (value / 100.) as f32,
             Target::BrushHardness => self.editor.brush.hardness = (value / 100.) as f32,
             Target::BrushSmoothing => self.editor.brush.smoothing = value as f32,
+            Target::BlurRadius => self.editor.brush.blur_radius = value as f32,
             _ => {}
         }
     }

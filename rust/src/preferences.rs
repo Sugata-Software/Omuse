@@ -1,5 +1,6 @@
 //! Per-user view choices, independent of artwork and isolated in tests.
 use anyhow::{Result, ensure};
+use omuse::canvas_grid::GridSettings;
 use serde::{Deserialize, Serialize};
 use std::{
     io::Write,
@@ -15,6 +16,8 @@ pub struct Preferences {
     pub snapping: bool,
     pub auto_select: bool,
     pub transform_box: bool,
+    pub grid_spacing: u32,
+    pub grid_subdivisions: u8,
 }
 impl Default for Preferences {
     fn default() -> Self {
@@ -25,6 +28,8 @@ impl Default for Preferences {
             snapping: true,
             auto_select: true,
             transform_box: true,
+            grid_spacing: GridSettings::default().spacing,
+            grid_subdivisions: GridSettings::default().subdivisions,
         }
     }
 }
@@ -35,7 +40,13 @@ impl Preferences {
             file.metadata()?.len() <= 16_384,
             "Preferences file is too large"
         );
-        Ok(serde_json::from_reader(file)?)
+        let preferences: Self = serde_json::from_reader(file)?;
+        GridSettings {
+            spacing: preferences.grid_spacing,
+            subdivisions: preferences.grid_subdivisions,
+        }
+        .validate()?;
+        Ok(preferences)
     }
     pub fn save(&self, path: &Path) -> Result<()> {
         let parent = path
@@ -67,6 +78,11 @@ impl Preferences {
         }
     }
     pub fn persist(&self) -> Result<()> {
+        GridSettings {
+            spacing: self.grid_spacing,
+            subdivisions: self.grid_subdivisions,
+        }
+        .validate()?;
         if cfg!(test) {
             Ok(())
         } else {

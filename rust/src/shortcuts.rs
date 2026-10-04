@@ -91,6 +91,7 @@ define_commands! {
     command!("duplicate", "Duplicate selected layers", "ctrl-j", "Layer", "copy layer", "Duplicate the selected layer roots.");
     command!("delete", "Delete selected layers", "", "Layer", "remove layer", "Delete the selected layer roots.");
     command!("group", "Group selected layers", "ctrl-g", "Layer", "folder collect", "Put the selected layers in a group.");
+    command!("ungroup", "Ungroup folder", "", "Layer", "folder release", "Release an ordinary folder while preserving child order and placement.");
     command!("merge", "Merge down", "ctrl-e", "Layer", "combine layer below", "Merge the active layer into the layer below.");
     command!("flatten", "Flatten image", "", "Layer", "composite merge all visible", "Flatten the document's visible artwork.");
     command!("rename", "Rename layer", "", "Layer", "name label", "Rename the active layer.");
@@ -113,6 +114,7 @@ define_commands! {
     command!("invert-mask", "Invert layer mask", "", "Mask", "mask reverse black white", "Invert the active layer's mask.");
     command!("mask-enable", "Toggle layer mask", "", "Mask", "mask disable enable visibility", "Enable or disable the active layer's mask.");
     command!("mask-paint", "Toggle mask painting", "", "Mask", "mask pixels target brush", "Switch brush editing between layer pixels and the layer mask.");
+    command!("mask-view", "Inspect layer mask", "", "Mask", "mask preview inspect alt click", "Temporarily view the active layer mask without changing the document.");
     command!("mask-link", "Toggle mask link", "", "Mask", "mask unlink placement", "Link or unlink mask and layer placement.");
     command!("mask-transform", "Place mask", "", "Mask", "mask move resize rotate transform", "Edit the active mask's placement.");
     command!("live-mask", "Live mask source", "", "Mask", "mask nondestructive source", "Choose a live source for the active mask.");
@@ -185,6 +187,8 @@ define_commands! {
     command!("fit", "Fit canvas", "ctrl-0", "View", "zoom window screen", "Fit the full canvas in the viewport.");
     command!("actual", "Actual pixels", "ctrl-1", "View", "zoom 100 percent", "Show one image pixel per logical pixel.");
     command!("grid", "Toggle grid", "ctrl-'", "View", "show hide alignment", "Show or hide the canvas grid.");
+    command!("grid-spacing", "Change grid spacing", "", "View", "grid spacing pixels settings", "Cycle the canvas grid's major spacing.");
+    command!("grid-subdivisions", "Change grid subdivisions", "", "View", "grid subdivisions minor lines settings", "Cycle the canvas grid's minor subdivisions.");
     command!("guides", "Toggle guides", "ctrl-;", "View", "show hide alignment", "Show or hide guides.");
     command!("rulers", "Toggle rulers", "ctrl-r", "View", "show hide measurements", "Show or hide canvas rulers.");
     command!("snapping", "Toggle snapping", "ctrl-:", "View", "align grid guides snap", "Enable or disable snapping to the grid and guides.");

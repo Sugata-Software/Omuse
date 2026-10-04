@@ -1,5 +1,15 @@
 # Omuse 0.8.0 release qualification
 
+**4 October publication update:** [publication run 37200321434](https://github.com/Sugata-Software/Omuse/actions/runs/37200321434)
+completed successfully. All four permanent assets downloaded anonymously and
+matched the reviewed manifest sizes and SHA-256 hashes. The source tag remains
+`eb558dc59ccdf88a3d62dfc2d706a6b836da1eda`; published release notes are unchanged.
+The public Linux archive passed isolated installation, same-version replacement,
+rollback and profile-preservation checks. Windows archive verification passed;
+this update adds no local Windows desktop or live-AI qualification.
+The earlier "pending" statements below describe the record before publication.
+
+
 This is the qualification record for the 0.8.0 source release. The GitHub source
 release is published as a prerelease; permanent binary assets remain pending and
 this record does not claim stable, hardware or broad Windows GUI qualification.

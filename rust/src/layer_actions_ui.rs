@@ -8,6 +8,7 @@ const ACTIONS: &[(&str, &str)] = &[
     ("transform", "Transform…"),
     ("rename", "Rename"),
     ("group", "Group selected layers"),
+    ("ungroup", "Ungroup folder"),
     ("duplicate", "Duplicate selected layers"),
     ("delete", "Delete selected layers"),
     ("lock", "Lock layer"),
@@ -73,6 +74,7 @@ impl EditorView {
                     | "mask-link"
                     | "mask-transform"
                     | "mask-paint"
+                    | "mask-view"
                     | "effects"
             )
         {
@@ -100,7 +102,10 @@ impl EditorView {
         if path.iter().any(|layer| layer.locked) {
             return Some("Unlock this layer and its parent groups first");
         }
-        let roots = if matches!(id, "group" | "duplicate" | "delete" | "nest" | "unnest") {
+        let roots = if matches!(
+            id,
+            "group" | "ungroup" | "duplicate" | "delete" | "nest" | "unnest"
+        ) {
             let roots = self.editor.selected_layer_roots(&self.selected_layer_ids());
             if roots.is_empty() {
                 return Some("Select one or more layers first");
@@ -130,6 +135,7 @@ impl EditorView {
             })
         };
         match id {
+            "ungroup" => self.editor.ungroup_layer_unavailable(&layer.id),
             "edit-object" => {
                 if !has_live_object(layer) {
                     Some("Select editable text, a shape, or vector artwork")
@@ -158,6 +164,7 @@ impl EditorView {
             "mask-paint" if !self.paint_mask && layer.mask.is_none() => {
                 Some("Add a layer mask first")
             }
+            "mask-view" if layer.mask.is_none() => Some("Add a layer mask first"),
             "apply-mask" if layer.advanced.is_some() || has_live_object(layer) => {
                 Some("Convert a copy to pixels before baking its mask")
             }
@@ -426,6 +433,40 @@ impl EditorView {
 mod tests {
     use super::*;
     use gpui_kit::TestAppContext;
+
+    #[gpui_kit::test]
+    fn layer_actions_ungroup_shares_clipping_guard_with_editor(cx: &mut TestAppContext) {
+        cx.update(crate::init_test_theme);
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            let mut view = EditorView::new(None, window, cx);
+            let base = Layer::paint("Base", 1, 1);
+            let mut child = Layer::paint("Cross-boundary clipped child", 1, 1);
+            child.metadata["maskSourceID"] = serde_json::json!(base.id);
+            let mut folder = Layer::group("Folder");
+            folder.children.push(child);
+            let id = folder.id.clone();
+            let mut document = Document::new(1, 1);
+            document.layers = vec![base, folder];
+            view.editor = Editor::new(document);
+            view.select_layer_ids(vec![id]);
+            view.dialog = Dialog::None;
+            view
+        });
+        view.update_in(cx, |view, window, cx| {
+            let reason = view
+                .editor
+                .ungroup_layer_unavailable(&view.editor.active_layer);
+            assert!(reason.unwrap().contains("clipping stack"));
+            assert_eq!(view.layer_action_unavailable("ungroup"), reason);
+            assert_eq!(view.command_search_unavailable("ungroup"), reason);
+            let revision = view.editor.revision();
+            let before = format!("{:?}", view.editor.document);
+            view.command("ungroup", window, cx);
+            assert_eq!(view.editor.revision(), revision);
+            assert_eq!(format!("{:?}", view.editor.document), before);
+            assert!(view.status.contains("clipping stack"));
+        });
+    }
 
     #[gpui_kit::test]
     fn layer_actions_merge_explains_external_mask_dependencies_and_does_not_commit(

@@ -28,6 +28,7 @@ pub(crate) struct DisplayUpdate {
     pub uploaded_bytes: usize,
 }
 
+#[derive(Clone)]
 pub(crate) struct DisplaySurface {
     width: u32,
     height: u32,

@@ -1,18 +1,19 @@
 {
   "schemaVersion": 1,
   "repository": "https://github.com/ZacharyZhang-NY/OmaPhoto",
-  "reviewedAt": "2026-10-01",
+  "reviewedAt": "2026-10-04",
   "defaultBranch": "main",
-  "reviewedHead": "e94fd73573aee5eefd8e955e72cda5b379d4120f",
-  "reviewStatus": "Complete new-change inventory, focused implementation and regression tests, and current public metadata inspected; upstream code was not executed",
+  "reviewedHead": "4c7d98b17f80c3cbaecc17ac75c27af74f2f703b",
+  "reviewStatus": "OmaPhoto 1.4.5 release and dereferenced tag verified. Exact four-commit/34-path delta inventoried; targeted application/test, acceptance and workflow sources compared with installed Omuse 0.8.0. No upstream program, application test or benchmark executed.",
   "releaseBaseline": {
-    "tag": "v1.3.3",
-    "commit": "190414451148d9627e902ded53082dc3b3019913"
+    "tag": "v1.4.5",
+    "commit": "4c7d98b17f80c3cbaecc17ac75c27af74f2f703b",
+    "tagObject": "56babd5bd67edbc0e5f284cc23f3a867f769d15a"
   },
   "branches": [
     {
       "name": "main",
-      "sha": "e94fd73573aee5eefd8e955e72cda5b379d4120f"
+      "sha": "4c7d98b17f80c3cbaecc17ac75c27af74f2f703b"
     }
   ],
   "tags": [
@@ -35,9 +36,60 @@
       "ref": "refs/tags/v1.3.3",
       "objectSha": "190414451148d9627e902ded53082dc3b3019913",
       "objectType": "commit"
+    },
+    {
+      "ref": "refs/tags/v1.4.5",
+      "objectSha": "56babd5bd67edbc0e5f284cc23f3a867f769d15a",
+      "objectType": "tag"
     }
   ],
   "releases": [
+    {
+      "tag": "v1.4.5",
+      "id": 402850702,
+      "publishedAt": "2026-10-04T05:10:51Z",
+      "updatedAt": "2026-10-04T05:11:20Z",
+      "prerelease": false,
+      "assets": [
+        {
+          "name": "omaphoto-fc43.x86_64.rpm",
+          "size": 173890398,
+          "updatedAt": "2026-10-04T05:10:51Z",
+          "digest": "sha256:a97e04607a4ef86b4f9e970e6371986717650bbad2eeec04dd9e5fd65fc8711a"
+        },
+        {
+          "name": "omaphoto-fc44.x86_64.rpm",
+          "size": 173953366,
+          "updatedAt": "2026-10-04T05:10:51Z",
+          "digest": "sha256:a7bf9a063a92b22aaa9932e2c187bb1b04dbea4def4e741ab092103fbd5ef49f"
+        },
+        {
+          "name": "omaphoto-noble_amd64.deb",
+          "size": 175300804,
+          "updatedAt": "2026-10-04T05:10:50Z",
+          "digest": "sha256:f450abbc5c2597ba951e47de868dc7a59d75f72360f3037c799fecd93962a0eb"
+        },
+        {
+          "name": "omaphoto-resolute_amd64.deb",
+          "size": 175443920,
+          "updatedAt": "2026-10-04T05:10:51Z",
+          "digest": "sha256:cdba96e407e187ff57ddf8cf92e94b709c7b173da4504d7e3579d38656444c8c"
+        },
+        {
+          "name": "omaphoto-x86_64.pkg.tar.zst",
+          "size": 174245941,
+          "updatedAt": "2026-10-04T05:10:48Z",
+          "digest": "sha256:4523c956f00420c7bb62b84ce5670f44a23ea6258c67df1222e0b89fe10d29c8"
+        },
+        {
+          "name": "SHA256SUMS",
+          "size": 461,
+          "updatedAt": "2026-10-04T05:10:36Z",
+          "digest": "sha256:e1a766dbe60ab93d28ba88b6c7af3e70f8acd48b1b7bec024d45b909e15bc4a0"
+        }
+      ],
+      "notesSha256": "d3e41de3cccd6cec2cb1cb1cca72b94049f5333cf3b9354f4c371d55b6d14f12"
+    },
     {
       "tag": "v1.3.3",
       "id": 400196955,
@@ -207,137 +259,45 @@
   ],
   "recentCommits": [
     {
-      "sha": "e94fd73573aee5eefd8e955e72cda5b379d4120f",
-      "date": "2026-09-30T14:39:11-04:00",
-      "summary": "Acceptance run with screenshots and the MVP table; window teardown no longer reaches destroyed menus or toolbar (11.5)"
+      "sha": "8bd3fc3264d1d400b23b42cc2b6cc66614c35a77",
+      "date": "2026-10-04T02:54:20Z",
+      "summary": "13.19g: a raster commit's continuation runs where the commit ends, as Swift's await returns; nothing lands between"
     },
     {
-      "sha": "51bec23cc5c9cc3b3148174abf698afa388b2158",
-      "date": "2026-09-30T13:07:34-04:00",
-      "summary": "Live installs of 1.3.3 on every supported system (12.16)"
+      "sha": "c59e85babcb417dc69cd0c101202bcb4e1f5b17b",
+      "date": "2026-10-04T03:45:53Z",
+      "summary": "13.19h: the acceptance run checks the seventeen rows new in 1.4.5 through the window's own controls; shots retaken"
     },
     {
-      "sha": "c2d4637c34d03305f0d68a76895a21ff97e9eef3",
-      "date": "2026-09-30T12:36:18-04:00",
-      "summary": "One RPM per Fedora release, 43 and 44, each with its own LibRaw (12.16)"
+      "sha": "c854e42116ff6c82b72d614de2c40ec8bd087ff7",
+      "date": "2026-10-04T05:01:26Z",
+      "summary": "13.19i: distro checks pass on all five; the pickers preview only while open and end on the popup's Hide, as Qt 6.10 changed both"
     },
     {
-      "sha": "190414451148d9627e902ded53082dc3b3019913",
-      "date": "2026-09-30T11:32:25-04:00",
-      "summary": "OmaPhoto 1.3.3: version bump, change log, README; steady export failure tests, Hue/Saturation test after 12.14d2, NixOS shell MIME database (12.16)"
-    },
-    {
-      "sha": "bc9d43f1e8654e636aaf0c62319768d0ffe02eca",
-      "date": "2026-09-30T07:55:57-04:00",
-      "summary": "Filter › Dither, as Compositor 1.3.3 (12.15)"
-    },
-    {
-      "sha": "aa5a44e517dd9d022905c7714191826e61b7991e",
-      "date": "2026-09-30T06:16:28-04:00",
-      "summary": "Closing the picker gives open text the keys back; colour edits wait for text editing (12.14d2)"
-    },
-    {
-      "sha": "27a4fe84287fb17afef817379a9d882ce8634c85",
-      "date": "2026-09-30T05:15:51-04:00",
-      "summary": "Colour only the selected letters of text being edited; project format version 10 (12.14d1)"
-    },
-    {
-      "sha": "2fa8d9921de8a60efadca03cbdfd3f398b58c301",
-      "date": "2026-09-30T03:32:51-04:00",
-      "summary": "Coloured slider tracks with double-click reset, aligned filter titles; entries release focus before their owners go (12.14c)"
-    },
-    {
-      "sha": "2183348aa6d52e5230c86dc23fbb426f8706e7f2",
-      "date": "2026-09-30T01:43:23-04:00",
-      "summary": "Open Recent, print sizes through an invalid resolution, Color Grading under Color (12.14b)"
-    },
-    {
-      "sha": "94b884a2ef4cb1b3cd1e5aa3d43eba7d23dcfad3",
-      "date": "2026-09-30T00:25:34-04:00",
-      "summary": "Closing or quitting while text is edited applies it first (12.14a)"
-    },
-    {
-      "sha": "5ee5aee07bb05a7ab5f662f7e90b441ebc5367d8",
-      "date": "2026-09-29T23:30:45-04:00",
-      "summary": "A guide for AI agents writing projects, the project format page, README lines (12.13c)"
-    },
-    {
-      "sha": "d4c065fa77e6d9e76ab9eb2d139cbb52e3d3a835",
-      "date": "2026-09-29T22:39:49-04:00",
-      "summary": "Keep editing while a project saves; saves, reloads and opens queue behind one writer (12.13b)"
-    },
-    {
-      "sha": "838d5b1459965e83f1693ff480fe60d14cff3377",
-      "date": "2026-09-30T00:13:20Z",
-      "summary": "Reload a project changed on disk, fingerprinted by its manifest and image sizes (12.13a)"
-    },
-    {
-      "sha": "aa253d97159ee6736307bab59bcd1ee9e0000116",
-      "date": "2026-09-29T21:07:35Z",
-      "summary": "Scrub numbers by dragging their titles in the sheets and panels (12.12c2)"
-    },
-    {
-      "sha": "5bc788938737a95ec149da1a2e6d154a31d2a53a",
-      "date": "2026-09-29T19:06:49Z",
-      "summary": "Scrub numbers by dragging their labels in the tool bars and layer opacity (12.12c1)"
-    },
-    {
-      "sha": "f335818e533118c94ee1a8abde4671e1ca6c4b46",
-      "date": "2026-09-29T17:26:01Z",
-      "summary": "Masks painted anywhere on the canvas; mask thumbnails' ground white or black (12.12b)"
-    },
-    {
-      "sha": "136ee65a48f60e2cf20f48f886b426a340fe86da",
-      "date": "2026-09-29T16:47:36Z",
-      "summary": "Typed text drawn as its pixels; effects kept while typing, painting masks and undoing (12.12a)"
-    },
-    {
-      "sha": "8fbb104c485611e8eaa3c7805c5635d878b5d80a",
-      "date": "2026-09-29T14:55:10Z",
-      "summary": "Clicked text on its baseline, live text on the Move tool's double click, SVG import (12.11c)"
-    },
-    {
-      "sha": "008493b0a3de461775014a4e8341e01fcd6d542b",
-      "date": "2026-09-29T13:04:50Z",
-      "summary": "Import simple Photoshop text as editable text (12.11b2)"
-    },
-    {
-      "sha": "a2241601ec3e5ac10378d075689253b36dc257d8",
-      "date": "2026-09-29T08:23:27Z",
-      "summary": "Read Photoshop Large Documents, layerless files and oversized layers (12.11b1)"
-    },
-    {
-      "sha": "8a9c56ee1fd677adca6c2c154fed0ee44d7911b5",
-      "date": "2026-09-29T04:19:45Z",
-      "summary": "The document's own pixel budget, marching ants at screen resolution (12.11a)"
-    },
-    {
-      "sha": "ffba1753c62f5ad82a48248a598366c951faac8d",
-      "date": "2026-09-29T01:03:16Z",
-      "summary": "Crop ratios and selection start, Vignette on empty layers, text colour previews (12.10c); mutation runs use 12 cores"
-    },
-    {
-      "sha": "7a873eb9c70b754060663bf83862eafcf2b5516e",
-      "date": "2026-09-28T23:09:46Z",
-      "summary": "Whole layers on the clipboard and several duplicates (12.10b)"
-    },
-    {
-      "sha": "fc076de71d1c873f94b69beb7db20b309e6826cc",
-      "date": "2026-09-28T19:28:21Z",
-      "summary": "The format version in one place and the layer context menu (12.10a)"
-    },
-    {
-      "sha": "9ac3b1b81c9ff64bed214e270b7bd6531e296e65",
-      "date": "2026-09-28T17:18:10Z",
-      "summary": "Stepped keyboard zoom and a steady tab strip (12.9b)"
-    },
-    {
-      "sha": "fdb62978c54c1fdac95b1065919acf80a637982c",
-      "date": "2026-09-28T14:50:06Z",
-      "summary": "Finishing filters: Vignette, Bloom / Glow, Tonal Contrast (12.9a)"
+      "sha": "4c7d98b17f80c3cbaecc17ac75c27af74f2f703b",
+      "date": "2026-10-04T05:01:43Z",
+      "summary": "13.19j: the change log names the blend menu's Escape fix"
     }
   ],
   "pullRequests": [
+    {
+      "number": 14,
+      "title": "List OmaPhoto in OmaStore, the Omarchy app store",
+      "state": "open",
+      "head": "186669d196317e0c9603158467ce429abc13e5ef",
+      "updatedAt": "2026-10-03T12:36:20Z",
+      "mergedAt": null,
+      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/pull/14"
+    },
+    {
+      "number": 12,
+      "title": "List OmaPhoto in OmaStore, the Omarchy app store",
+      "state": "closed",
+      "head": "f469fe31939dc31f2e187efac4c05a3acfa88ce2",
+      "updatedAt": "2026-10-02T23:54:08Z",
+      "mergedAt": null,
+      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/pull/12"
+    },
     {
       "number": 10,
       "title": "Appimage ci pr",
@@ -359,46 +319,39 @@
   ],
   "issues": [
     {
+      "number": 15,
+      "title": "Shape tool: stroke-only (outline) style for rectangle and ellipse",
+      "state": "open",
+      "updatedAt": "2026-10-04T05:35:46Z",
+      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/15"
+    },
+    {
+      "number": 13,
+      "title": "[Bug Report] RAW Import via file>image import",
+      "state": "open",
+      "updatedAt": "2026-10-02T04:02:19Z",
+      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/13"
+    },
+    {
       "number": 9,
       "title": "[Bug Report] Custom tool cursors render garbled/partial on NVIDIA + Hyprland at fractional scale (hardware cursor path)",
-      "state": "open",
-      "updatedAt": "2026-09-29T19:00:48Z",
+      "state": "closed",
+      "updatedAt": "2026-10-01T01:05:53Z",
       "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/9"
     },
     {
-      "number": 7,
-      "title": "[Feature Request]AUR?",
+      "number": 11,
+      "title": "[Feature Request] Bézier curve pen tool",
       "state": "open",
-      "updatedAt": "2026-09-29T18:52:56Z",
-      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/7"
+      "updatedAt": "2026-09-30T20:27:57Z",
+      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/11"
     },
     {
-      "number": 6,
-      "title": "[Feature Request] This aproche.",
-      "state": "open",
-      "updatedAt": "2026-09-29T18:53:34Z",
-      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/6"
-    },
-    {
-      "number": 5,
-      "title": "[Bug Report] Failed to resolve the transaction",
+      "number": 1,
+      "title": "[Bug Report] Docker dev run cannot import files from the host",
       "state": "closed",
-      "updatedAt": "2026-09-29T19:00:54Z",
-      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/5"
-    },
-    {
-      "number": 4,
-      "title": "[Feature Request] Package and publish as a Flatpak on Flathub",
-      "state": "open",
-      "updatedAt": "2026-09-26T21:04:41Z",
-      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/4"
-    },
-    {
-      "number": 3,
-      "title": "[Feature Request] configurable Photoshop-style interaction preferences",
-      "state": "open",
-      "updatedAt": "2026-09-29T19:00:58Z",
-      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/3"
+      "updatedAt": "2026-09-29T19:01:07Z",
+      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/1"
     },
     {
       "number": 2,
@@ -408,14 +361,50 @@
       "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/2"
     },
     {
-      "number": 1,
-      "title": "[Bug Report] Docker dev run cannot import files from the host",
+      "number": 3,
+      "title": "[Feature Request] configurable Photoshop-style interaction preferences",
+      "state": "open",
+      "updatedAt": "2026-09-29T19:00:58Z",
+      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/3"
+    },
+    {
+      "number": 5,
+      "title": "[Bug Report] Failed to resolve the transaction",
       "state": "closed",
-      "updatedAt": "2026-09-29T19:01:07Z",
-      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/1"
+      "updatedAt": "2026-09-29T19:00:54Z",
+      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/5"
+    },
+    {
+      "number": 6,
+      "title": "[Feature Request] This aproche.",
+      "state": "open",
+      "updatedAt": "2026-09-29T18:53:34Z",
+      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/6"
+    },
+    {
+      "number": 7,
+      "title": "[Feature Request]AUR?",
+      "state": "open",
+      "updatedAt": "2026-09-29T18:52:56Z",
+      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/7"
+    },
+    {
+      "number": 4,
+      "title": "[Feature Request] Package and publish as a Flatpak on Flathub",
+      "state": "open",
+      "updatedAt": "2026-09-26T21:04:41Z",
+      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/4"
     }
   ],
   "workflowSignals": [
+    {
+      "id": 37178698737,
+      "name": "Release",
+      "head": "4c7d98b17f80c3cbaecc17ac75c27af74f2f703b",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/actions/runs/37178698737"
+    },
     {
       "id": 36737522836,
       "name": "Release",
@@ -490,36 +479,55 @@
     }
   ],
   "collectionCoverage": {
-    "branches": "1 of 1; main at e94fd73",
-    "tags": "4 of 4; new lightweight v1.3.3 at 1904144, three older tag objects unchanged",
-    "releases": "4 of 4; new v1.3.3 with seven assets including separate Fedora 43/44 RPMs. All three older releases retain their note hashes and asset names, sizes, timestamps and digests.",
-    "issues": "8 of 8 excluding pull requests; number/title/state/updatedAt metadata unchanged from the previous review, no new report inferred",
-    "pullRequests": "2 of 2; metadata/head/state unchanged, PR 8 open unmerged and PR 10 closed unmerged",
-    "commits": "All 12 new commits and 150 distinct changed paths inventoried in 838d5b1...e94fd73; focused relevant implementation and tests inspected. Nine commits are in v1.3.3 and three follow its tag. All 23 post-v1.2.3 commits in the release and three later commits reviewed cumulatively; not an exhaustive line-by-line review of historical code.",
-    "workflowRuns": "9 of 9 run metadata entries inspected; new release run 36737522836 at exact tag 1904144 passed six jobs. Workflow and Arch recipe build/package without a full test run. No newer main-branch workflow result in this snapshot; distro/full-suite/acceptance results in upstream docs are self-reported."
+    "branches": "1 of 1; main at released 4c7d98b, verified again at 06:38 UTC; no active side branch",
+    "tags": "5 of 5; new annotated v1.4.5 object 56babd5 dereferenced to commit 4c7d98b. Four older tag identities/types unchanged",
+    "releases": "5 of 5; new v1.4.5 published 2026-10-04T05:10:51Z with five packages and SHA256SUMS. Every older note hash and asset name/size/update/digest unchanged",
+    "issues": "11 of 11 excluding four pull requests; new open issue 15 requests outline rectangle/ellipse. Previous ten issue records unchanged",
+    "pullRequests": "4 of 4; all number/title/state/head/update/merge metadata unchanged. OmaStore 14 and AppImage 8 remain open/unmerged; 12 and 10 remain closed/unmerged",
+    "commits": "Exact 28f6337..4c7d98b compare returned all four commits and 34 paths. Targeted application, commit-continuation, picker and acceptance source/tests reviewed. No upstream execution",
+    "workflowRuns": "10 of 10 reported runs. New Release 37178698737 succeeded at 4c7d98b, all seven jobs successful. Workflow/job evidence proves packaging/publication without ctest; 334-suite and offscreen acceptance results are separate upstream claims, not independently rerun tests",
+    "dependenciesAndPackaging": "No dependency lock, installer, release workflow or distro recipe changes in this range. Published packages target Arch, Ubuntu 24.04/26.04 and Fedora 43/44 x86_64. NixOS distro checks are upstream-reported; no NixOS, Windows or AppImage release asset",
+    "pagination": "All branch/release/PR/issue collections returned fewer than 100 entries; five matching tag refs, all ten reported runs and seven reported release jobs received. Exact compare returned four commits and 34 paths, below API caps"
   },
   "nextReview": "Compare new or changed refs, notes/assets, PRs, issues and relevant workflow results to this snapshot. Read source/tests for meaningful changes and advance only the parts actually reviewed. Do not treat proposals, green builds or unreleased commits as shipped/qualified features.",
   "lastReview": {
-    "base": "838d5b1459965e83f1693ff480fe60d14cff3377",
-    "head": "e94fd73573aee5eefd8e955e72cda5b379d4120f",
-    "compareUrl": "https://github.com/ZacharyZhang-NY/OmaPhoto/compare/838d5b1459965e83f1693ff480fe60d14cff3377...e94fd73573aee5eefd8e955e72cda5b379d4120f",
-    "commitCount": 12,
-    "changedFiles": 150,
-    "releasedCommitCount": 9,
-    "postTagCommitCount": 3,
-    "omuseSource": "479ae31ddedd11bc557e04e2c69993d7167267f4",
-    "omusePublicRuntime": "73dd0d47c99b6718f640c430f47f4ea33c8d047d",
+    "base": "28f6337d13f402378d025850accce04026a6df2b",
+    "head": "4c7d98b17f80c3cbaecc17ac75c27af74f2f703b",
+    "compareUrl": "https://github.com/ZacharyZhang-NY/OmaPhoto/compare/28f6337d13f402378d025850accce04026a6df2b...4c7d98b17f80c3cbaecc17ac75c27af74f2f703b",
+    "commitCount": 4,
+    "changedFiles": 34,
+    "releasedCommitCount": 4,
+    "postTagCommitCount": 0,
+    "totalCommitsAfterReleaseTag": 0,
+    "omuseSource": "4888b00b08c99ca213f976e84e1339db55f07d08",
+    "omuseWorkingTree": "Integration feature/omuse-next-studio at 4888b00; preceding watch-only changes retained. This review changes the same four documentation files only",
+    "canonicalBaselineWorktree": "Older dirty feature/photo-vector-studio at c902b72 preserved; watch history synchronized without runtime edits",
+    "omuseSourceSnapshotSha256": "36cc185018dc826f19496c0f3069f365a508fb38f2822d8bfa4a92688f900dfd",
+    "omuseSourceSnapshotScope": "231 Rust source/test and Cargo manifest/lock files; per-file hashes retained in the local audit packet",
+    "omusePublicMain": "8f7526f1acee22de7068e143e65a7c4541c88b0c",
+    "omusePublicMainObservation": "Carried from preceding 01:16 UTC review; current runtime identity rechecked through installed receipt and current release. Main ref not refreshed here",
+    "omusePublicRuntime": "eb558dc59ccdf88a3d62dfc2d706a6b836da1eda",
+    "installedVersion": "Omuse 0.8.0",
     "releaseChanged": true,
+    "upstreamReleasePublishedAt": "2026-10-04T05:10:51Z",
     "meaningfulChanges": [
-      "OmaPhoto 1.3.3 releases the previously tracked crop/clipboard/filter, import, text, mask, numeric-control, selection and reload changes",
-      "Project format 10 and selected-letter colour runs use UTF-16 offsets; Omuse 0.5.0 accepts only versions 1-9 and uses UTF-8 rich-text offsets",
-      "Dither adds diffusion, Bayer, halftone, patterns and ASCII styles",
-      "Persistent Open Recent with successful-open/save ordering and missing-path cleanup",
-      "Background snapshot saves and serialized writes/open/reload/quit; inline-text commit and field-focus lifetime fixes",
-      "Coloured slider tracks, double-click reset and aligned filter titles",
-      "Fedora 43/44 packages separate LibRaw ABI dependencies; new release assets retain the app tag",
-      "Post-tag offscreen acceptance scenarios/screenshots and window teardown fix are not part of the v1.3.3 tagged application source"
+      "1.4.5 is now published with five Linux packages and SHA256SUMS; exact release build successful. Four previous note/asset fingerprints unchanged",
+      "Raster commit continuations now run before another event can observe a half-finished gradient/move or retarget a chained operation. Portable Omuse lesson is immediate next-action acceptance, not Qt callback copying",
+      "Newer Qt font/blend popup regressions fixed and control-driven offscreen acceptance expanded. Prior parallel failures did not recur but cause remains unknown; heavy constrained-CPU stress still has failures",
+      "Omuse already has colour/hue ranges, presets, encoded JPEG inspection and broad editable vectors. Native-resolution retouch, independent Blur radius, mask-only view, grid settings and direct font preview remain useful gaps",
+      "Source-derived grid inconsistency: below 100% zoom Omuse displays 64-pixel lines while snapping to 8 pixels. A shared grid model and selection/shape snapping are planned, not fixed",
+      "Existing source-derived 100,000-point endpoint defect and recoverable-memory/focus/parallel work remain planned",
+      "New issue 15 outline-shape capability is already represented in Omuse vector transparent fill/stroke. PR 14 store and PR 8 AppImage remain proposals",
+      "Omuse 0.8 source prerelease still has no permanent binary assets; published downloads and clean-machine acceptance remain delivery priorities"
     ],
-    "qualification": "Source and release-metadata comparison only. Installed Omuse version/source receipt checked; no application suites or upstream runtime executed in this review. Existing Omuse 0.5.0 qualification retains its exact runtime. No software installed, committed or publicly published; planned guide entries are not shipped feature claims."
-  }
+    "linkedSourceReviews": [
+      {
+        "repository": "https://github.com/KitsuneForgering/OmaStore",
+        "revision": "9bcc8012b1ff121a61d93512be65652b769ec676",
+        "scope": "Read-only extractor, version directory integration and launcher; fetched file contents verified against exact tree blob IDs. No installer run"
+      }
+    ],
+    "qualification": "Read-only primary GitHub release, exact source/test and workflow review, including an independent bounded release-evidence reviewer, plus current Omuse source and installed version/receipt. No application suite, native journey, upstream installer or benchmark run. Only local comparison/watch/guide documents and private dashboard refreshed; no runtime, changelog, installed-app, GitHub-write, tag or release mutation. Planned follow-ups are not shipped features."
+  },
+  "reviewedAtUtc": "2026-10-04T06:30:19Z"
 }

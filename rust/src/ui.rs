@@ -1,3 +1,10 @@
+#[cfg(all(test, feature = "ui-test"))]
+#[path = "mask_inspection_ui_tests.rs"]
+mod mask_inspection_ui_tests;
+#[cfg(all(test, feature = "ui-test"))]
+#[path = "photo_reliability_ui_tests.rs"]
+mod photo_reliability_ui_tests;
+
 use crate::display_surface::{DisplaySurface, DisplayTile};
 #[path = "advanced_ui.rs"]
 mod advanced_ui;
@@ -32,6 +39,8 @@ mod external_change_ui;
 mod finishing_ui;
 #[path = "image_trace_ui.rs"]
 mod image_trace_ui;
+#[path = "inline_font_ui.rs"]
+mod inline_font_ui;
 #[path = "inline_text_ui.rs"]
 mod inline_text_ui;
 #[path = "inspector_ui.rs"]
@@ -46,6 +55,8 @@ mod motion_ui;
 mod numeric_ui;
 #[path = "photo_io_ui.rs"]
 mod photo_io_ui;
+#[path = "pointer_path.rs"]
+mod pointer_path;
 #[path = "product_ui.rs"]
 mod product_ui;
 #[cfg(all(test, feature = "ui-test"))]
@@ -292,6 +303,9 @@ struct InlineTextDraft {
     color: Entity<ColorPickerState>,
     color_edit: Option<inline_text_ui::TextColorEdit>,
     typing_color: Option<[f32; 4]>,
+    typing_font: Option<String>,
+    font_edit: Option<inline_font_ui::FontEdit>,
+    font_search: Entity<InputState>,
     last_selection: std::ops::Range<usize>,
     history: std::collections::VecDeque<objects::LiveTextStyle>,
     restore_text_history: bool,
@@ -326,6 +340,16 @@ pub struct EditorView {
     editor: Editor,
     path: Option<PathBuf>,
     display: DisplaySurface,
+    mask_preview: RefCell<
+        Option<(
+            u64,
+            String,
+            u64,
+            usize,
+            omuse::editor::LayerPlacement,
+            DisplaySurface,
+        )>,
+    >,
     canvas_textures: Rc<RefCell<CanvasTextures>>,
     layer_thumbnails: RefCell<crate::studio_thumbnails::LayerThumbnails>,
     // Used only by the disposable native display comparison journey.
@@ -402,6 +426,7 @@ pub struct EditorView {
     jpeg_preview_generation: u64,
     jpeg_preview_task: Option<u64>,
     lasso: Vec<(f32, f32)>,
+    pointer_path_error: Option<&'static str>,
     pan_pointer: Option<Point<Pixels>>,
     middle_pan_pointer: Option<Point<Pixels>>,
     space_down: bool,
@@ -463,6 +488,7 @@ pub struct EditorView {
     subject_layer: Option<String>,
     subject_as_selection: bool,
     paint_mask: bool,
+    mask_inspection: omuse::mask_inspection::MaskInspection,
     guide_drag: Option<(String, omuse::editor::GuideAxis, f32)>,
     preferences: crate::preferences::Preferences,
     import_notes: Vec<String>,
@@ -655,7 +681,8 @@ impl EditorView {
         let weak = cx.entity().downgrade();
         cx.intercept_keystrokes(move |event, window, cx| {
             let _ = weak.update(cx, |this, cx| {
-                if this.recent_key(&event.keystroke, window, cx)
+                if this.inline_font_key(&event.keystroke, window, cx)
+                    || this.recent_key(&event.keystroke, window, cx)
                     || this.command_search_key(&event.keystroke, window, cx)
                 {
                     cx.stop_propagation();
@@ -818,6 +845,7 @@ impl EditorView {
             editor,
             path: valid_path,
             display,
+            mask_preview: RefCell::new(None),
             canvas_textures: Rc::new(RefCell::new(CanvasTextures::default())),
             layer_thumbnails: RefCell::new(crate::studio_thumbnails::LayerThumbnails::default()),
             display_reference: None,
@@ -899,6 +927,7 @@ impl EditorView {
             jpeg_preview_generation: 0,
             jpeg_preview_task: None,
             lasso: Vec::new(),
+            pointer_path_error: None,
             pan_pointer: None,
             middle_pan_pointer: None,
             space_down: false,
@@ -963,6 +992,7 @@ impl EditorView {
             subject_layer: None,
             subject_as_selection: false,
             paint_mask: false,
+            mask_inspection: omuse::mask_inspection::MaskInspection::default(),
             guide_drag: None,
             preferences,
             import_notes: Vec::new(),
@@ -1053,6 +1083,15 @@ impl EditorView {
         }
     }
     fn refresh(&mut self, cx: &mut Context<Self>) {
+        if let Some(id) = self.mask_inspection.target().map(str::to_owned)
+            && self
+                .editor
+                .document
+                .find_layer(&id)
+                .is_none_or(|layer| layer.mask.is_none())
+        {
+            self.mask_inspection.exit();
+        }
         // A full refresh supersedes queued pointer work, including work from a
         // stroke that ended, was cancelled, or belonged to a replaced document.
         self.pending_stroke_frame = None;
@@ -1300,6 +1339,12 @@ impl EditorView {
             self.vector_canvas_down(event, window, cx);
             return;
         }
+        if self.mask_inspection.active() {
+            self.status =
+                "Mask inspection is read-only; Alt-click the mask badge to restore artwork".into();
+            cx.notify();
+            return;
+        }
         let (x, y) = self.coordinates(event.position);
         if let Some(crop) = &mut self.crop {
             crop.begin((x, y), 8. / self.zoom);
@@ -1481,7 +1526,33 @@ impl EditorView {
             cx.notify();
             return;
         }
-        self.drag_start = Some((x, y));
+        let drag_start = if matches!(
+            self.tool,
+            Tool::Rectangle
+                | Tool::Ellipse
+                | Tool::Gradient
+                | Tool::ShapeRect
+                | Tool::ShapeEllipse
+                | Tool::Line
+        ) {
+            let snapped = snap_canvas_point(
+                &self.editor,
+                CanvasPoint { x, y },
+                self.preferences.snapping && self.show_grid,
+                self.preferences.snapping && self.show_guides,
+                6. / self.zoom,
+                omuse::canvas_grid::GridSettings {
+                    spacing: self.preferences.grid_spacing,
+                    subdivisions: self.preferences.grid_subdivisions,
+                },
+                event.modifiers.shift,
+            );
+            (snapped.x, snapped.y)
+        } else {
+            (x, y)
+        };
+        self.drag_start = Some(drag_start);
+        self.pointer_path_error = None;
         if matches!(
             self.tool,
             Tool::Rectangle | Tool::Ellipse | Tool::Lasso | Tool::Wand | Tool::Object
@@ -1497,7 +1568,8 @@ impl EditorView {
         }
         match self.tool {
             Tool::Lasso | Tool::SpotHeal | Tool::BlurBrush | Tool::Smudge | Tool::Liquify => {
-                self.lasso = vec![(x, y)];
+                self.lasso.clear();
+                self.capture_pointer_point((x, y));
             }
             Tool::Brush | Tool::Pencil | Tool::Eraser => {
                 let tool = match self.tool {
@@ -1583,7 +1655,8 @@ impl EditorView {
                         chosen_source
                     };
                     if self.paint_mask {
-                        self.lasso = vec![(x, y)];
+                        self.lasso.clear();
+                        self.capture_pointer_point((x, y));
                         self.status = "Mask clone stroke".into();
                     } else {
                         if self.clone_all_layers {
@@ -1702,7 +1775,31 @@ impl EditorView {
         if !event.dragging() {
             return;
         }
-        let (x, y) = self.coordinates(event.position);
+        let (mut x, mut y) = self.coordinates(event.position);
+        if matches!(
+            self.tool,
+            Tool::Rectangle
+                | Tool::Ellipse
+                | Tool::Gradient
+                | Tool::ShapeRect
+                | Tool::ShapeEllipse
+                | Tool::Line
+        ) {
+            let snapped = snap_canvas_point(
+                &self.editor,
+                CanvasPoint { x, y },
+                self.preferences.snapping && self.show_grid,
+                self.preferences.snapping && self.show_guides,
+                6. / self.zoom,
+                omuse::canvas_grid::GridSettings {
+                    spacing: self.preferences.grid_spacing,
+                    subdivisions: self.preferences.grid_subdivisions,
+                },
+                event.modifiers.shift,
+            );
+            x = snapped.x;
+            y = snapped.y;
+        }
         if let Some((_, axis, position)) = self.guide_drag.as_mut() {
             *position = match axis {
                 omuse::editor::GuideAxis::Horizontal => y,
@@ -1719,6 +1816,11 @@ impl EditorView {
                     self.preferences.snapping && self.show_grid,
                     self.preferences.snapping && self.show_guides,
                     6. / self.zoom,
+                    omuse::canvas_grid::GridSettings {
+                        spacing: self.preferences.grid_spacing,
+                        subdivisions: self.preferences.grid_subdivisions,
+                    },
+                    event.modifiers.shift,
                 );
                 if matches!(drag.mode, DragMode::Distort(_)) {
                     self.distort_draft = drag.distorted_corners(pointer, event.modifiers.shift);
@@ -1737,9 +1839,7 @@ impl EditorView {
         }
         match self.tool {
             Tool::Lasso | Tool::SpotHeal | Tool::BlurBrush | Tool::Smudge | Tool::Liquify => {
-                if self.lasso.len() < 100_000 {
-                    self.lasso.push((x, y));
-                }
+                self.capture_pointer_point((x, y));
                 self.selection_box = Some((
                     start.0.min(x),
                     start.1.min(y),
@@ -1754,9 +1854,7 @@ impl EditorView {
             }
             Tool::Clone | Tool::Heal => {
                 if self.paint_mask {
-                    if self.lasso.len() < 100_000 {
-                        self.lasso.push((x, y));
-                    }
+                    self.capture_pointer_point((x, y));
                     self.selection_box = Some((
                         start.0.min(x),
                         start.1.min(y),
@@ -1804,6 +1902,9 @@ impl EditorView {
             self.vector_up(event, window, cx);
             return;
         }
+        if self.mask_inspection.active() {
+            return;
+        }
         if self.crop.is_some() {
             let p = self.coordinates(event.position);
             let crop = self.crop.as_mut().unwrap();
@@ -1825,7 +1926,50 @@ impl EditorView {
         let Some(start) = self.drag_start.take() else {
             return;
         };
-        let (x, y) = self.coordinates(event.position);
+        let (mut x, mut y) = self.coordinates(event.position);
+        if matches!(
+            self.tool,
+            Tool::Lasso | Tool::SpotHeal | Tool::BlurBrush | Tool::Smudge | Tool::Liquify
+        ) || (self.paint_mask && matches!(self.tool, Tool::Clone | Tool::Heal))
+        {
+            self.capture_pointer_point((x, y));
+            if let Some(error) = self.pointer_path_error.take() {
+                self.status = error.into();
+                self.selection_box = self
+                    .editor
+                    .selection
+                    .as_ref()
+                    .and_then(|s| s.bounds())
+                    .map(|(x, y, w, h)| (x as f32, y as f32, w as f32, h as f32));
+                self.lasso.clear();
+                cx.notify();
+                return;
+            }
+        }
+        if matches!(
+            self.tool,
+            Tool::Rectangle
+                | Tool::Ellipse
+                | Tool::Gradient
+                | Tool::ShapeRect
+                | Tool::ShapeEllipse
+                | Tool::Line
+        ) {
+            let snapped = snap_canvas_point(
+                &self.editor,
+                CanvasPoint { x, y },
+                self.preferences.snapping && self.show_grid,
+                self.preferences.snapping && self.show_guides,
+                6. / self.zoom,
+                omuse::canvas_grid::GridSettings {
+                    spacing: self.preferences.grid_spacing,
+                    subdivisions: self.preferences.grid_subdivisions,
+                },
+                event.modifiers.shift,
+            );
+            x = snapped.x;
+            y = snapped.y;
+        }
         match self.tool {
             Tool::Text => {
                 self.selection_box = None;
@@ -1848,7 +1992,6 @@ impl EditorView {
                 return;
             }
             Tool::SpotHeal => {
-                self.lasso.push((x, y));
                 match self
                     .editor
                     .spot_heal_stroke(&self.lasso, self.spot_healing_mode, 0)
@@ -1860,7 +2003,6 @@ impl EditorView {
                 self.selection_box = None;
             }
             Tool::BlurBrush | Tool::Smudge | Tool::Liquify => {
-                self.lasso.push((x, y));
                 let mode = match self.tool {
                     Tool::Smudge => omuse::retouch_brush::RetouchMode::Smudge,
                     Tool::Liquify => omuse::retouch_brush::RetouchMode::Liquify,
@@ -1888,7 +2030,6 @@ impl EditorView {
             }
 
             Tool::Lasso => {
-                self.lasso.push((x, y));
                 self.editor.select_polygon(&self.lasso);
                 if let Some(incoming) = self.editor.selection.clone() {
                     self.editor.selection = Some(omuse::selection_tools::combine(
@@ -1909,7 +2050,6 @@ impl EditorView {
             }
             Tool::Clone | Tool::Heal => {
                 if self.paint_mask {
-                    self.lasso.push((x, y));
                     let id = self.editor.active_layer.clone();
                     if let Some(chosen_source) = self.clone_source {
                         let source = if self.clone_aligned {
@@ -3512,6 +3652,26 @@ impl EditorView {
                 self.show_grid = !self.show_grid;
                 self.persist_preferences(cx);
             }
+            "grid-spacing" => {
+                self.preferences.grid_spacing = match self.preferences.grid_spacing {
+                    4 => 8,
+                    8 => 16,
+                    16 => 32,
+                    _ => 4,
+                };
+                self.persist_preferences(cx);
+                cx.notify();
+            }
+            "grid-subdivisions" => {
+                self.preferences.grid_subdivisions = match self.preferences.grid_subdivisions {
+                    1 => 2,
+                    2 => 4,
+                    4 => 8,
+                    _ => 1,
+                };
+                self.persist_preferences(cx);
+                cx.notify();
+            }
             "guides" => {
                 self.show_guides = !self.show_guides;
                 self.persist_preferences(cx);
@@ -3677,6 +3837,22 @@ impl EditorView {
                     self.changed(cx);
                 } else {
                     self.status = "Cannot group locked or dependent layers".into();
+                }
+            }
+            "ungroup" => {
+                let id = self.editor.active_layer.clone();
+                match self.editor.ungroup_layer(&id) {
+                    Ok(ids) => {
+                        self.layer_selection = LayerSelection {
+                            ids: ids.clone(),
+                            primary: ids.first().cloned(),
+                        };
+                        self.changed(cx);
+                    }
+                    Err(error) => {
+                        self.status = format!("Cannot ungroup: {error:#}");
+                        cx.notify();
+                    }
                 }
             }
             "duplicate" => {
@@ -3895,6 +4071,27 @@ impl EditorView {
                 }
                 .into();
                 cx.notify();
+            }
+            "mask-view" => {
+                let id = self.editor.active_layer.clone();
+                if self
+                    .editor
+                    .document
+                    .find_layer(&id)
+                    .is_some_and(|layer| layer.mask.is_some())
+                {
+                    self.mask_inspection.toggle(id);
+                    self.status = if self.mask_inspection.active() {
+                        "Mask inspection enabled · press Mask view again to restore artwork"
+                    } else {
+                        "Mask inspection disabled"
+                    }
+                    .into();
+                    cx.notify();
+                } else {
+                    self.status = "Add a layer mask first".into();
+                    cx.notify();
+                }
             }
             "invert-mask" => {
                 let id = self.editor.active_layer.clone();
@@ -5290,7 +5487,9 @@ impl EditorView {
                     .px_1()
                     .border_1()
                     .rounded(control_radius())
-                    .border_color(if self.paint_mask && self.editor.active_layer == layer.id {
+                    .border_color(if self.mask_inspection.target().as_deref() == Some(layer.id.as_str()) {
+                        t.warning
+                    } else if self.paint_mask && self.editor.active_layer == layer.id {
                         t.accent
                     } else {
                         t.divider()
@@ -5300,10 +5499,21 @@ impl EditorView {
                     .on_drag(payload, |payload, _, _, cx| cx.new(|_| payload.clone()))
                     .on_mouse_down(
                         MouseButton::Left,
-                        cx.listener(move |this, _, _, cx| {
+                        cx.listener(move |this, event: &MouseDownEvent, _, cx| {
                             cx.stop_propagation();
                             if this.busy || this.vector_scene_active() || this.image_trace_active()
                             {
+                                return;
+                            }
+                            if event.modifiers.alt {
+                                this.mask_inspection.toggle(mask_id.clone());
+                                this.status = if this.mask_inspection.active() {
+                                    "Mask inspection enabled · Alt-click the badge again to restore artwork"
+                                } else {
+                                    "Mask inspection disabled"
+                                }
+                                .into();
+                                cx.notify();
                                 return;
                             }
                             this.finish_interaction(cx);
@@ -5713,6 +5923,15 @@ impl EditorView {
             cx.notify();
         }
     }
+    fn capture_pointer_point(&mut self, point: (f32, f32)) {
+        if self.pointer_path_error.is_none() {
+            if let Err(error) = pointer_path::append(&mut self.lasso, point) {
+                self.pointer_path_error = Some(error);
+                self.status = error.into();
+            }
+        }
+    }
+
     fn begin_inline_text(
         &mut self,
         layer: Option<String>,
@@ -5812,6 +6031,8 @@ impl EditorView {
             );
             input.focus(window, cx);
         });
+        let font_search = cx.new(|cx| InputState::new(window, cx).placeholder("Search fonts"));
+        cx.observe(&font_search, |_, _, cx| cx.notify()).detach();
         self.inline_text = Some(InlineTextDraft {
             layer,
             style,
@@ -5820,6 +6041,9 @@ impl EditorView {
             color,
             color_edit: None,
             typing_color: None,
+            typing_font: None,
+            font_edit: None,
+            font_search,
             last_selection: 0..0,
             history: std::collections::VecDeque::new(),
             restore_text_history: false,
@@ -5839,6 +6063,7 @@ impl EditorView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> bool {
+        self.cancel_inline_font(window, cx);
         if apply && let Err(error) = self.sync_inline_text(cx) {
             self.status = format!("Text: {error:#}");
             cx.notify();
@@ -5928,7 +6153,7 @@ impl EditorView {
                 .clamp(4., (width - editor_width - 4.).max(4.));
         // Keep the typing controls below the artwork instead of covering the
         // exact text/effects preview with a second, differently rendered font.
-        let top = f32::from(bounds.origin.y) + (height - 218.).max(4.);
+        let top = f32::from(bounds.origin.y) + (height - 250.).max(4.);
         let input = textarea("inline-text-input", &draft.input, window, cx)
             .debug_selector(|| "inline-text-input".into())
             .min_h(px(56.))
@@ -5957,7 +6182,9 @@ impl EditorView {
             .on_mouse_down(
                 MouseButton::Left,
                 cx.listener(|this, _, window, cx| {
-                    this.finish_inline_text(true, window, cx);
+                    if !this.cancel_inline_font(window, cx) {
+                        this.finish_inline_text(true, window, cx);
+                    }
                     cx.stop_propagation();
                 }),
             )
@@ -5980,9 +6207,24 @@ impl EditorView {
                         div()
                             .text_sm()
                             .text_color(t.secondary)
-                            .child("LIVE TEXT · select letters to colour them"),
+                            .child("LIVE TEXT · select letters to style them"),
                     )
                     .child(input)
+                    .child(
+                        button(
+                            "inline-font-trigger",
+                            format!("Font · {}", self.inline_font_label(cx)),
+                            ButtonVariant::Outline,
+                            cx,
+                        )
+                        .debug_selector(|| "inline-font-trigger".into())
+                        .w_full()
+                        .h(px(28.))
+                        .py_0()
+                        .on_click(
+                            cx.listener(|this, _, window, cx| this.begin_inline_font(window, cx)),
+                        ),
+                    )
                     .child(
                         div()
                             .flex()
@@ -6026,6 +6268,13 @@ impl EditorView {
                             ),
                     ),
             )
+            .child(self.inline_font_popup(
+                left,
+                (top - 300.).max(f32::from(bounds.origin.y) + 4.),
+                editor_width,
+                window,
+                cx,
+            ))
             .into_any_element()
     }
 
@@ -6035,19 +6284,104 @@ impl EditorView {
             .image_trace_display()
             .or_else(|| self.vector_canvas_display())
             .unwrap_or(&self.display);
+        let document_width = self.editor.document.width;
+        let document_height = self.editor.document.height;
+        if !self.mask_inspection.active() {
+            self.mask_preview.borrow_mut().take();
+        }
+        let mask_display = self.mask_inspection.target().and_then(|id| {
+            let layer = self.editor.document.find_layer(id)?;
+            let mask = layer.mask.as_ref()?;
+            let revision = self.editor.revision();
+            let placement =
+                self.editor
+                    .mask_placement(&layer.id)
+                    .unwrap_or(omuse::editor::LayerPlacement {
+                        x: layer.offset_x,
+                        y: layer.offset_y,
+                        width: mask.width() as f32,
+                        height: mask.height() as f32,
+                        rotation: layer.rotation,
+                        flip_x: layer.scale_x < 0.,
+                        flip_y: layer.scale_y < 0.,
+                    });
+            let mask_ptr = mask.as_raw().as_ptr() as usize;
+            if let Some((
+                cached_editor,
+                cached_id,
+                cached_revision,
+                cached_ptr,
+                cached_placement,
+                cached,
+            )) = self.mask_preview.borrow().as_ref()
+                && *cached_editor == self.editor.instance_id()
+                && cached_id == id
+                && *cached_revision == revision
+                && *cached_ptr == mask_ptr
+                && *cached_placement == placement
+            {
+                return Some(cached.clone());
+            }
+            let outside = omuse::effects::mask_outside_coverage(&layer.metadata, mask);
+            let mut preview = image::RgbaImage::new(document_width, document_height);
+            let (sin, cos) = placement.rotation.to_radians().sin_cos();
+            for (x, y, pixel) in preview.enumerate_pixels_mut() {
+                let dx = x as f32 + 0.5 - placement.center().0;
+                let dy = y as f32 + 0.5 - placement.center().1;
+                let mut ux = (dx * cos + dy * sin) / placement.width + 0.5;
+                let mut uy = (-dx * sin + dy * cos) / placement.height + 0.5;
+                if placement.flip_x {
+                    ux = 1. - ux;
+                }
+                if placement.flip_y {
+                    uy = 1. - uy;
+                }
+                let value = if (0. ..=1.).contains(&ux) && (0. ..=1.).contains(&uy) {
+                    let mx = (ux * mask.width() as f32)
+                        .floor()
+                        .min(mask.width() as f32 - 1.) as u32;
+                    let my = (uy * mask.height() as f32)
+                        .floor()
+                        .min(mask.height() as f32 - 1.) as u32;
+                    let p = mask.get_pixel(mx, my);
+                    ((0.2126 * p[0] as f32 + 0.7152 * p[1] as f32 + 0.0722 * p[2] as f32)
+                        * p[3] as f32
+                        / 255.)
+                        .round() as u8
+                } else {
+                    outside
+                };
+                *pixel = image::Rgba([value, value, value, 255]);
+            }
+            let surface = DisplaySurface::new(&preview);
+            *self.mask_preview.borrow_mut() = Some((
+                self.editor.instance_id(),
+                id.to_owned(),
+                revision,
+                mask_ptr,
+                placement,
+                surface.clone(),
+            ));
+            Some(surface)
+        });
+        let display = mask_display.as_ref().unwrap_or(display);
         let tiles = display.snapshot();
         let display_dimensions = display.dimensions();
         let vector_overlay = self.vector_canvas_overlay();
         let vector_outline = self.vector_outline_active();
         let reference = self.display_reference.clone();
-        let probe_matte = self.display_probe_matte;
+        let probe_matte = if mask_display.is_some() {
+            Some(0x333333)
+        } else {
+            self.display_probe_matte
+        };
         let textures = self.canvas_textures.clone();
         let zoom = self.zoom;
         let safe_areas = self.create.safe_areas;
         let safe_insets = self.create.safe_preset.insets();
         let pan = self.pan;
-        let w = self.editor.document.width as f32;
-        let h = self.editor.document.height as f32;
+        let w = document_width as f32;
+        let h = document_height as f32;
         let selection = self.selection_box;
         let crop_rect = self.crop.as_ref().map(|crop| crop.rect);
         let active_tool = self.tool;
@@ -6070,6 +6404,10 @@ impl EditorView {
         };
         let accent = cx.omarchy().accent;
         let show_grid = self.show_grid;
+        let grid_settings = omuse::canvas_grid::GridSettings {
+            spacing: self.preferences.grid_spacing,
+            subdivisions: self.preferences.grid_subdivisions,
+        };
         let distort = self.distort_draft;
         let show_rulers = self.preferences.rulers;
         let guides: Vec<(bool, f32)> = if self.show_guides {
@@ -6258,22 +6596,53 @@ impl EditorView {
                             }
                         }
                         if show_grid {
-                            let step = if zoom >= 1. { 8. } else { 64. };
-                            for x in (0..=(w / step) as u32).map(|n| n as f32 * step) {
+                            let min_grid_x = ((f32::from(clipped.origin.x - rect.origin.x) / zoom)
+                                - grid_settings.minor_spacing())
+                            .max(0.);
+                            let max_grid_x = (f32::from(clipped.bottom_right().x - rect.origin.x)
+                                / zoom
+                                + grid_settings.minor_spacing())
+                            .min(w);
+                            let min_grid_y = ((f32::from(clipped.origin.y - rect.origin.y) / zoom)
+                                - grid_settings.minor_spacing())
+                            .max(0.);
+                            let max_grid_y = (f32::from(clipped.bottom_right().y - rect.origin.y)
+                                / zoom
+                                + grid_settings.minor_spacing())
+                            .min(h);
+                            for (x, major) in
+                                grid_settings.visible_lines(min_grid_x, max_grid_x, zoom)
+                            {
                                 let line = Bounds::new(
                                     point(rect.origin.x + px(x * zoom), rect.origin.y),
                                     size(px(1.), rect.size.height),
                                 )
                                 .intersect(&clipped);
-                                window.paint_quad(fill(line, rgba(0x55555577)));
+                                window.paint_quad(fill(
+                                    line,
+                                    if major {
+                                        rgba(0x555555aa)
+                                    } else {
+                                        rgba(0x55555555)
+                                    },
+                                ));
                             }
-                            for y in (0..=(h / step) as u32).map(|n| n as f32 * step) {
+                            for (y, major) in
+                                grid_settings.visible_lines(min_grid_y, max_grid_y, zoom)
+                            {
                                 let line = Bounds::new(
                                     point(rect.origin.x, rect.origin.y + px(y * zoom)),
                                     size(rect.size.width, px(1.)),
                                 )
                                 .intersect(&clipped);
-                                window.paint_quad(fill(line, rgba(0x55555577)));
+                                window.paint_quad(fill(
+                                    line,
+                                    if major {
+                                        rgba(0x555555aa)
+                                    } else {
+                                        rgba(0x55555555)
+                                    },
+                                ));
                             }
                         }
                         for (vertical, pos) in &guides {
@@ -8327,6 +8696,12 @@ impl Render for EditorView {
                         this.space_down = true;
                     }
                     "escape" => {
+                        if this.mask_inspection.active() {
+                            this.mask_inspection.exit();
+                            this.status = "Mask inspection disabled".into();
+                            cx.notify();
+                            return;
+                        }
                         if this.image_trace_active() {
                             this.cancel_image_trace(window, cx);
                             return;
@@ -8482,6 +8857,8 @@ fn snap_canvas_point(
     grid: bool,
     guides: bool,
     tolerance: f32,
+    settings: omuse::canvas_grid::GridSettings,
+    bypass: bool,
 ) -> CanvasPoint {
     fn nearest(value: f32, candidates: impl Iterator<Item = f32>, tolerance: f32) -> f32 {
         candidates
@@ -8493,7 +8870,11 @@ fn snap_canvas_point(
             .map(|(_, candidate)| candidate)
             .unwrap_or(value)
     }
-    let grid_step = if grid { Some(8.) } else { None };
+    let grid_step = if grid && !bypass {
+        Some(settings.minor_spacing())
+    } else {
+        None
+    };
     let vertical = editor
         .guides()
         .into_iter()
@@ -10171,7 +10552,15 @@ mod interaction_tests {
             assert_eq!(view.editor.guides()[0].position, 74.);
             assert_eq!(view.editor.undo_depth(), depth + 1);
             assert_eq!(
-                snap_canvas_point(&view.editor, CanvasPoint { x: 81., y: 15. }, true, true, 3.,),
+                snap_canvas_point(
+                    &view.editor,
+                    CanvasPoint { x: 81., y: 15. },
+                    true,
+                    true,
+                    3.,
+                    omuse::canvas_grid::GridSettings::default(),
+                    false,
+                ),
                 CanvasPoint { x: 80., y: 16. }
             );
         });
@@ -11072,6 +11461,80 @@ mod interaction_tests {
             .unwrap();
             assert_eq!(shape.kind, objects::LiveShapeKind::Line);
             assert_eq!(shape.line_width, Some(9.));
+        });
+    }
+
+    #[gpui_kit::test]
+    fn grid_controls_share_settings_and_shift_bypasses_snapping(cx: &mut TestAppContext) {
+        cx.update(crate::init_test_theme);
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            let mut view = EditorView::new(None, window, cx);
+            view.dialog = Dialog::None;
+            view.editor = Editor::new(Document::new(100, 60));
+            view.refresh(cx);
+            view
+        });
+        cx.update(|window, cx| {
+            view.update(cx, |view, cx| {
+                assert_eq!(view.preferences.grid_spacing, 8);
+                view.command("grid-spacing", window, cx);
+                view.command("grid-subdivisions", window, cx);
+                assert_eq!(view.preferences.grid_spacing, 16);
+                assert_eq!(view.preferences.grid_subdivisions, 2);
+                let settings = omuse::canvas_grid::GridSettings {
+                    spacing: view.preferences.grid_spacing,
+                    subdivisions: view.preferences.grid_subdivisions,
+                };
+                assert_eq!(
+                    snap_canvas_point(
+                        &view.editor,
+                        CanvasPoint { x: 7., y: 7. },
+                        true,
+                        false,
+                        20.,
+                        settings,
+                        false,
+                    ),
+                    CanvasPoint { x: 8., y: 8. }
+                );
+                assert_eq!(
+                    snap_canvas_point(
+                        &view.editor,
+                        CanvasPoint { x: 7., y: 7. },
+                        true,
+                        false,
+                        20.,
+                        settings,
+                        true,
+                    ),
+                    CanvasPoint { x: 7., y: 7. }
+                );
+            });
+        });
+    }
+
+    #[gpui_kit::test]
+    fn mask_view_command_is_reversible_without_history(cx: &mut TestAppContext) {
+        cx.update(crate::init_test_theme);
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            let mut view = EditorView::new(None, window, cx);
+            view.dialog = Dialog::None;
+            view.editor = Editor::new(Document::new(32, 24));
+            let id = view.editor.active_layer.clone();
+            assert!(view.editor.add_mask(&id, true));
+            view.refresh(cx);
+            view
+        });
+        cx.update(|window, cx| {
+            view.update(cx, |view, cx| {
+                let depth = view.editor.undo_depth();
+                view.command("mask-view", window, cx);
+                assert!(view.mask_inspection.active());
+                assert_eq!(view.editor.undo_depth(), depth);
+                view.command("mask-view", window, cx);
+                assert!(!view.mask_inspection.active());
+                assert_eq!(view.editor.undo_depth(), depth);
+            });
         });
     }
 }

@@ -46,6 +46,10 @@ cancelling a colour preview restores its original formatting and selection.
 cancels it. Save or Quit first finishes the text, then follows the normal
 save/unsaved-work flow. Native Undo inside the field edits its typing history.
 
+The upcoming 0.9 development controls also preview installed fonts on selected
+letters. See [font preview, confirmation and cancellation](upcoming-0.9.md#preview-a-font-on-selected-letters)
+for the candidate workflow; this font popup is not in the published 0.8.0 app.
+
 Use **Ctrl+Shift+O** to import a logo into the current document. Keep logos and
 text on separate layers. Lock finished brand elements to protect them from
 accidental edits. Use Design's alignment, distribution, live-text fitting and

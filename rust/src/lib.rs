@@ -15,6 +15,7 @@ pub mod raw_import;
 pub mod segmentation;
 pub mod svg_import;
 
+pub mod canvas_grid;
 pub mod canvas_navigation;
 pub mod color_management;
 pub mod color_match;
@@ -34,6 +35,7 @@ pub mod photo_scopes;
 pub mod retouch_brush;
 pub mod spot_heal;
 
+pub mod mask_inspection;
 pub mod matte;
 
 pub mod gradient_tools;

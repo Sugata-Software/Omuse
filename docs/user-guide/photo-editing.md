@@ -16,6 +16,11 @@ For RAW or 16-bit work, keep the retained source. Rasterizing a copy permits
 ordinary pixel painting but gives up that copy's original precision/editing
 model. [Advanced workflows](../rust-advanced-workflows.md) explains these limits.
 
+For development builds, see the [upcoming 0.9 workflow preview](upcoming-0.9.md)
+for configurable grid snapping, mask inspection, safe folder ungrouping and
+native-resolution retouch. These additions are not included in the published
+0.8.0 controls.
+
 ## Import Photoshop or SVG artwork
 
 **Open** (**Ctrl+O**) accepts Photoshop `.psd` and `.psb` files. Supported files

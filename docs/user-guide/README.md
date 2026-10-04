@@ -11,6 +11,12 @@ Start with a photo, keep an editable project, and export a copy when it is ready
 [Edit a photo](photo-editing.md) · [Create social content](create-content.md) ·
 [Ask Omuse](../ai-experience.md) · [All shortcuts](../keyboard-shortcuts.md)
 
+Testing a development build? The [upcoming 0.9 workflow preview](upcoming-0.9.md)
+covers grid controls, mask inspection, safe folder ungrouping, selected-letter
+font previews and native-resolution retouch work. Those instructions are
+separate from this published 0.8.0 manual and remain subject to integration and
+desktop checks.
+
 Prefer a quick overview? [Watch the two-minute 0.7.0 studio film](../media/omuse-0.7.0-studio-film.md),
 then follow the illustrated workflows below.
 

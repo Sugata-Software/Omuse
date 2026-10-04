@@ -3,7 +3,7 @@
   "snapshotDate": "2026-10-04",
   "project": "Omuse",
   "releaseScope": "Native Rust/GPUI application for Arch/Omarchy Linux x86_64",
-  "releaseState": "Omuse 0.8.0 published source prerelease; permanent binary assets pending; installed source release is 0.8.0 with 0.7.0 rollback preserved",
+  "releaseState": "Omuse 0.8.0 source prerelease and unsigned Linux/experimental Windows downloads published; 0.9.0 photo reliability work under integration and qualification",
   "visualizationMirror": "omuse-project-guide.html",
   "statusDefinitions": [
     {
@@ -34,10 +34,16 @@
   ],
   "releaseSnapshot": [
     {
-      "label": "Published source release",
-      "value": "Omuse 0.8.0 — binary assets pending",
-      "detail": "Photo fidelity, reference palette matching, hue masks, multiselection/groups, gradient and stroke styling, retained curved text, vector PDF and downloadable archives. Candidate source eb558dc updates only dependency-helper checks and workflow wiring over the b47/d2 Rust tree. Local 1,352-case acceptance, final photo/recovery evidence, b47 cross-version installation and Linux/Windows app suites passed. The repaired helper passed 20 Rust and 4 Python checks plus Windows metadata; exact-source validation run 37161936414 and download run 37161936378 completed successfully. Source publication is complete; permanent binary asset publication remains pending. Installed 0.8.0 is current and 0.7.0 is preserved for rollback.",
+      "label": "Current development",
+      "value": "0.9.0 photo reliability and direct controls",
+      "detail": "Implementing native-resolution retouch with recoverable working-memory failures, independent Blur radius, bounded pointer capture, shared grid geometry, mask inspection, safe folder ungroup and selected-letter font previews. Integrated source is under regression and native/photo qualification; it is not a released runtime.",
       "status": "implemented-needs-qualification"
+    },
+    {
+      "label": "Published source release",
+      "value": "Omuse 0.8.0 — Linux and Windows downloads published",
+      "detail": "Photo fidelity, reference palette matching, hue masks, multiselection/groups, gradient and stroke styling, retained curved text, vector PDF and downloadable archives. Candidate source eb558dc updates only dependency-helper checks and workflow wiring over the b47/d2 Rust tree. Local 1,352-case acceptance, final photo/recovery evidence, b47 cross-version installation and Linux/Windows app suites passed. The repaired helper passed 20 Rust and 4 Python checks plus Windows metadata; exact-source validation run 37161936414 and download run 37161936378 completed successfully. Source publication is complete. Installed 0.8.0 is current and 0.7.0 is preserved for rollback. Update 4 October: publication run 37200321434 passed. All four permanent assets downloaded anonymously and matched reviewed sizes and SHA-256 hashes. The tag and release notes are unchanged. The public Linux archive passed isolated install, replacement and rollback checks; Windows archive integrity is verified with CI execution evidence only.",
+      "status": "locally-tested"
     },
     {
       "label": "Editing update released",
@@ -66,7 +72,7 @@
     {
       "label": "Numbered source release",
       "value": "Omuse 0.8.0",
-      "detail": "Published source runtime eb558dc59ccdf88a3d62dfc2d706a6b836da1eda. The normal launcher selects this runtime; permanent binary assets remain pending.",
+      "detail": "Published source runtime eb558dc59ccdf88a3d62dfc2d706a6b836da1eda. The normal launcher selects this runtime; permanent Linux and Windows assets are published and verified.",
       "status": "locally-tested"
     },
     {
@@ -84,8 +90,14 @@
     {
       "label": "Public-release blockers",
       "value": "Open gates",
-      "detail": "The 0.8.0 source prerelease is published on the recorded source, local, native and package evidence. Permanent binary assets remain pending. The normal launcher selects 0.8.0; the 0.7.0 20-file payload is preserved for rollback. The native compact-resize capture remains unavailable; clean-machine, broader hardware/accessibility and live Windows AI acceptance remain open.",
+      "detail": "The 0.8.0 source prerelease is published on the recorded source, local, native and package evidence. Unsigned Linux/Windows assets are published; broad portability qualification remains open. The normal launcher selects 0.8.0; the 0.7.0 20-file payload is preserved for rollback. The native compact-resize capture remains unavailable; clean-machine, broader hardware/accessibility and live Windows AI acceptance remain open.",
       "status": "blocked-deferred"
+    },
+    {
+      "label": "Latest upstream review",
+      "value": "OmaPhoto 1.4.5 published and reviewed",
+      "detail": "Released 4 October at 4c7d98b with five Linux packages plus checksums; all seven release jobs passed. Compared the four new commits / 34 paths and released feature set with installed Omuse 0.8.0. Native-resolution retouch, grid consistency, mask inspection and published downloads are priorities. Source/release inspection only; no app test or benchmark rerun.",
+      "status": "locally-tested"
     }
   ],
   "categories": [
@@ -311,7 +323,7 @@
           "id": "photo-retouch-fidelity",
           "name": "Smudge, Liquify and brush-region blur",
           "status": "implemented-needs-qualification",
-          "current": "The 0.8 candidate samples Liquify from the original stroke source, carries a continuous fading Smudge trail, and limits Blur work to the affected area plus its sampling halo. Focused kernel/transaction tests and isolated CPU comparisons accompany the implementation.",
+          "current": "Released 0.8.0 samples Liquify from the original stroke source, carries a continuous fading Smudge trail, and limits Blur work to the affected area plus its sampling halo. Focused kernel/transaction tests and isolated CPU comparisons accompany the implementation.",
           "boundary": "Isolated 8MP kernel measurements are not end-to-end pointer latency. Broad photographic retouch quality and large transformed-layer work remain separate qualification.",
           "evidence": [
             "docs/omaphoto-comparison.md",
@@ -454,6 +466,53 @@
           "modules": [
             "rust/src/image_inspection.rs",
             "rust/src/jpeg_preview_ui.rs"
+          ]
+        },
+        {
+          "id": "photo-retouch-endpoint-limit",
+          "name": "Preserve the endpoint at the retouch capture limit",
+          "status": "planned",
+          "current": "Source review of released 0.8.0 found that pointer capture allows 100,000 points and mouse release adds one more, while the editor accepts at most 100,000. A stroke reaching the cap is rejected on release.",
+          "boundary": "Not interactively reproduced or fixed during the scheduled review. Reserve an endpoint slot or replace the final captured point; test 99,999/100,000 boundaries, last-point retention and unchanged pixels/history on refusal. Inspect the analogous Spot Heal path.",
+          "evidence": [
+            "docs/omaphoto-comparison.md",
+            "docs/omaphoto-watch.json"
+          ],
+          "modules": [
+            "rust/src/ui.rs",
+            "rust/src/editor.rs",
+            "rust/src/retouch_brush.rs"
+          ]
+        },
+        {
+          "id": "photo-native-resolution-retouch",
+          "name": "Retouch at native layer resolution",
+          "status": "planned",
+          "current": "OmaPhoto 1.4.5 review confirms a remaining Omuse 0.8 gap: Blur/Smudge/Liquify composite at canvas resolution and map back. Ordinary paint and Clone already use layer-local pixels. The newer carry/warp/Blur-region algorithms do not remove this resampling step.",
+          "boundary": "Move these tools to native layer/mask coordinates, preserve fractional transformed footprints and soft selections, and separate Blur radius from brush diameter. Compare scaled-down and rotated detailed sources with exact Undo/cancel and bounded-memory checks before quality or speed claims.",
+          "evidence": [
+            "docs/omaphoto-comparison.md",
+            "docs/release-080-qualification.md"
+          ],
+          "modules": [
+            "rust/src/editor.rs",
+            "rust/src/retouch_brush.rs",
+            "rust/tests/retouch_fidelity.rs"
+          ]
+        },
+        {
+          "id": "photo-ascii-size-crt",
+          "name": "Independent ASCII glyph size and CRT finish",
+          "status": "planned",
+          "current": "Omuse has ten deterministic Dither styles including ASCII, with cell-size controls. Separate glyph size and a distinct Scanlines/CRT finish are useful additions from the 1.4.5 comparison.",
+          "boundary": "Keep existing recipes visually stable; qualify real letter holes at multiple sizes, exact alpha, soft selections, cancellation and Apply/Undo. Halftone lines are not CRT. Lower priority than retouch integrity and grid/mask usability.",
+          "evidence": [
+            "docs/omaphoto-comparison.md"
+          ],
+          "modules": [
+            "rust/src/dither.rs",
+            "rust/src/finishing_ui.rs",
+            "rust/tests/raster_finishing.rs"
           ]
         }
       ]
@@ -605,6 +664,21 @@
             "docs/photo-vector-roadmap.md"
           ],
           "modules": []
+        },
+        {
+          "id": "layers-solo-and-ungroup",
+          "name": "Inspect masks alone and dissolve layer folders",
+          "status": "planned",
+          "current": "Omuse has soft/growing/linked masks, vector Ungroup and ordinary layer Unnest. OmaPhoto 1.4.5 adds mask-only inspection and an ordinary folder Ungroup workflow worth matching.",
+          "boundary": "Add reversible mask-only view and folder Ungroup with order, placement, lock and selection integrity. Preserve mask/effect/blending semantics where representable and explain unsupported cases; moving children to the root is not equivalent.",
+          "evidence": [
+            "docs/omaphoto-comparison.md"
+          ],
+          "modules": [
+            "rust/src/ui.rs",
+            "rust/src/layer_actions_ui.rs",
+            "rust/src/editor.rs"
+          ]
         }
       ]
     },
@@ -901,6 +975,21 @@
             "rust/src/editor_image_trace.rs",
             "rust/src/image_trace_ui.rs",
             "rust/src/vector_canvas_ui.rs"
+          ]
+        },
+        {
+          "id": "design-selected-font-preview",
+          "name": "Direct selected-letter font preview",
+          "status": "planned",
+          "current": "Rich Typography already applies font/size overrides to character ranges and canvas drafts render live. Direct font selection with mixed-style feedback and reversible menu-hover preview remains a usability gap against OmaPhoto 1.4.5.",
+          "boundary": "Preview only while the picker is open. Test Escape, outside-click, keyboard choice, later typing and document/layer changes so cancellation never restores an obsolete draft. Retain font fallback reporting and one committed Undo.",
+          "evidence": [
+            "docs/omaphoto-comparison.md"
+          ],
+          "modules": [
+            "rust/src/rich_text_ui.rs",
+            "rust/src/inline_text_ui.rs",
+            "rust/src/objects.rs"
           ]
         }
       ]
@@ -1766,8 +1855,8 @@
           "id": "linux-omastore-discovery",
           "name": "OmaStore discovery channel",
           "status": "planned",
-          "current": "An open OmaPhoto PR proposes an app-store manifest targeting its x86_64 package asset. Track this as a possible discovery channel for Omuse after a qualified downloadable package exists.",
-          "boundary": "Omuse publishes source pre-releases today. Dependency notices, clean-machine package checks and the store installation contract need verification before listing. No store metadata, repository topics or third-party submission was published.",
+          "current": "OmaPhoto PR14 reopens the OmaStore manifest proposal after PR12 closed unmerged. Pinned store extraction and launcher code supports a model-relocation concern for OmaPhoto; Omuse resolves default model/runtime assets beside its executable.",
+          "boundary": "No store integration or listing has been qualified for Omuse. Current 0.8.0 source prerelease has verified CI archives but no permanent release attachments at this review. Complete publication and clean-home relocation/model/RAW/launcher acceptance before any listing. No topics, metadata, settings or third-party submission changed.",
           "evidence": [
             "docs/omaphoto-comparison.md",
             "docs/public-release-readiness.md"
@@ -1819,6 +1908,37 @@
             "rust/src/ai/discovery.rs",
             "rust/src/ai/codex.rs",
             "rust/src/ai/process.rs"
+          ]
+        },
+        {
+          "id": "linux-grid-settings-snap",
+          "name": "Consistent grid settings and broader snapping",
+          "status": "planned",
+          "current": "Omuse has grid/guide snapping for Move/transform. Source review finds that grid drawing switches from 8 to 64 pixels below 100% zoom while snapping remains 8 pixels. Configurable spacing/subdivisions/style and selection/shape snapping remain absent from this path.",
+          "boundary": "Use one grid model for drawing and snapping, add a temporary bypass, and verify zoom, guides, fractional geometry and saved preferences. This is a source-derived inconsistency, not a native-GUI reproduction or an implemented fix.",
+          "evidence": [
+            "docs/omaphoto-comparison.md"
+          ],
+          "modules": [
+            "rust/src/ui.rs",
+            "rust/src/studio_ui.rs",
+            "rust/src/preferences.rs"
+          ]
+        },
+        {
+          "id": "linux-project-preview-navigation",
+          "name": "Project previews and document navigation",
+          "status": "planned",
+          "current": "Omuse already has searchable recent projects and Create pages. OmaPhoto 1.4.5 adds draggable project tabs with overflow and an embedded saved-project preview.",
+          "boundary": "Design tabs around dirty-document, recovery and pending-edit safety. Generate bounded previews transactionally, then qualify Linux file-manager thumbnail discovery separately. A stored preview does not prove desktop integration.",
+          "evidence": [
+            "docs/omaphoto-comparison.md"
+          ],
+          "modules": [
+            "rust/src/recent_projects.rs",
+            "rust/src/recent_ui.rs",
+            "rust/src/document.rs",
+            "rust/src/save_guard.rs"
           ]
         }
       ]
@@ -2025,8 +2145,8 @@
           "id": "release-competitor-comparison",
           "name": "OmaPhoto whole-repository comparison",
           "status": "locally-tested",
-          "current": "The 1 October 01:12 UTC review advances e94fd73 to 802ae82: two documentation-only commits plan Compositor 1.4.5 and document an NVIDIA/Hyprland software-cursor workaround. Issue 9 closes; PR 12 proposes an OmaStore manifest and issue 11 requests Bezier editing. Four tags/releases and nine workflow results are unchanged. Linked Compositor retouch and curve source/tests were inspected.",
-          "boundary": "OmaPhoto 1.4.5 is a roadmap, PR 12 is unmerged and the cursor workaround is not an app-side fix. Omuse 0.6.0 already provides Bezier paths and colour-range selection. Retouch quality and changed curve semantics need independent regressions/references. No upstream program or application suite ran; no comparative quality/speed/stability claim.",
+          "current": "4 October release review: annotated v1.4.5 resolves to 4c7d98b. Exact 28f6337..4c7d98b range has four commits / 34 paths; raster continuation and picker fixes, expanded control-driven acceptance and fresh screenshots. Five release packages plus checksums and seven successful Actions jobs verified. Inventoried five tags/releases, four unchanged PRs, eleven issues and ten runs; new issue 15 requests outline shapes already available through Omuse vectors.",
+          "boundary": "Compared current Omuse 0.8 source and installed receipt; no application program, test or benchmark executed. The release workflow builds packages without ctest; upstream separately reports 334/334 distro suites and six offscreen acceptance programs; earlier parallel failures have no established cause and extreme constrained-CPU stress still fails. Fresh installs/final checklist remain unchecked in the release source. Recommendations remain planned; Omuse 0.8 permanent binary assets remain absent.",
           "evidence": [
             "docs/release-060-qualification.md",
             "docs/omaphoto-comparison.md",
@@ -2126,6 +2246,64 @@
           "modules": [
             "scripts/release-downloads.py",
             "scripts/verify-release-bundle.py"
+          ]
+        },
+        {
+          "id": "reliability-retouch-memory",
+          "name": "Recoverable retouch memory failures",
+          "status": "planned",
+          "current": "Retouch has pixel/work bounds and transactional commits, but carry/offset/scratch buffers and image clones still use infallible allocations. Upstream adds focused allocation-starvation cases; no Omuse crash was reproduced in this review.",
+          "boundary": "Add derived-buffer memory admission, fallible allocation and process-isolated failure injection. Verify clear errors, unchanged document/Undo, cancellation and a successful retry. Allocation estimates are not measured memory usage.",
+          "evidence": [
+            "docs/omaphoto-comparison.md"
+          ],
+          "modules": [
+            "rust/src/retouch_brush.rs",
+            "rust/src/editor.rs"
+          ]
+        },
+        {
+          "id": "reliability-input-focus-transitions",
+          "name": "Field focus and interrupted gesture acceptance",
+          "status": "planned",
+          "current": "Omuse already commits changed numeric values on Blur with target guards and cancels lost-button scrubs and stale Camera Raw drags. Existing typing tests cover Enter and leaving an unchanged value.",
+          "boundary": "Add changed-value field-to-field clicks without a canvas press, an immediate canvas press, stale-target changes and exactly one artwork Undo. Use distinct positions for successive curve clicks; qualify exact-spacing and corner path boundaries. No new input failure was reproduced.",
+          "evidence": [
+            "docs/omaphoto-comparison.md"
+          ],
+          "modules": [
+            "rust/src/numeric_ui.rs",
+            "rust/src/camera_gesture_ui.rs",
+            "rust/src/curve_editor.rs"
+          ]
+        },
+        {
+          "id": "reliability-parallel-test-isolation",
+          "name": "Parallel test isolation",
+          "status": "planned",
+          "current": "The validation script creates disposable XDG paths and runs Rust tests with one test thread. That evidence does not establish safe concurrent mutation of settings or test state.",
+          "boundary": "Inventory mutable settings and isolate them per test/process, then compare repeated serial and parallel runs before increasing CI concurrency. Upstream now reports repeated -j16/-j32 passes and fixes a constrained-CPU continuation race; old shared-state failures did not recur but cause remains unknown, and 2-CPU/-j32 stress still fails. No Omuse speedup or concurrent-isolation result was measured here.",
+          "evidence": [
+            "docs/omaphoto-comparison.md"
+          ],
+          "modules": [
+            "scripts/test-rust.sh"
+          ]
+        },
+        {
+          "id": "reliability-commit-next-action",
+          "name": "Immediate next-action and popup lifecycle acceptance",
+          "status": "planned",
+          "current": "Omuse already has transactional commits, stale-result guards and Camera Raw/Subject Refine Apply-to-keyboard-Undo evidence. OmaPhoto 1.4.5 fixed a raster continuation race plus font/blend popup lifetime bugs found on newer Qt.",
+          "boundary": "Exercise Apply immediately followed by a tool/layer change, chained command, Undo and close under controlled CPU load. Verify preview restoration on every popup exit. This is a test-design lesson for GPUI, not evidence that Omuse has the same Qt bug.",
+          "evidence": [
+            "docs/omaphoto-comparison.md",
+            "docs/release-080-qualification.md"
+          ],
+          "modules": [
+            "rust/src/ui.rs",
+            "rust/src/photo_io_ui.rs",
+            "rust/src/save_guard.rs"
           ]
         }
       ]

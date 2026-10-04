@@ -103,6 +103,11 @@ choose **New healing layer**. It creates a transparent layer and enables
 all-layer source sampling. Alt-click a source before painting. The strokes are
 undoable raster edits; they are not a live link that follows future source edits.
 
+For the upcoming 0.9 development work on Blur, Smudge and Liquify, see
+[native-resolution retouch and independent blur radius](upcoming-0.9.md#control-blur-strength-separately-from-brush-size).
+These are local finishing tools, separate from Clone/Healing sampling or
+automatic object removal; native-resolution integration is still being reviewed.
+
 ## Larger object: AI Removal
 
 1. Select the unwanted object, not the subject you want to keep.

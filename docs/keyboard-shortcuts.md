@@ -1,6 +1,6 @@
 # Omuse keyboard shortcuts
 
-This reference is generated from Omuse's command catalog. Press **Ctrl+K** in the editor to search and run any of the 200 commands. 106 commands have a default shortcut; every unbound command remains searchable and executable.
+This reference is generated from Omuse's command catalog. Press **Ctrl+K** in the editor to search and run any of the 204 commands. 106 commands have a default shortcut; every unbound command remains searchable and executable.
 
 Open **Keyboard shortcuts** with **Ctrl+Alt+K** to assign, clear, or reset a binding. Custom bindings are stored per user. Omuse reserves **Super** for Omarchy and other Linux desktop shortcuts, and rejects Linux virtual-terminal chords such as Ctrl+Alt+F3.
 
@@ -84,6 +84,7 @@ Legacy default changes: Export moved from Ctrl+E to **Ctrl+Alt+Shift+S**, Create
 | Duplicate selected layers | Ctrl+J | Duplicate the selected layer roots. |
 | Delete selected layers | Unbound | Delete the selected layer roots. |
 | Group selected layers | Ctrl+G | Put the selected layers in a group. |
+| Ungroup folder | Unbound | Release an ordinary folder while preserving child order and placement. |
 | Merge down | Ctrl+E | Merge the active layer into the layer below. |
 | Flatten image | Unbound | Flatten the document's visible artwork. |
 | Rename layer | Unbound | Rename the active layer. |
@@ -110,6 +111,7 @@ Legacy default changes: Export moved from Ctrl+E to **Ctrl+Alt+Shift+S**, Create
 | Invert layer mask | Unbound | Invert the active layer's mask. |
 | Toggle layer mask | Unbound | Enable or disable the active layer's mask. |
 | Toggle mask painting | Unbound | Switch brush editing between layer pixels and the layer mask. |
+| Inspect layer mask | Unbound | Temporarily view the active layer mask without changing the document. |
 | Toggle mask link | Unbound | Link or unlink mask and layer placement. |
 | Place mask | Unbound | Edit the active mask's placement. |
 | Live mask source | Unbound | Choose a live source for the active mask. |
@@ -199,6 +201,8 @@ Legacy default changes: Export moved from Ctrl+E to **Ctrl+Alt+Shift+S**, Create
 | Fit canvas | Ctrl+0 | Fit the full canvas in the viewport. |
 | Actual pixels | Ctrl+1 | Show one image pixel per logical pixel. |
 | Toggle grid | Ctrl+' | Show or hide the canvas grid. |
+| Change grid spacing | Unbound | Cycle the canvas grid's major spacing. |
+| Change grid subdivisions | Unbound | Cycle the canvas grid's minor subdivisions. |
 | Toggle guides | Ctrl+; | Show or hide guides. |
 | Toggle rulers | Ctrl+R | Show or hide canvas rulers. |
 | Toggle snapping | Ctrl+Shift+; | Enable or disable snapping to the grid and guides. |
