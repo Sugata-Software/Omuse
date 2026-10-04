@@ -110,10 +110,21 @@ fn retouch_no_op_and_admission_failure_do_not_change_pixels_or_history() {
         );
     }
     editor.brush.size = 4096.;
+    // Native retouch bounds each Liquify footprint to this 20x20 raster.
+    // One long segment is inexpensive; repeated traversals exceed its actual
+    // work budget without relying on the old canvas-projection estimate.
+    let excessive: Vec<_> = [(0., 0.), (1_000_000., 1_000_000.)]
+        .into_iter()
+        .cycle()
+        .take(100)
+        .collect();
+    let error = editor
+        .retouch_stroke(&excessive, RetouchMode::Liquify)
+        .unwrap_err();
     assert!(
-        editor
-            .retouch_stroke(&[(0., 0.), (1_000_000., 1_000_000.)], RetouchMode::Liquify)
-            .is_err()
+        error
+            .to_string()
+            .contains("Stroke or Blur radius is too large")
     );
     assert_eq!(editor.undo_depth(), 0);
     assert_eq!(

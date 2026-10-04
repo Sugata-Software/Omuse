@@ -325,6 +325,59 @@ mod tests {
         });
     }
 
+    #[gpui_kit::test]
+    fn pending_numeric_drafts_commit_on_blur_and_reject_invalid_or_stale_edits(
+        cx: &mut TestAppContext,
+    ) {
+        cx.update(crate::init_test_theme);
+        let temp = tempfile::tempdir().unwrap();
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            fixture(window, cx, Recovery::at(temp.path().join("recovery")))
+        });
+        cx.update(|window, _| window.activate_window());
+        cx.run_until_parked();
+        cx.simulate_resize(size(px(1400.), px(1000.)));
+        for (draft, expected, stale) in [
+            ("41.75", 41.75, false),
+            ("NaN", 41.75, false),
+            ("99", 41.75, true),
+        ] {
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+            let field = cx
+                .debug_bounds("numeric-value-brush-size")
+                .unwrap()
+                .center();
+            let next = cx
+                .debug_bounds("numeric-value-brush-opacity")
+                .unwrap()
+                .center();
+            cx.simulate_click(field, Modifiers::default());
+            cx.simulate_keystrokes("ctrl-a");
+            cx.simulate_input(draft);
+            view.update_in(cx, |view, window, cx| {
+                let state = view.numeric.borrow();
+                let entry = state.inputs.get(&Target::BrushSize).unwrap();
+                assert!(entry.input.read(cx).focus_handle(cx).is_focused(window));
+                assert_eq!(entry.input.read(cx).value().as_ref(), draft);
+                assert_eq!(entry.editing.as_ref(), Some(&view.numeric_guard()));
+            });
+            if stale {
+                view.update(cx, |view, _| view.tool = Tool::Eraser);
+            }
+            cx.simulate_click(next, Modifiers::default());
+            cx.run_until_parked();
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+            view.update(cx, |view, cx| {
+                assert_eq!(view.editor.brush.size, expected);
+                assert_eq!(view.editor.undo_depth(), 0);
+                let state = view.numeric.borrow();
+                let entry = state.inputs.get(&Target::BrushSize).unwrap();
+                assert!(entry.editing.is_none());
+                assert_eq!(entry.input.read(cx).value().as_ref(), "41.75");
+            });
+        }
+    }
+
     #[test]
     fn typed_numbers_reject_non_finite_out_of_range_and_fractional_seeds() {
         for text in ["NaN", "inf", "-inf", "", "1e999", "1025", "0"] {
@@ -945,6 +998,9 @@ impl EditorView {
                         if matches!(event, InputEvent::PressEnter { .. }) {
                             this.focus.focus(window, cx);
                         }
+                        // A rejected or unchanged draft also needs a fresh
+                        // render after its pending focus transaction clears.
+                        cx.notify();
                     }
                     _ => {}
                 },
@@ -960,7 +1016,17 @@ impl EditorView {
             );
             state
         };
-        if !state.read(cx).focus_handle(cx).is_focused(window) {
+        // GPUI paints the new focus state before dispatching Blur. Preserve
+        // the captured draft until that callback can commit it; otherwise a
+        // click on the next field silently restores the previous model value.
+        let pending = self
+            .numeric
+            .borrow()
+            .inputs
+            .get(&target)
+            .and_then(|entry| entry.editing.as_ref())
+            .is_some_and(|guard| guard == &self.numeric_guard());
+        if !pending && !state.read(cx).focus_handle(cx).is_focused(window) {
             let value = spec.text(self.numeric_value(target, cx).unwrap_or(spec.default));
             if state.read(cx).value().as_ref() != value {
                 state.update(cx, |state, cx| state.set_value(value, window, cx));

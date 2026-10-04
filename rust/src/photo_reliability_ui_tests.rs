@@ -257,6 +257,11 @@ fn adjustment_apply_then_tool_layer_and_history_shortcuts_need_no_refocus(cx: &m
         assert_eq!(v.dialog, Dialog::None);
         assert!(v.focus.is_focused(w));
         assert_eq!(v.editor.undo_depth(), 1);
+        assert_eq!(
+            v.editor.document.layers.len(),
+            2,
+            "Apply adds an editable adjustment layer"
+        );
         assert_ne!(v.pixels, before);
         v.pixels.clone()
     });
@@ -264,14 +269,17 @@ fn adjustment_apply_then_tool_layer_and_history_shortcuts_need_no_refocus(cx: &m
     view.update(cx, |v, _| assert_eq!(v.tool, Tool::Brush));
     cx.simulate_keystrokes("ctrl-j");
     view.update(cx, |v, _| {
-        assert_eq!(v.editor.document.layers.len(), 2);
+        assert_eq!(v.editor.document.layers.len(), 3);
         assert_eq!(v.editor.undo_depth(), 2);
     });
     cx.simulate_keystrokes("ctrl-z");
     view.update(cx, |v, _| {
-        assert_eq!(v.editor.document.layers.len(), 1);
+        assert_eq!(v.editor.document.layers.len(), 2);
         assert_eq!(v.pixels, after);
     });
     cx.simulate_keystrokes("ctrl-z");
-    view.update(cx, |v, _| assert_eq!(v.pixels, before));
+    view.update(cx, |v, _| {
+        assert_eq!(v.editor.document.layers.len(), 1);
+        assert_eq!(v.pixels, before);
+    });
 }

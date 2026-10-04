@@ -3,9 +3,9 @@
 [User manual](README.md) · [Photo editing](photo-editing.md) · [Text and layout](create-content.md)
 
 **Development preview:** these instructions cover work being prepared for
-Omuse 0.9.0. They are not a claim that 0.9.0 is released or that its desktop
-checks are complete. The published 0.8.0 downloads do not include these new
-controls. Native-resolution retouch integration is still in progress.
+Omuse 0.9.0. The controls and retouch path are implemented in the candidate;
+release, real-photo and desktop qualification are still in progress. The
+published 0.8.0 downloads do not include these changes.
 
 ## Align artwork with a configurable grid
 
@@ -20,8 +20,9 @@ controls. Native-resolution retouch integration is still in progress.
    also want nearby guides to attract the pointer.
 4. Drag with **Move**, or draw a rectangular/elliptical selection, rectangle,
    ellipse, line or gradient. Snapping acts when the relevant pointer is near
-   a configured grid line or visible guide; it does not change every brush stroke or
-   automatically realign existing artwork.
+   a configured grid line or visible guide; it does not change brush strokes or
+   automatically realign existing artwork. The grid must be visible for grid
+   snapping to act.
 5. Hold **Shift** to temporarily bypass **grid** snapping. Visible guides can
    still snap, and Shift keeps its other tool behaviour, such as selection
    combination or transform constraints. Turn **Snapping** off for an entirely
@@ -29,7 +30,8 @@ controls. Native-resolution retouch integration is still in progress.
 
 Grid spacing, subdivisions and visibility are remembered as workspace
 preferences. Dense grids simplify their drawing as you zoom out; snapping
-retains the configured minor spacing. They do not add an Undo step or appear in exported artwork.
+retains the configured minor spacing. They do not add an Undo step or appear
+in exported artwork.
 **Change grid spacing** and **Change grid subdivisions** are also searchable
 commands without default keys; assign your own with **Ctrl+Alt+K**.
 
@@ -51,8 +53,9 @@ commands without default keys; assign your own with **Ctrl+Alt+K**.
    to reveal or black to hide, then inspect again.
 
 Inspection does not alter the photo, save a new mask, or add a document Undo
-step. Mask inspection and mask painting are separate modes. Leave inspection
-before judging the composite or exporting a finished image.
+step. Exports still contain the artwork, not this grayscale view. Mask
+inspection and mask painting are separate modes; return to the artwork to
+judge the mask's effect on the composite.
 
 ## Release an ordinary folder without flattening its children
 
@@ -64,11 +67,17 @@ before judging the composite or exporting a finished image.
    retaining their order, placement and editable contents. They become the
    selection. **Ctrl+Z** restores the folder in one step.
 
-The folder must be visible and unlocked, with unlocked parents and children,
+The folder must be visible and unlocked, with unlocked parents and descendants,
 **100% opacity**, **Normal** blending, no mask or effects, and no placement
-transform. An empty folder cannot be ungrouped. A refusal leaves the artwork
-intact; keep an appearance-bearing folder rather than removing settings that
-contribute to the result just to enable the command.
+transform. An empty folder or one carrying retained artwork cannot be
+ungrouped. Child layers may keep their own effects, adjustments and blending.
+Clipping relationships must keep the same result: the command refuses a folder
+used as a live-mask source, a clipped folder, or an ungrouping that would change
+a clipping stack across the folder boundary.
+
+A refusal leaves the artwork intact and explains the reason. Keep a folder
+whose settings contribute to the appearance; ungrouping does not bake those
+settings into its children.
 
 This command operates on one ordinary layer folder. It has no default key.
 **Ctrl+Shift+G** remains **Ungroup vector selection** for vector objects; it is
@@ -103,28 +112,31 @@ already baked into a photo or an unsupported imported Photoshop text layer.
 
 ## Control blur strength separately from brush size
 
-**Integration in progress:** the new **Radius px** field is present in the
-development options bar; its native-resolution retouch path is being integrated
-and reviewed. The following describes the intended 0.9 workflow, not a newly
-qualified operation in the published app.
+The 0.9 candidate edits the source pixels directly when a photo layer is
+scaled, rotated or flipped. Its placement and original pixel dimensions stay
+the same. This avoids reducing the source to its displayed canvas size before
+retouching; it does not add detail to a small photograph.
 
 1. Duplicate the photo layer with **Ctrl+J**. Select a visible, unlocked pixel
    layer; its parent folders must also permit editing. Keep retained RAW,
-   16-bit and other editable sources, and rasterize a duplicate deliberately
-   when pixel painting is needed.
+   16-bit and other editable sources, and use **Ctrl+K → Rasterize object** on
+   a duplicate when pixel painting is needed. This deliberately converts that
+   duplicate to 8-bit pixels; keep the retained original for further development.
 2. Use **Ctrl+K → Blur brush tool**. Adjust **Size px**, **Hardness %** and
    **Opacity %** in the options bar to choose the painted area and strength.
 3. Set **Radius px** independently of brush size. Its range is **0.25–128
    canvas pixels**, starting at **2 px**. A larger brush covers more area;
    a larger radius spreads the blur farther around each affected pixel.
-4. Paint short strokes, release to apply, and inspect the result at actual
-   pixels. **Ctrl+Z** reverses a completed stroke. Changing the radius setting
-   alone does not alter the image.
+4. Paint short strokes and release to apply. Inspect the result with **Ctrl+1**
+   for 100% canvas zoom; zoom farther in when a large source is scaled down on
+   the canvas. **Ctrl+Z** reverses a completed stroke. Changing the radius
+   setting alone does not alter the image.
 
-The native-resolution work also covers **Smudge tool** and **Liquify tool**
-(**Ctrl+Shift+X**). The target is to retain the original pixel dimensions when
-retouching a scaled, rotated or flipped layer, rather than first reducing it to
-the canvas resolution. This does not increase the source photograph's detail.
+Use **Ctrl+K → Smudge tool** to pull colour along a drag, or **Liquify tool**
+(**Ctrl+Shift+X**) to push and reshape existing detail. Smudge carries the
+evolving colour; Liquify calculates the stroke's displacement before sampling
+the original pixels. Start with a small brush and low opacity for delicate
+changes. These are direct raster edits, not an editable filter recipe.
 
 A pixel selection limits where results are written, including its soft edge.
 Neighbouring colour outside the selection can still supply the blur, smudge or
@@ -138,9 +150,22 @@ mask bitmap extent. To extend mask coverage, use ordinary
 [mask painting or a gradient](photo-editing.md#extend-a-painted-mask).
 
 The native path bounds work to source or mask surfaces up to **16 MP**, a
-limited stroke length and a **256 MiB working-buffer budget**. A very large
-brush, blur radius, transformed footprint or long drag can be refused; reduce
-the size/radius or use shorter strokes. These bounds do not promise that any
-operation will fit on every machine. Use short strokes and Undo after
-application. Cancellation while a released stroke is computing is still under
-integration; do not rely on Escape interrupting that work in the native UI.
+limited stroke length and a **256 MiB working-buffer budget**. Sheared or
+invalid transforms are refused. A very large brush, blur radius, transformed
+footprint or long drag can also be refused. These bounds are not a guarantee
+that every operation fits on every machine.
+
+| If the stroke cannot be applied | Next step |
+| --- | --- |
+| Source or mask exceeds 16 MP | Work on a separately saved, downsampled copy. Scaling a layer on the canvas does not reduce its source pixel count. |
+| Brush, radius, stroke or working memory exceeds a limit | Try a smaller brush or Blur radius, or split the work into shorter strokes. A rejected stroke leaves the artwork unchanged. |
+| Retouch makes no change | Check the active pixel layer or mask, layer and parent locks/visibility, selection coverage and opacity. Smudge and Liquify need a drag, not a single click. |
+
+A repeated mouse-up position does not consume another stroke point. If the
+recorded path genuinely exceeds its limit, Omuse cancels that stroke and shows
+a reason instead of applying only part of it.
+
+The desktop currently computes these strokes on release. **Escape does not
+interrupt that calculation**; wait for it to finish, then use Undo if needed.
+The engine has cancellation support, but an interactive cancel control remains
+separate work.

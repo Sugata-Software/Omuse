@@ -8,12 +8,33 @@ for numbering, qualification and publication.
 
 - Preserve a valid long stroke when mouse-up repeats its last recorded point;
   refuse an over-limit path explicitly before altering artwork.
+- Retouch the source pixels of scaled, rotated or flipped photo layers with
+  Blur, Smudge and Liquify, retaining the layer's pixel dimensions and placement.
+  Soft selections limit the edited area. Mask retouch retains the mask's extent
+  and outside coverage. These tools require an 8-bit raster layer or an existing
+  mask and are bounded to 16 MP; oversized work and recoverable buffer-allocation
+  failures leave the edit unapplied.
+- Set Blur's **Radius px** independently of brush size, from **0.25–128 canvas
+  pixels**. Blur preserves source alpha; Smudge carries colour along the stroke,
+  and Liquify samples the original pixels through the completed displacement.
+- Configure major grid spacing and minor subdivisions in **Canvas → View &
+  alignment**. Grid drawing and snapping share the chosen spacing; dense lines
+  simplify at low zoom. Hold Shift to bypass grid snapping for a gesture.
+- Alt-click a **MASK** badge, or run **Inspect layer mask**, for a temporary
+  grayscale inspection view. Return to the artwork before painting the mask;
+  inspection adds no Undo step and does not change exported artwork.
+- Release an ordinary layer folder with **Ungroup folder**, retaining child
+  order, editable contents and placement in one Undo step. The command refuses
+  folders with their own appearance settings, locks or clipping relationships
+  that would change the result. **Ctrl+Shift+G** still ungroups vector objects.
 - Preview installed fonts on selected letters in the canvas text editor, search
-  font names, commit with Enter or restore the original with Escape.
+  font names, commit with Enter or restore the original with Escape. With a caret,
+  choose the font for subsequent typing without restyling the existing text.
 - Publish the reviewed 0.8.0 Linux and experimental Windows archives with
   permanent checksums and a completed anonymous-download verification.
 
-The next editing candidate is under integration and qualification.
+These editing changes are implemented in the 0.9.0 candidate and remain under
+qualification. This section does not declare a 0.9.0 release.
 
 ## [0.8.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.8.0) — 2026-10-04
 
