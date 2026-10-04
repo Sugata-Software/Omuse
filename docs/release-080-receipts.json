@@ -1,0 +1,149 @@
+{
+  "schemaVersion": 1,
+  "status": "qualified-candidate; publication pending",
+  "candidate": {
+    "version": "0.8.0",
+    "sourceRevision": "eb558dc59ccdf88a3d62dfc2d706a6b836da1eda",
+    "sourceTree": "68e406316b92d5817abfe810fbdc7840e57b5d17",
+    "rustSubtree": "d7e4022d261e98a86f224df36c8632b4dc9f2a9e",
+    "rustSubtreeRelation": "Byte-identical to b47ba4d and local d2 Rust sources; this candidate changes dependency-helper checks and workflow wiring.",
+    "sourceUrl": "https://github.com/Sugata-Software/Omuse/commit/eb558dc59ccdf88a3d62dfc2d706a6b836da1eda"
+  },
+  "currentInstalledRelease": {
+    "version": "0.7.0",
+    "sourceRevision": "5b3daefbb5258afff4a74a2ff3db5247b074972d",
+    "status": "0.7.0 preserved while publication and installation advance separately"
+  },
+  "localQualification": {
+    "optimizedSuite": {
+      "status": "passed",
+      "total": 1352,
+      "breakdown": {
+        "library": 516,
+        "gpui": 378,
+        "integration": 458,
+        "ignored": 4
+      },
+      "sourceScope": "Equivalent b47/d2 Rust tree; these counts do not claim that a later hosted eb558dc workflow has completed.",
+      "evidence": "build-all-2026-10-03/optimized-suite-d2dac18.log",
+      "evidenceSha256": "d7f4ef726b1d92712cac994d28ea6520ec30e40dbf88f4895c2e7e4f796d8dbb"
+    },
+    "realPhoto": {
+      "status": "passed",
+      "cases": 16,
+      "sourceScope": "d2 evidence; Rust subtree is byte-identical to the candidate.",
+      "evidence": "build-all-2026-10-03/real-photo-d2dac18/results.json",
+      "evidenceSha256": "f60b43cbba452b41576285aa2bb5814ea307beb35ea61e905760718506164ce4"
+    },
+    "recovery": {
+      "status": "passed",
+      "workerChecks": 14,
+      "revisions": 12,
+      "sigkillRevision": 4,
+      "sourceScope": "d2 evidence; Rust subtree is byte-identical to the candidate.",
+      "evidence": "build-all-2026-10-03/recovery-qualified-d2dac18/results.json",
+      "evidenceSha256": "88fb708d9be9879fb182fb0308825ee838bd10c0c25a2c65d447f15e27dcccaa"
+    }
+  },
+  "nativeEvidence": {
+    "cameraRawKeyboard": {
+      "status": "passed",
+      "sourceRevision": "b47ba4d43ed7c326ea0d493f07e61efd14bf70d0",
+      "scope": "Downloaded b47 executable on XWayland: Camera Raw Apply followed by immediate keyboard Undo/Redo. Display comparisons permit one-level sampling differences; exact project-pixel equality is covered separately by GPUI.",
+      "evidence": "build-all-2026-10-03/photo-cua-b47/camera-keyboard-receipt.json",
+      "evidenceSha256": "c265dff37dd91c9a7bd11b051107675309cb38b08f2e48f3c7a17b623525e989"
+    },
+    "subjectRefineKeyboard": {
+      "status": "passed",
+      "sourceRevision": "b47ba4d43ed7c326ea0d493f07e61efd14bf70d0",
+      "scope": "Installed b47 launcher with bundled local model, one public 512x512 portrait; residual flag pixels remain and editable mask cleanup is needed. This is not a general model-quality benchmark.",
+      "evidence": "build-all-2026-10-03/photo-cua-installed-b47/subject-keyboard-receipt.json",
+      "evidenceSha256": "4cab80f5b3aabac76d57111126abb52a50cc201a211a3ace715d733f030b1a21"
+    },
+    "vectorLight": {
+      "status": "passed",
+      "sourceRevision": "b47ba4d43ed7c326ea0d493f07e61efd14bf70d0",
+      "evidence": "build-all-2026-10-03/native-cua-b47/vector-light/native-results.json",
+      "evidenceSha256": "ee99f86109eded74f5b04b7a9200a808625495c2506f6b57110cea82830dc5f1",
+      "checks": 27
+    },
+    "hueDark": {
+      "status": "passed",
+      "sourceRevision": "eb558dc59ccdf88a3d62dfc2d706a6b836da1eda",
+      "evidence": "build-all-2026-10-03/native-cua-eb558dc/hue-dark/native-results.json",
+      "evidenceSha256": "e83409dfc85fceb95c7ac155c7056c2b47c93ff10fde15b73e92c324028864c6",
+      "checks": 24
+    },
+    "compactNativeCapture": {
+      "status": "unavailable",
+      "scope": "The compact native resize capture was unavailable; compact JPEG behavior is covered by GPUI and a full-size native screenshot is retained."
+    }
+  },
+  "installationAndPackages": {
+    "priorB47CrossVersion": {
+      "status": "passed",
+      "sourceRevision": "b47ba4d43ed7c326ea0d493f07e61efd14bf70d0",
+      "scope": "Prior exact b47 runtime only: 0.7.0 to 0.8.0 to rollback to forward, with four installed-launcher journeys. Not evidence that eb558dc hosted CI completed.",
+      "evidence": "build-all-2026-10-03/cross-version-install-b47ba4d/report.json",
+      "evidenceSha256": "62f6c45f997af867b4497db2d26cc82be4d071882e1919af1228b0d9b31beff0"
+    },
+    "linuxHostPackage": {
+      "status": "passed",
+      "sourceRevision": "eb558dc59ccdf88a3d62dfc2d706a6b836da1eda",
+      "target": "linux-x86_64",
+      "archiveSha256": "b562f874f12660d5bfb56f0babc8e7ae8f575712a525875d3f0dae54cbd2eb0c",
+      "binarySha256": "d47feb79e0cc893786f5aa8cd60dc3ef2afdb4975b2ea0cb6f19f3dcbe9abf56",
+      "evidence": "build-all-2026-10-03/download-linux-eb558dc/host-smoke.json",
+      "evidenceSha256": "c1537e200f0feaae0e1ed674d3a41606ce4046b84c4b52f052c2cd99ead5cdb4",
+      "limits": "This package receipt covers automated headless installation and editing with same-candidate replacement/rollback. Separate native desktop captures are recorded above; no live AI qualification."
+    },
+    "windowsPackageReceipt": {
+      "status": "passed-on-Windows-CI; independent archive review passed",
+      "sourceRevision": "eb558dc59ccdf88a3d62dfc2d706a6b836da1eda",
+      "target": "windows-x86_64",
+      "archiveSha256": "eb46cbc4168d7db60c9bf474363d71fcc917f113c28089042452c3fe3788739b",
+      "binarySha256": "55e002bb0f57a9c247a2e40a3ed62afbb36cdb7bdef2fe88332e17db631539a1",
+      "evidence": "build-all-2026-10-03/download-windows-eb558dc/smoke.json",
+      "evidenceSha256": "5e8c84ce1472acd981746b3d91c40899e5837c46e848fda1561bccab1c47d598",
+      "packageReview": "dependency-ci-d2dac18/final-ci/windows-package-review.json",
+      "packageReviewSha256": "d4302ecdf62ad40fefe651c6af4b2f801907ebe7eb491e6712eb6a0e0e0b8db3",
+      "limits": "Windows Server 2025 headless version, editing and DLL-load checks passed; upgrade/rollback reinstalls the same candidate in portable folders. Interactive Windows 10/11 and live AI remain unqualified."
+    }
+  },
+  "ci": {
+    "status": "completed-success",
+    "validationRun": 37161936414,
+    "downloadRun": 37161936378,
+    "validationUrl": "https://github.com/Sugata-Software/Omuse/actions/runs/37161936414",
+    "downloadUrl": "https://github.com/Sugata-Software/Omuse/actions/runs/37161936378",
+    "linuxJob": 111317008749,
+    "linuxStatus": "success",
+    "windowsStatus": "success",
+    "sourceScope": "Both hosted exact-source eb558dc runs completed successfully before the release declaration."
+  },
+  "dependencyHelper": {
+    "status": "passed-local-and-native-linux-windows-ci",
+    "rustChecks": 20,
+    "pythonChecks": 4,
+    "windowsMetadata": "passed",
+    "evidence": "dependency-ci-d2dac18/report.json",
+    "sourceScope": "Helper-only local qualification; it does not claim application/runtime or public release requalification.",
+    "windowsRustChecks": 20,
+    "windowsPythonChecks": 4,
+    "noticeRegressionChecksPerPlatform": 9
+  },
+  "publicationLimits": [
+    "0.8.0 is not released; no public tag or downloadable release asset is declared here.",
+    "The installed source release remains 0.7.0.",
+    "No live Windows GUI, live AI, mixed-DPI, clean-machine or broad hardware qualification.",
+    "The compact native resize capture is unavailable.",
+    "Packages remain unsigned experimental previews after publication; stable and broader portability gates are separate."
+  ],
+  "evidenceLocation": "Relative evidence names identify the retained local audit packet, not downloadable repository files. Public source and workflow URLs are linked separately.",
+  "downloadManifest": {
+    "file": "docs/releases/downloads/v0.8.0.json",
+    "sha256": "f9a707e16c3a26b1d34a5ad99484bec48b45609776ef629c69a597abcef4c042",
+    "artifact": 11288990253,
+    "copiedWithoutModification": true
+  }
+}

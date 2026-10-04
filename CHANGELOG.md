@@ -6,6 +6,12 @@ for numbering, qualification and publication.
 
 ## Unreleased
 
+No additional changes recorded.
+
+## [0.8.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.8.0) — 2026-10-04
+
+**Colour, curves and control · Linux / Omarchy source pre-release · unsigned experimental Windows**
+
 - Build and use the editor on Windows 11 x86_64 from source with
   `scripts/build-rust.ps1`: open, edit, save and reopen canvases and Create
   collections, with settings in `%APPDATA%\omuse`, data and recovery in
@@ -20,7 +26,7 @@ for numbering, qualification and publication.
   and saves wait for sync clients and scanners that briefly hold project files.
   CI runs the test suite and editing and motion journeys on Windows and keeps
   an unsigned package zip. This is an
-  in-development build, not a release. Ask Omuse runs on Windows with Codex
+  unsigned experimental build. Ask Omuse runs on Windows with Codex
   (including npm installs) and native Claude Code, using workspaces only the
   current user can open. The Windows port uses the same project formats as
   Linux. Native desktop and live-provider qualification remain separate from CI.
@@ -99,11 +105,13 @@ for numbering, qualification and publication.
 - Save grouped scenes as canvas format **12**, gradients/advanced strokes as
   **13**, and editable text on curves as **14**. Flat legacy scenes retain
   format 11; ordinary canvases retain format 10. Formats 12–14 require this
-  unreleased reader. Older releases also cannot read the new reference-match
+  0.8.0 reader. Older releases also cannot read the new reference-match
   operation; use **Save As** to preserve a compatible original.
 
-These entries describe implemented development work. The numbered public
-release and its completed platform qualification remain unchanged here.
+The exact-source Linux/Windows validation passed, alongside local photo,
+recovery and native checks. Preview downloads have their own reviewed manifest
+and publication step; interactive Windows, live Windows AI and broader hardware
+qualification remain open.
 
 See the [development qualification record](docs/vector-workflow-qualification.md)
 and [workflow instructions](docs/user-guide/photo-vector.md) for the tested scope

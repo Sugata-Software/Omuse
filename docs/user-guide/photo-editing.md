@@ -191,7 +191,7 @@ Release a targeted drag to update the preview. **Escape** during the drag
 restores its starting settings; **Cancel** closes the entire draft. Sampling
 uses the relevant stage of the current grade, so earlier corrections remain
 accounted for. Transparent samples are rejected. Apply commits one Undo step.
-In the 0.8.0 candidate, **Ctrl+Z** undoes the applied result immediately;
+In 0.8.0, **Ctrl+Z** undoes the applied result immediately;
 **Ctrl+Shift+Z** restores it without first clicking the canvas.
 Preview work is limited to one active job and the newest queued request, with
 cancellation and checks against changed artwork. Grading still runs at full
@@ -221,7 +221,7 @@ for sampling controls, protected areas, shadows and cleanup.
    **Cancel** leaves the document unchanged.
 3. The result is an **editable layer mask**: original photo pixels remain in
    the layer. Inspect hair, glass, fur, narrow gaps and any background fragments
-   the model retained. In the 0.8.0 candidate, **Ctrl+Z / Ctrl+Shift+Z** work
+   the model retained. In 0.8.0, **Ctrl+Z / Ctrl+Shift+Z** work
    immediately after Apply.
 4. For painted corrections, start from the original photo, use **Select
    subject**, then **Refinement workspace** from command search. Paint

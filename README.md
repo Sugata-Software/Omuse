@@ -14,17 +14,15 @@ application launcher. Windows x64 users can download a portable development ZIP.
 
 **[Install on Linux](#linux)** · **[Download for Windows](#windows-experimental)**
 
-**Current Linux source pre-release: [0.7.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.7.0)**
-— integrated vector editing, local Image Trace, colour uniformity and higher-quality photo sampling. Read the [release notes](docs/releases/v0.7.0.md)
-or browse the [changelog](CHANGELOG.md) for changes and known limitations.
-[See ten screenshots from 0.7.0](docs/releases/v0.7.0-gallery.md).
+**Current source pre-release: [0.8.0 — Colour, curves and control](https://github.com/Sugata-Software/Omuse/releases/tag/v0.8.0)**
+— reference colour matching, softer masks, richer vector artwork, editable text
+on curves and clearer JPEG inspection. Read the [release notes](docs/releases/v0.8.0.md)
+or browse the [interface gallery](docs/releases/v0.8.0-gallery.md).
 
-**Next: the 0.8.0 candidate is in qualification.** It adds richer vector
-artwork, editable text on curves, reference colour matching and finer photo
-controls. [Explore the candidate highlights](#candidate-highlights) and
-[follow the new workflows](docs/user-guide/photo-vector.md#new-photo-and-vector-tools--unreleased-development-build).
-The published release and Linux installer remain on **0.7.0** while checks run;
-0.8.0 downloads are not published yet.
+[Explore what’s new](#new-in-080) ·
+[Follow the photo and vector workflows](docs/user-guide/photo-vector.md#photo-and-vector-tools-in-080).
+Linux and Windows archives are qualified as **unsigned experimental previews**;
+source and binary publication are separate steps, as described below.
 
 **[Read the user manual](docs/user-guide/README.md)** ·
 [Edit a photo](docs/user-guide/photo-editing.md) ·
@@ -91,8 +89,10 @@ script itself is downloaded from `main`.
 
 **The current installer builds from source.** Allow time for the first build
 and about 12 GB of free disk space. Later installs reuse the build cache.
-Prebuilt Linux downloads will follow release qualification. You can
-[inspect the installer](install.sh) before running it.
+Reviewed unsigned Linux archives are listed on the
+[release page](https://github.com/Sugata-Software/Omuse/releases/tag/v0.8.0) when
+binary publication completes. The curl command remains the source installer.
+You can [inspect it](install.sh) before running it.
 
 | Task | Command |
 | --- | --- |
@@ -109,25 +109,27 @@ and troubleshooting.
 
 ### Windows (experimental)
 
-**[Download the reviewed Windows build](https://github.com/Sugata-Software/Omuse/actions/runs/37071077286)** ·
-[Browse recent builds](https://github.com/Sugata-Software/Omuse/actions/workflows/rust-validation.yml)
+**[Open the 0.8.0 release page](https://github.com/Sugata-Software/Omuse/releases/tag/v0.8.0)** ·
+[Reviewed build artifacts](https://github.com/Sugata-Software/Omuse/actions/runs/37161936378)
 
-The portable **Windows x64** package targets Windows 10 and 11; current desktop
-checks were performed on Windows 11. You do not need Rust or Visual Studio to
-run the downloaded application.
+The portable **Windows x64** preview needs neither Rust nor Visual Studio.
+The 0.8.0 package passed automated checks on Windows Server 2025; interactive
+Windows 10/11 qualification is still separate.
 
-1. Sign into GitHub and open the build page above. Under **Artifacts**, download
-   **omuse-windows-x86_64-unsigned**.
-2. Extract the downloaded ZIP, then extract **omuse-windows-x86_64.zip** inside it
-   to a folder of your choice.
-3. Open that folder and run **omuse.exe**. Keep the **lib**, **models** and
-   **licenses** folders alongside it.
+1. When application assets appear on the release page, download
+   **omuse-0.8.0-windows-x86_64.zip**. GitHub’s automatic source archives are not
+   application downloads.
+2. Extract the complete ZIP into a new folder.
+3. Run **omuse.exe**, keeping **lib**, **models** and **licenses** alongside it.
 
-Build artifacts are retained for **14 days**. If the reviewed download has
-expired, use **Browse recent builds** and choose a successful run with the
-Windows artifact, preferably from `main`. A running build may not have uploaded
-its package yet. To update, download and extract a newer package into a separate
-folder, then close the old application and launch the new one.
+If binary publication is still pending, sign into GitHub and use the reviewed
+build link above. Under **Artifacts**, download
+**omuse-download-windows-x86_64-attempt-1**, then extract its inner
+**omuse-0.8.0-windows-x86_64.zip**. These build artifacts are retained for
+**30 days**; published release assets do not have that artifact expiry.
+To update, keep the old complete folder, close the old app and launch the new
+folder’s executable. The [reviewed manifest](docs/releases/downloads/v0.8.0.json)
+records the source, native checks and archive hashes.
 
 Photo editing and Camera RAW are included. These features have extra requirements:
 
@@ -137,26 +139,22 @@ Photo editing and Camera RAW are included. These features have extra requirement
 | MP4 / GIF export | Install FFmpeg, for example `winget install Gyan.FFmpeg`, and make sure `ffmpeg.exe` and `ffprobe.exe` are on `PATH` |
 | Ask Omuse | Install the official Codex CLI or the native Claude Code CLI, then open **Ask Omuse → Connections** to connect your account |
 
-The Windows ZIP includes development changes beyond the Linux 0.7.0 source
-release. It is **experimental and unsigned**, so Windows SmartScreen may show a
+The Windows ZIP is **experimental and unsigned**, so SmartScreen may show a
 warning. Live Windows AI generation/editing and clean-machine acceptance remain
-unqualified; finding a signed-in CLI does not establish that an AI task works.
-The linked artifact also predates the candidate's dependency-notice fixes; the
-[notice review](docs/rust-license-findings.md#windows-x86_64-development-package)
-separates its historical finding from the new source checks. There is no Windows
-installer or binary on the Releases page yet. See the
+unqualified; detecting a signed-in CLI does not establish that an AI task works.
+The 0.8.0 package includes the reviewed dependency-notice fixes. See the
 [Windows build notes](rust/README.md#build-on-windows-in-development) for
 connection requirements and known limits.
 
 ## Highlights
 
-### Candidate highlights
+### New in 0.8.0
 
-These features are implemented in the **0.8.0 candidate**, with release and
-platform qualification in progress. They are not included in the published
-0.7.0 source release or promised by the older Windows artifact above.
+These additions share the existing photo canvas and Layers inspector.
+[Qualification and limits](docs/release-080-qualification.md) distinguish local
+editing checks, automated Windows/package checks and remaining hardware work.
 
-| Workflow | What the candidate adds |
+| Workflow | What 0.8.0 adds |
 | --- | --- |
 | **Build vector artwork on the photo canvas** | Select several objects, group them, align, distribute and transform them together. Unite, Subtract, Intersect, Exclude and Divide construct new filled shapes with Undo. [Arrange and combine](docs/user-guide/photo-vector.md#select-group-and-arrange). |
 | **Refine fills and strokes** | Editable linear/radial gradients with 2–16 colour and transparency stops; cap, join, dash, gap and offset controls. Apply styles to selected objects in the Layers inspector. [Gradient and stroke guide](docs/user-guide/photo-vector.md#set-gradient-fills-and-precise-strokes). |

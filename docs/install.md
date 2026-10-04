@@ -36,28 +36,31 @@ from source**; a downloadable binary release remains subject to the
 
 ## Tested source channel
 
-The current numbered source release is [Omuse 0.7.0](releases/v0.7.0.md).
+The current source declaration is [Omuse 0.8.0](releases/v0.8.0.md).
 Its Git tag identifies the tested runtime; the normal curl command follows the
 current tested channel and may advance to later qualified releases.
 
 The public installer selects commit
-[`5b3daefbb5258afff4a74a2ff3db5247b074972d`](https://github.com/Sugata-Software/Omuse/commit/5b3daefbb5258afff4a74a2ff3db5247b074972d).
+[`eb558dc59ccdf88a3d62dfc2d706a6b836da1eda`](https://github.com/Sugata-Software/Omuse/commit/eb558dc59ccdf88a3d62dfc2d706a6b836da1eda).
 It fetches that exact revision and checks the checkout before building.
-The [exact-candidate Rust workflow](https://github.com/Sugata-Software/Omuse/actions/runs/36910650216)
-passed. The [0.7.0 qualification](release-070-qualification.md) records 1,206
-application cases, all 80 template variants, editing/media/recovery, 13 native
-journeys and complete installation rollback. The installed production build
-has a clean source receipt and a verified 20-file payload.
+The complete [Linux and Windows workflow](https://github.com/Sugata-Software/Omuse/actions/runs/37161936414)
+passed. The [0.8.0 qualification](release-080-qualification.md) records 1,352
+local application cases, 80 template variants, 16 photo cases, interrupted-save
+recovery and bounded native desktop checks. Both package targets passed their
+headless installation/replacement/rollback checks; the downloaded Linux archive
+also passed on the development laptop. These remain experimental packages,
+not a claim of broad platform compatibility.
 
-All new projects use `.omuse`. Older projects remain readable and are not
-rewritten merely by opening them. **0.7.0 writes canvas format 11 when a project
-contains vector scenes; ordinary canvases continue to use format 10.**
-**0.6.0 cannot read format-11 scenes or projects containing Target Colour
-Uniformity.** Use **Save As** to retain an older copy. App rollback does not
-downgrade artwork.
-Collection schema v2 is separate and requires 0.5.0 or later. No new live AI
-request was sent for this editing release; earlier provider receipts keep their
-own runtime identities. Start with the [user manual](user-guide/README.md).
+All new projects use `.omuse`. Opening an older project does not rewrite it.
+Ordinary canvases use format 10; flat legacy vector scenes use 11, grouped
+scenes 12, gradient/advanced-stroke scenes 13 and curved text 14. **0.7.0 cannot
+read formats 12–14 or the reference-colour recipe.** Use **Save As** to retain an
+older original before adding new features. App rollback does not downgrade
+artwork. Collection schema v2 remains separate and requires 0.5.0 or later.
+
+No new cloud AI request was sent for this editing release; earlier provider
+receipts keep their own runtime identities. Local subject-model checks do not
+establish general cutout quality. Start with the [user manual](user-guide/README.md).
 
 The curl command downloads `install.sh` from `main`, so changes to the installer
 script take effect immediately. The application checkout is pinned separately:

@@ -8,11 +8,12 @@ on `release/0.8.0`, with source tree
 `68e406316b92d5817abfe810fbdc7840e57b5d17`. It changes only the dependency
 helper and its four regression checks/workflow wiring; the Rust application
 source is byte-identical to b47/d2. The b47 Linux and Windows application
-suites and journeys passed; the new eb558dc runs remain in progress. The repaired helper passed 20 Rust and 4 Python
-checks, and Windows dependency metadata passed; native Windows validation is
-still pending in CI runs 37161936414 and 37161936378. This candidate includes
-all earlier compact JPEG, Camera Raw/Subject Refine focus, 16-bit blend and
-external-format-11 fixes.
+suites and journeys passed. The repaired helper passed 20 Rust and 4 Python
+checks, Windows dependency metadata passed, and the exact-source validation and
+download runs completed successfully: [validation run 37161936414](https://github.com/Sugata-Software/Omuse/actions/runs/37161936414)
+and [download run 37161936378](https://github.com/Sugata-Software/Omuse/actions/runs/37161936378).
+This candidate includes all earlier compact JPEG, Camera Raw/Subject Refine
+focus, 16-bit blend and external-format-11 fixes.
 It is still a source candidate: no 0.8.0 tag or downloadable asset is
 published, and the installed 0.7.0 generation remains in place.
 
@@ -81,11 +82,10 @@ passes GPUI, while a new native compact-resize capture was unavailable and the
 full-size native screenshot is the applicable evidence.
 
 The earlier b47ba4d application suites and journeys passed on Linux and Windows.
-The new eb558dc exact-source runs are still in progress.
-The repaired helper passed its local 20 Rust and 4 Python checks plus Windows
-metadata resolution. Native Windows validation and the final download workflow
-remain pending in CI; built packages are not release-qualified until those runs
-finish.
+The eb558dc exact-source validation and download workflows completed
+successfully. Linux and Windows package checks passed with zero notice findings
+(619 and 421 dependency entries respectively). These are candidate qualification
+receipts; source and asset publication remain separate steps.
 
 Native gradient inspection exposed a conservative stroke-work estimate that
 rejected a simple supersampled scene. Styled stroke accounting now follows its
@@ -114,13 +114,13 @@ exact inventory again.
 
 ## Remaining qualification
 
-- Complete CI runs 37161936414 and 37161936378, including native Windows
-  validation and the download workflow, then review their receipts.
-- Complete native compact-window resize capture if the environment supports it;
-  retain the passing full-size screenshot and the b47 Camera Raw/Subject Refine
-  keyboard receipts with their bounded portrait limitations.
-- Review current eb558dc package receipts before declaring the source release or
-  publishing permanent unsigned preview downloads.
+- Publish the qualified source and reviewed Linux/Windows candidate assets only
+  after the release owner completes the publication steps.
+- Retain the native compact-window resize capture as an optional broader-evidence
+  gap; the initial preview qualification has GPUI compact JPEG coverage and a
+  full-size native screenshot.
+- Keep Windows GUI/AI, mixed-DPI, clean-machine and broader hardware acceptance
+  outside this initial unsigned preview qualification.
 - Live Windows Codex/Claude jobs, clean-machine acceptance, mixed-DPI,
   accessibility and broader hardware checks require their separate environment
   and evidence. No Windows machine is connected to this development session.

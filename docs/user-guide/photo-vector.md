@@ -1,20 +1,20 @@
 # Draw, trace and refine artwork
 
-**Omuse 0.7.0** keeps photos and editable vector artwork on the same canvas.
+**Omuse 0.8.0** keeps photos and editable vector artwork on the same canvas.
 Use **P** to draw, **A** to refine points and **V** to move objects. Trace a bitmap
 when you want a simpler graphic, or use the colour tools to refine a photo.
 
 [User manual](README.md) · [Photo editing](photo-editing.md) ·
-[Create content](create-content.md) · [Current interface gallery](../releases/v0.7.0-gallery.md)
+[Create content](create-content.md) · [Current interface gallery](../releases/v0.8.0-gallery.md)
 
-## New photo and vector tools — unreleased development build
+## Photo and vector tools in 0.8.0
 
-These controls extend the 0.7.0 instructions below. They are not part of the
-published 0.7.0 source release. Vector tools stay on the same canvas and Layers
-inspector; use **Ctrl+K** to find their commands. Instructions here describe the
-implemented development build, not a completed public release test run.
-See the [development qualification record](../vector-workflow-qualification.md)
-for tested scope and remaining release checks.
+Vector tools stay on the same canvas and Layers inspector; use **Ctrl+K** to
+find their commands. These instructions cover the 0.8.0 additions, including
+reference matching and soft hue selections. Keep older project copies before
+using the new scene formats.
+See the [release qualification](../release-080-qualification.md) for tested
+scope and the remaining Windows desktop, hardware and interchange limits.
 
 ### Select, group and arrange
 
@@ -101,6 +101,8 @@ carry transparency. Variable-width strokes, stroke expansion, live offsets,
 mesh gradients and pattern fills are still planned.
 
 ### Put editable text on a curve
+
+![Curved text in the shared vector inspector](../releases/images/v0.8.0/01-curved-text.png)
 
 1. Draw one curve with **P**, then select it with **V**. Open **Text on a path**
    in Layers. Enter a single line, font family, size, tracking and curve position.
@@ -191,6 +193,8 @@ vector scene version 1 are separate compatibility paths.
 
 ### Keep soft masks and select by hue
 
+![Hue range and selection-mask preview](../releases/images/v0.8.0/03-hue-range.png)
+
 When making a reveal/hide layer mask from a feathered selection, intermediate
 coverage now remains soft, including on fractionally placed or rotated layers.
 The mask remains editable and Undo can restore the prior state.
@@ -237,6 +241,8 @@ reference file moves, but reopening the node does not restore its thumbnail.
 Older releases cannot read this new operation; retain a separate older project.
 
 ### Inspect JPEG detail and refine raster strokes
+
+![Encoded JPEG preview and export controls](../releases/images/v0.8.0/02-jpeg-preview.png)
 
 Export to a `.jpg`/`.jpeg` filename, set quality, DPI and matte, then choose
 **Preview JPEG**. **Fit** shows the encoded image; **100%** uses one image pixel
