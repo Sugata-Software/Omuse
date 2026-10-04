@@ -3,7 +3,7 @@
   "snapshotDate": "2026-10-04",
   "project": "Omuse",
   "releaseScope": "Native Rust/GPUI application for Arch/Omarchy Linux x86_64",
-  "releaseState": "Omuse 0.9.0 qualification and normal installation complete; reviewed source declarations ready, numbered release and permanent asset publication pending. Previous 0.8.0 assets remain published.",
+  "releaseState": "Omuse 0.9.0 source prerelease and reviewed Linux/unsigned experimental Windows downloads published and anonymously verified; normal 0.9 installation and complete 0.8 rollback verified",
   "visualizationMirror": "omuse-project-guide.html",
   "statusDefinitions": [
     {
@@ -34,15 +34,15 @@
   ],
   "releaseSnapshot": [
     {
-      "label": "Qualified release preparation",
+      "label": "Current release",
       "value": "0.9.0 — Photo detail, precise control",
-      "detail": "Public runtime 65c95cc165f9d730a9f0bcea51c51a84cf4adb7e passed complete Linux/Windows validation and download workflows. Linux: 1,405 application tests; Windows: 1,387; four ignored per platform. Final compact native and installed-launcher journeys each passed 24 checks. The exact Linux archive passed four cross-version journeys and 35 identical exports across nine projects. The unchanged photo library passed 16 cases / 128 operations; residual removal texture mismatch remains documented. Source declarations are prepared and the normal app is verified at 0.9.0; numbered source and permanent asset publication remain pending.",
+      "detail": "Public runtime 65c95cc165f9d730a9f0bcea51c51a84cf4adb7e passed complete Linux/Windows validation and download workflows. Linux: 1,405 application tests; Windows: 1,387; four ignored per platform. Final compact native and installed-launcher journeys each passed 24 checks. The exact Linux archive passed four cross-version journeys and 35 identical exports across nine projects. The unchanged photo library passed 16 cases / 128 operations; residual removal texture mismatch remains documented. Source publisher 37209968347 and download publisher 37210058961 succeeded; all four permanent assets matched anonymous size/hash checks. Normal 0.9 installation and complete 0.8 rollback are verified.",
       "status": "locally-tested"
     },
     {
-      "label": "Published source release",
+      "label": "Previous published release — historical",
       "value": "Omuse 0.8.0 — Linux and Windows downloads published",
-      "detail": "Photo fidelity, reference palette matching, hue masks, multiselection/groups, gradient and stroke styling, retained curved text, vector PDF and downloadable archives. Candidate source eb558dc updates only dependency-helper checks and workflow wiring over the b47/d2 Rust tree. Local 1,352-case acceptance, final photo/recovery evidence, b47 cross-version installation and Linux/Windows app suites passed. The repaired helper passed 20 Rust and 4 Python checks plus Windows metadata; exact-source validation run 37161936414 and download run 37161936378 completed successfully. Source publication is complete. At publication the installed version was 0.8.0 with 0.7.0 preserved. The later final 0.9 candidate is now installed on this host with all 22 files of its 0.8 rollback generation preserved; reviewed public declarations now target 0.9, while its publication remains pending. Update 4 October: publication run 37200321434 passed. All four permanent assets downloaded anonymously and matched reviewed sizes and SHA-256 hashes. The tag and release notes are unchanged. The public Linux archive passed isolated install, replacement and rollback checks; Windows archive integrity is verified with CI execution evidence only.",
+      "detail": "Photo fidelity, reference palette matching, hue masks, multiselection/groups, gradient and stroke styling, retained curved text, vector PDF and downloadable archives. Candidate source eb558dc updates only dependency-helper checks and workflow wiring over the b47/d2 Rust tree. Local 1,352-case acceptance, final photo/recovery evidence, b47 cross-version installation and Linux/Windows app suites passed. The repaired helper passed 20 Rust and 4 Python checks plus Windows metadata; exact-source validation run 37161936414 and download run 37161936378 completed successfully. Source publication is complete. At publication the installed version was 0.8.0 with 0.7.0 preserved. The later final 0.9 candidate is now installed on this host with all 22 files of its 0.8 rollback generation preserved; 0.9 is now published with separate receipts; the 0.8 evidence remains historical. Update 4 October: publication run 37200321434 passed. All four permanent assets downloaded anonymously and matched reviewed sizes and SHA-256 hashes. The tag and release notes are unchanged. The public Linux archive passed isolated install, replacement and rollback checks; Windows archive integrity is verified with CI execution evidence only.",
       "status": "locally-tested"
     },
     {
@@ -70,10 +70,10 @@
       "status": "locally-tested"
     },
     {
-      "label": "Reviewed source declaration",
-      "value": "Omuse 0.9.0 — awaiting publication",
-      "detail": "Exact runtime 65c95cc165f9d730a9f0bcea51c51a84cf4adb7e is selected by reviewed latest/installer declarations after successful validation 37207585304 and download build 37207585335. The normal 0.9 launcher is verified with 0.8 retained for rollback. The numbered source release and permanent downloads still require publication verification.",
-      "status": "implemented-needs-qualification"
+      "label": "Published source and downloads",
+      "value": "Omuse 0.9.0",
+      "detail": "Runtime 65c95cc165f9d730a9f0bcea51c51a84cf4adb7e, validated in run 37207585304 and built in 37207585335, is published with four reviewed assets. Source publisher 37209968347 and download publisher 37210058961 succeeded; anonymous bytes matched the declared sizes and hashes. The previous 0.8 release and immutable 0.9 notes/tag were unchanged.",
+      "status": "locally-tested"
     },
     {
       "label": "Current release regression suite",
@@ -90,13 +90,13 @@
     {
       "label": "Public-release blockers",
       "value": "Open gates",
-      "detail": "Final 0.9 source and package qualification passed; reviewed declarations are ready and the normal launcher is verified with its complete 0.8 rollback. Numbered source publication, four permanent download assets and anonymous size/hash verification remain pending. Clean-machine, broader hardware/accessibility and live Windows AI acceptance remain outside the prerelease qualification. The historical 0.8 compact-capture gap remains historical; final 0.9 has a reviewed 800 × 600 logical XWayland capture.",
+      "detail": "Initial 0.9 source/package qualification and publication are complete, including anonymous verification of all four assets and normal installation with complete 0.8 rollback. Clean-machine, broad hardware/accessibility, live Windows AI and stable/signed-release acceptance remain open. The historical 0.8 compact-capture gap remains historical; final 0.9 has its reviewed compact XWayland capture.",
       "status": "blocked-deferred"
     },
     {
       "label": "Latest upstream review",
       "value": "OmaPhoto 1.4.5 published and reviewed",
-      "detail": "Released 4 October at 4c7d98b with five Linux packages plus checksums; all seven release jobs passed. Compared the four new commits / 34 paths and released feature set with installed Omuse 0.8.0. Native-resolution retouch, grid consistency, mask inspection and published downloads are priorities. Source/release inspection only; no app test or benchmark rerun. Subsequent Omuse work published the verified 0.8.0 downloads and implemented the priority retouch/grid/mask paths in the 0.9.0 candidate; those new editing paths remain under qualification.",
+      "detail": "Released 4 October at 4c7d98b with five Linux packages plus checksums; all seven release jobs passed. Compared the four new commits / 34 paths and released feature set with installed Omuse 0.8.0. Native-resolution retouch, grid consistency, mask inspection and published downloads are priorities. Source/release inspection only; no app test or benchmark rerun. Subsequent Omuse work published the verified 0.8.0 downloads, then shipped the priority retouch/grid/mask paths in qualified 0.9.0 with its own bounded source, photo, native and package evidence. This was not a comparative application benchmark.",
       "status": "locally-tested"
     }
   ],
@@ -2105,8 +2105,8 @@
           "id": "release-ci-github",
           "name": "Published source and Linux/Windows CI",
           "status": "locally-tested",
-          "current": "The published source runtime eb558dc59ccdf88a3d62dfc2d706a6b836da1eda (tree 68e406316b92d5817abfe810fbdc7840e57b5d17) carries the b47/d2 Rust tree plus dependency-helper and workflow wiring. The b47 Linux/Windows application suites and journeys passed. The repaired helper passed 20 Rust and 4 Python checks plus Windows metadata resolution; validation run 37161936414 and download run 37161936378 completed successfully. The earlier f40d37d GUI failures and a0 16-bit blend failures remain historical checkpoints.",
-          "boundary": "Final exact-source validation 37207585304 and download build 37207585335 completed successfully, attempt 1. Linux job 111452172803 and Windows job 111452172633 passed all required gates. Both nine-check package receipts passed, with 619 Linux / 421 Windows dependencies and zero findings. The original generated manifest passed canonical/archive/receipt verification. Numbered source and permanent asset publication remain pending.",
+          "current": "Published runtime 65c95cc165f9d730a9f0bcea51c51a84cf4adb7e passed complete validation 37207585304 and download build 37207585335, attempt 1. Linux 1,405 / Windows 1,387 application tests passed, four ignored each; complete journeys and notice gates passed. Source publisher 37209968347 and download publisher 37210058961 completed; exact tag, notes and four permanent assets were verified. Historical 0.8 CI remains in its immutable record.",
+          "boundary": "Both exact-source workflows and publication are complete. Interactive Windows/live AI, clean-machine, mixed-DPI and broader hardware acceptance remain outside this prerelease's evidence.",
           "evidence": [
             "docs/release-060-qualification.md",
             "docs/release-070-qualification.md",
@@ -2139,7 +2139,7 @@
           "name": "Clean install and release identity",
           "status": "blocked-deferred",
           "current": "The normal launcher selects 0.9.0 source 65c95cc165f9d730a9f0bcea51c51a84cf4adb7e with binary SHA-256 da39ef88d0c6f08074051784974668841e62a2ac9c56c527b73c9ba4685e4ec6. All 22 files of prior 0.8 remained exact; profile/settings bytes were preserved. Its installed-launcher native journey passed 24 checks with an isolated profile.",
-          "boundary": "Reviewed declarations now select the qualified 0.9 source, while numbered source/asset publication remains pending. These package/native receipts do not close clean-machine, broader hardware/accessibility or live Windows AI gates.",
+          "boundary": "The same qualified runtime is selected by the public source installer, published tag and verified archives. These receipts do not close clean-machine, broader hardware/accessibility or live Windows AI gates.",
           "evidence": [
             "docs/release-070-qualification.md",
             "docs/release-070-receipts.json",
@@ -2275,7 +2275,7 @@
           "name": "Photo/vector correctness and release qualification",
           "status": "implemented-needs-qualification",
           "current": "Final 0.9 photo/control qualification passed. Its photo library source is unchanged from 8f72ce5c, whose 16-case / 128-operation corpus and versioned removal checks passed. Final compact native and installed-launcher journeys each passed 24 checks; current captures show the actual editable portrait result.",
-          "boundary": "Retouch used copies at most 1,024 pixels wide; full-resolution original integrity/export was separate. Residual removal seam/texture mismatch and automatic Spot Heal copying unsuitable detail remain documented. Final Linux/Windows CI passed; source/asset publication remains pending. The historical 0.8 compact-capture gap remains tied to that release.",
+          "boundary": "Retouch used copies at most 1,024 pixels wide; full-resolution original integrity/export was separate. Residual removal seam/texture mismatch and automatic Spot Heal copying unsuitable detail remain documented. Final Linux/Windows CI passed; source/assets are published and verified. The historical 0.8 compact-capture gap remains tied to that release.",
           "evidence": [
             "docs/photo-vector-roadmap.md",
             "docs/vector-scene-qualification.md",
@@ -2291,13 +2291,16 @@
           "id": "release-versioned-downloads",
           "name": "Permanent Linux and Windows preview downloads",
           "status": "locally-tested",
-          "current": "Omuse 0.8.0 has four permanent release assets: Linux archive, unsigned experimental Windows zip, SHA256SUMS and the reviewed download manifest. Publication run 37200321434 succeeded; anonymous downloads matched every declared size and SHA-256, and manifest bytes matched the reviewed declaration. Source tag and published notes were unchanged.",
-          "boundary": "The four 0.8 permanent assets remain published and verified. Final 0.9 archives passed native smoke, repeated Linux-host checks and exact cross-version compatibility. The reviewed generated manifest is recorded, but permanent publication and anonymous size/hash verification remain pending. Interactive Windows/live AI/broader hardware are separate gates.",
+          "current": "Omuse 0.9 has four permanent assets: Linux archive, unsigned Windows ZIP, SHA256SUMS and reviewed manifest. Download publication 37210058961 succeeded. All four anonymous downloads matched declared sizes and SHA-256; manifest bytes, source tag and notes stayed exact. Previous 0.8 was unchanged.",
+          "boundary": "Final archives passed native package smoke, Linux host repeat and cross-version compatibility; permanent publication and anonymous verification are now complete. Windows desktop/live AI and broader hardware remain separate gates.",
           "evidence": [
             "docs/downloadable-releases.md",
             "docs/release-080-qualification.md",
             "docs/releases/downloads/v0.8.0.json",
-            "docs/public-release-readiness.md"
+            "docs/public-release-readiness.md",
+            "docs/release-090-qualification.md",
+            "docs/release-090-receipts.json",
+            "docs/releases/downloads/v0.9.0.json"
           ],
           "modules": [
             "scripts/release-downloads.py",

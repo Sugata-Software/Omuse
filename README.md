@@ -19,10 +19,11 @@ application launcher. Windows x64 users can download a portable development ZIP.
 grid and preview fonts on selected letters. [Explore what’s new](#new-in-090)
 or [follow the illustrated guide](docs/user-guide/retouch-and-controls.md).
 
-**0.9 application archives are awaiting publication.** The curl command builds
-the tested 0.9 source; the [release page](https://github.com/Sugata-Software/Omuse/releases/tag/v0.9.0)
-will carry reviewed Linux and unsigned experimental Windows downloads.
-[Qualification and limits](docs/release-090-qualification.md).
+**Linux and Windows downloads are available** on the
+[0.9 release page](https://github.com/Sugata-Software/Omuse/releases/tag/v0.9.0),
+with reviewed checksums. Windows remains unsigned experimental. The curl
+command builds the tested source; [qualification and limits](docs/release-090-qualification.md)
+explain the supported scope.
 
 **[Read the user manual](docs/user-guide/README.md)** ·
 [Edit a photo](docs/user-guide/photo-editing.md) ·
@@ -90,9 +91,9 @@ script itself is downloaded from `main`.
 
 **The current installer builds from source.** Allow time for the first build
 and about 12 GB of free disk space. Later installs reuse the build cache.
-The previous [0.8 Linux archive](https://github.com/Sugata-Software/Omuse/releases/download/v0.8.0/omuse-0.8.0-linux-x86_64.tar.gz)
-and [checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.8.0/omuse-0.8.0-SHA256SUMS)
-remain available while 0.9 archive publication completes. See the
+The [reviewed Linux archive](https://github.com/Sugata-Software/Omuse/releases/download/v0.9.0/omuse-0.9.0-linux-x86_64.tar.gz)
+and [checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.9.0/omuse-0.9.0-SHA256SUMS)
+are available now. See the
 [archive installation guide](docs/downloadable-releases.md).
 The curl command remains the source installer.
 You can [inspect it](install.sh) before running it.
@@ -112,21 +113,21 @@ and troubleshooting.
 
 ### Windows (experimental)
 
-**0.9 ZIP publication is pending on its [release page](https://github.com/Sugata-Software/Omuse/releases/tag/v0.9.0).**
-[Reviewed 0.9 build artifacts](https://github.com/Sugata-Software/Omuse/actions/runs/37207585335)
-are available; the instructions below retain the previous published 0.8 ZIP.
+**[Download the Windows x64 ZIP](https://github.com/Sugata-Software/Omuse/releases/download/v0.9.0/omuse-0.9.0-windows-x86_64.zip)** ·
+[Checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.9.0/omuse-0.9.0-SHA256SUMS) ·
+[Release notes](docs/releases/v0.9.0.md)
 
 The portable **Windows x64** preview needs neither Rust nor Visual Studio.
-The 0.8.0 package passed automated checks on Windows Server 2025; interactive
+The 0.9.0 package passed automated checks on Windows Server 2025; interactive
 Windows 10/11 qualification is still separate.
 
-1. Download [omuse-0.8.0-windows-x86_64.zip](https://github.com/Sugata-Software/Omuse/releases/download/v0.8.0/omuse-0.8.0-windows-x86_64.zip)
-   and verify it against the [checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.8.0/omuse-0.8.0-SHA256SUMS).
+1. Download [omuse-0.9.0-windows-x86_64.zip](https://github.com/Sugata-Software/Omuse/releases/download/v0.9.0/omuse-0.9.0-windows-x86_64.zip)
+   and verify it against the [checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.9.0/omuse-0.9.0-SHA256SUMS).
 2. Extract the complete ZIP into a new folder.
 3. Run **omuse.exe**, keeping **lib**, **models** and **licenses** alongside it.
 
 To update, keep the old complete folder, close the old app and launch the new
-folder’s executable. The [reviewed manifest](docs/releases/downloads/v0.8.0.json)
+folder’s executable. The [reviewed manifest](docs/releases/downloads/v0.9.0.json)
 records the source, native checks and archive hashes.
 
 Photo editing and Camera RAW are included. These features have extra requirements:
@@ -140,7 +141,7 @@ Photo editing and Camera RAW are included. These features have extra requirement
 The Windows ZIP is **experimental and unsigned**, so SmartScreen may show a
 warning. Live Windows AI generation/editing and clean-machine acceptance remain
 unqualified; detecting a signed-in CLI does not establish that an AI task works.
-The 0.8.0 package includes the reviewed dependency-notice fixes. See the
+The 0.9.0 package includes reviewed dependency notices. See the
 [Windows build notes](rust/README.md#build-on-windows-in-development) for
 connection requirements and known limits.
 

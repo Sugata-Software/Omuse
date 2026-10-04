@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "status": "qualified-source-prerelease; normal-install-verified; source-and-asset-publication-pending",
+  "status": "source-prerelease-and-four-download-assets-published; anonymous-verification-passed; normal-install-verified",
   "snapshotDate": "2026-10-04",
   "releaseEligible": true,
   "candidate": {
@@ -21,10 +21,10 @@
     }
   },
   "currentPublishedRelease": {
-    "version": "0.8.0",
-    "sourceRevision": "eb558dc59ccdf88a3d62dfc2d706a6b836da1eda",
+    "version": "0.9.0",
+    "sourceRevision": "65c95cc165f9d730a9f0bcea51c51a84cf4adb7e",
     "installerPinPromoted": true,
-    "scope": "0.8 remains the last verified published release at this receipt snapshot; reviewed declarations and source installer now target0.9 pending public promotion."
+    "releaseUrl": "https://github.com/Sugata-Software/Omuse/releases/tag/v0.9.0"
   },
   "ci": {
     "validationRun": 37207585304,
@@ -319,18 +319,92 @@
   },
   "compatibilityWarning": "0.8 can display the cached ContextualV1 result but editing/resaving can discard the algorithm choice. Preserve the 0.9 original; rasterize a separate copy before backward editing.",
   "publication": {
-    "status": "not-published",
-    "sourceTagVerified": false,
+    "status": "completed-and-verified",
+    "releaseId": 403060614,
+    "tag": "v0.9.0",
+    "tagSourceRevision": "65c95cc165f9d730a9f0bcea51c51a84cf4adb7e",
+    "sourceTagVerified": true,
+    "releaseBodyMatchesNotes": true,
+    "prerelease": true,
+    "publishedAt": "2026-10-04T14:38:17Z",
+    "releaseUrl": "https://github.com/Sugata-Software/Omuse/releases/tag/v0.9.0",
+    "sourcePublisherRun": 37209968347,
+    "sourcePublisherStatus": "completed-success",
+    "downloadPublisherRun": 37210058961,
+    "downloadPublisherStatus": "completed-success",
     "installerPinPromoted": true,
     "normalLauncherVerified": true,
-    "downloadAssetsPublished": false,
-    "anonymousDownloadVerification": "pending",
-    "releaseUrl": null,
-    "sourcePublisherRun": null,
-    "downloadPublisherRun": null
+    "downloadAssetsPublished": true,
+    "anonymousDownloadVerification": "passed",
+    "manifestBytesMatch": true,
+    "previous080Unchanged": true,
+    "assets": [
+      {
+        "fileName": "omuse-0.9.0-downloads.json",
+        "anonymous": true,
+        "assetId": 610007299,
+        "sha256": "16d88c0ad38c56a2d77a5ae28545fc987d7c862396c5173263a6e5b347d3bfe4",
+        "size": 1946,
+        "status": "passed",
+        "url": "https://github.com/Sugata-Software/Omuse/releases/download/v0.9.0/omuse-0.9.0-downloads.json"
+      },
+      {
+        "fileName": "omuse-0.9.0-linux-x86_64.tar.gz",
+        "anonymous": true,
+        "assetId": 610007196,
+        "sha256": "375a5c2745cbe15b52a1e1f61ab7dfba0ab780747be8b0dba85b2585cc9375ac",
+        "size": 37367136,
+        "status": "passed",
+        "url": "https://github.com/Sugata-Software/Omuse/releases/download/v0.9.0/omuse-0.9.0-linux-x86_64.tar.gz"
+      },
+      {
+        "fileName": "omuse-0.9.0-SHA256SUMS",
+        "anonymous": true,
+        "assetId": 610007181,
+        "sha256": "7d62fb3b26635353d35a06ba41d142ebefffd50f1bb99546af6c3c43c7247d93",
+        "size": 288,
+        "status": "passed",
+        "url": "https://github.com/Sugata-Software/Omuse/releases/download/v0.9.0/omuse-0.9.0-SHA256SUMS"
+      },
+      {
+        "fileName": "omuse-0.9.0-windows-x86_64.zip",
+        "anonymous": true,
+        "assetId": 610007236,
+        "sha256": "54435446e961bce213f3774c3e6525594775a042eef51e008c645698cab7551d",
+        "size": 25582307,
+        "status": "passed",
+        "url": "https://github.com/Sugata-Software/Omuse/releases/download/v0.9.0/omuse-0.9.0-windows-x86_64.zip"
+      }
+    ],
+    "sourceEvidence": {
+      "auditPacket": "publication/source-publication-verification.json",
+      "sha256": "026261170f10c0e29e4aeb52b03cad91fe5cf81ef617a5781d65c58cb7323b4a"
+    },
+    "assetEvidence": {
+      "auditPacket": "publication/anonymous-downloads.json",
+      "sha256": "60231c5394e54b4ae2f2d35708048db931d1390703d2af4f3d0a5f180405fb68"
+    },
+    "combinedEvidence": {
+      "auditPacket": "publication/publication-verification.json",
+      "sha256": "a79198ad54d6b8b4df3aa0004d0704e0bf291936de659de4bd92673de1117192"
+    },
+    "publicInstaller": {
+      "status": "passed",
+      "url": "https://raw.githubusercontent.com/Sugata-Software/Omuse/main/install.sh",
+      "sourceRevision": "65c95cc165f9d730a9f0bcea51c51a84cf4adb7e",
+      "publicMain": "ace51ae7cbfa2612b0c77c9edb43bfb05d0eb1fa",
+      "sha256": "1f8e878721a176c1c53b315d0a59f33c86ebea004f8510d344e80bb9de439eba",
+      "exactReviewedBytes": true,
+      "evidence": {
+        "auditPacket": "public-installer-090-verification.json",
+        "sha256": "39f5b942f7f89ab3267cd6e50a8535553411e99d077b3fdde6feba0ba06ec832"
+      }
+    },
+    "publicDocsCommit": "ace51ae7cbfa2612b0c77c9edb43bfb05d0eb1fa",
+    "notesSha256": "a666bda5bd1d234ce332d93301f4fc54fc2e16091ed0e04b9cc022e8015f41fe"
   },
   "limits": [
-    "Qualification and reviewed declarations are complete; source release and permanent asset publication/anonymous verification remain separate pending steps.",
+    "Publication verifies the recorded release and byte identity of its assets; broader stable-release, platform and image-quality limits below remain unchanged.",
     "No interactive Windows, live Windows AI, clean-machine, mixed-DPI, accessibility, signing or broad hardware approval.",
     "No new live provider request. Tablet support deferred; scheduling excluded.",
     "The bounded photo corpus does not establish universal reconstruction quality or a performance improvement."

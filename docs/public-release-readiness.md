@@ -1,11 +1,18 @@
 # Public release readiness
 
-**4 October 2026: Omuse 0.9.0 has passed exact Linux/Windows validation,
-native compact controls, photo integrity and package compatibility. Reviewed
-source declarations and the installer now target `65c95cc1`; the normal app is
-verified at 0.9.0 with its complete 0.8.0 rollback preserved. Numbered source
-publication and permanent download/anonymous verification remain pending. The
-previous 0.8.0 source and assets remain published.**
+**4 October 2026: Omuse 0.9.0 is published as a source prerelease with verified
+Linux and unsigned experimental Windows downloads. The curl installer selects
+tested source `65c95cc1`; the normal app is verified at 0.9.0 with its complete
+0.8.0 rollback preserved. Broader stable-release gates remain open.**
+
+The [0.9 release](https://github.com/Sugata-Software/Omuse/releases/tag/v0.9.0)
+retains the exact tested source and reviewed notes. [Source publication 37209968347](https://github.com/Sugata-Software/Omuse/actions/runs/37209968347)
+and [download publication 37210058961](https://github.com/Sugata-Software/Omuse/actions/runs/37210058961) succeeded. All four permanent assets passed
+anonymous size/SHA-256 verification, including a byte-identical reviewed
+[download manifest](releases/downloads/v0.9.0.json). Existing 0.8.0 assets and
+source identity were unchanged.
+
+## Previous 0.8.0 publication — historical record
 
 The [0.8.0 qualification record](release-080-qualification.md) tracks photo
 fidelity, gradients and curved text, reference colour matching, selective masks,
@@ -18,7 +25,7 @@ and SHA-256 hashes, and the download manifest matched the reviewed declaration
 byte for byte. The source tag and published notes were unchanged. None of this
 changes the preserved 0.7.0 evidence or rollback payload.
 
-The current numbered source release is **0.8.0 — Colour, curves and control**,
+The previous numbered source release was **0.8.0 — Colour, curves and control**,
 published as a GitHub prerelease at the [v0.8.0 release](https://github.com/Sugata-Software/Omuse/releases/tag/v0.8.0).
 Its source tag points to `eb558dc59ccdf88a3d62dfc2d706a6b836da1eda`. See the
 [download instructions](downloadable-releases.md) and
@@ -28,7 +35,7 @@ stable-release and broader portability gates stay open.
 
 The canonical public repository is
 [Sugata-Software/Omuse](https://github.com/Sugata-Software/Omuse).
-The published source runtime is `eb558dc59ccdf88a3d62dfc2d706a6b836da1eda`,
+The previous published source runtime was `eb558dc59ccdf88a3d62dfc2d706a6b836da1eda`,
 tree `68e406316b92d5817abfe810fbdc7840e57b5d17`; its Rust subtree is
 byte-identical to the b47/d2 application source. The [validation run](https://github.com/Sugata-Software/Omuse/actions/runs/37161936414)
 and [download run](https://github.com/Sugata-Software/Omuse/actions/runs/37161936378)
@@ -52,7 +59,7 @@ retouch, independent Blur radius, controlled removal, configurable grid/mask
 controls, safe folder ungrouping and selected-letter fonts. Typed values survive
 focus changes; readable font rows and a compact text footer improve direct editing.
 
-Candidate [`65c95cc165f9d730a9f0bcea51c51a84cf4adb7e`](https://github.com/Sugata-Software/Omuse/commit/65c95cc165f9d730a9f0bcea51c51a84cf4adb7e),
+Published runtime [`65c95cc165f9d730a9f0bcea51c51a84cf4adb7e`](https://github.com/Sugata-Software/Omuse/commit/65c95cc165f9d730a9f0bcea51c51a84cf4adb7e),
 tree `abd6296cf31078e278ab7bb73dc799948443de4d`, has completed the recorded qualification.
 [Validation 37207585304](https://github.com/Sugata-Software/Omuse/actions/runs/37207585304)
 and [download build 37207585335](https://github.com/Sugata-Software/Omuse/actions/runs/37207585335)
@@ -60,8 +67,7 @@ completed successfully on their first attempts. Linux passed **1,405 application
 tests** and Windows **1,387**, each with zero failures and four ignored. Their
 complete journeys and notice gates passed. Both package smoke receipts passed
 nine checks, and the unmodified generated [download manifest](releases/downloads/v0.9.0.json)
-passed canonical, archive and receipt verification. Source and asset publication
-remain separate steps.
+passed canonical, archive and receipt verification. Their separate source and asset publication steps have also completed, with anonymous verification.
 
 The final Linux binary passed **24 native checks** at 800 × 600 logical /
 1200 × 900 device pixels through XWayland. A visual review confirmed text
@@ -91,9 +97,9 @@ The normal development-host launcher is now verified at **0.9.0**, exact source
 `da39ef88d0c6f08074051784974668841e62a2ac9c56c527b73c9ba4685e4ec6`.
 All **22 files** from its prior 0.8.0 generation and profile/settings bytes were
 preserved. The installed launcher passed **24 native checks** in an isolated
-profile. This host installation does not publish the release: the public curl
-installer and latest declaration now target the tested 0.9.0 source; numbered
-source publication and permanent 0.9 assets are still awaiting verification.
+profile. The public curl installer and latest declaration select this same tested
+source; the numbered prerelease and all four permanent download assets are
+published and verified. Installation and publication retain separate receipts.
 
 New controlled-removal recipes use **ContextualV1**; absent algorithm fields
 retain **Legacy** behavior. **0.8 can display cached new results, but editing or
@@ -175,6 +181,7 @@ release and its reviewed prebuilt archives are published.
 
 | Gate | Current state | Completion evidence |
 | --- | --- | --- |
+| Current 0.9 publication | Exact-source validation 37207585304 and download build 37207585335 passed; source publisher 37209968347 and download publisher 37210058961 succeeded. Four permanent assets matched anonymous size/hash checks. | Completed for this unsigned prerelease; broad portability and stable-release gates remain open |
 | Clean CI build and publication | Runtime `eb558dc` validation [37161936414](https://github.com/Sugata-Software/Omuse/actions/runs/37161936414), download build [37161936378](https://github.com/Sugata-Software/Omuse/actions/runs/37161936378) and publication [37200321434](https://github.com/Sugata-Software/Omuse/actions/runs/37200321434) succeeded; all four permanent assets passed anonymous size/hash verification | Completed for 0.8.0; every later candidate needs its own exact-source evidence and reviewed publication |
 | Dependency legal texts | Candidate Linux and Windows package inventories report zero notice findings, with 619 and 421 dependency entries | Retain the exact candidate inventory and notice review; see the [notice review](rust-license-findings.md) |
 | Recorded release identity | Published tag `v0.8.0` identifies exact runtime `eb558dc`; clean CI builds and reviewed archive/binary/inventory hashes are recorded in the [download manifest](releases/downloads/v0.8.0.json) and [release receipt](release-080-receipts.json); publication left tag and notes unchanged | Preserve the immutable release identity; independent bit-for-bit build reproducibility is not established |

@@ -1,10 +1,13 @@
 # Omuse 0.9.0 release qualification
 
-The exact 0.9.0 source passed Linux/Windows validation, native compact controls,
-photo integrity and package compatibility checks. The normal development-host
-installation is verified at 0.9.0, and reviewed installer/latest declarations
-now target that source. **Numbered source publication and permanent asset
-publication/anonymous verification remain separate pending steps.**
+Omuse 0.9.0 is published as a source prerelease with reviewed Linux and unsigned
+experimental Windows downloads. The normal development-host app is verified at
+0.9.0, with its complete 0.8.0 rollback generation preserved.
+
+Both [Source publication 37209968347](https://github.com/Sugata-Software/Omuse/actions/runs/37209968347) and [download publication 37210058961](https://github.com/Sugata-Software/Omuse/actions/runs/37210058961)
+completed successfully. All four permanent assets passed anonymous size/SHA-256
+verification; the manifest bytes, source tag and release body matched their
+reviewed declarations. The previous 0.8.0 release remained unchanged.
 
 ## Exact source and release gates
 
@@ -24,7 +27,7 @@ photo evidence below identifies the library actually executed.
 | Final native compact controls | 24 native checks passed on XWayland at 800 × 600 logical / 1200 × 900 device pixels. Visual review confirmed Apply/Cancel inside the text panel and a wrapping keyboard hint. |
 | Exact final cross-version install | 0.8 → 0.9 → rollback → forward passed four installed-launcher editing journeys, both exact 22-file generations and 35 export comparisons across nine projects. |
 | Normal installation | Final source/binary verified at 0.9; all 22 prior 0.8 files retained, profile/settings bytes preserved. Installed-launcher native journey passed 24 checks with an isolated profile. |
-| Source and permanent downloads | Reviewed declarations are ready; numbered source publication and permanent asset/anonymous verification remain pending. |
+| Source and permanent downloads | Source publisher 37209968347 and download publisher 37210058961 succeeded; all four anonymous downloads matched reviewed sizes/hashes, with source tag and notes unchanged. |
 
 The final Linux binary SHA-256 is
 `da39ef88d0c6f08074051784974668841e62a2ac9c56c527b73c9ba4685e4ec6`.

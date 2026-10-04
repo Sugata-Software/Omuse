@@ -102,10 +102,10 @@ version and its own qualification.
 With an authenticated maintainer CLI that can dispatch Actions, run:
 
 ```sh
-gh workflow run publish-downloads.yml --repo Sugata-Software/Omuse --ref main -f version=0.8.0
+gh workflow run publish-downloads.yml --repo Sugata-Software/Omuse --ref main -f version=0.9.0
 ```
 
-Alternatively, create the branch `publish-downloads/v0.8.0` at the **exact
+Alternatively, create the branch `publish-downloads/v0.9.0` at the **exact
 reviewed public main commit**. This is an explicit publication request, not an
 application development branch. The ordinary GitHub branch API or a normal push
 can create it; no personal token, additional permission grant, or local `gh`
@@ -114,7 +114,7 @@ creation. For example, after reviewing the fetched main commit:
 
 ```sh
 git fetch origin main
-git push origin refs/remotes/origin/main:refs/heads/publish-downloads/v0.8.0
+git push origin refs/remotes/origin/main:refs/heads/publish-downloads/v0.9.0
 ```
 
 Both routes require the workflow commit and checked-out commit to be the exact
@@ -130,12 +130,12 @@ changed, re-run the existing publication workflow to resume an interruption;
 identical assets remain untouched. A completed publication is a read-only no-op
 when its request still identifies current main.
 
-The 0.8.0 packages were built in
-[run 37161936378](https://github.com/Sugata-Software/Omuse/actions/runs/37161936378)
-and recorded in the [reviewed manifest](releases/downloads/v0.8.0.json).
-Successful builds and a source prerelease do not start this separate publication
-step. Confirm all four permanent assets by their recorded hashes before updating
-documentation to say downloads are available.
+The current 0.9.0 packages were built in
+[run 37207585335](https://github.com/Sugata-Software/Omuse/actions/runs/37207585335)
+and recorded in the [reviewed manifest](releases/downloads/v0.9.0.json).
+Separate [download publication 37210058961](https://github.com/Sugata-Software/Omuse/actions/runs/37210058961) completed after source publication;
+all four permanent assets passed anonymous size/SHA-256 verification.
+The historical 0.8.0 manifest, tags, notes and assets remain unchanged.
 
 The source publisher accepts existing download assets only when their names,
 sizes and digests match the versioned declaration on public `main`. Existing
@@ -172,20 +172,20 @@ Windows Server CI is not a substitute for interactive Windows 10/11 testing.
 Those boundaries remain visible rather than delaying useful preview downloads
 until every optional operation is qualified.
 
-## Preparing 0.9.0
+## Published 0.9.0
 
-Keep the existing 0.8.0 source, tag, download manifest and installer pin intact
-while the new editing work is qualified. Select the final 0.9.0 runtime only
-after its application checks and applicable desktop review are complete. Push
-that immutable commit to `release/0.9.0` to start both exact-source workflows.
-Record the completed validation run and complete package-build attempt; retain
-their generated manifest and native smoke receipts without editing them.
+The exact tested source is `65c95cc165f9d730a9f0bcea51c51a84cf4adb7e`. Complete validation 37207585304
+and build 37207585335 passed before source publication. [Source publication 37209968347](https://github.com/Sugata-Software/Omuse/actions/runs/37209968347)
+created the numbered prerelease, then [download publication 37210058961](https://github.com/Sugata-Software/Omuse/actions/runs/37210058961)
+attached the four immutable assets. Anonymous verification matched each size
+and SHA-256 and the original manifest bytes; tag and notes were unchanged.
 
-Once both targets and the local checks pass, merge the candidate history into
-main, preserving the tested commit. Prepare the numbered notes, source release
-declaration, unchanged generated `v0.9.0.json` and installer source pin together.
-The source publisher creates the matching prerelease first. Then dispatch the
-download publisher for 0.9.0 or create `publish-downloads/v0.9.0` at that reviewed
-main commit. Read back all four assets and verify their hashes before declaring
-binary publication complete. Until then, CI artifacts are candidate downloads
-and the easy curl command continues to install the previously tested source.
+Use the [0.9.0 release page](https://github.com/Sugata-Software/Omuse/releases/tag/v0.9.0),
+[checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.9.0/omuse-0.9.0-SHA256SUMS)
+and [installation guide](install.md). The curl command still builds the tested
+source revision; downloadable bundles are a separate option. Windows remains
+unsigned experimental, and the platform boundaries above still apply.
+
+For the next release, repeat the exact-source build, declaration and separate
+publication sequence above. Keep existing versions immutable and do not declare
+download availability until anonymous asset verification completes.
