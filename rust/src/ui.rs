@@ -6250,6 +6250,7 @@ impl EditorView {
                             .child(
                                 div()
                                     .flex_1()
+                                    .min_w_0()
                                     .text_sm()
                                     .text_color(t.secondary)
                                     .child("Ctrl+Enter to finish"),
