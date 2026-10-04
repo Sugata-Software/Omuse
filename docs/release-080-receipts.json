@@ -106,7 +106,7 @@
       "evidence": "build-all-2026-10-03/download-windows-eb558dc/smoke.json",
       "evidenceSha256": "5e8c84ce1472acd981746b3d91c40899e5837c46e848fda1561bccab1c47d598",
       "packageReview": "dependency-ci-d2dac18/final-ci/windows-package-review.json",
-      "packageReviewSha256": "d4302ecdf62ad40fefe651c6af4b2f801907ebe7eb491e6712eb6a0e0e0b8db3",
+      "packageReviewSha256": "a3b71d2ff6d5e9a4e5998e610c41b4ea46c4d4b7839d0be30fb41b2d29525308",
       "limits": "Windows Server 2025 headless version, editing and DLL-load checks passed; upgrade/rollback reinstalls the same candidate in portable folders. Interactive Windows 10/11 and live AI remain unqualified."
     }
   },
