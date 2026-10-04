@@ -1,0 +1,379 @@
+{
+  "schemaVersion": 1,
+  "status": "qualified-source-prerelease; normal-install-verified; source-and-asset-publication-pending",
+  "snapshotDate": "2026-10-04",
+  "releaseEligible": true,
+  "candidate": {
+    "version": "0.9.0",
+    "sourceRevision": "65c95cc165f9d730a9f0bcea51c51a84cf4adb7e",
+    "sourceTree": "abd6296cf31078e278ab7bb73dc799948443de4d",
+    "sourceUrl": "https://github.com/Sugata-Software/Omuse/commit/65c95cc165f9d730a9f0bcea51c51a84cf4adb7e",
+    "parentSourceRevision": "8f72ce5c945261ba92d1490aee4374176f24cfb8",
+    "changeFromParent": "Only rust/src/ui.rs: one min_w_0() on the compact text footer; photo engine unchanged.",
+    "runtimeFileComparison": {
+      "files": 576,
+      "mismatches": 0,
+      "status": "passed",
+      "evidence": {
+        "auditPacket": "ci/candidate-65c95cc1/runtime-source-comparison.json",
+        "sha256": "33c17089d7182d2e495dedae76da04b985845386f727ccae6053d92134e44be1"
+      }
+    }
+  },
+  "currentPublishedRelease": {
+    "version": "0.8.0",
+    "sourceRevision": "eb558dc59ccdf88a3d62dfc2d706a6b836da1eda",
+    "installerPinPromoted": true,
+    "scope": "0.8 remains the last verified published release at this receipt snapshot; reviewed declarations and source installer now target0.9 pending public promotion."
+  },
+  "ci": {
+    "validationRun": 37207585304,
+    "validationUrl": "https://github.com/Sugata-Software/Omuse/actions/runs/37207585304",
+    "downloadRun": 37207585335,
+    "downloadUrl": "https://github.com/Sugata-Software/Omuse/actions/runs/37207585335",
+    "linuxStatus": "success",
+    "windowsStatus": "success",
+    "overallStatus": "completed-success",
+    "finalApplicationCounts": {
+      "linux": 1405,
+      "windows": 1387
+    },
+    "finalIgnoredCount": {
+      "linux": 4,
+      "windows": 4
+    },
+    "linuxJob": 111452172803,
+    "linuxApplicationCounts": {
+      "total": 1405,
+      "library": 549,
+      "gpui": 394,
+      "integration": 462,
+      "failed": 0,
+      "ignored": 4
+    },
+    "linuxJourneys": [
+      "editing",
+      "Create",
+      "80-template catalogue",
+      "motion",
+      "media acceptance",
+      "interrupted-save recovery"
+    ],
+    "linuxDependencyRustTests": 20,
+    "linuxEvidence": {
+      "auditPacket": "ci/candidate-65c95cc1/linux-validation-111452172803.log",
+      "sha256": "b17f885475d35cd68e8ed6201d4a5ac2c2531910cace900508d25c5468fdbdac"
+    },
+    "windowsJob": 111452172633,
+    "attempt": 1,
+    "windowsApplicationCounts": {
+      "total": 1387,
+      "library": 534,
+      "gpui": 392,
+      "integration": 461,
+      "failed": 0,
+      "ignored": 4
+    },
+    "finalEvidence": {
+      "auditPacket": "ci/candidate-65c95cc1/final-ci-status.json",
+      "sha256": "10312863a4a455121f9659f77692cc3676911cb4b20d0935482063f153a21cf9"
+    }
+  },
+  "finalNative": {
+    "status": "passed",
+    "sourceRevision": "65c95cc165f9d730a9f0bcea51c51a84cf4adb7e",
+    "binarySha256": "da39ef88d0c6f08074051784974668841e62a2ac9c56c527b73c9ba4685e4ec6",
+    "checks": 24,
+    "displayRoute": "Linux XWayland",
+    "logicalViewport": [
+      800,
+      600
+    ],
+    "deviceViewport": [
+      1200,
+      900
+    ],
+    "panel": "inline text",
+    "visualReview": [
+      "Apply and Cancel stay inside panel",
+      "Keyboard finish hint wraps"
+    ],
+    "evidence": {
+      "auditPacket": "native-minimum-65c95cc1/verified-native.json",
+      "sha256": "38f62cc10945fa24ab8f2e4e4b9b822c0ce9a5a1702efc4dba27d245d6aa9e31"
+    },
+    "visualEvidence": {
+      "auditPacket": "native-minimum-65c95cc1/visual-review.json",
+      "sha256": "0d14eb049cd3282d6b339f011e2aab656c863e6818f3c94898ff0a5fe0336fec"
+    }
+  },
+  "finalPackages": {
+    "status": "passed-exact-source-build-smoke-and-canonical-manifest-review",
+    "linux": {
+      "status": "passed",
+      "sourceRevision": "65c95cc165f9d730a9f0bcea51c51a84cf4adb7e",
+      "version": "0.9.0",
+      "target": "linux-x86_64",
+      "sha256": "375a5c2745cbe15b52a1e1f61ab7dfba0ab780747be8b0dba85b2585cc9375ac",
+      "binarySha256": "da39ef88d0c6f08074051784974668841e62a2ac9c56c527b73c9ba4685e4ec6",
+      "inventorySha256": "bb0928a2b56b1a2ad257e10939ee4be82a4d30c446ead846aa333adb44290220",
+      "dependencyCount": 619,
+      "noticeFindings": 0,
+      "checks": [
+        "archive-integrity",
+        "zero-notice-findings",
+        "native-version",
+        "packaged-editing-journey",
+        "runtime-library-load",
+        "install",
+        "upgrade",
+        "rollback",
+        "profile-preservation"
+      ],
+      "evidence": {
+        "auditPacket": "ci/candidate-65c95cc1/linux-smoke.json",
+        "sha256": "e1b95375bda58d5694b1c7fe2fed87369a9f2202310177cc205bf057a54571ea"
+      },
+      "hostRepeat": {
+        "status": "passed",
+        "checks": 9,
+        "evidence": {
+          "auditPacket": "linux-host-65c95cc1.json",
+          "sha256": "e1b95375bda58d5694b1c7fe2fed87369a9f2202310177cc205bf057a54571ea"
+        }
+      }
+    },
+    "windows": {
+      "status": "passed",
+      "sourceRevision": "65c95cc165f9d730a9f0bcea51c51a84cf4adb7e",
+      "version": "0.9.0",
+      "target": "windows-x86_64",
+      "sha256": "54435446e961bce213f3774c3e6525594775a042eef51e008c645698cab7551d",
+      "binarySha256": "91eec344b1e7982739298ffd3a885664e623283e1bfc1a7cae03e11139afc54f",
+      "inventorySha256": "8b5c965e2649e4a1702ada49df52ba93dc92933b8d0fcced9a313e87571080e0",
+      "dependencyCount": 421,
+      "noticeFindings": 0,
+      "checks": [
+        "archive-integrity",
+        "zero-notice-findings",
+        "native-version",
+        "packaged-editing-journey",
+        "runtime-library-load",
+        "install",
+        "upgrade",
+        "rollback",
+        "profile-preservation"
+      ],
+      "evidence": {
+        "auditPacket": "ci/candidate-65c95cc1/windows-smoke.json",
+        "sha256": "bef921b484c415f06aa6f7896409e689ac6f22f6047c10d9059b3d470249149d"
+      }
+    },
+    "manifestSha256": "16d88c0ad38c56a2d77a5ae28545fc987d7c862396c5173263a6e5b347d3bfe4",
+    "manifest": {
+      "file": "docs/releases/downloads/v0.9.0.json",
+      "bytes": 1946,
+      "artifact": 11305454102,
+      "copiedWithoutModification": true,
+      "buildRun": 37207585335,
+      "buildAttempt": 1
+    }
+  },
+  "finalInstallationCompatibility": {
+    "status": "passed-isolated-cross-version-and-normal-install",
+    "sourceRevision": "65c95cc165f9d730a9f0bcea51c51a84cf4adb7e",
+    "archiveSha256": "375a5c2745cbe15b52a1e1f61ab7dfba0ab780747be8b0dba85b2585cc9375ac",
+    "binarySha256": "da39ef88d0c6f08074051784974668841e62a2ac9c56c527b73c9ba4685e4ec6",
+    "stages": 4,
+    "payloadFilesPerGeneration": 22,
+    "openExportComparisons": 35,
+    "projects": 9,
+    "manifestVersions": [
+      10,
+      12,
+      13,
+      14
+    ],
+    "contextualV1CachedExports": "equal-across-four-stages",
+    "format14CachedExports": "equal-across-four-stages",
+    "profileAndProjectBytesPreserved": true,
+    "nativeSettingsReadWrite": "not-executed",
+    "crossVersionExternalProjectEditResave": "not-executed",
+    "evidence": {
+      "auditPacket": "cross-version-65c95cc1-final/summary.json",
+      "sha256": "b1ce34df8f0ca6ba3d16ef9391a9048e4476809c8c4db16ca1756ef6e2c58c9c"
+    },
+    "fullReport": {
+      "auditPacket": "cross-version-65c95cc1-final/report.json",
+      "sha256": "633a00ba22b2f3ab5d8d22f307dc2348fac5678dd626e29bdd095e7cf85c5a75"
+    }
+  },
+  "retainedEvidence": {
+    "priorLinuxApplicationSuite": {
+      "status": "passed-application-suite-overall-workflow-not-yet-established",
+      "sourceRevision": "8f72ce5c945261ba92d1490aee4374176f24cfb8",
+      "cases": 1405,
+      "ignored": 4,
+      "windowsStatus": "pending-at-this-draft",
+      "validationRun": 37206453643,
+      "qualificationTransfer": "Not final-candidate CI"
+    },
+    "photoCorpus": {
+      "status": "passed-numerical-correctness",
+      "sourceRevision": "8f72ce5c945261ba92d1490aee4374176f24cfb8",
+      "librarySha256": "6efe5e06b4145bd2564c6ba90e11adf625a9956290b7f9aacc2572a07a4a6841",
+      "cases": 16,
+      "retouchOperations": 128,
+      "scope": "Full-resolution import, original save/reopen and retained 16-bit/RAW export; editing and retouch working copies at most 1024 pixels wide. RAW oracle uses same pinned LibRaw engine. Not a speed benchmark or universal visual-quality qualification.",
+      "evidence": {
+        "auditPacket": "real-photo-final/summary.json",
+        "sha256": "f53f87d7889dd45561b050c7df9b53c8ee8978ffa49fd457f772e6dfcfdaeef3"
+      },
+      "results": {
+        "auditPacket": "real-photo-final/results.json",
+        "sha256": "698ab4414e138e7c6602457e45082a82931c90913c93804a11f7ca331ede2893"
+      },
+      "librarySourceUnchangedInFinalCandidate": true
+    },
+    "controlledRemoval": {
+      "status": "passed-integrity-with-residual-visual-limit",
+      "sourceRevision": "8f72ce5c945261ba92d1490aee4374176f24cfb8",
+      "algorithm": "contextualV1",
+      "selectedPixels": 6092,
+      "protectedPixels": 256052,
+      "undoRedo": "exact-single-step",
+      "cancellation": "atomic",
+      "retainedSource": "unchanged",
+      "saveReopen": "source, recipe, source16/result16, re-evaluation and rendered pixels exact",
+      "resultImageSha256": "f28c30001a5caf8e66c10bd58f6c59924efd0419f856b22ad46802fac0b63bf2",
+      "visualLimit": "Improved shirt reconstruction retains some seam/texture mismatch; source-free Spot Heal separately repeats lettering/zipper detail.",
+      "evidence": {
+        "auditPacket": "controlled-removal/final-library-qualification.json",
+        "sha256": "a6645c96230ae61877bbe92f17fae68c0a8dda1455818dc42501ec07b0b8c160"
+      },
+      "librarySourceUnchangedInFinalCandidate": true
+    },
+    "crossVersion": {
+      "status": "passed-prior-exact-archive",
+      "sourceRevision": "8f72ce5c945261ba92d1490aee4374176f24cfb8",
+      "archiveSha256": "034de6f89833a8e7823828dcf8b25a64fb4c5157b04dccb3a6f157fa5cad8a11",
+      "binarySha256": "f0430c8b2f8606997f5bd855e74fdcfc6871c6a21abc38b009235feb941ff404",
+      "stages": 4,
+      "payloadFilesPerGeneration": 22,
+      "openExportComparisons": 35,
+      "projects": 9,
+      "manifestVersions": [
+        10,
+        12,
+        13,
+        14
+      ],
+      "contextualV1CachedExports": "equal-across-four-stages",
+      "format14CachedExports": "equal-across-four-stages",
+      "profileAndProjectBytesPreserved": true,
+      "nativeSettingsReadWrite": "not-executed",
+      "crossVersionExternalProjectEditResave": "not-executed",
+      "evidence": {
+        "auditPacket": "cross-version-8f72ce5c-final/summary.json",
+        "sha256": "7bf237acb7523cada754745ef2e6ad70bcd90b97adffd91aecad25b11fe29466"
+      },
+      "fullReport": {
+        "auditPacket": "cross-version-8f72ce5c-final/report.json",
+        "sha256": "59b335c43f773f8910f9f9180de32ea959c59a4795be8e07ee082e7f32fe4090"
+      }
+    },
+    "priorNative": {
+      "sourceRevision": "39243caaff6d268becfe0ad824df258375113097",
+      "foregroundCuaChecks": 12,
+      "compactSyntheticChecks": 24,
+      "displayRoute": "Linux XWayland",
+      "logicalViewport": [
+        800,
+        600
+      ],
+      "deviceViewport": [
+        1200,
+        900
+      ],
+      "status": "historical-passed-not-final-acceptance",
+      "releaseBlockedBy": "Visible controlled-removal defect subsequently addressed; final text footer and binary need their own verification"
+    },
+    "localSuite": {
+      "status": "passed",
+      "sourceRevision": "8f72ce5c945261ba92d1490aee4374176f24cfb8",
+      "applicationCases": 1405,
+      "failed": 0,
+      "ignored": 4,
+      "journeys": [
+        "editing",
+        "Create",
+        "motion",
+        "catalogue"
+      ],
+      "scope": "Preceding complete source; final65 one-line footer change has separate exact-source CI/native evidence.",
+      "evidence": {
+        "auditPacket": "local-suite-removal-receipt.json",
+        "sha256": "d3d93298f50820a5027cf89a051c4266c71406c0a272489e94220651f46d25b8"
+      }
+    }
+  },
+  "compatibilityWarning": "0.8 can display the cached ContextualV1 result but editing/resaving can discard the algorithm choice. Preserve the 0.9 original; rasterize a separate copy before backward editing.",
+  "publication": {
+    "status": "not-published",
+    "sourceTagVerified": false,
+    "installerPinPromoted": true,
+    "normalLauncherVerified": true,
+    "downloadAssetsPublished": false,
+    "anonymousDownloadVerification": "pending",
+    "releaseUrl": null,
+    "sourcePublisherRun": null,
+    "downloadPublisherRun": null
+  },
+  "limits": [
+    "Qualification and reviewed declarations are complete; source release and permanent asset publication/anonymous verification remain separate pending steps.",
+    "No interactive Windows, live Windows AI, clean-machine, mixed-DPI, accessibility, signing or broad hardware approval.",
+    "No new live provider request. Tablet support deferred; scheduling excluded.",
+    "The bounded photo corpus does not establish universal reconstruction quality or a performance improvement."
+  ],
+  "evidenceLocation": "Relative auditPacket names identify retained audit receipts, not downloadable repository files. Source and workflow URLs are public; no personal paths or raw profile data are included.",
+  "currentInstalledRelease": {
+    "status": "passed",
+    "version": "Omuse 0.9.0",
+    "sourceRevision": "65c95cc165f9d730a9f0bcea51c51a84cf4adb7e",
+    "binarySha256": "da39ef88d0c6f08074051784974668841e62a2ac9c56c527b73c9ba4685e4ec6",
+    "previousVersion": "0.8.0",
+    "previousSourceRevision": "eb558dc59ccdf88a3d62dfc2d706a6b836da1eda",
+    "previousFilesPreserved": 22,
+    "profilesBytePreserved": true,
+    "nativeInstalledLauncher": "passed",
+    "nativeChecks": 24,
+    "nativeScope": "Actual installed launcher, isolated profile, XWayland on this host; artwork and original settings not opened.",
+    "evidence": {
+      "auditPacket": "normal-install-65c95cc1.json",
+      "sha256": "b184891de50d4d7e5e26d0f15f1d5f330532240f36c6154afbbf4139b4247444"
+    }
+  },
+  "screenshots": {
+    "01-compact-text.png": {
+      "file": "docs/releases/images/v0.9.0/01-compact-text.png",
+      "sha256": "9c52bbe25445878211b11c00c4db559fbf84e4fb344ab69f73e5e27334a497e1",
+      "sourceRevision": "65c95cc165f9d730a9f0bcea51c51a84cf4adb7e"
+    },
+    "02-portrait-removal.png": {
+      "file": "docs/releases/images/v0.9.0/02-portrait-removal.png",
+      "sha256": "12d89a44098e38d8b999cefe4650fe7e858aba0dac3f2d8a4e989fd3ac345b7b",
+      "sourceRevision": "65c95cc165f9d730a9f0bcea51c51a84cf4adb7e"
+    },
+    "03-removal-before.png": {
+      "file": "docs/releases/images/v0.9.0/03-removal-before.png",
+      "sha256": "968affc0e138db4d0f7ff46f60725740368f8c43c159c507dd2d52529e6810f6",
+      "sourceRevision": "8f72ce5c945261ba92d1490aee4374176f24cfb8"
+    },
+    "04-removal-after.png": {
+      "file": "docs/releases/images/v0.9.0/04-removal-after.png",
+      "sha256": "f28c30001a5caf8e66c10bd58f6c59924efd0419f856b22ad46802fac0b63bf2",
+      "sourceRevision": "8f72ce5c945261ba92d1490aee4374176f24cfb8",
+      "scope": "Production engine output; library source unchanged in final65; final65 cached project export equality passed."
+    }
+  }
+}

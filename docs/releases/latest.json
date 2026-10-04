@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "version": "0.8.0",
-  "tag": "v0.8.0",
-  "title": "Omuse 0.8.0 \u2014 Colour, curves and control",
+  "version": "0.9.0",
+  "tag": "v0.9.0",
+  "title": "Omuse 0.9.0 — Photo detail, precise control",
   "date": "2026-10-04",
   "prerelease": true,
-  "sourceRevision": "eb558dc59ccdf88a3d62dfc2d706a6b836da1eda",
-  "notes": "docs/releases/v0.8.0.md",
-  "validationRun": 37161936414
+  "sourceRevision": "65c95cc165f9d730a9f0bcea51c51a84cf4adb7e",
+  "notes": "docs/releases/v0.9.0.md",
+  "validationRun": 37207585304
 }

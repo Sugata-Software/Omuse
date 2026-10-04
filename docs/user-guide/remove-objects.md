@@ -87,6 +87,16 @@ This is deterministic patch replacement. It cannot reliably invent a missing
 face, lettering or complex scene structure. Use Clone for precise edges or AI
 for a reviewed generative reconstruction.
 
+The 0.9 workflow reconstructs inward from clean surrounding context and refuses
+missing donors without applying part of the edit. Preview at actual pixels,
+choose a clean nearby sampling area and refine the selection/feather if the
+boundary needs work. See [controlled removal and its limits](retouch-and-controls.md#remove-an-object-using-surrounding-texture).
+
+New recipes record **ContextualV1**. Omuse 0.8 can display their cached result,
+but editing/resaving in 0.8 can discard the algorithm choice. Preserve the 0.9
+original and use a separate rasterized copy for backward editing; see the
+[compatibility steps](retouch-and-controls.md#keep-new-removal-recipes-safe-when-trying-an-older-version).
+
 ## Precise repair: Clone or Healing
 
 1. Duplicate the photo layer. Press **S** for Clone stamp or **Shift+J** for
@@ -103,11 +113,10 @@ choose **New healing layer**. It creates a transparent layer and enables
 all-layer source sampling. Alt-click a source before painting. The strokes are
 undoable raster edits; they are not a live link that follows future source edits.
 
-For the upcoming 0.9 candidate's Blur, Smudge and Liquify workflows, see
-[native-resolution retouch and independent blur radius](upcoming-0.9.md#control-blur-strength-separately-from-brush-size).
+For the 0.9 Blur, Smudge and Liquify workflows, see
+[native-resolution retouch and independent blur radius](retouch-and-controls.md#control-blur-strength-separately-from-brush-size).
 These are local finishing tools, separate from Clone/Healing sampling or
-automatic object removal. The candidate is still under qualification and is
-not part of the published 0.8.0 app.
+automatic object removal. The guide includes the current release status.
 
 ## Larger object: AI Removal
 

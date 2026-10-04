@@ -31,25 +31,25 @@ The first build is substantial: allow time and about **12 GB of free disk
 space**. Two build jobs are used by default. Later installs reuse Cargo outputs
 and verified runtime assets. A stable source cache avoids unnecessary recompilation;
 updates refuse to overwrite local edits in that cache. This installer **builds
-from source**; a downloadable binary release remains subject to the
-[release qualification gates](public-release-readiness.md).
+from source**. Reviewed application archives have a separate
+[download and installation guide](downloadable-releases.md).
 
 ## Tested source channel
 
-The current source declaration is [Omuse 0.8.0](releases/v0.8.0.md).
+The current source declaration is [Omuse 0.9.0](releases/v0.9.0.md).
 Its Git tag identifies the tested runtime; the normal curl command follows the
 current tested channel and may advance to later qualified releases.
 
 The public installer selects commit
-[`eb558dc59ccdf88a3d62dfc2d706a6b836da1eda`](https://github.com/Sugata-Software/Omuse/commit/eb558dc59ccdf88a3d62dfc2d706a6b836da1eda).
+[`65c95cc165f9d730a9f0bcea51c51a84cf4adb7e`](https://github.com/Sugata-Software/Omuse/commit/65c95cc165f9d730a9f0bcea51c51a84cf4adb7e).
 It fetches that exact revision and checks the checkout before building.
-The complete [Linux and Windows workflow](https://github.com/Sugata-Software/Omuse/actions/runs/37161936414)
-passed. The [0.8.0 qualification](release-080-qualification.md) records 1,352
-local application cases, 80 template variants, 16 photo cases, interrupted-save
-recovery and bounded native desktop checks. Both package targets passed their
-headless installation/replacement/rollback checks; the downloaded Linux archive
-also passed on the development laptop. These remain experimental packages,
-not a claim of broad platform compatibility.
+The complete [Linux and Windows workflow](https://github.com/Sugata-Software/Omuse/actions/runs/37207585304)
+passed, including 1,405 Linux and 1,387 Windows application tests. The
+[0.9.0 qualification record](release-090-qualification.md) covers native
+Linux editing, real-photo checks and a 0.8 → 0.9 → rollback → forward journey.
+Both packages passed archive and runtime checks; Linux also passed native
+checks on the development laptop. Windows remains unsigned and experimental,
+with interactive Windows qualification outstanding.
 
 All new projects use `.omuse`. Opening an older project does not rewrite it.
 Ordinary canvases use format 10; flat legacy vector scenes use 11, grouped
@@ -57,6 +57,11 @@ scenes 12, gradient/advanced-stroke scenes 13 and curved text 14. **0.7.0 cannot
 read formats 12–14 or the reference-colour recipe.** Use **Save As** to retain an
 older original before adding new features. App rollback does not downgrade
 artwork. Collection schema v2 remains separate and requires 0.5.0 or later.
+
+Omuse 0.8 can display cached **ContextualV1** removal results from 0.9, but
+editing or resaving that recipe in 0.8 can discard its algorithm choice.
+Keep the 0.9 original and rasterize a separate copy before backward editing.
+See the [removal compatibility guide](user-guide/retouch-and-controls.md#keep-new-removal-recipes-safe-when-trying-an-older-version).
 
 No new cloud AI request was sent for this editing release; earlier provider
 receipts keep their own runtime identities. Local subject-model checks do not

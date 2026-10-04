@@ -6,6 +6,21 @@ for numbering, qualification and publication.
 
 ## Unreleased
 
+No changes recorded yet.
+
+## [0.9.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.9.0) — 2026-10-04
+
+**Photo detail, precise control · Linux / Omarchy source pre-release · unsigned experimental Windows**
+
+- Reconstruct new controlled-removal results from surrounding, unselected
+  context inward, using only the allowed sampling area. Refuse an edit without
+  enough donor context before committing artwork. Saved recipes record the
+  algorithm; older recipes keep their original behavior. Omuse 0.8 can display
+  a saved result, but editing or resaving its new recipe there can lose the
+  algorithm choice: preserve the original and use a separate rasterized copy
+  for backward editing.
+- Preserve a typed numeric value when moving focus to another control, while
+  still rejecting invalid values or edits whose target has changed.
 - Preserve a valid long stroke when mouse-up repeats its last recorded point;
   refuse an over-limit path explicitly before altering artwork.
 - Retouch the source pixels of scaled, rotated or flipped photo layers with
@@ -27,14 +42,23 @@ for numbering, qualification and publication.
   order, editable contents and placement in one Undo step. The command refuses
   folders with their own appearance settings, locks or clipping relationships
   that would change the result. **Ctrl+Shift+G** still ungroups vector objects.
+- Keep inline text Apply/Cancel within the compact panel and wrap its keyboard
+  hint at the minimum supported window size.
 - Preview installed fonts on selected letters in the canvas text editor, search
   font names, commit with Enter or restore the original with Escape. With a caret,
   choose the font for subsequent typing without restyling the existing text.
-- Publish the reviewed 0.8.0 Linux and experimental Windows archives with
-  permanent checksums and a completed anonymous-download verification.
+  Long font lists retain readable row heights while scrolling.
 
-These editing changes are implemented in the 0.9.0 candidate and remain under
-qualification. This section does not declare a 0.9.0 release.
+Qualification passed 1,405 Linux and 1,387 Windows application tests (four
+ignored on each), final native compact controls and installed-launcher journeys,
+and exact cross-version package/export checks. See the
+[release notes](docs/releases/v0.9.0.md) and [limits](docs/release-090-qualification.md).
+
+## Download publication — 2026-10-04
+
+The reviewed 0.8.0 Linux and experimental Windows archives were published with
+permanent checksums and completed anonymous-download verification. This was a
+publication update, separate from the 0.9 editing changes above.
 
 ## [0.8.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.8.0) — 2026-10-04
 

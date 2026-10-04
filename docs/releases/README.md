@@ -5,6 +5,7 @@ Start with the [changelog](../../CHANGELOG.md) or
 
 | Version | Date | Scope | Notes |
 | --- | --- | --- | --- |
+| 0.9.0 | 4 October 2026 | Native-resolution retouch, context-guided removal, grid and mask controls, selected-letter font preview and reliable numeric entry | [Release notes](v0.9.0.md) |
 | 0.8.0 | 4 October 2026 | Reference colour matching, soft hue masks, richer vector artwork, curved text and reviewed unsigned experimental Linux/Windows packages | [Release notes](v0.8.0.md) |
 | 0.7.0 | 2 October 2026 | Integrated vector editing, local Image Trace, colour uniformity and precision photo foundations; Arch/Omarchy x86_64 source pre-release | [Release notes](v0.7.0.md) |
 | 0.6.0 | 1 October 2026 | Photo finishing, direct editing, Photoshop/SVG imports and save/reload safety; source pre-release | [Release notes](v0.6.0.md) |
@@ -18,7 +19,7 @@ Start with the [changelog](../../CHANGELOG.md) or
 ## Version numbers
 
 Omuse has its own sequence, beginning at **0.1.0**. Each release matches its
-Rust package version; the current release declaration is **0.8.0**. It does not
+Rust package version; the current release declaration is **0.9.0**. It does not
 inherit another editor's release numbers. This is a qualified source pre-release;
 the broader binary and stable-release gates remain open.
 

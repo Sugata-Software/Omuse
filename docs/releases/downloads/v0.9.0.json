@@ -1,0 +1,41 @@
+{
+  "assets": [
+    {
+      "binarySha256": "da39ef88d0c6f08074051784974668841e62a2ac9c56c527b73c9ba4685e4ec6",
+      "dependencyCount": 619,
+      "fileName": "omuse-0.9.0-linux-x86_64.tar.gz",
+      "inventorySha256": "bb0928a2b56b1a2ad257e10939ee4be82a4d30c446ead846aa333adb44290220",
+      "sha256": "375a5c2745cbe15b52a1e1f61ab7dfba0ab780747be8b0dba85b2585cc9375ac",
+      "size": 37367136,
+      "smokeSha256": "e1b95375bda58d5694b1c7fe2fed87369a9f2202310177cc205bf057a54571ea",
+      "target": "linux-x86_64"
+    },
+    {
+      "binarySha256": "91eec344b1e7982739298ffd3a885664e623283e1bfc1a7cae03e11139afc54f",
+      "dependencyCount": 421,
+      "fileName": "omuse-0.9.0-windows-x86_64.zip",
+      "inventorySha256": "8b5c965e2649e4a1702ada49df52ba93dc92933b8d0fcced9a313e87571080e0",
+      "sha256": "54435446e961bce213f3774c3e6525594775a042eef51e008c645698cab7551d",
+      "size": 25582307,
+      "smokeSha256": "bef921b484c415f06aa6f7896409e689ac6f22f6047c10d9059b3d470249149d",
+      "target": "windows-x86_64"
+    }
+  ],
+  "buildAttempt": 1,
+  "buildRun": 37207585335,
+  "buildWorkflowRevision": "65c95cc165f9d730a9f0bcea51c51a84cf4adb7e",
+  "limitations": [
+    "Unsigned experimental previews; native interactive desktop, mixed-DPI and live AI operation qualification remain incomplete.",
+    "Linux binaries are built and smoke-tested on Ubuntu 24.04 x86_64; other Linux distributions are not established by that test.",
+    "Windows binaries are built and smoke-tested on Windows Server 2025 x86_64; desktop Windows 10/11 qualification remains separate.",
+    "Upgrade smoke checks replace and roll back the same candidate; migration from an older published binary is not claimed."
+  ],
+  "prerelease": true,
+  "qualification": "automated-preview",
+  "schemaVersion": 1,
+  "signed": false,
+  "sourceRevision": "65c95cc165f9d730a9f0bcea51c51a84cf4adb7e",
+  "tag": "v0.9.0",
+  "validationRun": 37207585304,
+  "version": "0.9.0"
+}

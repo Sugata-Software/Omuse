@@ -1,23 +1,30 @@
 # Public release readiness
 
-**4 October 2026: Omuse 0.8.0 is published as a GitHub prerelease and selected by
-the source installer. Permanent downloadable binary assets are still pending;
-0.7.0 remains preserved for rollback.**
+**4 October 2026: Omuse 0.9.0 has passed exact Linux/Windows validation,
+native compact controls, photo integrity and package compatibility. Reviewed
+source declarations and the installer now target `65c95cc1`; the normal app is
+verified at 0.9.0 with its complete 0.8.0 rollback preserved. Numbered source
+publication and permanent download/anonymous verification remain pending. The
+previous 0.8.0 source and assets remain published.**
 
 The [0.8.0 qualification record](release-080-qualification.md) tracks photo
 fidelity, gradients and curved text, reference colour matching, selective masks,
 JPEG inspection and native Linux/Windows archives. The dependency replacements
 close the candidate's missing legal-text findings, and exact-source validation
-and download workflows completed successfully. The source release is published,
-while permanent downloadable assets remain pending. None of this changes the
-preserved 0.7.0 evidence or rollback payload.
+and download workflows completed successfully. Publication run
+[37200321434](https://github.com/Sugata-Software/Omuse/actions/runs/37200321434)
+then attached all four reviewed assets. Anonymous downloads matched their sizes
+and SHA-256 hashes, and the download manifest matched the reviewed declaration
+byte for byte. The source tag and published notes were unchanged. None of this
+changes the preserved 0.7.0 evidence or rollback payload.
 
 The current numbered source release is **0.8.0 — Colour, curves and control**,
 published as a GitHub prerelease at the [v0.8.0 release](https://github.com/Sugata-Software/Omuse/releases/tag/v0.8.0).
-Its source tag points to `eb558dc59ccdf88a3d62dfc2d706a6b836da1eda`. The release
-has no permanent binary assets yet. The supported source-install scope remains
-**Arch/Omarchy Linux x86_64**; stable-release and broader portability gates stay
-open.
+Its source tag points to `eb558dc59ccdf88a3d62dfc2d706a6b836da1eda`. See the
+[download instructions](downloadable-releases.md) and
+[reviewed manifest](releases/downloads/v0.8.0.json) for the permanent archives.
+The supported source-install scope remains **Arch/Omarchy Linux x86_64**;
+stable-release and broader portability gates stay open.
 
 The canonical public repository is
 [Sugata-Software/Omuse](https://github.com/Sugata-Software/Omuse).
@@ -30,36 +37,77 @@ all **80 editable template variants**, editing/Create/media, photo/recovery and
 native/package checks. The 0.7.0 runtime and its 1,206-test record below remain
 historical evidence for the preserved previous release.
 
-## Current application and installation
+The public Linux archive passed integrity, notice, editing/runtime, isolated
+installation, same-version replacement/rollback and profile-preservation
+checks. This publication check did not repeat cross-version migration. The
+Windows archive was verified on Linux; its automated Windows execution remains
+tied to download run 37161936378. Publication added no local Windows desktop,
+mixed-DPI or live-AI qualification.
 
-The normal launcher and curl installer now select **0.8.0**, source
-`eb558dc59ccdf88a3d62dfc2d706a6b836da1eda`. The installed production binary
-SHA-256 is `d47feb79e0cc893786f5aa8cd60dc3ef2afdb4975b2ea0cb6f19f3dcbe9abf56`.
-Its isolated-XDG editing self-test passed, and the prior 0.7.0 20-file payload
-remains preserved for rollback. The [release receipt](release-080-receipts.json)
-records the production installation and source-publication evidence.
+## Qualified 0.9.0 source and editing workflows
 
-The reviewed 0.8.0 format and compatibility matrix is maintained in
-[user-guide/README.md](user-guide/README.md). The 0.7.0 format-11 and older-reader
-limitations are historical evidence for that release; Save As remains the
-way to retain an older compatible copy, and application rollback does not
-downgrade artwork.
+The [0.9 release notes](releases/v0.9.0.md) and
+[illustrated guide](user-guide/retouch-and-controls.md) cover native-resolution
+retouch, independent Blur radius, controlled removal, configurable grid/mask
+controls, safe folder ungrouping and selected-letter fonts. Typed values survive
+focus changes; readable font rows and a compact text footer improve direct editing.
 
-A historical 0.7.0 Cua Driver 0.29.1 check opened the installed production
-app and a saved test project on XWayland, then visually verified foreground
-Ctrl+K opening command search. Background key delivery had no visible effect.
-This does not qualify all physical devices or accessibility routes.
+Candidate [`65c95cc165f9d730a9f0bcea51c51a84cf4adb7e`](https://github.com/Sugata-Software/Omuse/commit/65c95cc165f9d730a9f0bcea51c51a84cf4adb7e),
+tree `abd6296cf31078e278ab7bb73dc799948443de4d`, has completed the recorded qualification.
+[Validation 37207585304](https://github.com/Sugata-Software/Omuse/actions/runs/37207585304)
+and [download build 37207585335](https://github.com/Sugata-Software/Omuse/actions/runs/37207585335)
+completed successfully on their first attempts. Linux passed **1,405 application
+tests** and Windows **1,387**, each with zero failures and four ignored. Their
+complete journeys and notice gates passed. Both package smoke receipts passed
+nine checks, and the unmodified generated [download manifest](releases/downloads/v0.9.0.json)
+passed canonical, archive and receipt verification. Source and asset publication
+remain separate steps.
 
-No new live AI request was sent for this release. Earlier
-[Claude Design](ai-claude-qualification.md),
-[Codex image editing](ai-image-editing-qualification.md) and
-[Cua AI checks](cua-ai-qualification.md) retain their own source identities.
-The [manual](user-guide/README.md) documents photo/vector workflows and limits.
-Broader hardware, clean-machine installation, independent interchange/image
-quality and the binary/stable-release gates below remain open.
+The final Linux binary passed **24 native checks** at 800 × 600 logical /
+1200 × 900 device pixels through XWayland. A visual review confirmed text
+Apply/Cancel stay inside the panel. The exact archive passed **four**
+0.8 → 0.9 → rollback → forward journeys with both complete **22-file**
+generations preserved and **35 identical exports across nine projects**.
+Curved format-14 text and cached ContextualV1 removal results were included.
 
-The preceding [0.6.0 qualification](release-060-qualification.md) and the records
-below are historical evidence for their own candidates.
+The unchanged photo library passed **16 cases and 128 retouch operations**:
+source integrity at full resolution, retouch on copies no wider than 1,024
+pixels. Controlled removal separately preserved protected pixels, one-step
+Undo/Redo and exact saved recipe re-evaluation. Some repaired texture mismatch
+remains; automatic Spot Heal can copy unsuitable nearby detail. These checks
+do not establish universal photographic quality or a speed improvement.
+
+The [0.9 qualification record](release-090-qualification.md) and
+[receipt ledger](release-090-receipts.json) distinguish final package/native
+results, retained engine evidence and broader limits. Earlier 39243caa passed
+its suites and native controls but failed real-photo removal review; that
+quality finding blocked it and led to the current context-guided algorithm.
+Its historical checks are not relabeled as final-source results.
+
+## Current installation and compatibility
+
+The normal development-host launcher is now verified at **0.9.0**, exact source
+`65c95cc165f9d730a9f0bcea51c51a84cf4adb7e`, with binary SHA-256
+`da39ef88d0c6f08074051784974668841e62a2ac9c56c527b73c9ba4685e4ec6`.
+All **22 files** from its prior 0.8.0 generation and profile/settings bytes were
+preserved. The installed launcher passed **24 native checks** in an isolated
+profile. This host installation does not publish the release: the public curl
+installer and latest declaration now target the tested 0.9.0 source; numbered
+source publication and permanent 0.9 assets are still awaiting verification.
+
+New controlled-removal recipes use **ContextualV1**; absent algorithm fields
+retain **Legacy** behavior. **0.8 can display cached new results, but editing or
+resaving there can lose the algorithm choice.** Keep the 0.9 original and use a
+separate copy rasterized in 0.9 for backward editing. The cross-version export
+check did not exercise same-project editing/resaving or native settings
+migration; preserving bytes is not proof an older version understands them.
+[Compatibility steps](user-guide/retouch-and-controls.md#keep-new-removal-recipes-safe-when-trying-an-older-version).
+
+Published 0.8.0 receipts and earlier 0.7.0/0.6.0 measurements remain historical.
+No new live AI request was sent for this editing qualification. Earlier
+[Claude](ai-claude-qualification.md), [Codex image editing](ai-image-editing-qualification.md)
+and [Cua AI](cua-ai-qualification.md) results retain their own source identities.
+Clean-machine, wider hardware/accessibility and live Windows AI work remain open.
 
 ## What is established
 
@@ -121,15 +169,15 @@ The [one-command installer](install.md) builds a tested Omuse revision locally o
 Arch/Omarchy, with dependency setup, verified optional assets and complete
 installation rollback. The active tree contains Linux Omuse; old platform
 implementations remain in Git history with attribution. The 0.8.0 source
-release is published, while permanent prebuilt binary assets remain pending.
+release and its reviewed prebuilt archives are published.
 
-## Before a downloadable binary release
+## Downloadable prerelease and remaining release gates
 
 | Gate | Current state | Completion evidence |
 | --- | --- | --- |
-| Clean CI build | Candidate `eb558dc` validation run [37161936414](https://github.com/Sugata-Software/Omuse/actions/runs/37161936414) and download run [37161936378](https://github.com/Sugata-Software/Omuse/actions/runs/37161936378) completed successfully | Permanent binary asset publication by the release owner |
+| Clean CI build and publication | Runtime `eb558dc` validation [37161936414](https://github.com/Sugata-Software/Omuse/actions/runs/37161936414), download build [37161936378](https://github.com/Sugata-Software/Omuse/actions/runs/37161936378) and publication [37200321434](https://github.com/Sugata-Software/Omuse/actions/runs/37200321434) succeeded; all four permanent assets passed anonymous size/hash verification | Completed for 0.8.0; every later candidate needs its own exact-source evidence and reviewed publication |
 | Dependency legal texts | Candidate Linux and Windows package inventories report zero notice findings, with 619 and 421 dependency entries | Retain the exact candidate inventory and notice review; see the [notice review](rust-license-findings.md) |
-| Reproducible release identity | Published tag `v0.8.0` identifies exact runtime `eb558dc`; clean CI builds and reviewed archive/binary/inventory hashes are recorded in the [download manifest](releases/downloads/v0.8.0.json) and [release receipt](release-080-receipts.json) | Preserve this identity when attaching the already verified archives; independent bit-for-bit build reproducibility is not established |
+| Recorded release identity | Published tag `v0.8.0` identifies exact runtime `eb558dc`; clean CI builds and reviewed archive/binary/inventory hashes are recorded in the [download manifest](releases/downloads/v0.8.0.json) and [release receipt](release-080-receipts.json); publication left tag and notes unchanged | Preserve the immutable release identity; independent bit-for-bit build reproducibility is not established |
 | Clean target installation | Passed only on the development host | Install, launch, upgrade and rollback on a clean supported Arch/Omarchy system |
 | Physical desktop acceptance | Native in-process journeys pass; bounded Cua foreground XWayland Camera Raw and Subject Refine Apply/Undo/Redo checks passed | Broader foreground keyboard/pointer, clipboard, file dialogs and supported display/DPI configurations |
 | Feature claims | Local editor and selected Codex journeys have evidence | Each advertised AI operation has its own acceptance receipt; unqualified routes remain unavailable or explicitly experimental |

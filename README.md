@@ -14,15 +14,15 @@ application launcher. Windows x64 users can download a portable development ZIP.
 
 **[Install on Linux](#linux)** · **[Download for Windows](#windows-experimental)**
 
-**Current source pre-release: [0.8.0 — Colour, curves and control](https://github.com/Sugata-Software/Omuse/releases/tag/v0.8.0)**
-— reference colour matching, softer masks, richer vector artwork, editable text
-on curves and clearer JPEG inspection. Read the [release notes](docs/releases/v0.8.0.md)
-or browse the [interface gallery](docs/releases/v0.8.0-gallery.md).
+**Current source pre-release: [0.9.0 — Photo detail, precise control](https://github.com/Sugata-Software/Omuse/releases/tag/v0.9.0)**
+— retouch at source resolution, guide object removal, align with a configurable
+grid and preview fonts on selected letters. [Explore what’s new](#new-in-090)
+or [follow the illustrated guide](docs/user-guide/retouch-and-controls.md).
 
-[Explore what’s new](#new-in-080) ·
-[Follow the photo and vector workflows](docs/user-guide/photo-vector.md#photo-and-vector-tools-in-080).
-Linux and Windows downloads are available as **unsigned experimental previews**
-on the [0.8.0 release page](https://github.com/Sugata-Software/Omuse/releases/tag/v0.8.0).
+**0.9 application archives are awaiting publication.** The curl command builds
+the tested 0.9 source; the [release page](https://github.com/Sugata-Software/Omuse/releases/tag/v0.9.0)
+will carry reviewed Linux and unsigned experimental Windows downloads.
+[Qualification and limits](docs/release-090-qualification.md).
 
 **[Read the user manual](docs/user-guide/README.md)** ·
 [Edit a photo](docs/user-guide/photo-editing.md) ·
@@ -62,10 +62,11 @@ send the selected context to the connection you choose; the assistant identifies
 the subscription route and its usage. Separate API billing is currently disabled.
 Omuse does not change the desktop theme.
 
-![Omuse 0.7.0 editing a photograph with live exposure and colour-balance layers](docs/media/omuse-0.7.0-photo-editor.png)
+![Omuse 0.9 with an editable removal result and the retained original photo](docs/releases/images/v0.9.0/02-portrait-removal.png)
 
-*The native 0.7.0 editor on Omarchy, with editable photo adjustments.
-[Photo workflow](docs/user-guide/photo-editing.md) · [Image credit](docs/media/README.md).*
+*Actual 0.9 runtime `65c95cc1` on Omarchy. The local repair keeps an editable
+recipe and the original layer; some texture mismatch remains. NASA / Eileen
+Collins, public domain. [Capture details and credit](docs/releases/images/v0.9.0/README.md).*
 
 ## Install
 
@@ -89,9 +90,10 @@ script itself is downloaded from `main`.
 
 **The current installer builds from source.** Allow time for the first build
 and about 12 GB of free disk space. Later installs reuse the build cache.
-The [reviewed Linux archive](https://github.com/Sugata-Software/Omuse/releases/download/v0.8.0/omuse-0.8.0-linux-x86_64.tar.gz)
+The previous [0.8 Linux archive](https://github.com/Sugata-Software/Omuse/releases/download/v0.8.0/omuse-0.8.0-linux-x86_64.tar.gz)
 and [checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.8.0/omuse-0.8.0-SHA256SUMS)
-are also available. See the [archive installation guide](docs/downloadable-releases.md).
+remain available while 0.9 archive publication completes. See the
+[archive installation guide](docs/downloadable-releases.md).
 The curl command remains the source installer.
 You can [inspect it](install.sh) before running it.
 
@@ -110,8 +112,9 @@ and troubleshooting.
 
 ### Windows (experimental)
 
-**[Open the 0.8.0 release page](https://github.com/Sugata-Software/Omuse/releases/tag/v0.8.0)** ·
-[Reviewed build artifacts](https://github.com/Sugata-Software/Omuse/actions/runs/37161936378)
+**0.9 ZIP publication is pending on its [release page](https://github.com/Sugata-Software/Omuse/releases/tag/v0.9.0).**
+[Reviewed 0.9 build artifacts](https://github.com/Sugata-Software/Omuse/actions/runs/37207585335)
+are available; the instructions below retain the previous published 0.8 ZIP.
 
 The portable **Windows x64** preview needs neither Rust nor Visual Studio.
 The 0.8.0 package passed automated checks on Windows Server 2025; interactive
@@ -143,7 +146,27 @@ connection requirements and known limits.
 
 ## Highlights
 
-### New in 0.8.0
+### New in 0.9.0
+
+These workflows share the usual canvas and inspector.
+[Qualification and limits](docs/release-090-qualification.md) distinguish tested
+editing paths from broader hardware and photographic-quality work.
+
+| Workflow | What you can do |
+| --- | --- |
+| **Retouch source detail** | Blur, Smudge and Liquify preserve source dimensions on scaled or rotated photos. Set Blur radius independently of brush size. [Retouch guide](docs/user-guide/retouch-and-controls.md#control-blur-strength-separately-from-brush-size). |
+| **Guide object removal** | Choose clean nearby texture, preview the repair and retain an editable recipe. Inspect seams before keeping it. [Controlled removal](docs/user-guide/retouch-and-controls.md#remove-an-object-using-surrounding-texture). |
+| **Align consistently** | Configure grid spacing and subdivisions for both drawing and snapping. [Grid controls](docs/user-guide/retouch-and-controls.md#align-artwork-with-a-configurable-grid). |
+| **Inspect a mask** | Alt-click MASK for a grayscale view; return to the artwork before painting. [Mask inspection](docs/user-guide/retouch-and-controls.md#inspect-a-mask-before-refining-it). |
+| **Style selected letters** | Search installed fonts, preview a choice and press Escape to restore the original. [Live font preview](docs/user-guide/retouch-and-controls.md#preview-a-font-on-selected-letters). |
+| **Keep control of edits** | Typed values survive focus changes, compact text actions stay visible, and ordinary folders ungroup safely in one Undo. [Folder ungroup](docs/user-guide/retouch-and-controls.md#release-an-ordinary-folder-without-flattening-its-children). |
+
+Native retouch accepts 8-bit raster layers or existing masks up to 16 MP;
+controlled removal has a separate 4-million-pixel limit and needs useful donor
+texture. Neither guarantees a natural repair for every image. New removal
+recipes also have an [older-editor compatibility precaution](docs/user-guide/retouch-and-controls.md#keep-new-removal-recipes-safe-when-trying-an-older-version).
+
+### Photo and vector tools from 0.8.0
 
 These additions share the existing photo canvas and Layers inspector.
 [Qualification and limits](docs/release-080-qualification.md) distinguish local
@@ -280,11 +303,16 @@ rewrite it; recovery snapshots stay separate from saved artwork.
 for ordinary canvases. Omuse 0.6.0 cannot read format-11 scenes or projects with
 Target Colour Uniformity.
 
-**Omuse 0.8.0** retains those formats for ordinary and flat legacy
+**Omuse 0.8.0 and later** retain those formats for ordinary and flat legacy
 artwork, and uses **format 12** for grouped scenes, **13** for gradients or
-advanced strokes, and **14** for editable text on curves. **Older releases cannot
-open these newer formats or the new reference-colour effect.** Use **Save As**
+advanced strokes, and **14** for editable text on curves. **Omuse 0.7.0 cannot
+open formats 12–14 or the reference-colour effect.** Use **Save As**
 to retain an older copy; rolling back the app does not downgrade project files.
+
+New 0.9 controlled-removal recipes record **ContextualV1**. Omuse 0.8 can show
+their cached result, but editing or resaving there can lose the algorithm
+choice. Preserve the 0.9 original and rasterize a separate copy before backward
+editing. [Compatibility steps](docs/user-guide/retouch-and-controls.md#keep-new-removal-recipes-safe-when-trying-an-older-version).
 
 New collection saves use schema version 2 with nested `.omuse` pages and
 components. Version 1 collections still open, but saving upgrades them to

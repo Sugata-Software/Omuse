@@ -1,9 +1,9 @@
 # Omuse user manual
 
 **Make, retouch and finish images on Linux.** This manual describes the Omuse
-0.8.0 source pre-release for Arch/Omarchy x86_64, including reference colour
-matching, soft hue masks, richer vector artwork and text on curves, alongside
-local Image Trace, Create and optional AI workflows. Windows packages remain
+0.9.0 editing workflows for Arch/Omarchy x86_64, including source-resolution
+retouch, controlled removal, grid and mask controls and selected-letter fonts,
+alongside photo adjustments, vectors, Create and optional AI workflows. Windows packages remain
 unsigned experimental previews with separate desktop and live AI limits.
 Start with a photo, keep an editable project, and export a copy when it is ready.
 
@@ -11,21 +11,19 @@ Start with a photo, keep an editable project, and export a copy when it is ready
 [Edit a photo](photo-editing.md) · [Create social content](create-content.md) ·
 [Ask Omuse](../ai-experience.md) · [All shortcuts](../keyboard-shortcuts.md)
 
-Testing a development build? The [upcoming 0.9 workflow preview](upcoming-0.9.md)
-covers grid controls, mask inspection, safe folder ungrouping, selected-letter
-font previews and native-resolution retouch work. Those instructions are
-separate from this published 0.8.0 manual and remain subject to integration and
-desktop checks.
+The [retouch and canvas control guide](retouch-and-controls.md) walks through
+the new 0.9 tools. See [qualification and limits](../release-090-qualification.md)
+for tested scope and [installation options](../install.md) for availability.
 
 Prefer a quick overview? [Watch the two-minute 0.7.0 studio film](../media/omuse-0.7.0-studio-film.md),
 then follow the illustrated workflows below.
 
-![The Omuse 0.7.0 photo editor with tools on the left and editable layers on the right](../media/omuse-0.7.0-photo-editor.png)
+![Omuse 0.9 displaying an editable removal result above its retained original photo](../releases/images/v0.9.0/02-portrait-removal.png)
 
-*Tools sit on the left, the selected tool's settings run across the top, and
-Layers on the right keeps the original photograph and its adjustments separate.
-This dark theme is one example; the workspace follows your Omarchy theme.
-[Photograph credit](../media/README.md#previous-photo-editor-capture-and-photograph-credit).*
+*Actual 0.9 runtime `65c95cc1` on Omarchy. The editable removal result and hidden
+original remain separate layers. Some repaired texture mismatch remains;
+inspect the result before keeping it. NASA / Eileen Collins, public domain.
+[Capture details and credit](../releases/images/v0.9.0/README.md).*
 
 ## Your first edit
 
@@ -122,6 +120,11 @@ the new reference-colour recipe.** Omuse 0.6.0 also cannot read format 11 or
 Target Colour Uniformity. Use **Save As** to keep an older original before adding
 new features. Removing a feature or reinstalling an older app does not
 automatically downgrade the file.
+
+New 0.9 controlled-removal recipes record **ContextualV1**. Omuse 0.8 can show
+their saved cached result, but **editing or resaving there can lose the
+algorithm choice**. Keep the 0.9 original and rasterize a separate copy in 0.9
+before backward editing. [Compatibility steps](retouch-and-controls.md#keep-new-removal-recipes-safe-when-trying-an-older-version).
 
 ## AI is optional
 
