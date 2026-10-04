@@ -237,7 +237,7 @@ Start with the [illustrated user manual](docs/user-guide/README.md), follow
 
 ## Work from the keyboard
 
-In the **0.8.0 candidate**, press **Ctrl+K** or click the search icon to find and
+In **0.8.0**, press **Ctrl+K** or click the search icon to find and
 run any of **200 commands**. Search by action, tool, category or key combination;
 use **↑ / ↓** and **Enter**
 to run, or **Esc** to return to your canvas. Commands without a shortcut are
@@ -281,11 +281,11 @@ Existing `.comp` projects still open. Their first **Save** offers an `.omuse`
 copy and leaves the original intact. Opening a project does not rename or
 rewrite it; recovery snapshots stay separate from saved artwork.
 
-**Published Omuse 0.7.0 writes canvas format 11** for vector scenes and format 10
+**Omuse 0.7.0 writes canvas format 11** for vector scenes and format 10
 for ordinary canvases. Omuse 0.6.0 cannot read format-11 scenes or projects with
 Target Colour Uniformity.
 
-The **0.8.0 candidate** retains those formats for ordinary and flat legacy
+**Omuse 0.8.0** retains those formats for ordinary and flat legacy
 artwork, and uses **format 12** for grouped scenes, **13** for gradients or
 advanced strokes, and **14** for editable text on curves. **Older releases cannot
 open these newer formats or the new reference-colour effect.** Use **Save As**
@@ -346,6 +346,6 @@ Application source: MIT — see [LICENSE](LICENSE), including the retained
 original copyright notice. Third-party code, fonts, images and optional runtime
 assets retain their own licences. Runtime notices are under `rust/licenses/`.
 The [dependency notice review](docs/rust-license-findings.md) records the
-candidate's resolved missing-text findings, provenance and remaining platform
+0.8.0 resolved missing-text findings, provenance and remaining platform
 checks; this does not change older download receipts or qualify a public binary.
 The source licence does not relicense third-party media.

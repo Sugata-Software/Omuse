@@ -347,13 +347,13 @@ keep only the newest requested update.
 
 Save as **`.omuse`** to retain objects, styles and their order. In the 0.7.0
 baseline shown here, a canvas containing this artwork uses **format 11**, which
-**0.6.0 cannot open**. The unreleased features above can require formats 12–14.
+**0.6.0 cannot open**. The 0.8.0 features above can require formats 12–14.
 Use **Save As** to keep a compatible original. Other canvases still use format
 10. **Rasterize** explicitly converts the layer to pixels before painting or
 destructive filters; Undo can restore its editable objects. Layer placement,
 masks and supported layer effects remain available around the shared artwork.
 
-The scene still uses an 8-bit display cache. The unreleased controls above add
+The scene still uses an 8-bit display cache. The 0.8.0 controls above add
 gradients, booleans, text on curves and a supported multi-object SVG subset;
 they are absent from the 0.7.0 baseline. Persistent visible-tile caching and
 complete SVG interchange remain open. Exporting artwork through the 16-bit
@@ -470,7 +470,7 @@ material. Photo art produces solid-colour shapes, not a lossless photograph,
 editable text, gradients or a reconstruction of the original design.
 The 0.7.0 canvas preview uses the source image's pixel dimensions; zooming
 into a small source can look pixelated even though the retained curves are editable.
-The unreleased editing preview above rerenders admitted simple documents up to 4×.
+The 0.8.0 editing preview above rerenders admitted simple documents up to 4×.
 
 Tracing accepts source layers up to **16,777,216 pixels**. Processing is bounded
 at four megapixels, two million raw contour edges, 100,000 anchors and 4,096
