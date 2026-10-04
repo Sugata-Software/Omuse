@@ -31,6 +31,7 @@ bundle = sibling("verify-release-bundle")
 REPOSITORY, API_ROOT = notes.REPOSITORY, notes.API_ROOT
 BUILD_WORKFLOW = ".github/workflows/build-downloads.yml"
 PUBLISH_WORKFLOW = ".github/workflows/publish-downloads.yml"
+PUBLISH_BRANCH = "refs/heads/publish-downloads/v"
 BUILD_NAME = "Omuse downloadable preview builds"
 TARGETS = ("linux-x86_64", "windows-x86_64")
 FIELDS = {"schemaVersion", "version", "tag", "sourceRevision", "validationRun", "buildRun", "buildAttempt", "buildWorkflowRevision", "prerelease", "signed", "qualification", "limitations", "assets"}
@@ -288,15 +289,49 @@ def gh(command, environment):
     require(result.returncode == 0, "GitHub artifact operation did not complete; rerun to inspect existing state")
 
 
-def publisher_context(environment):
+def publication_version(environment, requested=None):
+    """Resolve explicit publication intent, never an application branch push."""
+    ref = environment.get("GITHUB_REF", "")
     require(environment.get("GITHUB_ACTIONS") == "true" and environment.get("GITHUB_REPOSITORY") == REPOSITORY
-            and environment.get("GITHUB_EVENT_NAME") == "workflow_dispatch" and environment.get("GITHUB_REF") == "refs/heads/main"
-            and environment.get("GITHUB_WORKFLOW_REF") == f"{REPOSITORY}/{PUBLISH_WORKFLOW}@refs/heads/main"
-            and environment.get("GH_TOKEN"), "Publication is restricted to the explicit public main download workflow")
+            and environment.get("GITHUB_WORKFLOW_REF") == f"{REPOSITORY}/{PUBLISH_WORKFLOW}@{ref}",
+            "Publication is restricted to the explicit public download workflow")
+    event = environment.get("GITHUB_EVENT_NAME")
+    if event == "workflow_dispatch":
+        require(ref == "refs/heads/main", "Manual publication must select public main")
+        version = requested
+    else:
+        require(event == "push" and ref.startswith(PUBLISH_BRANCH),
+                "Publication needs a main dispatch or explicit publish-downloads/vX.Y.Z request branch")
+        version = ref.removeprefix(PUBLISH_BRANCH)
+        require(not requested or requested == version, "Requested version differs from the publication branch")
+    require(isinstance(version, str) and notes.VERSION.fullmatch(version), "Use a numbered major.minor.patch version")
+    return version
+
+
+def publication_context(api, environment, version):
+    """Both trigger routes must execute the unchanged, current main workflow."""
+    require(publication_version(environment, version) == version, "Publication version differs from its request")
+    revision = environment.get("GITHUB_SHA")
+    require(isinstance(revision, str) and notes.SHA.fullmatch(revision)
+            and environment.get("GITHUB_WORKFLOW_SHA") == revision,
+            "Publication must execute the workflow from the exact requested commit")
+    require(revision == public_main(api), "Publication request must point to the exact current reviewed public main")
+    if environment.get("GITHUB_EVENT_NAME") == "push":
+        ref = environment["GITHUB_REF"].removeprefix("refs/heads/")
+        current = api.request(f"{API_ROOT}/git/ref/heads/{ref}").get("object", {})
+        require(current.get("type") == "commit" and current.get("sha") == revision,
+                "Publication request branch moved or disappeared")
+
+
+def plan_publication(api, environment, requested=None):
+    version = publication_version(environment, requested)
+    publication_context(api, environment, version)
+    return manifest_path(version)
 
 
 def publish(api, manifest, environment, download=gh, upload=gh):
-    publisher_context(environment)
+    require(environment.get("GH_TOKEN"), "Publication needs the workflow's GitHub token")
+    publication_context(api, environment, manifest["version"])
     raw = canonical(manifest)
     release = verify_publication(api, manifest, raw)
     existing = check_remote_assets(release["assets"], manifest)
@@ -318,6 +353,7 @@ def publish(api, manifest, environment, download=gh, upload=gh):
                 paths[name].write_bytes(value["content"])
         # Inspect again immediately before the first write. Never overwrite an
         # asset that appeared while downloading, even if a concurrent run added it.
+        publication_context(api, environment, manifest["version"])
         current = api.request(f"{API_ROOT}/releases/{release['id']}")
         require(current.get("tag_name") == manifest["tag"] and current.get("draft") is False and current.get("prerelease") is True,
                 "Release identity or qualification changed during preparation")
@@ -349,6 +385,7 @@ def main():
     mode.add_argument("--plan", action="store_true")
     mode.add_argument("--plan-release-push", action="store_true")
     mode.add_argument("--wait-validation", action="store_true")
+    mode.add_argument("--plan-publication", action="store_true")
     mode.add_argument("--assemble", type=Path)
     mode.add_argument("--check", type=Path)
     mode.add_argument("--verify", type=Path)
@@ -363,6 +400,10 @@ def main():
     parser.add_argument("--artifacts", type=Path)
     args = parser.parse_args()
     try:
+        if args.plan_publication:
+            path = plan_publication(notes.GitHub(), os.environ, args.version)
+            print(f"manifest={path}")
+            return 0
         if args.plan_release_push:
             version = plan_release_push(notes.GitHub(), args.source, os.environ)
             print(f"source={args.source}\nversion={version}")

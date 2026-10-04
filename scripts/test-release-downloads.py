@@ -86,6 +86,14 @@ def candidate(directory):
 
 
 class WorkflowTests(unittest.TestCase):
+    def test_publication_request_uses_explicit_branch_and_exact_checkout(self):
+        workflow = (Path(__file__).resolve().parent.parent / downloads.PUBLISH_WORKFLOW).read_text()
+        self.assertIn('branches: ["publish-downloads/v*"]', workflow)
+        self.assertNotIn("pull_request", workflow)
+        self.assertEqual(workflow.count("ref: ${{ github.sha }}"), 2)
+        self.assertEqual(workflow.count("contents: write"), 1)
+        self.assertIn("--plan-publication", workflow)
+
     def test_release_push_build_filters_match_exact_source_validation_filters(self):
         workflows = Path(__file__).resolve().parent.parent / ".github/workflows"
         def paths(name):
@@ -281,7 +289,16 @@ class PublicationTests(unittest.TestCase):
         self.uploaded, self.downloaded = [], []
         self.environment = {"GITHUB_ACTIONS": "true", "GITHUB_REPOSITORY": downloads.REPOSITORY,
                             "GITHUB_EVENT_NAME": "workflow_dispatch", "GITHUB_REF": "refs/heads/main",
+                            "GITHUB_SHA": MAIN, "GITHUB_WORKFLOW_SHA": MAIN,
                             "GITHUB_WORKFLOW_REF": f"{downloads.REPOSITORY}/{downloads.PUBLISH_WORKFLOW}@refs/heads/main", "GH_TOKEN": "fixture-only"}
+
+    def publication_request(self):
+        ref = f"{downloads.PUBLISH_BRANCH}{VERSION}"
+        self.environment.update(GITHUB_EVENT_NAME="push", GITHUB_REF=ref,
+                                GITHUB_WORKFLOW_REF=f"{downloads.REPOSITORY}/{downloads.PUBLISH_WORKFLOW}@{ref}")
+        self.api.responses[f"{downloads.API_ROOT}/git/ref/heads/publish-downloads/v{VERSION}"] = {
+            "object": {"type": "commit", "sha": MAIN},
+        }
 
     def download(self, command, environment):
         self.downloaded.append(command)
@@ -304,6 +321,74 @@ class PublicationTests(unittest.TestCase):
         self.assertEqual(self.publish(), "unchanged")
         self.assertEqual(len(self.uploaded), 4)
         self.assertEqual(len(self.downloaded), 2)
+
+    def test_explicit_request_branch_publishes_only_reviewed_main_and_reruns_read_only(self):
+        self.publication_request()
+        self.assertEqual(downloads.plan_publication(self.api, self.environment), downloads.manifest_path(VERSION))
+        self.assertEqual(self.uploaded, [])
+        self.assertEqual(self.downloaded, [])
+        self.assertEqual(self.publish(), "published")
+        self.assertEqual(self.publish(), "unchanged")
+        self.assertEqual(len(self.uploaded), 4)
+        self.assertEqual(self.uploaded[-1], f"omuse-{VERSION}-downloads.json")
+
+    def test_dispatch_plan_needs_explicit_numbered_version(self):
+        self.assertEqual(downloads.plan_publication(self.api, self.environment, VERSION), downloads.manifest_path(VERSION))
+        for version in (None, "", "main", "v0.8.0", "0.8.0/extra", "00.8.0", "0.8.0\n", True):
+            with self.subTest(version=version), self.assertRaises(downloads.DownloadError):
+                downloads.plan_publication(self.api, self.environment, version)
+
+    def test_request_version_cannot_differ_from_selected_manifest(self):
+        self.publication_request()
+        with self.assertRaisesRegex(downloads.DownloadError, "differs from the publication branch"):
+            downloads.plan_publication(self.api, self.environment, "0.9.0")
+        self.assertEqual(self.uploaded, [])
+
+    def test_foreign_event_ref_workflow_and_unreviewed_commits_cannot_publish(self):
+        self.publication_request()
+        allowed = self.environment.copy()
+        for field, value in (
+            ("GITHUB_ACTIONS", "false"), ("GITHUB_REPOSITORY", "other/Omuse"),
+            ("GITHUB_EVENT_NAME", "pull_request"), ("GITHUB_REF", "refs/heads/main"),
+            ("GITHUB_REF", "refs/heads/release/0.8.0"),
+            ("GITHUB_REF", "refs/heads/publish-downloads/v0.8.0/extra"),
+            ("GITHUB_WORKFLOW_REF", f"{downloads.REPOSITORY}/other.yml@{allowed['GITHUB_REF']}"),
+            ("GITHUB_WORKFLOW_SHA", SOURCE), ("GITHUB_SHA", SOURCE), ("GH_TOKEN", ""),
+        ):
+            self.environment = dict(allowed, **{field: value})
+            with self.subTest(field=field, value=value), self.assertRaises(downloads.DownloadError):
+                self.publish()
+            self.assertEqual(self.downloaded, [])
+            self.assertEqual(self.uploaded, [])
+
+    def test_request_with_modified_workflow_commit_is_not_public_main(self):
+        self.publication_request()
+        self.environment.update(GITHUB_SHA=SOURCE, GITHUB_WORKFLOW_SHA=SOURCE)
+        with self.assertRaisesRegex(downloads.DownloadError, "exact current reviewed public main"):
+            self.publish()
+        self.assertEqual(self.downloaded, [])
+        self.assertEqual(self.uploaded, [])
+
+    def test_request_branch_must_still_identify_its_original_commit(self):
+        self.publication_request()
+        endpoint = f"{downloads.API_ROOT}/git/ref/heads/publish-downloads/v{VERSION}"
+        for response in ({}, {"type": "tag", "sha": MAIN}, {"type": "commit", "sha": SOURCE}):
+            self.api.responses[endpoint] = {"object": response}
+            with self.subTest(response=response), self.assertRaisesRegex(downloads.DownloadError, "moved or disappeared"):
+                self.publish()
+            self.assertEqual(self.downloaded, [])
+            self.assertEqual(self.uploaded, [])
+
+    def test_main_or_request_moving_during_preparation_blocks_all_uploads(self):
+        for branch in ("main", f"publish-downloads/v{VERSION}"):
+            self.api = FakeGitHub(self.manifest)
+            self.publication_request()
+            def moved_download(command, environment):
+                self.download(command, environment)
+                self.api.responses[f"{downloads.API_ROOT}/git/ref/heads/{branch}"]["object"]["sha"] = SOURCE
+            with self.subTest(branch=branch), self.assertRaises(downloads.DownloadError):
+                downloads.publish(self.api, self.manifest, self.environment, moved_download, self.upload)
+            self.assertEqual(self.uploaded, [])
 
     def test_partial_upload_resumes_without_replacing_an_asset(self):
         asset = self.manifest["assets"][0]

@@ -1,6 +1,8 @@
 name: Omuse versioned download publication
 
 on:
+  push:
+    branches: ["publish-downloads/v*"]
   workflow_dispatch:
     inputs:
       version:
@@ -18,7 +20,10 @@ concurrency:
 jobs:
   check:
     name: Check the reviewed download declaration
-    if: github.repository == 'Sugata-Software/Omuse' && github.ref == 'refs/heads/main'
+    if: >-
+      github.repository == 'Sugata-Software/Omuse' &&
+      ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+       (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/publish-downloads/v')))
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
@@ -26,19 +31,15 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          ref: ${{ github.sha }}
           persist-credentials: false
-      - name: Select a numbered manifest
+      - name: Verify explicit publication request points to reviewed main
         id: path
         env:
+          GH_TOKEN: ${{ github.token }}
           OMUSE_VERSION: ${{ inputs.version }}
         run: |
-          python3 - <<'PY' >> "$GITHUB_OUTPUT"
-          import os, re
-          version = os.environ['OMUSE_VERSION']
-          if not re.fullmatch(r'(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)', version):
-              raise SystemExit('Use a numbered major.minor.patch version')
-          print(f'manifest=docs/releases/downloads/v{version}.json')
-          PY
+          python3 scripts/release-downloads.py --plan-publication --version "$OMUSE_VERSION" >> "$GITHUB_OUTPUT"
       - name: Verify offline publication and archive contracts
         env:
           OMUSE_MANIFEST: ${{ steps.path.outputs.manifest }}
@@ -58,6 +59,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          ref: ${{ github.sha }}
           persist-credentials: false
       - name: Verify exact CI, source, notices and smoke checks before uploading
         env:

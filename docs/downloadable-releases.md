@@ -79,12 +79,11 @@ builds will produce byte-identical archives.
    bounded qualification. Publish the matching numbered source prerelease
    through the normal source-release workflow. The package version, source tag
    and tested source must agree.
-4. Dispatch **Omuse versioned download publication**
-   (`publish-downloads.yml`) on `main`, supplying the version. Its only write
-   permission belongs to the final publication job. It verifies the current
-   public declaration, exact successful CI attempts, source ancestry, tag,
-   published notes and prerelease state before downloading the original build
-   artifacts and checking their bytes again.
+4. Request **Omuse versioned download publication** (`publish-downloads.yml`)
+   using either route below. Its only write permission belongs to the final
+   publication job. It verifies the current public declaration, exact successful
+   CI attempts, source ancestry, tag, published notes and prerelease state before
+   downloading the original build artifacts and checking their bytes again.
 5. Publication attaches the two archives, `omuse-X.Y.Z-SHA256SUMS`, and
    `omuse-X.Y.Z-downloads.json`. The manifest is uploaded last as a completion
    marker. GitHub's returned asset SHA-256 digests and sizes must match; final
@@ -97,6 +96,46 @@ bytes, modified notes, a moved tag or an expired build artifact stop publication
 There is no `--clobber`, asset deletion, release edit, tag creation or tag update
 in this publisher. Corrections to an already published binary require a new
 version and its own qualification.
+
+### Request publication
+
+With an authenticated maintainer CLI that can dispatch Actions, run:
+
+```sh
+gh workflow run publish-downloads.yml --repo Sugata-Software/Omuse --ref main -f version=0.8.0
+```
+
+Alternatively, create the branch `publish-downloads/v0.8.0` at the **exact
+reviewed public main commit**. This is an explicit publication request, not an
+application development branch. The ordinary GitHub branch API or a normal push
+can create it; no personal token, additional permission grant, or local `gh`
+login is needed when the connected integration already permits repository branch
+creation. For example, after reviewing the fetched main commit:
+
+```sh
+git fetch origin main
+git push origin refs/remotes/origin/main:refs/heads/publish-downloads/v0.8.0
+```
+
+Both routes require the workflow commit and checked-out commit to be the exact
+current public main. The request branch must still point to that commit. A
+modified workflow, a different version, a feature branch, a pull request, or
+main advancing while the original artifacts download stops publication before
+the first upload. The checks do not infer approval from an application push, and
+the request never changes the release's source tag or installer pin.
+
+If main advances, review it and submit a fresh main dispatch or fast-forward the
+request branch to that reviewed commit. Do not force-push. When main has not
+changed, re-run the existing publication workflow to resume an interruption;
+identical assets remain untouched. A completed publication is a read-only no-op
+when its request still identifies current main.
+
+The 0.8.0 packages were built in
+[run 37161936378](https://github.com/Sugata-Software/Omuse/actions/runs/37161936378)
+and recorded in the [reviewed manifest](releases/downloads/v0.8.0.json).
+Successful builds and a source prerelease do not start this separate publication
+step. Confirm all four permanent assets by their recorded hashes before updating
+documentation to say downloads are available.
 
 The source publisher accepts existing download assets only when their names,
 sizes and digests match the versioned declaration on public `main`. Existing
@@ -132,3 +171,21 @@ proof that every Linux distribution supplies compatible system libraries, and
 Windows Server CI is not a substitute for interactive Windows 10/11 testing.
 Those boundaries remain visible rather than delaying useful preview downloads
 until every optional operation is qualified.
+
+## Preparing 0.9.0
+
+Keep the existing 0.8.0 source, tag, download manifest and installer pin intact
+while the new editing work is qualified. Select the final 0.9.0 runtime only
+after its application checks and applicable desktop review are complete. Push
+that immutable commit to `release/0.9.0` to start both exact-source workflows.
+Record the completed validation run and complete package-build attempt; retain
+their generated manifest and native smoke receipts without editing them.
+
+Once both targets and the local checks pass, merge the candidate history into
+main, preserving the tested commit. Prepare the numbered notes, source release
+declaration, unchanged generated `v0.9.0.json` and installer source pin together.
+The source publisher creates the matching prerelease first. Then dispatch the
+download publisher for 0.9.0 or create `publish-downloads/v0.9.0` at that reviewed
+main commit. Read back all four assets and verify their hashes before declaring
+binary publication complete. Until then, CI artifacts are candidate downloads
+and the easy curl command continues to install the previously tested source.
