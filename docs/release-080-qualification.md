@@ -1,10 +1,11 @@
-# Omuse 0.8.0 candidate qualification
+# Omuse 0.8.0 release qualification
 
-This is a development record, not a release declaration. The installed and
-published source release remains 0.7.0 while the candidate is being checked.
+This is the qualification record for the 0.8.0 source release. The GitHub source
+release is published as a prerelease; permanent binary assets remain pending and
+this record does not claim stable, hardware or broad Windows GUI qualification.
 
-The current public source candidate is `eb558dc59ccdf88a3d62dfc2d706a6b836da1eda`
-on `release/0.8.0`, with source tree
+The published source release is `eb558dc59ccdf88a3d62dfc2d706a6b836da1eda`
+tagged `v0.8.0`, with source tree
 `68e406316b92d5817abfe810fbdc7840e57b5d17`. It changes only the dependency
 helper and its four regression checks/workflow wiring; the Rust application
 source is byte-identical to b47/d2. The b47 Linux and Windows application
@@ -14,8 +15,10 @@ download runs completed successfully: [validation run 37161936414](https://githu
 and [download run 37161936378](https://github.com/Sugata-Software/Omuse/actions/runs/37161936378).
 This candidate includes all earlier compact JPEG, Camera Raw/Subject Refine
 focus, 16-bit blend and external-format-11 fixes.
-It is still a source candidate: no 0.8.0 tag or downloadable asset is
-published, and the installed 0.7.0 generation remains in place.
+The 0.8.0 source tag and prerelease are published at
+[GitHub](https://github.com/Sugata-Software/Omuse/releases/tag/v0.8.0). The
+permanent release asset array is empty, while the installed launcher now selects
+0.8.0 and the preserved 0.7.0 generation remains available for rollback.
 
 The earlier public `f40d37d7932ec321f5dacbcdd65ae94773481bc8` checkpoint is
 historical. Its Linux/Windows GUI runs exposed the undersized JPEG panning
@@ -28,9 +31,9 @@ intersection and its tests are now present. No failed checkpoint is a release.
 Final review also corrected nearest-pixel sampling in transformed editable
 filter masks, mismatched extents when adding masks to image-less groups or
 adjustments, and range previews that ignored Add/Subtract/Intersect. Focused
-before/after fixtures reproduce those defects; the combined suite must verify
-all fixes before promotion. Final public source and workflow receipts will be
-recorded after that run.
+before/after fixtures reproduce those defects and passed in the combined suite.
+The source release and workflow receipts are now recorded;
+permanent asset publication remains a separate release-owner step.
 
 ## Implemented scope
 
@@ -71,6 +74,10 @@ encountered the developer's real recovery prompt; the unchanged test passed
 with an isolated XDG directory. The complete release suite uses isolated XDG
 directories.
 
+The current installed 0.8.0 launcher passed its isolated-XDG editing journey with
+binary SHA-256 `d47feb79e0cc893786f5aa8cd60dc3ef2afdb4975b2ea0cb6f19f3dcbe9abf56`;
+the complete prior 0.7.0 20-file payload was preserved for rollback.
+
 The final release evidence packet records 16/16 real-photo cases passed in
 `real-photo-d2dac18/results.json`, 14 recovery-worker checks with a 12-revision
 session and SIGKILL at revision 4 passed in `recovery-qualified-d2dac18/results.json`,
@@ -84,8 +91,8 @@ full-size native screenshot is the applicable evidence.
 The earlier b47ba4d application suites and journeys passed on Linux and Windows.
 The eb558dc exact-source validation and download workflows completed
 successfully. Linux and Windows package checks passed with zero notice findings
-(619 and 421 dependency entries respectively). These are candidate qualification
-receipts; source and asset publication remain separate steps.
+(619 and 421 dependency entries respectively). The source release is published;
+permanent binary asset publication remains separate and pending.
 
 Native gradient inspection exposed a conservative stroke-work estimate that
 rejected a simple supersampled scene. Styled stroke accounting now follows its
@@ -109,16 +116,18 @@ host load, not pointer latency, whole-application memory or a general speedup.
 The `73a2d6b` dependency inventories report zero unresolved findings: 619 broad
 Linux packages, 536 Linux release-build packages and 417 Windows target
 release-build packages. Complete upstream notices include svg2pdf's embedded
-ICC profiles. Final native package jobs must generate and verify their own
-exact inventory again.
+ICC profiles. The final eb558dc native package jobs separately generated and
+verified their exact inventories: 619 Linux and 421 Windows entries, with zero
+notice findings.
 
 ## Remaining qualification
 
-- Publish the qualified source and reviewed Linux/Windows candidate assets only
-  after the release owner completes the publication steps.
+- Publish reviewed Linux/Windows binary assets only after the authenticated
+  download publication workflow completes; the source release itself is already
+  published as a prerelease.
 - Retain the native compact-window resize capture as an optional broader-evidence
-  gap; the initial preview qualification has GPUI compact JPEG coverage and a
-  full-size native screenshot.
+  gap; the initial qualification has GPUI compact JPEG coverage and a full-size
+  native screenshot.
 - Keep Windows GUI/AI, mixed-DPI, clean-machine and broader hardware acceptance
   outside this initial unsigned preview qualification.
 - Live Windows Codex/Claude jobs, clean-machine acceptance, mixed-DPI,

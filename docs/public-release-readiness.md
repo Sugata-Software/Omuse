@@ -1,52 +1,51 @@
 # Public release readiness
 
-**4 October 2026: Omuse 0.7.0 remains available through the source installer.
-The 0.8.0 candidate is qualified on its recorded evidence; source and
-permanent downloadable previews are pending publication.**
+**4 October 2026: Omuse 0.8.0 is published as a GitHub prerelease and selected by
+the source installer. Permanent downloadable binary assets are still pending;
+0.7.0 remains preserved for rollback.**
 
 The [0.8.0 qualification record](release-080-qualification.md) tracks photo
 fidelity, gradients and curved text, reference colour matching, selective masks,
 JPEG inspection and native Linux/Windows archives. The dependency replacements
 close the candidate's missing legal-text findings, and exact-source validation
-and download workflows completed successfully. The candidate remains
-unpublished; none of this changes the evidence or files of the current 0.7.0
-release.
+and download workflows completed successfully. The source release is published,
+while permanent downloadable assets remain pending. None of this changes the
+preserved 0.7.0 evidence or rollback payload.
 
-The current numbered source release is **0.7.0 — Photos and vectors, one studio**.
-Its [release notes](releases/v0.7.0.md), [qualification](release-070-qualification.md)
-and [receipt](release-070-receipts.json) identify the exact tested runtime,
-installation, changes and limits. GitHub marks the release as a pre-release
-while stable-release gates remain open; there is one normal application named
-Omuse. The supported source-install scope is **Arch/Omarchy Linux x86_64**.
+The current numbered source release is **0.8.0 — Colour, curves and control**,
+published as a GitHub prerelease at the [v0.8.0 release](https://github.com/Sugata-Software/Omuse/releases/tag/v0.8.0).
+Its source tag points to `eb558dc59ccdf88a3d62dfc2d706a6b836da1eda`. The release
+has no permanent binary assets yet. The supported source-install scope remains
+**Arch/Omarchy Linux x86_64**; stable-release and broader portability gates stay
+open.
 
 The canonical public repository is
 [Sugata-Software/Omuse](https://github.com/Sugata-Software/Omuse).
-The current candidate source is `eb558dc59ccdf88a3d62dfc2d706a6b836da1eda`,
+The published source runtime is `eb558dc59ccdf88a3d62dfc2d706a6b836da1eda`,
 tree `68e406316b92d5817abfe810fbdc7840e57b5d17`; its Rust subtree is
 byte-identical to the b47/d2 application source. The [validation run](https://github.com/Sugata-Software/Omuse/actions/runs/37161936414)
 and [download run](https://github.com/Sugata-Software/Omuse/actions/runs/37161936378)
 completed successfully. Local qualification passed **1,352 application tests**,
 all **80 editable template variants**, editing/Create/media, photo/recovery and
 native/package checks. The 0.7.0 runtime and its 1,206-test record below remain
-historical evidence for the installed release.
+historical evidence for the preserved previous release.
 
 ## Current application and installation
 
-The normal launcher and curl installer select **0.7.0**. The production binary
-passed 13 native journeys: minimum-size Wayland and XWayland, the installed
-normal launcher, and ten [gallery views](releases/v0.7.0-gallery.md). The light
-and dark captures were inspected. The installed payload contains 20 files and
-a clean public-source receipt. Complete rollback to 0.6.0 and back passed with
-every old and new payload hash unchanged. See the
-[installation record](main-install-qualification.md).
+The normal launcher and curl installer now select **0.8.0**, source
+`eb558dc59ccdf88a3d62dfc2d706a6b836da1eda`. The installed production binary
+SHA-256 is `d47feb79e0cc893786f5aa8cd60dc3ef2afdb4975b2ea0cb6f19f3dcbe9abf56`.
+Its isolated-XDG editing self-test passed, and the prior 0.7.0 20-file payload
+remains preserved for rollback. The [release receipt](release-080-receipts.json)
+records the production installation and source-publication evidence.
 
-The previous-release synthetic project rendered identically with both readers
-and remained unchanged. **Vector scenes use format 11; ordinary canvases stay
-format 10.** Omuse 0.6.0 cannot read format-11 artwork or the new Target Colour
-Uniformity recipe. Use Save As to retain an older compatible copy; application
-rollback does not downgrade artwork.
+The reviewed 0.8.0 format and compatibility matrix is maintained in
+[user-guide/README.md](user-guide/README.md). The 0.7.0 format-11 and older-reader
+limitations are historical evidence for that release; Save As remains the
+way to retain an older compatible copy, and application rollback does not
+downgrade artwork.
 
-A bounded Cua Driver 0.29.1 check independently opened the installed production
+A historical 0.7.0 Cua Driver 0.29.1 check opened the installed production
 app and a saved test project on XWayland, then visually verified foreground
 Ctrl+K opening command search. Background key delivery had no visible effect.
 This does not qualify all physical devices or accessibility routes.
@@ -121,18 +120,18 @@ physical input support, all advertised provider operations or Linux portability.
 The [one-command installer](install.md) builds a tested Omuse revision locally on
 Arch/Omarchy, with dependency setup, verified optional assets and complete
 installation rollback. The active tree contains Linux Omuse; old platform
-implementations remain in Git history with attribution. This improves access
-to Omuse without declaring a prebuilt binary release qualified.
+implementations remain in Git history with attribution. The 0.8.0 source
+release is published, while permanent prebuilt binary assets remain pending.
 
 ## Before a downloadable binary release
 
 | Gate | Current state | Completion evidence |
 | --- | --- | --- |
-| Clean CI build | Candidate `eb558dc` validation run [37161936414](https://github.com/Sugata-Software/Omuse/actions/runs/37161936414) completed successfully; download run [37161936378](https://github.com/Sugata-Software/Omuse/actions/runs/37161936378) also completed successfully | Source and asset publication by the release owner |
+| Clean CI build | Candidate `eb558dc` validation run [37161936414](https://github.com/Sugata-Software/Omuse/actions/runs/37161936414) and download run [37161936378](https://github.com/Sugata-Software/Omuse/actions/runs/37161936378) completed successfully | Permanent binary asset publication by the release owner |
 | Dependency legal texts | Candidate Linux and Windows package inventories report zero notice findings, with 619 and 421 dependency entries | Retain the exact candidate inventory and notice review; see the [notice review](rust-license-findings.md) |
-| Reproducible release identity | The hardening pass records tested source hashes, the production executable, native runs, installation and rollback; a clean public build/archive remains pending | One clean release commit/tag, fresh build, source-to-binary-to-archive hash ledger and reproducible packaging instructions |
+| Reproducible release identity | Published tag `v0.8.0` identifies exact runtime `eb558dc`; clean CI builds and reviewed archive/binary/inventory hashes are recorded in the [download manifest](releases/downloads/v0.8.0.json) and [release receipt](release-080-receipts.json) | Preserve this identity when attaching the already verified archives; independent bit-for-bit build reproducibility is not established |
 | Clean target installation | Passed only on the development host | Install, launch, upgrade and rollback on a clean supported Arch/Omarchy system |
-| Physical desktop acceptance | Native in-process journeys pass; bounded Cua foreground XWayland input works. The native Omarchy plugin has a package/compiler compatibility mismatch | Real foreground keyboard/pointer, clipboard, file dialogs and at least the supported display/DPI configurations |
+| Physical desktop acceptance | Native in-process journeys pass; bounded Cua foreground XWayland Camera Raw and Subject Refine Apply/Undo/Redo checks passed | Broader foreground keyboard/pointer, clipboard, file dialogs and supported display/DPI configurations |
 | Feature claims | Local editor and selected Codex journeys have evidence | Each advertised AI operation has its own acceptance receipt; unqualified routes remain unavailable or explicitly experimental |
 | User edge cases | Broad automated coverage; manual gaps remain | Missing fonts, long copy, invalid CSV rows, large libraries, damaged assets, offline use, cancellation and restart |
 | Public support and security | Contribution and bug-report entry points prepared | Establish a private vulnerability-reporting channel, owner-approved security policy, maintenance scope and triage ownership |
@@ -140,7 +139,7 @@ to Omuse without declaring a prebuilt binary release qualified.
 
 The historical 0.7.0 dependency graph still has the two missing legal texts;
 its existing receipts are not retroactively changed. The 0.8.0 inventory applies
-only to candidate eb558dc and does not alter the installed 0.7.0 record. Candidate
+only to runtime eb558dc and does not alter the historical 0.7.0 record. Candidate
 notice inventory success applies only to the exact graph inspected, and does not by itself
 qualify a package, establish licence compatibility or certify redistribution.
 
@@ -160,7 +159,7 @@ qualify a package, establish licence compatibility or certify redistribution.
 
 ## Provider boundaries
 
-The unreleased routing candidate `f972adb` adds per-task provider selection and
+The earlier routing candidate `f972adb` introduced per-task provider selection and
 optional image/layout/caption sequences. Its complete public workflow passed
 945 application tests and the editing, export, recovery and installer checks.
 See the [routing validation](ai-routing-qualification.md). Claude remains

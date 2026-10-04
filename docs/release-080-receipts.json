@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "status": "qualified-candidate; publication pending",
+  "status": "source-prerelease-published; production-install-verified; permanent-download-attachments-pending",
   "candidate": {
     "version": "0.8.0",
     "sourceRevision": "eb558dc59ccdf88a3d62dfc2d706a6b836da1eda",
@@ -10,9 +10,18 @@
     "sourceUrl": "https://github.com/Sugata-Software/Omuse/commit/eb558dc59ccdf88a3d62dfc2d706a6b836da1eda"
   },
   "currentInstalledRelease": {
-    "version": "0.7.0",
-    "sourceRevision": "5b3daefbb5258afff4a74a2ff3db5247b074972d",
-    "status": "0.7.0 preserved while publication and installation advance separately"
+    "version": "0.8.0",
+    "sourceRevision": "eb558dc59ccdf88a3d62dfc2d706a6b836da1eda",
+    "binarySha256": "d47feb79e0cc893786f5aa8cd60dc3ef2afdb4975b2ea0cb6f19f3dcbe9abf56",
+    "status": "Normal Omuse launcher verified at 0.8.0; complete 0.7.0 generation preserved for rollback",
+    "installedLauncherEditingJourney": "passed",
+    "scope": "Development host; verification used isolated XDG paths and did not open the real user profile",
+    "previousVersion": "0.7.0",
+    "previousSourceRevision": "5b3daefbb5258afff4a74a2ff3db5247b074972d",
+    "previousPayloadPreserved": true,
+    "previousPayloadFiles": 20,
+    "evidence": "build-all-2026-10-03/production-install-080/report.json",
+    "evidenceSha256": "cde96b700f85916dfa0f38dd3b9a199a4462e1d878b41c05c3278c7f1e201ef0"
   },
   "localQualification": {
     "optimizedSuite": {
@@ -24,7 +33,7 @@
         "integration": 458,
         "ignored": 4
       },
-      "sourceScope": "Equivalent b47/d2 Rust tree; these counts do not claim that a later hosted eb558dc workflow has completed.",
+      "sourceScope": "Local b47/d2 Rust tree; exact-source eb558dc hosted validation is recorded separately under ci.",
       "evidence": "build-all-2026-10-03/optimized-suite-d2dac18.log",
       "evidenceSha256": "d7f4ef726b1d92712cac994d28ea6520ec30e40dbf88f4895c2e7e4f796d8dbb"
     },
@@ -83,7 +92,7 @@
     "priorB47CrossVersion": {
       "status": "passed",
       "sourceRevision": "b47ba4d43ed7c326ea0d493f07e61efd14bf70d0",
-      "scope": "Prior exact b47 runtime only: 0.7.0 to 0.8.0 to rollback to forward, with four installed-launcher journeys. Not evidence that eb558dc hosted CI completed.",
+      "scope": "Prior exact b47 runtime only: 0.7.0 to 0.8.0 to rollback to forward, with four installed-launcher journeys. The later eb558dc package and production-install receipts are separate.",
       "evidence": "build-all-2026-10-03/cross-version-install-b47ba4d/report.json",
       "evidenceSha256": "62f6c45f997af867b4497db2d26cc82be4d071882e1919af1228b0d9b31beff0"
     },
@@ -133,8 +142,8 @@
     "noticeRegressionChecksPerPlatform": 9
   },
   "publicationLimits": [
-    "0.8.0 is not released; no public tag or downloadable release asset is declared here.",
-    "The installed source release remains 0.7.0.",
+    "0.8.0 source prerelease and exact tag are public; permanent Linux/Windows release attachments remain pending manual publication.",
+    "The normal development-host installation is 0.8.0; complete 0.7.0 rollback payload is preserved.",
     "No live Windows GUI, live AI, mixed-DPI, clean-machine or broad hardware qualification.",
     "The compact native resize capture is unavailable.",
     "Packages remain unsigned experimental previews after publication; stable and broader portability gates are separate."
@@ -145,5 +154,24 @@
     "sha256": "f9a707e16c3a26b1d34a5ad99484bec48b45609776ef629c69a597abcef4c042",
     "artifact": 11288990253,
     "copiedWithoutModification": true
+  },
+  "publication": {
+    "releaseId": 402745556,
+    "tag": "v0.8.0",
+    "tagSourceRevision": "eb558dc59ccdf88a3d62dfc2d706a6b836da1eda",
+    "url": "https://github.com/Sugata-Software/Omuse/releases/tag/v0.8.0",
+    "publishedAt": "2026-10-04T00:17:34Z",
+    "prerelease": true,
+    "draft": false,
+    "releaseBodyMatchesVersionedNotes": true,
+    "sourcePublisherRun": 37164476067,
+    "sourcePublisherStatus": "completed-success",
+    "sourcePublisherUrl": "https://github.com/Sugata-Software/Omuse/actions/runs/37164476067",
+    "observedReleaseAssetCount": 0,
+    "downloadStatus": "Verified archives retained in build artifacts; permanent attachments await manual publication workflow",
+    "downloadPublicationWorkflow": "https://github.com/Sugata-Software/Omuse/actions/workflows/publish-downloads.yml",
+    "downloadPublicationVersion": "0.8.0",
+    "evidence": "build-all-2026-10-03/source-publication-080.json",
+    "evidenceSha256": "40eae3f3c7ff6cb3cc079c3a38d367c4e1945b54a58471b7c438320f02b07149"
   }
 }
