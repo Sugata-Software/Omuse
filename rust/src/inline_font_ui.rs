@@ -296,6 +296,7 @@ impl EditorView {
                 .font_family(SharedString::from(font.clone()))
                 .w_full()
                 .h(px(28.))
+                .flex_shrink_0()
                 .py_0()
                 .on_hover(cx.listener(move |this, over, _, cx| {
                     if *over {

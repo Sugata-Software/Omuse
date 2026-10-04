@@ -1033,6 +1033,7 @@ impl EditorView {
                     state.recipe.nodes.push(new_node(
                         "Content-aware removal",
                         AdvancedOperation::ContentAwareReplace(ContentAwareReplace {
+                            algorithm: omuse::advanced_ops::ContentAwareAlgorithm::ContextualV1,
                             target_mask: target,
                             allowed_source_mask: SoftMask::new(w, h, allowed)?,
                             search_radius,

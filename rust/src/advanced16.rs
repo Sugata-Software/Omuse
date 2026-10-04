@@ -461,6 +461,71 @@ mod tests {
         }
     }
     #[test]
+    fn contextual_removal_keeps_exact_original_16_bit_donor_samples() {
+        let pixels = image::ImageBuffer::from_fn(15, 15, |x, y| {
+            if (5..10).contains(&x) && (5..10).contains(&y) {
+                image::Rgba([62003, 1003, 39001, 65535])
+            } else {
+                let base = if (x + y) % 2 == 0 { 8001 } else { 56003 };
+                image::Rgba([
+                    base + x as u16,
+                    base + y as u16,
+                    base + (x + y) as u16,
+                    65535,
+                ])
+            }
+        });
+        let source = TiledImage16::from_rgba16(&pixels).unwrap();
+        let mut target = vec![0; 225];
+        let mut allowed = vec![255; 225];
+        for y in 5..10 {
+            for x in 5..10 {
+                target[y * 15 + x] = 255;
+                allowed[y * 15 + x] = 0;
+            }
+        }
+        let settings = ContentAwareReplace {
+            algorithm: crate::advanced_ops::ContentAwareAlgorithm::ContextualV1,
+            target_mask: SoftMask::new(15, 15, target).unwrap(),
+            allowed_source_mask: SoftMask::new(15, 15, allowed).unwrap(),
+            search_radius: 12,
+            patch_radius: 1,
+            feather: 0.,
+        };
+        let mut expected = pixels.clone();
+        let matching = source.to_rgba8_in(WorkingSpace::Srgb).unwrap();
+        let mut donors = Vec::new();
+        advanced_ops::visit_content_samples(
+            &matching,
+            &settings,
+            &AtomicBool::new(false),
+            |x, y, sx, sy, amount| {
+                assert_eq!(amount, 1.);
+                assert_eq!(settings.target_mask.data[(sy * 15 + sx) as usize], 0);
+                expected.put_pixel(x, y, *pixels.get_pixel(sx, sy));
+                donors.push((sx, sy));
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(donors.len(), 25);
+        let result = evaluate(
+            &source,
+            &AdvancedOperation::ContentAwareReplace(settings),
+            &AtomicBool::new(false),
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(result.to_rgba16(), expected);
+        assert_eq!(source.to_rgba16(), pixels);
+        assert!(
+            donors
+                .into_iter()
+                .any(|(x, y)| pixels.get_pixel(x, y)[0] % 257 != 0)
+        );
+    }
+
+    #[test]
     fn removal_copies_exact_source_even_at_far_edge_of_allowed_search() {
         let pixels = image::ImageBuffer::from_fn(70, 30, |x, y| {
             image::Rgba([1001 + x as u16 * 17, 13001 + y as u16 * 23, 33003, 65535])
@@ -471,6 +536,7 @@ mod tests {
         let mut allowed = vec![0; 2100];
         allowed[29 * 70 + 69] = 255;
         let settings = ContentAwareReplace {
+            algorithm: crate::advanced_ops::ContentAwareAlgorithm::Legacy,
             target_mask: SoftMask::new(70, 30, target).unwrap(),
             allowed_source_mask: SoftMask::new(70, 30, allowed).unwrap(),
             search_radius: 64,

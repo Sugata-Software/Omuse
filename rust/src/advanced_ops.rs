@@ -264,9 +264,27 @@ pub struct DodgeBurn {
     pub radius: u8,
 }
 
+/// Persisted recipes without an algorithm keep the original sampling behaviour.
+/// New recipes opt in explicitly; unknown algorithms fail deserialization.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ContentAwareAlgorithm {
+    #[default]
+    Legacy,
+    ContextualV1,
+}
+
+impl ContentAwareAlgorithm {
+    fn is_legacy(&self) -> bool {
+        *self == Self::Legacy
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContentAwareReplace {
+    #[serde(default, skip_serializing_if = "ContentAwareAlgorithm::is_legacy")]
+    pub algorithm: ContentAwareAlgorithm,
     pub target_mask: SoftMask,
     pub allowed_source_mask: SoftMask,
     pub search_radius: u32,
@@ -516,16 +534,31 @@ fn content_candidate_budget(settings: &ContentAwareReplace) -> Result<usize> {
     if targets == 0 {
         return Ok(0);
     }
-    let side = u64::from(settings.patch_radius) * 2 + 1;
+    let patch = match settings.algorithm {
+        ContentAwareAlgorithm::Legacy => settings.patch_radius,
+        // Point-sized patches still need immediate, legitimate neighbour context.
+        ContentAwareAlgorithm::ContextualV1 => settings.patch_radius.max(1),
+    };
+    let side = u64::from(patch) * 2 + 1;
     let patch_area = side.saturating_mul(side);
     let search_side = u64::from(settings.search_radius) * 2 + 1;
     let scan_area = search_side
         .min(u64::from(settings.target_mask.width))
         .saturating_mul(search_side.min(u64::from(settings.target_mask.height)));
-    let scan_work = targets.saturating_mul(scan_area);
+    let contextual = settings.algorithm == ContentAwareAlgorithm::ContextualV1;
+    let overhead = if contextual {
+        u64::from(settings.target_mask.width)
+            .saturating_mul(u64::from(settings.target_mask.height))
+            .saturating_mul(3)
+            .saturating_add(targets.saturating_mul(8))
+    } else {
+        0
+    };
+    let scan_work = targets.saturating_mul(scan_area).saturating_add(overhead);
+    let minimum_candidates = MIN_CONTENT_CANDIDATES + if contextual { 4 } else { 0 };
     let minimum_work = scan_work.saturating_add(
         targets
-            .saturating_mul(MIN_CONTENT_CANDIDATES)
+            .saturating_mul(minimum_candidates)
             .saturating_mul(patch_area),
     );
     ensure!(
@@ -534,7 +567,7 @@ fn content_candidate_budget(settings: &ContentAwareReplace) -> Result<usize> {
     );
     let budget = (MAX_CONTENT_WORK.saturating_sub(scan_work) / targets.max(1) / patch_area.max(1))
         .min(512)
-        .max(MIN_CONTENT_CANDIDATES);
+        .max(minimum_candidates);
     Ok(budget as usize)
 }
 
@@ -1259,6 +1292,23 @@ pub(crate) fn visit_content_samples(
     original: &RgbaImage,
     settings: &ContentAwareReplace,
     cancelled: &AtomicBool,
+    sample: impl FnMut(u32, u32, u32, u32, f32) -> Result<()>,
+) -> Result<()> {
+    match settings.algorithm {
+        ContentAwareAlgorithm::Legacy => {
+            visit_content_samples_legacy(original, settings, cancelled, sample)
+        }
+        ContentAwareAlgorithm::ContextualV1 => {
+            visit_content_samples_contextual(original, settings, cancelled, sample)
+        }
+    }
+}
+
+// Preserve the original algorithm byte-for-byte for already saved recipes.
+fn visit_content_samples_legacy(
+    original: &RgbaImage,
+    settings: &ContentAwareReplace,
+    cancelled: &AtomicBool,
     mut sample: impl FnMut(u32, u32, u32, u32, f32) -> Result<()>,
 ) -> Result<()> {
     let candidate_limit = content_candidate_budget(settings)?;
@@ -1353,6 +1403,239 @@ pub(crate) fn visit_content_samples(
         }
     }
     Ok(())
+}
+
+/// Fill from known boundaries inward. Each reconstructed context pixel points
+/// to its immutable donor in the original image, including for the 16-bit path.
+/// A candidate must explain real context; an empty comparison is never a match.
+fn visit_content_samples_contextual(
+    original: &RgbaImage,
+    settings: &ContentAwareReplace,
+    cancelled: &AtomicBool,
+    mut sample: impl FnMut(u32, u32, u32, u32, f32) -> Result<()>,
+) -> Result<()> {
+    check_cancelled(cancelled)?;
+    let candidate_limit = content_candidate_budget(settings)?;
+    if candidate_limit == 0 {
+        return Ok(());
+    }
+    let (width, height) = original.dimensions();
+    ensure!(
+        settings.search_radius <= MAX_CONTENT_SEARCH_RADIUS
+            && settings.patch_radius <= MAX_CONTENT_PATCH_RADIUS,
+        "Invalid removal search or patch radius"
+    );
+    let count = (u64::from(width) * u64::from(height)) as usize;
+    ensure!(
+        count as u64 <= MAX_CONTENT_PIXELS,
+        "Content-aware source is too large"
+    );
+    settings.target_mask.validate(Some((width, height)))?;
+    settings
+        .allowed_source_mask
+        .validate(Some((width, height)))?;
+    let targets = settings.target_mask.data.iter().filter(|&&v| v > 0).count();
+    const PENDING: u32 = u32::MAX;
+    const QUEUED: u32 = u32::MAX - 1;
+    let mut donors = Vec::new();
+    donors
+        .try_reserve_exact(count)
+        .map_err(|_| anyhow::anyhow!("Not enough memory for removal context"))?;
+    donors.extend(
+        settings
+            .target_mask
+            .data
+            .iter()
+            .enumerate()
+            .map(|(i, &v)| if v == 0 { i as u32 } else { PENDING }),
+    );
+    // At most two u32 arrays over the 4M-pixel source (32 MB total), plus
+    // at most 129*129 candidate indices. All reservations are fallible.
+    check_cancelled(cancelled)?;
+    let mut front = Vec::new();
+    front
+        .try_reserve_exact(targets)
+        .map_err(|_| anyhow::anyhow!("Not enough memory for removal boundary"))?;
+    for i in 0..count {
+        if i % width as usize == 0 {
+            check_cancelled(cancelled)?;
+        }
+        if donors[i] == PENDING
+            && content_neighbours(i as u32, width, height)
+                .into_iter()
+                .flatten()
+                .any(|j| donors[j as usize] < count as u32)
+        {
+            donors[i] = QUEUED;
+            front.push(i as u32);
+        }
+    }
+    ensure!(
+        !front.is_empty(),
+        "Removal needs some unselected surrounding context"
+    );
+    let radius = settings.search_radius as i32;
+    let patch = i32::from(settings.patch_radius.max(1));
+    let search_side = settings.search_radius as usize * 2 + 1;
+    let mut candidates = Vec::<u32>::new();
+    candidates
+        .try_reserve_exact(search_side * search_side)
+        .map_err(|_| anyhow::anyhow!("Not enough memory for removal sampling"))?;
+    let mut cursor = 0;
+    while cursor < front.len() {
+        check_cancelled(cancelled)?;
+        let i = front[cursor];
+        cursor += 1;
+        let (x, y) = (i % width, i / width);
+        let (x0, x1) = (
+            (x as i32 - radius).max(0),
+            (x as i32 + radius).min(width as i32 - 1),
+        );
+        let (y0, y1) = (
+            (y as i32 - radius).max(0),
+            (y as i32 + radius).min(height as i32 - 1),
+        );
+        candidates.clear();
+        for cy in y0..=y1 {
+            check_cancelled(cancelled)?;
+            for cx in x0..=x1 {
+                let j = cy as u32 * width + cx as u32;
+                if settings.allowed_source_mask.data[j as usize] > 0
+                    && settings.target_mask.data[j as usize] == 0
+                {
+                    candidates.push(j);
+                }
+            }
+        }
+        ensure!(
+            !candidates.is_empty(),
+            "No allowed source within the search radius for target pixel ({x}, {y}); enlarge the radius or move the sampling area"
+        );
+        // Test continuations of reconstructed neighbouring patches as well as
+        // a uniform sample across the entire allowed rectangle. These four
+        // proposals are included in the validated candidate work budget.
+        let mut coherent = [None; 4];
+        for (slot, neighbour) in coherent
+            .iter_mut()
+            .zip(content_neighbours(i, width, height))
+        {
+            let Some(j) = neighbour else { continue };
+            let donor = donors[j as usize];
+            if donor >= count as u32 || settings.target_mask.data[j as usize] == 0 {
+                continue;
+            }
+            let sx = (donor % width) as i32 + x as i32 - (j % width) as i32;
+            let sy = (donor / width) as i32 + y as i32 - (j / width) as i32;
+            if sx < x0 || sx > x1 || sy < y0 || sy > y1 {
+                continue;
+            }
+            let source = sy as u32 * width + sx as u32;
+            if settings.allowed_source_mask.data[source as usize] > 0
+                && settings.target_mask.data[source as usize] == 0
+            {
+                *slot = Some(source);
+            }
+        }
+        let regular_limit = candidate_limit.saturating_sub(4).max(1);
+        let step = candidates.len().div_ceil(regular_limit).max(1);
+        let mut best = None;
+        let mut best_score = f32::INFINITY;
+        let mut best_distance = u64::MAX;
+        for donor in coherent
+            .into_iter()
+            .flatten()
+            .chain(candidates.iter().step_by(step).copied())
+        {
+            let (sx, sy) = (donor % width, donor / width);
+            let Some(score) =
+                content_context_score(original, settings, &donors, (x, y), (sx, sy), patch)
+            else {
+                continue;
+            };
+            let distance = u64::from(x.abs_diff(sx)).pow(2) + u64::from(y.abs_diff(sy)).pow(2);
+            if score < best_score || (score == best_score && distance < best_distance) {
+                best = Some(donor);
+                best_score = score;
+                best_distance = distance;
+            }
+        }
+        let donor = best.ok_or_else(|| anyhow::anyhow!("No allowed source patch has enough context for target pixel ({x}, {y}); enlarge the sampling area or reduce the patch radius"))?;
+        let (sx, sy) = (donor % width, donor / width);
+        let amount = settings.target_mask.value(x, y)
+            * settings.allowed_source_mask.value(sx, sy)
+            * (1.0 - settings.feather
+                + settings.feather * (1.0 - best_score / (255.0 * 255.0 * 3.0)).clamp(0.0, 1.0));
+        check_cancelled(cancelled)?;
+        sample(x, y, sx, sy, amount)?;
+        donors[i as usize] = donor;
+        for neighbour in content_neighbours(i, width, height).into_iter().flatten() {
+            if donors[neighbour as usize] == PENDING {
+                donors[neighbour as usize] = QUEUED;
+                front.push(neighbour);
+            }
+        }
+    }
+    ensure!(
+        cursor == targets,
+        "Removal could not reach all selected pixels from known context"
+    );
+    Ok(())
+}
+
+fn content_neighbours(i: u32, width: u32, height: u32) -> [Option<u32>; 4] {
+    let (x, y) = (i % width, i / width);
+    [
+        (x > 0).then(|| i - 1),
+        (x + 1 < width).then(|| i + 1),
+        (y > 0).then(|| i - width),
+        (y + 1 < height).then(|| i + width),
+    ]
+}
+
+fn content_context_score(
+    original: &RgbaImage,
+    settings: &ContentAwareReplace,
+    donors: &[u32],
+    target: (u32, u32),
+    source: (u32, u32),
+    patch: i32,
+) -> Option<f32> {
+    let (width, height) = original.dimensions();
+    let mut score = 0.;
+    let mut samples = 0;
+    for dy in -patch..=patch {
+        for dx in -patch..=patch {
+            let (tx, ty) = (target.0 as i32 + dx, target.1 as i32 + dy);
+            if tx < 0 || ty < 0 || tx >= width as i32 || ty >= height as i32 {
+                continue;
+            }
+            let known = donors[(ty as u32 * width + tx as u32) as usize];
+            if known as usize >= donors.len() {
+                continue;
+            }
+            let (sx, sy) = (source.0 as i32 + dx, source.1 as i32 + dy);
+            // Every compared donor sample must belong to the user's allowed,
+            // unselected region; hidden target colours are never evidence.
+            if sx < 0 || sy < 0 || sx >= width as i32 || sy >= height as i32 {
+                return None;
+            }
+            let j = (sy as u32 * width + sx as u32) as usize;
+            if settings.allowed_source_mask.data[j] == 0 || settings.target_mask.data[j] != 0 {
+                return None;
+            }
+            let a = original.get_pixel(known % width, known / width).0;
+            let b = original.get_pixel(sx as u32, sy as u32).0;
+            for c in 0..3 {
+                let delta =
+                    (f32::from(a[c]) * f32::from(a[3]) - f32::from(b[c]) * f32::from(b[3])) / 255.;
+                score += delta * delta;
+            }
+            let alpha = f32::from(a[3]) - f32::from(b[3]);
+            score += alpha * alpha;
+            samples += 1;
+        }
+    }
+    (samples > 0).then(|| score / samples as f32)
 }
 
 fn check_cancelled(cancelled: &AtomicBool) -> Result<()> {
@@ -1662,6 +1945,7 @@ mod tests {
         let target = SoftMask::new(2, 2, vec![255; 4]).unwrap();
         let allowed = SoftMask::new(2, 2, vec![0; 4]).unwrap();
         let operation = AdvancedOperation::ContentAwareReplace(ContentAwareReplace {
+            algorithm: ContentAwareAlgorithm::Legacy,
             target_mask: target,
             allowed_source_mask: allowed,
             search_radius: 1,
@@ -1681,6 +1965,7 @@ mod tests {
         let target = SoftMask::new(4, 1, vec![0, 255, 0, 0]).unwrap();
         let allowed = SoftMask::new(4, 1, vec![255, 0, 0, 0]).unwrap();
         let op = AdvancedOperation::ContentAwareReplace(ContentAwareReplace {
+            algorithm: ContentAwareAlgorithm::Legacy,
             target_mask: target,
             allowed_source_mask: allowed,
             search_radius: 2,
@@ -1696,6 +1981,7 @@ mod tests {
         let target = SoftMask::new(1_000, 1_000, vec![255; 1_000_000]).unwrap();
         let allowed = SoftMask::new(1_000, 1_000, vec![255; 1_000_000]).unwrap();
         let settings = ContentAwareReplace {
+            algorithm: ContentAwareAlgorithm::Legacy,
             target_mask: target,
             allowed_source_mask: allowed,
             search_radius: 64,
@@ -1715,3 +2001,7 @@ mod tests {
         assert!(validate_operation_dimensions((1, 1), &operation).is_ok());
     }
 }
+
+#[cfg(test)]
+#[path = "advanced_ops_content_tests.rs"]
+mod content_tests;
