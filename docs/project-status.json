@@ -3,7 +3,7 @@
   "snapshotDate": "2026-10-11",
   "project": "Omuse",
   "releaseScope": "Native Rust/GPUI application for Arch/Omarchy Linux x86_64",
-  "releaseState": "Omuse 0.11.0 published and installed as normal Omuse. Exact Linux/Windows CI, reviewed packages, native Linux interaction and cross-version rollback passed. Public source, curl installer and all four permanent downloads passed anonymous readback; previous releases and complete local generations are preserved.",
+  "releaseState": "Omuse 0.11.0 published and installed as normal Omuse. Exact Linux/Windows CI, reviewed packages, native Linux interaction and cross-version rollback passed. Public source, curl installer and all four permanent downloads passed anonymous readback; previous releases and complete local generations are preserved. A subsequent live Codex generation and selected-object removal passed in the installed app, with exact protected pixels, Undo/Redo and saved-project reopening.",
   "visualizationMirror": "omuse-project-guide.html",
   "statusDefinitions": [
     {
@@ -37,6 +37,12 @@
       "label": "Current release",
       "value": "0.11.0 — A clearer canvas",
       "detail": "Exact e72bccdc validation 38130013300 passed: 1,599 Linux reported application passes (563 library, 454 GPUI, 582 integration) and 1,581 Windows (548, 452, 581), zero failures and five ignored per platform. Three external RAW and two external PSD cases return early without their optional fixtures, separate from ignored benchmarks. Editing, retained layout, Create/motion, 80 template variants, media/recovery and dependency notices passed. Twenty dependency-helper Rust cases per platform are separate from core totals. Reviewed build 38130013292 attempt 1 binds both archives to e72bccdc. Both passed integrity and native runner smoke; inventories contain 621 Linux and 423 Windows dependencies with zero notice findings. Linux host smoke and 24 scripted checks on each Wayland/XWayland passed. Cua checked layout actions, immediate Undo, settings/Escape and local AI comparisons/draft preservation; no provider requests. Normal Omuse is 0.11.0 source e72bccdcef066cb6ab60a99faa9d7609de86c2e4, binary SHA-256 8ae84dd9e2f6b940fe4e77d8599a251f0fdbb5788455ed2b289470046ccf1af2. All 35 installed files match the reviewed generation. Previous 35-file and older 22-file generations, four config files and 620 data files remain unchanged. Installed Wayland passed 24 native checks in an isolated profile. Source publisher 38132530557 and download publisher 38132594953 succeeded. All four permanent 0.11 assets passed anonymous size and SHA-256 checks, with exact manifest/checksum bytes. Public tag, notes, latest declaration and curl installer pin match the reviewed source; prior 0.10 release, tag, notes and asset identities are unchanged.",
+      "status": "locally-tested"
+    },
+    {
+      "label": "Connected AI \u2014 11 October live demonstration",
+      "value": "Real photograph generation and selected-object removal passed",
+      "detail": "Installed Omuse 0.11.0, runtime e72bccdc, used the existing ChatGPT subscription through Codex CLI 0.158.0 for two real requests in an isolated demonstration profile. A 1448 \u00d7 1086 product photograph was placed on a 1024 \u00d7 768 canvas; the selected orange sphere was removed after review. All 759,888 pixels outside the mask remain exact. GUI Undo, Redo and reopening produced byte-identical original/edited packages and matching decoded pixels. Source images, masks and provenance remain retained. Both image capabilities now show Tested in the demonstration profile. Public before/after exports, native captures and receipts are in docs/ai-live-0110-qualification.md. No new Claude, Windows AI or broad provider-quality claim.",
       "status": "locally-tested"
     },
     {
@@ -1339,12 +1345,13 @@
           "id": "ai-visual-comparison",
           "name": "Side-by-side proposals and retained variations",
           "status": "locally-tested",
-          "current": "Before/After pairs, individual previews, a bounded visible-difference map and one pinned variation support local comparison. Source-framing checks prevent misleading aligned differences. Plan/response summaries expand for details. Completed reviews collapse the composer while preserving drafts; proportional previews are bounded to a 640-pixel longest edge. Native Cua verified comparisons, Changes, original-source reset, refinement and draft retention.",
-          "boundary": "Omuse 0.11. Reduced-preview measurement is not a full-resolution audit or quality score. Existing Keep/stale-source/provider rules remain authoritative. Local synthetic native checks and regression tests do not add live provider or account qualification.",
+          "current": "Before/After pairs, individual previews, a bounded visible-difference map and one pinned variation support local comparison. Source-framing checks prevent misleading aligned differences. Plan/response summaries expand for details. Completed reviews collapse the composer while preserving drafts; proportional previews are bounded to a 640-pixel longest edge. Native Cua verified comparisons, Changes, original-source reset, refinement and draft retention. The installed 0.11.0 live photographic demonstration now also verifies Generate and Remove review, Changes and Keep through the actual GUI.",
+          "boundary": "The local synthetic regression suite remains separate from the two-request live Codex example recorded on e72bccdc. Reduced-preview measurement is not a full-resolution audit or quality score; the separate saved-project verifier checked every full-resolution protected pixel in that example. Existing Keep/stale-source/provider rules remain authoritative.",
           "evidence": [
             "docs/user-guide/canvas-workflows.md",
             "docs/canvas-workflows-qualification.md",
-            "docs/release-0110-qualification.md"
+            "docs/release-0110-qualification.md",
+            "docs/ai-live-0110-qualification.md"
           ],
           "modules": [
             "rust/src/ai_review.rs",
@@ -1414,14 +1421,15 @@
           "id": "ai-codex",
           "name": "Codex subscription route",
           "status": "experimental",
-          "current": "Codex CLI 0.158.0 passed five independent live Generate, Replace, Remove, Background and Expand requests on 9100ef4, one variation each without automatic retries. Review, Keep, save/reopen and Undo/Redo passed, with exact protected/translated pixels where applicable. Prior photo/caption/refinement receipts retain their 0.2.0 identities.",
-          "boundary": "The final 189f3e7 changes only local finishing focus and UI coverage/selectors; it passed full CI and UI/native/Cua checks separately. Synthetic receipts do not qualify other accounts, prompts, provider versions, photographic quality or multi-variation cancellation.",
+          "current": "Installed 0.11.0 source e72bccdc completed real photographic Generate and selected Remove requests through Codex CLI 0.158.0 and the existing subscription. Native review, Keep, Save As, Undo, Redo and reopening passed. All 759,888 protected pixels are exact; all five checkpoints retain the expected exact project bytes, original layers and provenance. Earlier five-intent receipts on 9100ef4 remain historical evidence.",
+          "boundary": "One generated product photograph and one selected-object removal on the recorded Linux host and account, one variation each. Broader photographic cases, other accounts/provider versions, multi-variation cancellation and live Windows AI still need separate evidence. Direct API fallback was disabled.",
           "evidence": [
             "docs/omuse-create-qualification.md",
             "docs/omuse-create-release-notes.md",
             "docs/cua-ai-qualification.md",
             "docs/ai-experience-qualification.md",
-            "docs/ai-image-editing-qualification.md"
+            "docs/ai-image-editing-qualification.md",
+            "docs/ai-live-0110-qualification.md"
           ],
           "modules": [
             "rust/src/ai/codex.rs",
@@ -1433,12 +1441,13 @@
           "id": "ai-image-operations",
           "name": "Generate and image-edit operations",
           "status": "locally-tested",
-          "current": "Generate, Replace, Remove, Background and Expand each passed a live Codex subscription journey on 9100ef4. Masked edits protected every excluded pixel; Expand preserved the original rectangle exactly. Locked clipping dependencies, adjustment-aware expansion, failed-history result lifetime and selection-aware review are covered. Final finishing focus repair qualified separately on 189f3e7.",
-          "boundary": "Bounded 64×80 synthetic source, one variation and zero automatic retries per intent. Multi-variation cancellation, longer refinement/failure/restart and representative photographic outcomes remain open. Claude/Grok require separate operation evidence.",
+          "current": "Generate, Replace, Remove, Background and Expand each passed a live Codex subscription journey on 9100ef4. Masked edits protected every excluded pixel; Expand preserved the original rectangle exactly. Locked clipping dependencies, adjustment-aware expansion, failed-history result lifetime and selection-aware review are covered. Final finishing focus repair qualified separately on 189f3e7. Subsequent installed 0.11.0 qualification on e72bccdc used a real generated product photograph and selected sphere removal, with reviewed proposals, exact protected pixels, Undo/Redo and save/reopen. Connections records successful generation and image-editing receipts.",
+          "boundary": "The earlier five-intent pass used a bounded 64 \u00d7 80 synthetic source. The new two-request photographic pass uses a 1024 \u00d7 768 canvas and qualifies that composition and selection. Multi-variation cancellation, longer refinement/failure/restart and a broader photographic corpus remain open. Claude/Grok require separate operation evidence.",
           "evidence": [
             "docs/ai-image-editing-qualification.md",
             "docs/ai-image-editing-receipts.json",
-            "docs/user-guide/remove-objects.md"
+            "docs/user-guide/remove-objects.md",
+            "docs/ai-live-0110-qualification.md"
           ],
           "modules": [
             "rust/src/ai_edits.rs",
@@ -2334,7 +2343,7 @@
           "name": "Published source and Linux/Windows CI",
           "status": "locally-tested",
           "current": "Exact e72bccdc validation 38130013300 passed: 1,599 Linux reported application passes (563 library, 454 GPUI, 582 integration) and 1,581 Windows (548, 452, 581), zero failures and five ignored per platform. Three external RAW and two external PSD cases return early without their optional fixtures, separate from ignored benchmarks. Editing, retained layout, Create/motion, 80 template variants, media/recovery and dependency notices passed. Twenty dependency-helper Rust cases per platform are separate from core totals. Reviewed build 38130013292 attempt 1 binds both archives to e72bccdc. Both passed integrity and native runner smoke; inventories contain 621 Linux and 423 Windows dependencies with zero notice findings. Linux host smoke and 24 scripted checks on each Wayland/XWayland passed. Cua checked layout actions, immediate Undo, settings/Escape and local AI comparisons/draft preservation; no provider requests. Source publisher 38132530557 and download publisher 38132594953 succeeded. All four permanent 0.11 assets passed anonymous size and SHA-256 checks, with exact manifest/checksum bytes. Public tag, notes, latest declaration and curl installer pin match the reviewed source; prior 0.10 release, tag, notes and asset identities are unchanged.",
-          "boundary": "Both exact-source attempt-1 workflows, public publication and anonymous readback succeeded. Interactive Windows, live AI, clean-machine and broader hardware remain separate gates.",
+          "boundary": "Both exact-source attempt-1 workflows, public publication and anonymous readback succeeded. Interactive Windows, live Windows AI, clean-machine and broader hardware remain separate gates.",
           "evidence": [
             "docs/release-060-qualification.md",
             "docs/release-070-qualification.md",
@@ -2356,7 +2365,8 @@
             "docs/releases/downloads/v0.8.0.json",
             "docs/release-090-qualification.md",
             "docs/release-090-receipts.json",
-            "docs/release-0110-qualification.md"
+            "docs/release-0110-qualification.md",
+            "docs/ai-live-0110-qualification.md"
           ],
           "modules": [
             ".github/workflows/rust-validation.yml",
@@ -2442,8 +2452,8 @@
           "id": "release-user-manual",
           "name": "User manual and common workflows",
           "status": "locally-tested",
-          "current": "The manual now covers Omuse 0.11 canvas actions, retained layout and AI comparison/composer controls, with three actual final-package screenshots and format-15 compatibility steps. Existing photo, vector, retouch, Create/export and shortcut guides remain available. The README film remains the separately identified historical 0.7.0 production.",
-          "boundary": "Screenshots show local synthetic artwork and AI review fixtures. Documentation and historical promotional media do not qualify live provider access, photographic quality or broader hardware.",
+          "current": "The manual now covers Omuse 0.11 canvas actions, retained layout and AI comparison/composer controls, with three actual final-package screenshots and format-15 compatibility steps. Existing photo, vector, retouch, Create/export and shortcut guides remain available. The README film remains the separately identified historical 0.7.0 production. The synthetic AI showcase is replaced with real connected Codex generation/removal, before/after exports, a practical recipe, native screenshots and public verification receipts.",
+          "boundary": "The 0.11 layout screenshots remain local fixtures. The separate live AI example records two real Codex subscription requests and saved-artwork integrity; it does not establish broader provider reliability, Windows AI or general photographic quality. The promotional film remains historical.",
           "evidence": [
             "docs/user-guide/README.md",
             "docs/user-guide/remove-objects.md",
@@ -2456,7 +2466,8 @@
             "docs/releases/v0.7.0-gallery.md",
             "docs/media/omuse-0.7.0-studio-film.md",
             "docs/media/omuse-0.7.0-studio-film-receipt.json",
-            "docs/release-0110-qualification.md"
+            "docs/release-0110-qualification.md",
+            "docs/ai-live-0110-qualification.md"
           ],
           "modules": [
             "rust/src/shortcuts.rs",

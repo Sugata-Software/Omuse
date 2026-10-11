@@ -130,8 +130,48 @@ and references for later. The prompt stays open while you are typing, and
 active requests retain their progress and **Stop** controls. **Ctrl+Enter**
 only submits from the focused prompt; a collapsed draft is not sent.
 
-![Local synthetic fixture comparing two saved variations](../releases/images/v0.11.0/03-ai-comparison.png)
+### Try it: generate a product image, then remove an object
 
-These screenshots show the exact 0.11.0 Linux release package on Omarchy/XWayland. The AI example uses local
-synthetic results to demonstrate review controls; it is not a generated-photo
-quality example or evidence of a connected provider.
+This example was made through **ChatGPT via Codex** in the normal Omuse 0.11.0
+application. The first live request generated the vase and orange sphere; the
+second removed the selected sphere. Both images below are direct exports of
+the saved 1,024 × 768 canvas.
+
+| Generate a scene | Remove the selected object |
+| --- | --- |
+| ![Generated ivory vase and orange sphere on limestone against a teal background](images/ai-live-0110/generated.png) | ![The composition with the orange sphere removed and the vase preserved](images/ai-live-0110/removed.png) |
+
+1. Open **Ask Omuse → Connections** and choose your connected **ChatGPT via
+   Codex** route. Generation and image editing are separate capabilities;
+   each shows **Tested** after its successful live operation.
+2. Choose **Generate image** and describe the scene. This demonstration asked for an
+   ivory ceramic vase and a coral-orange sphere on limestone, a petrol-teal
+   studio background, warm directional light and space for later typography.
+3. Review the returned image, choose **Keep result**, then save the `.omuse`
+   project. The provider returned 1,448 × 1,086 pixels; Omuse placed that image
+   on this example's existing 1,024 × 768 canvas.
+4. Select the sphere and the shadow you want to replace. Include the area that
+   needs reconstruction, and keep artwork you want unchanged outside the
+   selection. Choose **Remove object** in Ask Omuse.
+5. Describe the repair. The instruction used here was:
+
+   > Remove only the small orange sphere and its cast shadow inside the selection. Reconstruct the natural limestone surface and the previously hidden lower-left edge of the ivory vase. Preserve the vase shape, teal wall, framing, realistic textures and original warm lighting. Do not add anything.
+
+6. Inspect **Before / After** and **Changes**, especially the repaired edge and
+   nearby texture. Choose **Keep result** when satisfied, then save.
+7. Use the toolbar's **Undo** and **Redo** to compare the committed edit. Reopen
+   the saved project to continue working with its retained layers and source.
+
+![Saved connected-provider removal reopened in Omuse](images/ai-live-0110/reopened.png)
+
+In this run, all **759,888 pixels outside the selection stayed byte-exact**.
+Undo restored the saved original; Redo and reopening restored the saved edit,
+with identical project bytes and decoded pixels. The original image, removal
+mask and provider provenance remained in the project. Connections showed both
+image capabilities as **Tested** after the two requests.
+
+These are actual 0.11.0 Linux/Omarchy captures and live Codex results. The
+[verification record](../ai-live-0110-qualification.md) and
+[public receipt](images/ai-live-0110/receipt.json) identify the app, connection,
+saved-project checks and image hashes. Review each new removal for convincing
+edges and texture; this example qualifies one composition and selection.

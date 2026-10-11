@@ -168,12 +168,20 @@ existing canvas, Omarchy theme and Undo history.
 
 ![Contextual canvas controls around an editable retained layout](docs/releases/images/v0.11.0/01-canvas-layout.png)
 
-![Proportional AI variation previews and compact review controls](docs/releases/images/v0.11.0/03-ai-comparison.png)
+**Real connected AI, inside Omuse.** The installed 0.11.0 app used an existing
+ChatGPT subscription through Codex to generate this photograph, then remove the
+selected orange sphere. Both requests were reviewed and kept through Ask Omuse.
 
-*Actual packaged Omuse 0.11.0 on Linux/XWayland, source `e72bccdc`.
-The AI image pair is a local synthetic fixture, not a provider-generated photo.
-[Capture provenance](docs/releases/images/v0.11.0/README.md) ·
-[Illustrated workflow](docs/user-guide/canvas-workflows.md).*
+| Generated photograph | After Remove object |
+| --- | --- |
+| ![Photographic vase and orange sphere generated through connected Codex](docs/user-guide/images/ai-live-0110/generated.png) | ![Same composition after reviewed AI object removal](docs/user-guide/images/ai-live-0110/removed.png) |
+
+Every pixel outside the selection remained exact. Undo restored the original
+project; Redo and reopening preserved the edited project. Connections recorded
+both image capabilities as **Tested**. These are actual 1024 × 768 canvas
+exports from the two-request Linux demonstration on 11 October 2026.
+[Try the workflow](docs/user-guide/canvas-workflows.md#try-it-generate-a-product-image-then-remove-an-object) ·
+[Prompts, screenshots and verification](docs/ai-live-0110-qualification.md).
 
 **Keep a separate master when trying retained layout.** Layout rules require
 native project format 15, which Omuse 0.10.0 and older refuse. Release rules in
@@ -190,7 +198,8 @@ also passed. The normal Omarchy host installation is verified at 0.11.0;
 Linux and Windows workflows, source publication and all four permanent asset
 downloads are verified. Five optional external RAW/PSD cases returned early
 without configured fixtures, separately from five ignored benchmarks. These
-checks do not establish new live-provider access or a performance guarantee; the earlier
+release checks are separate from the live Codex demonstration above and do not
+establish a performance guarantee; the earlier
 [development checkpoint](docs/canvas-workflows-qualification.md) keeps its own
 source identity.
 

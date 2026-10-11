@@ -1,0 +1,174 @@
+{
+  "schema": "omuse.public-live-ai-evidence.v1",
+  "date": "2026-10-11",
+  "runtimeSource": "e72bccdcef066cb6ab60a99faa9d7609de86c2e4",
+  "executableSha256": "8ae84dd9e2f6b940fe4e77d8599a251f0fdbb5788455ed2b289470046ccf1af2",
+  "providerRuntime": "codex-cli 0.158.0",
+  "authRoute": "official_subscription_runtime",
+  "separatelyBilledApiEnabled": false,
+  "testHooksEnabled": false,
+  "profile": "Isolated demonstration profile, using the existing subscription login through the ordinary app adapter. User projects and normal profile untouched.",
+  "operations": [
+    {
+      "id": "8AA2640F-88B4-4E1C-8E90-28AA2154BA1E",
+      "operation": "edit_image",
+      "provider": "codexSubscription",
+      "prompt": "Remove only the small orange sphere and its cast shadow inside the selection. Reconstruct the natural limestone surface and the previously hidden lower-left edge of the ivory vase. Preserve the vase shape, teal wall, framing, realistic textures and original warm lighting. Do not add anything.",
+      "completedUnixMs": 1791718989888
+    },
+    {
+      "id": "AC64D116-4606-4F08-9A5A-BF8C760B1340",
+      "operation": "generate_image",
+      "provider": "codexSubscription",
+      "prompt": "Photorealistic editorial product photograph, landscape 4:3. An unbranded sculptural ivory ceramic vase and a small matte coral-orange sphere on a warm limestone plinth. Deep petrol-teal studio background, late-afternoon directional light, soft natural shadows, subtle 35mm film grain, premium 1970s design magazine art direction and realistic ceramic texture. Generous negative space in the upper left for later typography. No text, logos or watermark.",
+      "completedUnixMs": 1791718699483
+    }
+  ],
+  "verificationStatus": "passed",
+  "checks": {
+    "binaryUnchanged": true,
+    "editChangedVisiblePixels": true,
+    "editedEqualsRedoExactEnvelope": true,
+    "editedEqualsRedoExactPackageBytes": true,
+    "editedEqualsRedoPixels": true,
+    "editedEqualsRedoSemanticArtwork": true,
+    "editedEqualsReopenedExactEnvelope": true,
+    "editedEqualsReopenedExactPackageBytes": true,
+    "editedEqualsReopenedPixels": true,
+    "editedEqualsReopenedSemanticArtwork": true,
+    "generatedAndEditedContainAiLayerProvenance": true,
+    "generatedEqualsUndoExactEnvelope": true,
+    "generatedEqualsUndoExactPackageBytes": true,
+    "generatedEqualsUndoPixels": true,
+    "generatedEqualsUndoSemanticArtwork": true,
+    "readOnlyInputsUnchanged": true,
+    "removalHistoryAndMaskUnchanged": true,
+    "removalOutsideMaskPixelsByteExact": true,
+    "removalSavedMasksMatchSubmittedMask": true,
+    "removalSourceMatchesSubmittedCanvas": true,
+    "sourceLayersAndPayloadsRetained": true,
+    "sourceResourcesRetained": true
+  },
+  "requiredChecks": [
+    "generatedEqualsUndoPixels",
+    "generatedEqualsUndoSemanticArtwork",
+    "editedEqualsRedoPixels",
+    "editedEqualsRedoSemanticArtwork",
+    "editedEqualsReopenedPixels",
+    "editedEqualsReopenedSemanticArtwork",
+    "editChangedVisiblePixels",
+    "sourceLayersAndPayloadsRetained",
+    "sourceResourcesRetained",
+    "generatedAndEditedContainAiLayerProvenance",
+    "readOnlyInputsUnchanged",
+    "binaryUnchanged",
+    "removalSourceMatchesSubmittedCanvas",
+    "removalOutsideMaskPixelsByteExact",
+    "removalSavedMasksMatchSubmittedMask",
+    "removalHistoryAndMaskUnchanged"
+  ],
+  "maskIntegrity": {
+    "allSavedMasksMatchStagedMask": true,
+    "canvasDimensions": [
+      1024,
+      768
+    ],
+    "changedBoundingBox": {
+      "height": 158,
+      "width": 168,
+      "x": 603,
+      "y": 488
+    },
+    "changedPixelCount": 26411,
+    "changedProtectedPixelCount": 0,
+    "editablePixelCount": 26544,
+    "generatedExportMatchesSubmittedCanvas": true,
+    "maskBoundingBox": {
+      "height": 158,
+      "width": 168,
+      "x": 603,
+      "y": 488
+    },
+    "maskDecodedSha256": "9e76dc8f053b3a061721da51240c33fd676175bb65a9889ee85f4f16c307b666",
+    "maskSha256": "557d1666707f3a79b59608bc57aa1953b107f19641846e184b4ba6a9f16ad88e",
+    "maskSourceFingerprint": "fnv1a64:f98a80160cd4d315",
+    "operation": "Remove object",
+    "outsideMaskPixelsByteExact": true,
+    "protectedPixelCount": 759888,
+    "provider": "codexSubscription",
+    "resultID": "8AA2640F-88B4-4E1C-8E90-28AA2154BA1E",
+    "runtime": "codex-cli 0.158.0",
+    "scope": "Mask means nonzero editable coverage; protection equality compares all four decoded RGBA channels at every zero-mask pixel. Omuse FNV fingerprints bind local provenance; SHA-256 records independent evidence identities.",
+    "submittedCanvasFingerprint": "fnv1a64:841667861c89a598"
+  },
+  "savedExports": {
+    "edited": {
+      "pixels": {
+        "height": 768,
+        "rgbaSha256": "fa14e6fe6ea3c5e7897d688005f3da01d2ea0637ff0b082ed0ef0dd4278b3010",
+        "width": 1024
+      },
+      "exportSha256": "2bec088d3ce3e5fb492b171699add1d690ccb4feca4d50b4798470bd7249c4af",
+      "semanticSha256": "36d6d897d4bcc6f7a1a20b42c29caf52ae354593dccb4264c6cfc2cb7cedba3b"
+    },
+    "generated": {
+      "pixels": {
+        "height": 768,
+        "rgbaSha256": "a35168b7ee0e50046063ad791327db679f5aca4f5ace4d461323d9bb57ddc62c",
+        "width": 1024
+      },
+      "exportSha256": "8bc4b69441df9395f38283b4e3d62502da5d7ed01ba39840e49e1e012fa0072b",
+      "semanticSha256": "d122c1c3d107dba015d9d0ac080f985e78a8aa18b21372054219a838e0c073a0"
+    },
+    "redo": {
+      "pixels": {
+        "height": 768,
+        "rgbaSha256": "fa14e6fe6ea3c5e7897d688005f3da01d2ea0637ff0b082ed0ef0dd4278b3010",
+        "width": 1024
+      },
+      "exportSha256": "b13a0ffcee4bfb3f694e3f3995064ffd533612b31a8454b92fd1e1b7b23fed0f",
+      "semanticSha256": "36d6d897d4bcc6f7a1a20b42c29caf52ae354593dccb4264c6cfc2cb7cedba3b"
+    },
+    "reopened": {
+      "pixels": {
+        "height": 768,
+        "rgbaSha256": "fa14e6fe6ea3c5e7897d688005f3da01d2ea0637ff0b082ed0ef0dd4278b3010",
+        "width": 1024
+      },
+      "exportSha256": "b13a0ffcee4bfb3f694e3f3995064ffd533612b31a8454b92fd1e1b7b23fed0f",
+      "semanticSha256": "36d6d897d4bcc6f7a1a20b42c29caf52ae354593dccb4264c6cfc2cb7cedba3b"
+    },
+    "undo": {
+      "pixels": {
+        "height": 768,
+        "rgbaSha256": "a35168b7ee0e50046063ad791327db679f5aca4f5ace4d461323d9bb57ddc62c",
+        "width": 1024
+      },
+      "exportSha256": "dab2f2f34b9adbdde9ac468f58219e40419c7dedbc4ac8c001dc93d3fa957304",
+      "semanticSha256": "d122c1c3d107dba015d9d0ac080f985e78a8aa18b21372054219a838e0c073a0"
+    }
+  },
+  "publicAssets": {
+    "generated.png": {
+      "sha256": "8bc4b69441df9395f38283b4e3d62502da5d7ed01ba39840e49e1e012fa0072b",
+      "bytes": 1186425,
+      "kind": "unmodified Omuse canvas PNG export"
+    },
+    "removed.png": {
+      "sha256": "2bec088d3ce3e5fb492b171699add1d690ccb4feca4d50b4798470bd7249c4af",
+      "bytes": 1180726,
+      "kind": "unmodified Omuse canvas PNG export"
+    },
+    "generation-review.png": {
+      "sha256": "1bca1cffa2dc4e7c73e3bb2f4574596bd4516dcafdb95b44de947e1e432e2cf7",
+      "bytes": 395930,
+      "kind": "unmodified Cua native-window capture"
+    },
+    "reopened.png": {
+      "sha256": "f7cb4efab115fa429bd6775f04f7665b0a2e412882156fc884ff1bb10c9e9f85",
+      "bytes": 842350,
+      "kind": "unmodified Cua native-window capture"
+    }
+  },
+  "scope": "One real generation and one selected Remove object request, one variation each, through installed Omuse 0.11.0 on Linux/XWayland. Cua verified review, Keep, Save As, Undo, Redo and reopening; saved packages and full-resolution decoded RGBA were independently compared. No general provider reliability, Windows AI, or other-provider quality claim."
+}
