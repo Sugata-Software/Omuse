@@ -19,12 +19,16 @@ model. [Advanced workflows](../rust-advanced-workflows.md) explains these limits
 Use the [retouch and canvas control guide](retouch-and-controls.md) for the 0.9
 workflows: Blur, Smudge and Liquify on native layer pixels, independent Blur
 radius, configurable grid snapping, mask inspection and safe folder ungrouping.
-The guide includes the current release status and editing limits.
+The guide records the 0.9 behavior and limits. In **0.10**, Blur,
+Smudge and Liquify calculate the released stroke in a background job; use
+**Cancel · Esc** or Escape before completion to leave it unapplied. Once a
+stroke commits, use Undo. The 16 MP limit and existing source/selection rules
+still apply. [Background-retouch qualification](../background-retouch-qualification.md).
 
 ## Import Photoshop or SVG artwork
 
 **Open** (**Ctrl+O**) accepts Photoshop `.psd` and `.psb` files. Supported files
-use **8-bit RGB** colour. Omuse imports layers, supported groups, opacity,
+use **8-bit RGB** for layered import. Omuse imports layers, supported groups, opacity,
 blend modes and masks, and shows an **Import report** for conversions. Save the
 result as `.omuse`; the Photoshop original stays unchanged. PSB support uses
 the same practical limits as PSD: **512 MiB per file**, **30,000 pixels per
@@ -39,9 +43,17 @@ with **Ctrl+K**. After editing, Omuse lays out the text with its own font engine
 install the original font for the closest result. Warped, rotated, mixed-style,
 paragraph-box or otherwise unsupported Photoshop text stays as its cached
 pixel layer, with the reason in the report. Imported Photoshop effects may also
-be baked into cached pixels. CMYK, 16/32-bit Photoshop files and embedded ICC
-profiles are currently refused; export an untagged 8-bit RGB copy from the
-source application when appropriate, keeping the original.
+be baked into cached pixels. Embedded ICC profiles remain unsupported in this
+8-bit layered route; use an explicitly converted, untagged sRGB copy or a colour-managed
+PNG/TIFF from the source application, keeping the original.
+
+Omuse **0.10** also opens supported **16-bit RGB PSD/PSB merged
+composites** as one retained-precision layer. It does not reconstruct their
+Photoshop layer stack. RGB ICC conversion and merged transparency are handled
+before retaining interpreted 16-bit samples; matte quantization cannot recover
+lost original colour values. This route has separate **64 MiB file** and
+**16,777,216-pixel** limits. CMYK, 32-bit HDR and undeclared extra channels remain
+unsupported. [Full Photoshop exchange limits](../psd-exchange.md).
 
 **Open** or **Import image** also accepts `.svg` and compressed `.svgz` artwork.
 Choose a width in the **Import SVG** dialog; height follows the aspect ratio.
@@ -198,9 +210,28 @@ uses the relevant stage of the current grade, so earlier corrections remain
 accounted for. Transparent samples are rejected. Apply commits one Undo step.
 In 0.8.0, **Ctrl+Z** undoes the applied result immediately;
 **Ctrl+Shift+Z** restores it without first clicking the canvas.
-Preview work is limited to one active job and the newest queued request, with
-cancellation and checks against changed artwork. Grading still runs at full
-resolution within the 16 MP limit; it is not a sensor-RAW or HDR sampling tool.
+Preview work is limited to one active grading job and the newest queued request,
+with cancellation and checks against changed artwork. In **0.10**,
+a plain photo can show a **Quick preview** when zoomed out far enough to reduce
+the rendering work; your display's scaling is taken into account. Colour, curve,
+mixer, grading and calibration changes then automatically refine to full detail.
+Scopes and colour pickers wait for that full-size result.
+The temporary draft can alias fine patterns; judge detail after refinement.
+
+Selections, masks, multiple layers, transformed photos, spatial effects and
+100% views use the full-resolution path. **Apply** always grades the original
+full-size pixels and keeps one Undo step. The 8-bit and 16 MP limits still apply;
+this is not a sensor-RAW or HDR sampling tool. See the
+[development qualification](../photo-preview-qualification.md) for the exact
+development checks and limits. The [0.10 release record](../release-0100-qualification.md)
+identifies the final qualified source and packages.
+
+New Camera Raw edits in **0.10** also use smoother shadow lifting
+and highlight reduction, avoiding bright colour spikes in almost-black pixels.
+Previously saved editable recipes keep their previous appearance. Older builds
+can refuse to open projects containing new versioned recipes. Keep the original
+and share a separate copy with those editable layers rasterized when using an
+older build. Ordinary **Apply** already produces compatible pixels.
 
 For an assisted edit, select an ordinary photo layer, open **Ask Omuse → Enhance
 photo**, and describe the tonal result. For example: “Lift the exposure slightly,
@@ -214,6 +245,53 @@ patch, and currently controls exposure, brightness, contrast and saturation.
 Use **J** for a small spot, **Content-aware fill** for a selection, or **Ask Omuse →
 Remove object** for a reviewed AI fill. Follow the [object removal tutorial](remove-objects.md)
 for sampling controls, protected areas, shadows and cleanup.
+
+### Compare Context and Texture removal
+
+Omuse **0.10** adds **Texture · experimental** to **Controlled
+content-aware removal**. **Context** remains the default. This new choice is
+separate from the immediate Content-aware Fill command. Earlier 0.9 packages
+do not contain the Texture method.
+
+1. Select the unwanted object, including its shadow and a small margin. Keep
+   neighbouring details you need outside the selection. Leaving part of the
+   object unselected can cause it to be copied back into the repair.
+2. Open **Ctrl+K → Controlled content-aware removal**. Set the sampling
+   rectangle to suitable nearby background in source-image pixels. Selected
+   pixels are excluded from sampling automatically.
+3. Start with **Context**, **Patch radius 2** and **Feather 0**, then choose
+   **Refresh preview**. Try **Texture · experimental** with the same settings
+   and refresh again to compare. Changing the method clears the old preview.
+4. Check texture, shadows, repeated details and edges. Texture tries to preserve
+   grain with coherent source patches; it can still introduce folds or seams.
+   Adjust the selection or sampling area when the result is unsuitable.
+5. **Apply** creates a **Removal · editable** layer and keeps the original
+   source and recipe. Inspect the result at **Ctrl+1**. **Ctrl+Z** undoes the
+   applied edit in one step; **Cancel** discards the draft without changing the
+   source. Neither method sends an AI request.
+
+Pixels outside the target selection stay unchanged. Retained 16-bit work uses
+an 8-bit preview to choose donor locations, then copies or blends the original
+16-bit samples at those locations. It does not reconstruct missing detail from
+an 8-bit result. Existing saved removal recipes keep their recorded algorithm;
+Texture recipes require a build that understands the new version. Keep the
+editable original and use a separate rasterized copy for older applications.
+
+Texture can work on source images up to **16,777,216 pixels**, while restricting
+its search workspace to **4,000,000 pixels** around the selection. It accepts at
+most **250,000 selected pixels**, search radius **1–64** and patch radius **0–4**;
+its work budget can refuse large or widely separated targets before those
+limits. Start with one object and nearby clean texture. Context retains its
+**4,000,000-pixel source limit**.
+
+The first real-photo checks are mixed. Texture removed a complete racing car
+and its shadow, with a small curb-edge mismatch remaining. A portrait retained
+a visible fold/seam, and a foliage reconstruction did not improve numerical
+accuracy over Context. Raising the removal **Feather** to 0.25 did not fix the
+portrait seam; stronger blending can bring back the original object. These
+results support an optional preview to compare, not an automatic upgrade for
+every photo. See the [qualification record](../texture-removal-qualification.md)
+for evidence, remaining quality checks and limits.
 
 ## Cut out a subject or change the background
 

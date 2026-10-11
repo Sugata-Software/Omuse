@@ -7,6 +7,12 @@ retouch, controlled removal, grid alignment, mask inspection and live fonts.
 See [release notes](../releases/v0.9.0.md) and
 [qualification and limits](../release-090-qualification.md).
 
+**0.10 update:** native Blur, Smudge and Liquify now compute in a
+cancellable background job after release. Controlled removal also offers an
+opt-in Texture method with different bounds. Those changes are in
+the [current photo workflow](photo-editing.md); the 0.9 measurements and
+compatibility notes below remain historical.
+
 ## Remove an object using surrounding texture
 
 **Controlled content-aware removal** rebuilds a selected area by building a
@@ -231,7 +237,17 @@ A repeated mouse-up position does not consume another stroke point. If the
 recorded path genuinely exceeds its limit, Omuse cancels that stroke and shows
 a reason instead of applying only part of it.
 
-The desktop currently computes these strokes on release. **Escape does not
-interrupt that calculation**; wait for it to finish, then use Undo if needed.
-The engine has cancellation support, but an interactive cancel control remains
-separate work.
+In published **0.9.0**, the desktop computes these strokes on release.
+**Escape does not interrupt that calculation**; wait for it to finish, then use
+Undo if needed.
+
+Omuse **0.10** calculates Blur, Smudge and Liquify strokes in the
+background after release. While the footer reports work in progress, press
+**Escape** or click **Cancel · Esc** to keep the original artwork. A completed
+stroke still has one **Ctrl+Z** Undo step. If cancellation is too late and the
+stroke has already applied, use Undo. Wait for the cancelled worker to finish
+before starting another retouch or opening/importing an image. Changing pages,
+the selection or the editing target discards an obsolete result. This change
+has a [separate development qualification](../background-retouch-qualification.md).
+See the [0.10 release record](../release-0100-qualification.md) for final source
+and package checks. The historical 0.9 release keeps synchronous calculation.

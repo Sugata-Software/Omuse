@@ -68,6 +68,19 @@ For a protected-subject background result, open the collapsed **Product finishin
 
 Use **Design & layout** for a reviewed native edit plan. A plan can select an existing page, place an image already packaged as a project resource and insert a reusable component with bounded text or visibility overrides. It cannot introduce an arbitrary file path or URL. Image results remain in review until kept. Compare requested variations, refine a result or choose **Another direction**. A result from older artwork remains reviewable but cannot blindly replace newer work.
 
+Omuse **0.10** supplies standalone **Design & layout**
+requests with bounded text targets from other collection pages. A request can
+select a supplied page ID and revise its existing text layer. Inherited locks
+remain enforced. At most 24 inactive pages, 64 text layers per page, 2,048
+characters per text excerpt and 64 KiB of page records are included; omitted
+or unavailable context is marked. Select the intended page if its target is
+missing. This does not add other-page context to image tasks, photo/caption
+requests or image-workflow finishing. See the
+[content workflow record](content-workflow-qualification.md) and
+[0.10 release qualification](release-0100-qualification.md). The context and
+editing paths are tested locally; this does not establish a fresh provider
+response or guarantee that a model follows every brief.
+
 Use **Caption & alt text** and **Draft copy** when the selected provider can help prepare export copy from the current canvas. Review the actual proposed wording before **Keep**. Use the **Export** fields to revise it afterwards, or refine the assistant draft before keeping it.
 
 Provider sign-in remains with the provider’s official client. Omuse does not put credentials in artwork. Requests can consume the selected provider’s allowance or credits according to that account; cancellation may not reverse already-used allowance. Ordinary local editing, restoration, saving and export remain usable without an AI connection.

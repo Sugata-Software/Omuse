@@ -197,10 +197,10 @@
   <script type="application/json" id="omuse-guide-data">
 {
   "schemaVersion": 1,
-  "snapshotDate": "2026-10-04",
+  "snapshotDate": "2026-10-11",
   "project": "Omuse",
   "releaseScope": "Native Rust/GPUI application for Arch/Omarchy Linux x86_64",
-  "releaseState": "Omuse 0.9.0 source prerelease and reviewed Linux/unsigned experimental Windows downloads published and anonymously verified; normal 0.9 installation and complete 0.8 rollback verified",
+  "releaseState": "Omuse 0.10.0 exact tested Linux package installed as normal Omuse; previous complete installations preserved. Linux/Windows CI and packages passed. Public source and download publication are in progress.",
   "visualizationMirror": "omuse-project-guide.html",
   "statusDefinitions": [
     {
@@ -231,9 +231,27 @@
   ],
   "releaseSnapshot": [
     {
-      "label": "Current release",
+      "label": "Omuse 0.10 release",
+      "value": "Source and packages qualified; publication in progress",
+      "detail": "Public runtime 920ae0fddb9a58ba69526b7e7976b5d770435fd9 passed Linux validation (1,554 reported passes) and Windows validation (1,536), zero failures and five ignored each. Exact packages passed integrity, notices and native runner smoke. Omarchy native Shape Builder history and complete 0.9/0.10 cross-version checks passed. Installed as normal Omuse with both older generations preserved. README and illustrated manual updated; final anonymous public download verification remains.",
+      "status": "locally-tested"
+    },
+    {
+      "label": "Photo and vector expansion — historical development checks",
+      "value": "1,554 local passes; native editing and exchange checked",
+      "detail": "Frozen 642-path source passed 1,554 reported Linux tests, zero failures and five ignored; two optional external PSD cases were unconfigured. Editing, Create/motion, mixed composition exchange and 80 variants of 20 templates passed. Final XWayland checks covered Builder history, PSD export/report, Texture Preview/Apply/Undo and composition opening. Independent readers checked synthetic PSD/SVG/PDF outputs. Texture remains experimental with mixed photo results. These results predate the version bump. Final 0.10 installation and Linux/Windows CI are recorded above; native in-flight cancellation and broader quality remain open. See docs/photo-vector-qualification.md.",
+      "status": "locally-tested"
+    },
+    {
+      "label": "10 October photo development — historical installation",
+      "value": "Progressive previews and versioned tone correction",
+      "detail": "Development source manifest e55035b709f7b49f5fefb928941335e38271f970bb47dc6aee6c49736deaaf79 passed full local Linux validation: 1449 libtest passes, zero failures, five ignored benchmarks; one optional PSD fixture case returned early, leaving 1448 exercised test bodies. Editing and Create journeys plus 80 template variants passed. Native XWayland preview/refinement, Apply, immediate Undo/Redo and visible Cancel were checked. CPU sample-plus-grade median 536 ms versus 6166 ms full grading is a bounded stage measurement, not display or settling latency. New Camera Raw edits use SmoothV1; fifteen Legacy recipes retain exact output. The exact tested executable was installed as normal Omuse on 10 October; its embedded version still reads 0.9.0. Bundle checksums, isolated installer self-test and all existing profile files passed verification; both older complete generations remain byte-identical. Bundled LibRaw passed a real Nikon exposure test, and an isolated XWayland installed-app check opened and redeveloped the NEF, saved its exact original RAW and exposure recipe, and exported 4310 × 2868 pixels through the installed CLI. Native Wayland process identity was confirmed, but the driver could not capture that window. This historical build is preserved as the immediate rollback generation after installation of 0.10.0; published 0.9 remains retained too.",
+      "status": "locally-tested"
+    },
+    {
+      "label": "Previous published release — 0.9 historical",
       "value": "0.9.0 — Photo detail, precise control",
-      "detail": "Public runtime 65c95cc165f9d730a9f0bcea51c51a84cf4adb7e passed complete Linux/Windows validation and download workflows. Linux: 1,405 application tests; Windows: 1,387; four ignored per platform. Final compact native and installed-launcher journeys each passed 24 checks. The exact Linux archive passed four cross-version journeys and 35 identical exports across nine projects. The unchanged photo library passed 16 cases / 128 operations; residual removal texture mismatch remains documented. Source publisher 37209968347 and download publisher 37210058961 succeeded; all four permanent assets matched anonymous size/hash checks. Normal 0.9 installation and complete 0.8 rollback are verified.",
+      "detail": "Public runtime 65c95cc165f9d730a9f0bcea51c51a84cf4adb7e passed complete Linux/Windows validation and download workflows. Linux: 1,405 application tests; Windows: 1,387; four ignored per platform. Final compact native and installed-launcher journeys each passed 24 checks. The exact Linux archive passed four cross-version journeys and 35 identical exports across nine projects. The unchanged photo library passed 16 cases / 128 operations; residual removal texture mismatch remains documented. Source publisher 37209968347 and download publisher 37210058961 succeeded; all four permanent assets matched anonymous size/hash checks. At publication, normal 0.9 installation and complete 0.8 rollback were verified. The later local development installation is reported separately above.",
       "status": "locally-tested"
     },
     {
@@ -257,7 +275,7 @@
     {
       "label": "One project extension",
       "value": ".omuse for every project",
-      "detail": ".omuse for canvases, collections, pages/components and recovery. Ordinary canvases use format 10, flat vector scenes 11, grouped scenes 12, styled scenes 13 and editable curved text 14. Omuse 0.7.0 cannot open formats 12–14 or the reference-colour operation. Use Save As to preserve an older original; it does not downgrade new semantics. The reviewed compatibility matrix is in user-guide/README.md. New 0.9 ContextualV1 removal recipes add an algorithm choice within the existing formats: 0.8 can show the cached result, but editing/resaving there can lose the choice. Keep the 0.9 original and use a separate rasterized copy for backward editing.",
+      "detail": ".omuse for canvases, collections, pages/components and recovery. Ordinary canvases use format 10, flat vector scenes 11, grouped scenes 12, styled scenes 13 and editable curved text 14. Omuse 0.7.0 cannot open formats 12–14 or the reference-colour operation. Use Save As to preserve an older original; it does not downgrade new semantics. The reviewed compatibility matrix is in user-guide/README.md. New 0.9 ContextualV1 removal recipes add an algorithm choice within the existing formats: 0.8 can show the cached result, but editing/resaving there can lose the choice. Keep the 0.9 original and use a separate rasterized copy for backward editing. New 0.10 SmoothV1 and TextureV2 recipes are safely refused by older readers. Rasterize a separate copy in 0.10 for backward editing; rolling back the application does not downgrade projects.",
       "status": "locally-tested"
     },
     {
@@ -267,15 +285,15 @@
       "status": "locally-tested"
     },
     {
-      "label": "Published source and downloads",
+      "label": "Published source and downloads — 0.9 historical",
       "value": "Omuse 0.9.0",
       "detail": "Runtime 65c95cc165f9d730a9f0bcea51c51a84cf4adb7e, validated in run 37207585304 and built in 37207585335, is published with four reviewed assets. Source publisher 37209968347 and download publisher 37210058961 succeeded; anonymous bytes matched the declared sizes and hashes. The previous 0.8 release and immutable 0.9 notes/tag were unchanged.",
       "status": "locally-tested"
     },
     {
       "label": "Current release regression suite",
-      "value": "1,405 Linux / 1,387 Windows tests passed",
-      "detail": "Exact 65c95cc1 validation passed both full application suites, with zero failures and four ignored per platform. Linux: 549 library, 394 GPUI, 462 integration. Windows: 534 library, 392 GPUI, 461 integration. Complete editing/Create/templates/motion/media/recovery and notice gates passed. Separate dependency-helper tests are not folded into core totals. Historical 0.8: 1,352; 0.7: 1,206.",
+      "value": "1,554 Linux / 1,536 Windows tests passed",
+      "detail": "Exact 920ae0fd validation passed both full application suites, with zero failures and five ignored per platform. Linux: 563 library, 427 GPUI, 564 integration. Windows: 548 library, 425 GPUI, 563 integration. Complete editing/Create/templates/motion/media/recovery and notice gates passed. Separate dependency-helper tests are not folded into core totals. Optional environment-gated external PSD tests may return early; historical runs retain their own records.",
       "status": "locally-tested"
     },
     {
@@ -287,7 +305,7 @@
     {
       "label": "Public-release blockers",
       "value": "Open gates",
-      "detail": "Initial 0.9 source/package qualification and publication are complete, including anonymous verification of all four assets and normal installation with complete 0.8 rollback. Clean-machine, broad hardware/accessibility, live Windows AI and stable/signed-release acceptance remain open. The historical 0.8 compact-capture gap remains historical; final 0.9 has its reviewed compact XWayland capture.",
+      "detail": "0.10 exact-source and package qualification passed; final source/download publication and anonymous readback are in progress. Clean-machine, broad hardware/accessibility, interactive Windows, live Windows AI and stable/signed-release acceptance remain open.",
       "status": "blocked-deferred"
     },
     {
@@ -295,6 +313,12 @@
       "value": "OmaPhoto 1.4.5 published and reviewed",
       "detail": "Released 4 October at 4c7d98b with five Linux packages plus checksums; all seven release jobs passed. Compared the four new commits / 34 paths and released feature set with installed Omuse 0.8.0. Native-resolution retouch, grid consistency, mask inspection and published downloads are priorities. Source/release inspection only; no app test or benchmark rerun. Subsequent Omuse work published the verified 0.8.0 downloads, then shipped the priority retouch/grid/mask paths in qualified 0.9.0 with its own bounded source, photo, native and package evidence. This was not a comparative application benchmark.",
       "status": "locally-tested"
+    },
+    {
+      "label": "Upstream monitor — 10 October",
+      "value": "OmaPhoto public access unavailable",
+      "detail": "Fresh repository-page and GitHub API requests returned 404 at 02:11 UTC; the owner public-repository list was empty. Cause unconfirmed. No current repository/release comparison was possible; reviewed v1.4.5 / 4c7d98b and the 5 October successful metadata check are preserved. Monitoring remains active in the current checkout. This is not evidence of no upstream changes.",
+      "status": "blocked-deferred"
     }
   ],
   "categories": [
@@ -726,6 +750,25 @@
           ]
         },
         {
+          "id": "photo-background-retouch",
+          "name": "Cancellable background retouch",
+          "status": "locally-tested",
+          "current": "Omuse 0.10: Blur, Smudge and Liquify calculate raster and mask strokes on a background worker. Escape or Cancel · Esc discards pending work; successful results publish as one Undo step. Captured editor/page, selection and target identity reject stale results.",
+          "boundary": "Historical development Linux suite: 1,422 passed, four ignored, including ten retouch UI cases; final native XWayland Smudge/Undo/Redo smoke passed. Editing/Create/motion journeys and all 80 template variants passed. One image worker per editor window remains admitted until completion, including after cancellation. Existing 16 MP / 256 MiB bounds remain; selection capture and final canvas refresh still run on the UI thread. Final Linux/Windows automated CI passed; no new speed, interactive Windows or photographic quality claim.",
+          "evidence": [
+            "docs/release-0100-qualification.md",
+            "docs/background-retouch-qualification.md",
+            "docs/user-guide/retouch-and-controls.md"
+          ],
+          "modules": [
+            "rust/src/editor_retouch.rs",
+            "rust/src/retouch_ui.rs",
+            "rust/src/retouch_ui_tests.rs",
+            "rust/tests/retouch_background.rs",
+            "rust/src/photo_io_ui.rs"
+          ]
+        },
+        {
           "id": "photo-ascii-size-crt",
           "name": "Independent ASCII glyph size and CRT finish",
           "status": "planned",
@@ -738,6 +781,82 @@
             "rust/src/dither.rs",
             "rust/src/finishing_ui.rs",
             "rust/tests/raster_finishing.rs"
+          ]
+        },
+        {
+          "id": "photo-progressive-preview",
+          "name": "Progressive photo colour previews",
+          "status": "locally-tested",
+          "current": "Omuse 0.10: eligible plain-photo colour grades show a bounded sampled draft, then refine at full resolution. Five preview integration and eleven Camera Raw UI lifecycle tests passed, alongside a native preview/Apply/Undo/Redo/Cancel journey. CPU sampling plus grading measured a 536 ms median against 6166 ms full grading on this laptop. Historical development Linux validation completed: 1448 test bodies exercised, editing/Create journeys and all 80 template variants passed.",
+          "boundary": "CPU-stage timing is not input/display or total-settling latency. Drafts can alias fine patterns; complex documents and spatial effects use full rendering. Existing 8-bit/16 MP limits remain. One-photo memory observation is not a worst-case bound. Final Linux/Windows automated CI passed; interactive Windows, native Wayland and GPU processing remain unqualified.",
+          "evidence": [
+            "docs/release-0100-qualification.md",
+            "docs/photo-preview-qualification.md"
+          ],
+          "modules": [
+            "rust/src/camera_preview.rs",
+            "rust/src/camera_preview_ui.rs",
+            "rust/tests/camera_preview.rs"
+          ]
+        },
+        {
+          "id": "photo-colour-regression",
+          "name": "Synthetic photographic colour regression",
+          "status": "locally-tested",
+          "current": "Omuse 0.10: nine colour-corpus and eighteen Camera Raw tests passed. Reviewed references caught and corrected near-black colour spikes and reversed tone ramps with SmoothV1 for new edits. All fifteen Legacy recipe comparisons retained exact RGBA output; independent difference math passed 34 published reference pairs.",
+          "boundary": "Synthetic appearance regression and two moderate photographic holdouts do not establish Adobe parity, camera/display calibration or broad photographic quality. Older builds can refuse to open projects containing new versioned recipes; preserve originals and share separate rasterized copies. Full Linux/Windows automated validation passed; interactive Windows and calibrated-display qualification remain open.",
+          "evidence": [
+            "docs/release-0100-qualification.md",
+            "docs/photo-preview-qualification.md",
+            "rust/tests/reference/photo-color/README.md"
+          ],
+          "modules": [
+            "rust/tests/photo_color_corpus.rs",
+            "rust/src/camera_raw.rs"
+          ]
+        },
+        {
+          "id": "photo-raw-development-roadmap",
+          "name": "RAW development, native AI control and migration",
+          "status": "planned",
+          "current": "Approved phased direction: unify retained RAW/high-precision recipes; extend Ask Omuse through guarded native commands and optional local MCP; qualify click/box local selection; add camera/profile and XMP-preset compatibility reporting; consider catalog migration later.",
+          "boundary": "These follow-on phases are planned. Provider capabilities and model/profile licences need separate verification; source reuse is not drop-in across egui/wgpu and GPUI. No calendar or scheduling work.",
+          "evidence": [
+            "docs/rawmakase-roadmap.md"
+          ],
+          "modules": []
+        },
+        {
+          "id": "photo-develop-layout",
+          "name": "Photo-visible development layout",
+          "status": "planned",
+          "current": "Native review identified that Camera Raw obscures the main photo and preview refresh can shift its controls. Keep the final photo visible beside stable controls and make the white-balance reference distinct.",
+          "boundary": "Not implemented in the progressive-preview slice. Native Escape with numeric focus also needs explicit qualification; the visible Cancel button passed.",
+          "evidence": [
+            "docs/photo-preview-qualification.md",
+            "docs/rawmakase-roadmap.md"
+          ],
+          "modules": []
+        },
+        {
+          "id": "photo-photocraft-expansion",
+          "name": "Photocraft-inspired photo expansion",
+          "status": "locally-tested",
+          "current": "Omuse 0.10 includes opt-in Texture removal, original 16-bit donor copying, converted 8-bit layered PSD export, and ICC-managed 16-bit PSD/PSB merged-composite import. Real-photo removal checks show useful car repair and mixed portrait/foliage results.",
+          "boundary": "Final Linux integration and native Preview/Apply/Undo passed; independent readers verified PSD transparency fixes. Texture remains experimental with visible seams and mixed photographic results. Native in-flight cancellation and Photoshop/Affinity qualification remain open. PSD exchange converts content. The final source passed Linux/Windows CI and is installed as normal Omuse; public publication is in progress; no live-provider, measured-renderer or universal-quality claim.",
+          "evidence": [
+            "docs/release-0100-qualification.md",
+            "docs/photo-vector-qualification.md",
+            "docs/texture-removal-qualification.md",
+            "docs/psd-exchange.md",
+            "docs/photo-vector-roadmap.md"
+          ],
+          "modules": [
+            "rust/src/retouch/texture.rs",
+            "rust/src/advanced_ops.rs",
+            "rust/src/psd_export.rs",
+            "rust/src/psd.rs",
+            "rust/src/photo_io_ui.rs"
           ]
         }
       ]
@@ -1226,6 +1345,29 @@
             "rust/src/photo_reliability_ui_tests.rs",
             "rust/src/objects.rs"
           ]
+        },
+        {
+          "id": "design-vectorcraft-expansion",
+          "name": "Vectorcraft-inspired vector expansion",
+          "status": "locally-tested",
+          "current": "Omuse 0.10 includes curve-preserving booleans, Simplify/Offset/Outline, split/join, one-gesture Shape Builder, editable grid/radial copies, node/handle snapping to anchors and visible guides/grid, typed assistant vector operations, and reported SVG text/stroke conversion.",
+          "boundary": "Final Linux tests, native Builder history and synthetic exchange checks passed. Approximate geometry and work budgets remain; Builder requires opaque fills. Repeats are independent copies; snapping covers main-canvas node/handle drags. Persistent patterns/blends, richer typography and broader exchange remain planned. The final source passed Linux/Windows CI and is installed as normal Omuse; public publication is in progress. Interactive Windows and live-provider qualification remain separate.",
+          "evidence": [
+            "docs/release-0100-qualification.md",
+            "docs/photo-vector-qualification.md",
+            "docs/user-guide/photo-vector-development.md",
+            "docs/photo-vector-roadmap.md"
+          ],
+          "modules": [
+            "rust/src/vector_geometry.rs",
+            "rust/src/vector_edit.rs",
+            "rust/src/vector_builder.rs",
+            "rust/src/vector_repeat.rs",
+            "rust/src/vector_commands.rs",
+            "rust/src/vector_svg_scene.rs",
+            "rust/src/vector_snap.rs",
+            "rust/src/vector_snap_ui.rs"
+          ]
         }
       ]
     },
@@ -1565,6 +1707,25 @@
           "modules": [
             "rust/src/ai/auth.rs",
             "rust/src/ai/discovery.rs"
+          ]
+        },
+        {
+          "id": "ai-inactive-page-text",
+          "name": "Targeted carousel text revisions",
+          "status": "locally-tested",
+          "current": "Development after 0.9.0 adds bounded inactive-page text and layer IDs to standalone Design & layout requests with a non-caching page reader and explicit sharing disclosure. On 5 October, 80 focused checks passed. The six-page Find your files sample passed targeted revision, Undo/Redo regressions, save/reopen and PNG/JPEG/WebP/PDF export checks; all six PDF pages and native XWayland opening/navigation were inspected.",
+          "boundary": "Authored deterministic plans; no fresh live-provider result or performance qualification. The local check build uses unoptimized Omuse code with release dependencies. Context limits and incomplete targets are explicit; installed/public 0.9.0 remains unchanged.",
+          "evidence": [
+            "docs/content-workflow-qualification.md",
+            "docs/user-guide/create-content.md"
+          ],
+          "modules": [
+            "rust/src/creative_context.rs",
+            "rust/src/create_project.rs",
+            "rust/src/creative_commands.rs",
+            "rust/src/ai_ui.rs",
+            "rust/src/create_ui.rs",
+            "rust/examples/content_workflow.rs"
           ]
         }
       ]
@@ -2394,16 +2555,14 @@
           "id": "release-competitor-comparison",
           "name": "OmaPhoto whole-repository comparison",
           "status": "locally-tested",
-          "current": "4 October release review: annotated v1.4.5 resolves to 4c7d98b. Exact 28f6337..4c7d98b range has four commits / 34 paths; raster continuation and picker fixes, expanded control-driven acceptance and fresh screenshots. Five release packages plus checksums and seven successful Actions jobs verified. Inventoried five tags/releases, four unchanged PRs, eleven issues and ten runs; new issue 15 requests outline shapes already available through Omuse vectors.",
-          "boundary": "Compared current Omuse 0.8 source and installed receipt; no application program, test or benchmark executed. The release workflow builds packages without ctest; upstream separately reports 334/334 distro suites and six offscreen acceptance programs; earlier parallel failures have no established cause and extreme constrained-CPU stress still fails. Fresh installs/final checklist remain unchecked in the release source. This comparison predates the verified Omuse 0.8.0 asset publication and implemented 0.9.0 editing candidate; the comparison itself does not qualify those later changes.",
+          "current": "5 October watch: OmaPhoto main/tag v1.4.5 remains at 4c7d98b; five tags/releases, 27 asset records, four PRs and ten workflow runs are unchanged. Only issue 15 gained a [Feature Request] title prefix; it has zero comments and no shipped outline implementation. Pinned source confirms fill-only rectangles/ellipses. Published Omuse 0.9 (65c95cc1) already supports editable vector fill/stroke and now addresses earlier native-retouch, grid, mask-inspection, folder-Ungroup and font-preview gaps; permanent Linux/experimental Windows downloads are verified.",
+          "boundary": "This watch compared the saved 5 October GitHub snapshot and pinned sources with recorded published/installed Omuse 0.9 qualification; no app, suite, benchmark, installer or provider ran here. The 1,405 Linux/1,387 Windows passes (four ignored each), native/package and compatibility checks belong to the 0.9 release. Retouch bounds, read-only mask inspection, safe-folder restrictions and observed removal texture limits remain. PR 14 OmaStore and PR 8 AppImage are unmerged; no universal quality, speed or full-parity claim. Historical 0.8 comparisons remain explicitly dated.",
           "evidence": [
-            "docs/release-060-qualification.md",
             "docs/omaphoto-comparison.md",
             "docs/omaphoto-watch.json",
-            "docs/rust-performance-roadmap.md",
-            "docs/public-release-readiness.md",
-            "docs/editing-workflows-qualification.md",
-            "docs/release-050-qualification.md"
+            "https://github.com/Sugata-Software/Omuse/blob/653f9edb0c447c5feac43fb5eb38c43dd65a8007/docs/release-090-qualification.md",
+            "https://github.com/Sugata-Software/Omuse/blob/653f9edb0c447c5feac43fb5eb38c43dd65a8007/docs/release-090-receipts.json",
+            "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/15"
           ],
           "modules": []
         },

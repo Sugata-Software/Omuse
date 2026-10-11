@@ -4,9 +4,79 @@ User-facing changes are grouped by release. Version numbers belong to Omuse;
 they do not follow Compositor or OmaPhoto. See the [release policy](docs/releases/README.md)
 for numbering, qualification and publication.
 
-## Unreleased
+## [0.10.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.10.0) — 2026-10-11
 
-No changes recorded yet.
+**Shape your next idea · Linux / Omarchy source pre-release · unsigned experimental Windows**
+
+- Add curve-preserving vector booleans, path Simplify/Offset/Outline controls,
+  node splitting and endpoint joining, and a bounded Shape Builder gesture on
+  the existing canvas. Shape Builder follows the full drag path, including the
+  final segment on mouse release, retains holes, and supports opaque fills.
+  Unsupported appearance and over-budget work fail before changing artwork.
+  Native and assistant vector commands share the same
+  transactional geometry path.
+- Snap main-canvas node and handle drags to other visible artwork anchors and
+  visible guides/grid lines within six screen pixels. Cache targets per drag,
+  account for layer placement, and show the snapped position. Shift bypasses
+  snapping while retaining the existing 45-degree constraint; dense work falls
+  back to an unsnapped drag with a notice. Initial Pen clicks, whole-object moves
+  and legacy path dialogs keep their existing behavior.
+- Add grid and radial repeat controls with editable copies, retained originals,
+  optional radial rotation and Undo. Counts include the original motif. Accepted
+  copies remain independent; no persistent live repeat recipe is saved.
+- Add opt-in **Texture · experimental** controlled removal using bounded patch
+  matching and original donor coordinates for retained 16-bit sources. Context
+  remains the default. Real-photo results are mixed; preview before keeping.
+- Add converted 8-bit layered PSD export with explicit warnings for baked
+  text/vector/effect content, and 16-bit RGB PSD/PSB merged-composite import with
+  ICC conversion and retained precision. Keep `.omuse` as the editable master.
+  Unsupported exchange semantics are refused; new exports preserve existing
+  destination files. See [exchange limits](docs/psd-exchange.md).
+- Respect Photoshop's white-matte transparency convention for merged previews,
+  preserving straight layer pixels on export and interpreting merged alpha
+  before colour conversion on import.
+- View the last layered PSD export's destination filename and conversion notes with
+  **Export conversion report** in command search. Reports remain in the current
+  editor session; they are separate from import conversion reports.
+- Broaden editable SVG import with reported text outlines and supported stroke
+  expansion, while continuing to reject unsupported group compositing, clipping,
+  filters and external resources. These bounded conversions report changes to
+  editability; general SVG compositing and clipping remain unsupported.
+
+- Prevent saturated colour spikes when lifting near-black tones in new Camera
+  Raw edits, and keep strong shadow/highlight adjustments monotonic. Explicitly
+  version the new tone mapping; saved unversioned recipes retain their previous
+  appearance. Neutral recipes preserve exact original pixels.
+- Show a bounded quick Camera Raw preview for eligible plain photos at reduced
+  zoom, then automatically refine to the existing full-resolution result.
+  Keep full-resolution Apply, exact sampler/scopes references, source-aware
+  cache reuse, cancellation and one-step Undo. Complex documents and spatial
+  effects retain the existing renderer. Restore the original view if refinement
+  fails; editable vector scenes require explicit raster conversion.
+- Add a synthetic photographic colour-regression corpus with perceptual-error,
+  alpha and byte-level checks. References describe Omuse's current rendering;
+  they do not establish Adobe parity or physical camera accuracy.
+- Give standalone **Design & layout** requests bounded text and layer IDs from
+  other collection pages, so a page-specific revision can target existing text
+  without first selecting that page. Incomplete context is marked explicitly;
+  locked layers and review-before-Keep remain enforced. This command change
+  does not establish new live-provider qualification.
+
+- Run Blur, Smudge and Liquify stroke calculations in the background for pixel
+  layers and masks. Cancel pending work with **Escape** or the footer's
+  **Cancel · Esc** button; cancellation keeps the artwork and Undo history intact.
+- Discard late retouch results after document, page, selection or target changes.
+  Admit one image worker per editor window, including while a cancelled worker finishes.
+  Successful strokes retain the native-pixel behavior and one-step Undo.
+
+Exact-source validation reported **1,554 Linux** and **1,536 Windows**
+application passes, zero failures and five ignored on each platform. Optional
+external-fixture tests can return early when their inputs are absent. The
+packaged Linux application passed a bounded native Shape Builder/history
+journey. Download publication and anonymous asset verification are recorded
+separately in the [release qualification](docs/release-0100-qualification.md).
+See the [release notes](docs/releases/v0.10.0.md) for compatibility and limits;
+new Texture and tone recipes require a reader that understands their versions.
 
 ## [0.9.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.9.0) — 2026-10-04
 

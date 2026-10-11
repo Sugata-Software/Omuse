@@ -11,6 +11,19 @@ prerequisites for making clearly labeled automated previews downloadable. A
 preview passing these checks must not be described as a stable, signed, or
 generally portable release.
 
+## Current 0.10.0 publication
+
+The [0.10 release](https://github.com/Sugata-Software/Omuse/releases/tag/v0.10.0)
+is being published from exact source `920ae0fddb9a58ba69526b7e7976b5d770435fd9`.
+[Validation 38097640432](https://github.com/Sugata-Software/Omuse/actions/runs/38097640432)
+and [package build 38097640470](https://github.com/Sugata-Software/Omuse/actions/runs/38097640470)
+passed for that source. The original generated manifest and both archive
+receipts are reviewed separately from the public upload. Public asset
+availability and anonymous download verification are **pending**; see the
+[release qualification](release-0100-qualification.md) before claiming completion.
+The prior [0.9 release](https://github.com/Sugata-Software/Omuse/releases/tag/v0.9.0)
+remains available. Older manifests, tags, notes and assets stay unchanged.
+
 ## Build an exact candidate
 
 1. Push the reviewed runtime commit and intended Rust package version to a
@@ -102,10 +115,10 @@ version and its own qualification.
 With an authenticated maintainer CLI that can dispatch Actions, run:
 
 ```sh
-gh workflow run publish-downloads.yml --repo Sugata-Software/Omuse --ref main -f version=0.9.0
+gh workflow run publish-downloads.yml --repo Sugata-Software/Omuse --ref main -f version=0.10.0
 ```
 
-Alternatively, create the branch `publish-downloads/v0.9.0` at the **exact
+Alternatively, create the branch `publish-downloads/v0.10.0` at the **exact
 reviewed public main commit**. This is an explicit publication request, not an
 application development branch. The ordinary GitHub branch API or a normal push
 can create it; no personal token, additional permission grant, or local `gh`
@@ -114,7 +127,7 @@ creation. For example, after reviewing the fetched main commit:
 
 ```sh
 git fetch origin main
-git push origin refs/remotes/origin/main:refs/heads/publish-downloads/v0.9.0
+git push origin refs/remotes/origin/main:refs/heads/publish-downloads/v0.10.0
 ```
 
 Both routes require the workflow commit and checked-out commit to be the exact
@@ -130,7 +143,7 @@ changed, re-run the existing publication workflow to resume an interruption;
 identical assets remain untouched. A completed publication is a read-only no-op
 when its request still identifies current main.
 
-The current 0.9.0 packages were built in
+The historical 0.9.0 packages were built in
 [run 37207585335](https://github.com/Sugata-Software/Omuse/actions/runs/37207585335)
 and recorded in the [reviewed manifest](releases/downloads/v0.9.0.json).
 Separate [download publication 37210058961](https://github.com/Sugata-Software/Omuse/actions/runs/37210058961) completed after source publication;
@@ -186,6 +199,6 @@ and [installation guide](install.md). The curl command still builds the tested
 source revision; downloadable bundles are a separate option. Windows remains
 unsigned experimental, and the platform boundaries above still apply.
 
-For the next release, repeat the exact-source build, declaration and separate
+For each later release, repeat the exact-source build, declaration and separate
 publication sequence above. Keep existing versions immutable and do not declare
 download availability until anonymous asset verification completes.

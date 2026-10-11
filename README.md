@@ -14,16 +14,21 @@ application launcher. Windows x64 users can download a portable development ZIP.
 
 **[Install on Linux](#linux)** · **[Download for Windows](#windows-experimental)**
 
-**Current source pre-release: [0.9.0 — Photo detail, precise control](https://github.com/Sugata-Software/Omuse/releases/tag/v0.9.0)**
-— retouch at source resolution, guide object removal, align with a configurable
-grid and preview fonts on selected letters. [Explore what’s new](#new-in-090)
-or [follow the illustrated guide](docs/user-guide/retouch-and-controls.md).
+**Current source pre-release: [0.10.0 — Shape your next idea](https://github.com/Sugata-Software/Omuse/releases/tag/v0.10.0)**
+— build shapes by dragging, refine curves, repeat editable motifs and exchange
+Photoshop files. Background retouch and quick photo previews support more
+responsive editing; Texture removal remains experimental.
+[Explore what’s new](#new-in-0100) ·
+[Follow the illustrated guide](docs/user-guide/photo-vector-development.md).
 
-**Linux and Windows downloads are available** on the
-[0.9 release page](https://github.com/Sugata-Software/Omuse/releases/tag/v0.9.0),
-with reviewed checksums. Windows remains unsigned experimental. The curl
-command builds the tested source; [qualification and limits](docs/release-090-qualification.md)
-explain the supported scope.
+**Release publication is in progress.** The 0.10 source and packages have
+completed their recorded qualification; download links below become usable
+when assets are attached to the [release page](https://github.com/Sugata-Software/Omuse/releases/tag/v0.10.0).
+Public asset verification is still pending. The prior
+[0.9 release](https://github.com/Sugata-Software/Omuse/releases/tag/v0.9.0) remains available.
+
+The curl installer builds the tested source revision.
+[Qualification and limits](docs/release-0100-qualification.md) record the supported scope.
 
 **[Read the user manual](docs/user-guide/README.md)** ·
 [Edit a photo](docs/user-guide/photo-editing.md) ·
@@ -37,12 +42,12 @@ explain the supported scope.
 </p>
 
 <p align="center">
-  <a href="https://github.com/Sugata-Software/Omuse/raw/refs/heads/main/docs/media/omuse-0.7.0-studio-film.mp4"><strong>&#9654; Watch the new two-minute Omuse 0.7.0 film</strong></a>
+  <a href="https://github.com/Sugata-Software/Omuse/raw/refs/heads/main/docs/media/omuse-0.7.0-studio-film.mp4"><strong>&#9654; Watch the two-minute Omuse 0.7.0 film</strong></a>
   &middot;
   <a href="docs/media/omuse-0.7.0-studio-film.md">Chapters, transcript &amp; credits</a>
 </p>
 
-Four real photo before/after edits, the 0.7.0 vector and tracing controls,
+This historical **0.7.0** film shows four real photo before/after edits, vector and tracing controls,
 branded pages, native motion and content exports. The film combines actual
 application captures and Omuse-rendered artwork with editorial animation.
 Its AI segment is an offline interface tour.
@@ -63,11 +68,11 @@ send the selected context to the connection you choose; the assistant identifies
 the subscription route and its usage. Separate API billing is currently disabled.
 Omuse does not change the desktop theme.
 
-![Omuse 0.9 with an editable removal result and the retained original photo](docs/releases/images/v0.9.0/02-portrait-removal.png)
+![Editable vector composition and live text in the Omuse studio](docs/releases/images/v0.10.0/01-composition.png)
 
-*Actual 0.9 runtime `65c95cc1` on Omarchy. The local repair keeps an editable
-recipe and the original layer; some texture mismatch remains. NASA / Eileen
-Collins, public domain. [Capture details and credit](docs/releases/images/v0.9.0/README.md).*
+*Actual packaged Omuse 0.10.0 on Linux/Omarchy, source `920ae0fd`.
+The composition retains editable curves, independent repeat copies and live
+text. [Capture provenance](docs/releases/images/v0.10.0/README.md).*
 
 ## Install
 
@@ -91,9 +96,9 @@ script itself is downloaded from `main`.
 
 **The current installer builds from source.** Allow time for the first build
 and about 12 GB of free disk space. Later installs reuse the build cache.
-The [reviewed Linux archive](https://github.com/Sugata-Software/Omuse/releases/download/v0.9.0/omuse-0.9.0-linux-x86_64.tar.gz)
-and [checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.9.0/omuse-0.9.0-SHA256SUMS)
-are available now. See the
+The [reviewed Linux archive](https://github.com/Sugata-Software/Omuse/releases/download/v0.10.0/omuse-0.10.0-linux-x86_64.tar.gz)
+and [checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.10.0/omuse-0.10.0-SHA256SUMS)
+are release upload targets; availability awaits public verification. See the
 [archive installation guide](docs/downloadable-releases.md).
 The curl command remains the source installer.
 You can [inspect it](install.sh) before running it.
@@ -113,21 +118,23 @@ and troubleshooting.
 
 ### Windows (experimental)
 
-**[Download the Windows x64 ZIP](https://github.com/Sugata-Software/Omuse/releases/download/v0.9.0/omuse-0.9.0-windows-x86_64.zip)** ·
-[Checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.9.0/omuse-0.9.0-SHA256SUMS) ·
-[Release notes](docs/releases/v0.9.0.md)
+Release upload targets are listed below; public availability is awaiting verification.
+
+**[Download the Windows x64 ZIP](https://github.com/Sugata-Software/Omuse/releases/download/v0.10.0/omuse-0.10.0-windows-x86_64.zip)** ·
+[Checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.10.0/omuse-0.10.0-SHA256SUMS) ·
+[Release notes](docs/releases/v0.10.0.md)
 
 The portable **Windows x64** preview needs neither Rust nor Visual Studio.
-The 0.9.0 package passed automated checks on Windows Server 2025; interactive
+The 0.10.0 package passed automated Windows checks; interactive
 Windows 10/11 qualification is still separate.
 
-1. Download [omuse-0.9.0-windows-x86_64.zip](https://github.com/Sugata-Software/Omuse/releases/download/v0.9.0/omuse-0.9.0-windows-x86_64.zip)
-   and verify it against the [checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.9.0/omuse-0.9.0-SHA256SUMS).
+1. Download [omuse-0.10.0-windows-x86_64.zip](https://github.com/Sugata-Software/Omuse/releases/download/v0.10.0/omuse-0.10.0-windows-x86_64.zip)
+   and verify it against the [checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.10.0/omuse-0.10.0-SHA256SUMS).
 2. Extract the complete ZIP into a new folder.
 3. Run **omuse.exe**, keeping **lib**, **models** and **licenses** alongside it.
 
 To update, keep the old complete folder, close the old app and launch the new
-folder’s executable. The [reviewed manifest](docs/releases/downloads/v0.9.0.json)
+folder’s executable. The [reviewed manifest](docs/releases/downloads/v0.10.0.json)
 records the source, native checks and archive hashes.
 
 Photo editing and Camera RAW are included. These features have extra requirements:
@@ -141,11 +148,34 @@ Photo editing and Camera RAW are included. These features have extra requirement
 The Windows ZIP is **experimental and unsigned**, so SmartScreen may show a
 warning. Live Windows AI generation/editing and clean-machine acceptance remain
 unqualified; detecting a signed-in CLI does not establish that an AI task works.
-The 0.9.0 package includes reviewed dependency notices. See the
+The 0.10.0 package includes reviewed dependency notices. See the
 [Windows build notes](rust/README.md#build-on-windows-in-development) for
 connection requirements and known limits.
 
 ## Highlights
+
+### New in 0.10.0
+
+Build shapes, finish photos and exchange artwork in the same studio.
+The [release qualification](docs/release-0100-qualification.md) records the
+tested source, Linux/Windows checks, reviewed packages and remaining limits.
+
+| Workflow | What changes |
+| --- | --- |
+| **Build by dragging** | Merge Shape Builder regions or Alt-drag to erase them. Start with 2–8 consecutive opaque filled paths, then inspect and keep one editable result. [Shape Builder](docs/user-guide/photo-vector-development.md#drag-through-shape-builder-regions). |
+| **Refine curves** | Combine Bézier shapes, reduce unnecessary nodes, offset contours and turn strokes into filled outlines. Split or join paths within an object. [Path finishing](docs/user-guide/photo-vector-development.md#build-and-refine-shapes). |
+| **Place details precisely** | Snap nodes and handles to nearby anchors, visible guides or grid lines within six screen pixels. Arrange motifs in grids or radial patterns as independent editable copies. [Snapping and repeats](docs/user-guide/photo-vector-development.md). |
+| **Exchange Photoshop files** | Export converted 8-bit pixel layers; open supported 16-bit RGB PSD/PSB composites with retained precision. Conversion reports explain what was rendered or omitted. Keep `.omuse` as the master. [Photoshop exchange](docs/psd-exchange.md). |
+| **Keep photo controls responsive** | Blur, Smudge and Liquify compute in a cancellable background job. Eligible Camera Raw colour edits show a quick draft before full refinement; Apply still uses original full-size pixels. [Photo workflow](docs/user-guide/photo-editing.md). |
+| **Compare removal methods** | Try **Texture · experimental** alongside the default Context method. Review seams and repeated detail before keeping a repair; neither is a universal reconstruction tool. [Removal workflow](docs/user-guide/photo-editing.md#compare-context-and-texture-removal). |
+| **Refine a collection** | Design & layout can target existing text on another page using bounded page context. Review, Keep and Undo remain explicit. [Page revisions](docs/user-guide/create-content.md#revise-one-page-and-finish-the-pack). |
+
+[Open the illustrated guide](docs/user-guide/photo-vector-development.md).
+The [local qualification record](docs/photo-vector-qualification.md) records
+1,554 reported Linux test passes and bounded native editing/export checks for
+pre-version-bump development snapshot. Final release checks are recorded
+separately; these results are not a general performance comparison or fresh
+live-provider acceptance.
 
 ### New in 0.9.0
 
@@ -184,8 +214,10 @@ editing checks, automated Windows/package checks and remaining hardware work.
 | **Inspect the JPEG you will export** | Fit and 100% views show the actual encoded file. Pan through detail and compare quality, DPI and matte settings before saving. [JPEG preview](docs/user-guide/photo-vector.md#inspect-jpeg-detail-and-refine-raster-strokes). |
 | **Retouch with more consistent strokes** | Blur, Smudge and Liquify use fractional brush footprints and consistent spacing. Smudge carries evolving paint; Liquify samples the original stroke source, with Undo and no partial commit when work limits are reached. [Raster retouch](docs/user-guide/photo-vector.md#inspect-jpeg-detail-and-refine-raster-strokes). |
 
-Editable SVG remains a documented subset: text import, clipping, masks, effects,
-group opacity and gradient strokes are not supported. Vector PDF exports the
+The published 0.8/0.9 editable SVG subset excludes text import, clipping,
+masks, effects, group opacity and gradient strokes. Omuse 0.10 adds
+supported text and stroke conversion, with explicit warnings; see
+[the expanded subset](docs/user-guide/photo-vector-development.md#exchange-svg-artwork). Vector PDF exports the
 active artwork, not the surrounding photo composition; it does not add PDF/AI
 import or print-ready CMYK. Complete Create/page PDFs use the existing raster
 export workflow. Reference matching transfers a global palette, rather than
@@ -219,8 +251,9 @@ format, font, image-size and editing limits.
 - Choose Auto or a provider per task; optionally follow an image edit with
   editable layout and a caption in one reviewed workflow.
 - PNG, JPEG, WebP and TIFF export, including retained 16-bit workflows.
-- Layered PSD/PSB import with supported editable text: 8-bit RGB only;
-  embedded ICC profiles are refused. [Import limits](docs/user-guide/photo-editing.md#import-photoshop-or-svg-artwork).
+- Layered 8-bit RGB PSD/PSB import with supported editable text; Omuse 0.10
+  adds 16-bit merged-composite import and converted layered export.
+  [Photoshop exchange and limits](docs/psd-exchange.md).
 - SVG/SVGZ raster import with selectable dimensions, up to 25 MP;
   self-contained artwork becomes one pixel layer, with the original preserved.
 - Camera RAW development and local subject selection; Camera Raw sampling and
@@ -256,13 +289,13 @@ Start with the [illustrated user manual](docs/user-guide/README.md), follow
 
 ## Work from the keyboard
 
-In **0.8.0**, press **Ctrl+K** or click the search icon to find and
-run any of **200 commands**. Search by action, tool, category or key combination;
+Press **Ctrl+K** or click the search icon to find and run commands. Search by
+action, tool, category or key combination;
 use **↑ / ↓** and **Enter**
 to run, or **Esc** to return to your canvas. Commands without a shortcut are
 available here too.
 
-There are **106 default shortcuts**, including familiar tools, **Ctrl+L** for
+Default shortcuts include familiar tools, **Ctrl+L** for
 Levels, **Ctrl+M** for Curves, **Ctrl+U** for Hue/Saturation, and **[ / ]** for
 brush size. **Ctrl+Alt+K** opens the recorder for customizing, clearing and
 restoring bindings. Super stays available to Omarchy.
@@ -314,6 +347,13 @@ New 0.9 controlled-removal recipes record **ContextualV1**. Omuse 0.8 can show
 their cached result, but editing or resaving there can lose the algorithm
 choice. Preserve the 0.9 original and rasterize a separate copy before backward
 editing. [Compatibility steps](docs/user-guide/retouch-and-controls.md#keep-new-removal-recipes-safe-when-trying-an-older-version).
+
+Omuse **0.10** adds versioned Texture removal and smoother Camera Raw
+tone recipes. Older editors can reject projects containing those recipes;
+rolling back the app does not convert a project. Keep the editable original
+and rasterize a separate copy in the newer build before backward editing.
+Ordinary Camera Raw Apply produces raster pixels. See
+[recipe compatibility](docs/user-guide/photo-vector-development.md#keep-a-compatible-original).
 
 New collection saves use schema version 2 with nested `.omuse` pages and
 components. Version 1 collections still open, but saving upgrades them to

@@ -1,19 +1,22 @@
 # Omuse user manual
 
-**Make, retouch and finish images on Linux.** This manual describes the Omuse
-0.9.0 editing workflows for Arch/Omarchy x86_64, including source-resolution
-retouch, controlled removal, grid and mask controls and selected-letter fonts,
-alongside photo adjustments, vectors, Create and optional AI workflows. Windows packages remain
-unsigned experimental previews with separate desktop and live AI limits.
-Start with a photo, keep an editable project, and export a copy when it is ready.
+**Make, retouch and finish images on Linux.** This manual describes Omuse
+0.10.0 for Arch/Omarchy x86_64: photo editing, editable vectors, Shape Builder,
+Photoshop exchange, Create and optional AI workflows. Windows packages remain
+unsigned experimental with separate desktop and live AI limits. Start with a
+photo, keep an editable project, and export a copy when it is ready.
 
 [Install Omuse](../install.md) · [Remove objects](remove-objects.md) ·
 [Edit a photo](photo-editing.md) · [Create social content](create-content.md) ·
 [Ask Omuse](../ai-experience.md) · [All shortcuts](../keyboard-shortcuts.md)
 
-The [retouch and canvas control guide](retouch-and-controls.md) walks through
-the new 0.9 tools. See [qualification and limits](../release-090-qualification.md)
-for tested scope and [installation options](../install.md) for availability.
+Start with the [illustrated 0.10 photo and vector guide](photo-vector-development.md)
+for Shape Builder, curve finishing, precise snapping, editable repeats and PSD
+exchange. The [photo chapter](photo-editing.md) covers background retouch, quick
+previews and optional Texture removal; [Create](create-content.md) covers
+targeted page revisions. See [release qualification](../release-0100-qualification.md)
+and [installation options](../install.md) for exact availability and limits.
+Earlier [retouch and canvas controls](retouch-and-controls.md) remain documented.
 
 Prefer a quick overview? [Watch the two-minute 0.7.0 studio film](../media/omuse-0.7.0-studio-film.md),
 then follow the illustrated workflows below.
@@ -77,6 +80,8 @@ For a visual tour, see [drawing and tracing](photo-vector.md),
 | Animate pages, add audio/subtitles and export an MP4 | [Motion](create-content.md#make-a-short-animation) |
 | Work with RAW, 16-bit sources, filter stacks or masks | [Advanced workflows](../rust-advanced-workflows.md) |
 | Trace images, edit vector points, or target a photo colour | [Draw, trace and refine artwork](photo-vector.md) |
+| Try Shape Builder, path finishing, repeats and precise snapping | [0.10 workflows](photo-vector-development.md) |
+| Exchange layered PSD or retain a 16-bit Photoshop composite | [Photoshop exchange](../psd-exchange.md) |
 
 ## Save projects; export deliverables
 
@@ -125,6 +130,11 @@ New 0.9 controlled-removal recipes record **ContextualV1**. Omuse 0.8 can show
 their saved cached result, but **editing or resaving there can lose the
 algorithm choice**. Keep the 0.9 original and rasterize a separate copy in 0.9
 before backward editing. [Compatibility steps](retouch-and-controls.md#keep-new-removal-recipes-safe-when-trying-an-older-version).
+
+Omuse **0.10** also introduces versioned Texture removal and Camera Raw
+tone recipes. Older builds can reject a project containing a recipe they do not
+understand. Preserve an editable original; rasterize a separate copy in the
+newer build before backward editing. [Compatibility details](photo-vector-development.md#keep-a-compatible-original).
 
 ## AI is optional
 

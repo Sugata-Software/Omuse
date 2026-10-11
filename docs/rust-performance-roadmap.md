@@ -64,6 +64,13 @@ The CPU cache retains the current composite's display tiles. Its exact texel cou
 
 ## Next architectural steps
 
+The next development build moves native Blur/Smudge/Liquify calculations into
+a cancellable worker shared with image I/O admission. It captures shared source
+pixels and publishes a verified result as one Undo transaction. The selection
+capture, final history commit and canvas refresh still run on the UI thread;
+this is not a measured end-to-end latency improvement or tile-backed storage.
+See the [scoped qualification](background-retouch-qualification.md).
+
 1. Measure rapid desktop strokes while recovery or save still owns a snapshot, and the full refresh at stroke completion. The persistent Create cache owner has been removed; immutable live raster tiles should follow only if the remaining copies are a material measured cost. Preserve frozen snapshots, selection state and exact undo. Expand region-history eligibility separately, with masks and selected strokes retaining their fallback until qualified.
 2. Extend the verified regional compositor to masks and other semantics. Measure input-to-presentation latency on large documents and consider zoomed-out overview surfaces to reduce visible texture data.
 3. Add bounded worker admission and cooperative cancellation for expensive previews and segmentation. Make recovery clear/shutdown asynchronous while retaining save-before-close guarantees.

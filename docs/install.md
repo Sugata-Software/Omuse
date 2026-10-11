@@ -36,20 +36,28 @@ from source**. Reviewed application archives have a separate
 
 ## Tested source channel
 
-The current source declaration is [Omuse 0.9.0](releases/v0.9.0.md).
+The current source declaration is [Omuse 0.10.0](releases/v0.10.0.md).
 Its Git tag identifies the tested runtime; the normal curl command follows the
-current tested channel and may advance to later qualified releases.
+current tested channel and may advance to later qualified releases. Publication
+status and public asset verification are tracked in the
+[0.10 release qualification](release-0100-qualification.md).
 
-The public installer selects commit
-[`65c95cc165f9d730a9f0bcea51c51a84cf4adb7e`](https://github.com/Sugata-Software/Omuse/commit/65c95cc165f9d730a9f0bcea51c51a84cf4adb7e).
+The release installer selects commit
+[`920ae0fddb9a58ba69526b7e7976b5d770435fd9`](https://github.com/Sugata-Software/Omuse/commit/920ae0fddb9a58ba69526b7e7976b5d770435fd9).
 It fetches that exact revision and checks the checkout before building.
-The complete [Linux and Windows workflow](https://github.com/Sugata-Software/Omuse/actions/runs/37207585304)
-passed, including 1,405 Linux and 1,387 Windows application tests. The
-[0.9.0 qualification record](release-090-qualification.md) covers native
-Linux editing, real-photo checks and a 0.8 → 0.9 → rollback → forward journey.
-Both packages passed archive and runtime checks; Linux also passed native
-checks on the development laptop. Windows remains unsigned and experimental,
-with interactive Windows qualification outstanding.
+The complete [Linux and Windows workflow](https://github.com/Sugata-Software/Omuse/actions/runs/38097640432)
+passed, reporting **1,554 Linux** and **1,536 Windows** application passes,
+with five ignored on each platform. Optional external-file checks can return
+early when their inputs are absent; these counts are not fresh live-provider
+or comprehensive external-file qualification.
+
+Both packages passed their archive and runtime checks. The Linux package also
+passed a bounded native Shape Builder, Keep and Undo/Redo journey on the
+development laptop. Windows remains unsigned experimental; Windows Server CI
+does not qualify interactive Windows 10/11. Earlier 0.8 → 0.9 rollback and
+photo checks retain their own [historical evidence](release-090-qualification.md).
+Use the current release record for the separate 0.10 installation and rollback
+scope instead of treating those earlier measurements as new results.
 
 All new projects use `.omuse`. Opening an older project does not rewrite it.
 Ordinary canvases use format 10; flat legacy vector scenes use 11, grouped
@@ -62,6 +70,11 @@ Omuse 0.8 can display cached **ContextualV1** removal results from 0.9, but
 editing or resaving that recipe in 0.8 can discard its algorithm choice.
 Keep the 0.9 original and rasterize a separate copy before backward editing.
 See the [removal compatibility guide](user-guide/retouch-and-controls.md#keep-new-removal-recipes-safe-when-trying-an-older-version).
+
+New 0.10 **Texture** removal and **SmoothV1** tone recipes require a reader
+that understands their versions. An older build can refuse the containing
+project. Keep the editable original and rasterize a separate copy in the newer
+build before backward editing. Ordinary Camera Raw Apply produces raster pixels.
 
 No new cloud AI request was sent for this editing release; earlier provider
 receipts keep their own runtime identities. Local subject-model checks do not

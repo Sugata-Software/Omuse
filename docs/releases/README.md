@@ -5,6 +5,7 @@ Start with the [changelog](../../CHANGELOG.md) or
 
 | Version | Date | Scope | Notes |
 | --- | --- | --- | --- |
+| 0.10.0 | 11 October 2026 | Shape Builder, curve finishing, independent repeats, precise snapping, Photoshop exchange, responsive retouch/photo previews and targeted page revisions | [Release notes](v0.10.0.md) |
 | 0.9.0 | 4 October 2026 | Native-resolution retouch, context-guided removal, grid and mask controls, selected-letter font preview and reliable numeric entry | [Release notes](v0.9.0.md) |
 | 0.8.0 | 4 October 2026 | Reference colour matching, soft hue masks, richer vector artwork, curved text and reviewed unsigned experimental Linux/Windows packages | [Release notes](v0.8.0.md) |
 | 0.7.0 | 2 October 2026 | Integrated vector editing, local Image Trace, colour uniformity and precision photo foundations; Arch/Omarchy x86_64 source pre-release | [Release notes](v0.7.0.md) |
@@ -19,9 +20,11 @@ Start with the [changelog](../../CHANGELOG.md) or
 ## Version numbers
 
 Omuse has its own sequence, beginning at **0.1.0**. Each release matches its
-Rust package version; the current release declaration is **0.9.0**. It does not
+Rust package version; the current release declaration is **0.10.0**. It does not
 inherit another editor's release numbers. This is a qualified source pre-release;
-the broader binary and stable-release gates remain open.
+the broader stable-release gates remain open. The [0.10 qualification](../release-0100-qualification.md)
+records exact-source CI, reviewed packages and publication status; a release
+index entry alone does not establish that assets are publicly downloadable.
 
 - **Patch versions (for example 0.2.1):** compatible fixes and hardening within a minor version.
 - **0.2.0 and later minor versions:** substantial new workflows or behavior.

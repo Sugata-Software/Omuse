@@ -1,6 +1,85 @@
 # OmaPhoto comparison and improvement plan
 
-## Latest release review — OmaPhoto 1.4.5, 4 October 2026
+## Current watch — 10 October 2026, upstream access unavailable
+
+At **02:11 UTC / 10:11 Perth**, fresh unauthenticated requests to the
+[repository page](https://github.com/ZacharyZhang-NY/OmaPhoto) and
+[GitHub repository API](https://api.github.com/repos/ZacharyZhang-NY/OmaPhoto)
+both returned **404**. The owner's public-repository API returned 200 with an
+empty list and no next page. A cached search copy still showed the earlier
+README; it is not evidence that the repository is currently accessible.
+
+The cause is unconfirmed: these responses do not establish whether the project
+was removed, made private or affected by another access condition. No current
+commit, branch, tag, release-note/asset, PR, issue or workflow comparison could
+be completed. **The reviewed source/release baseline is unchanged** at
+`4c7d98b17f80c3cbaecc17ac75c27af74f2f703b` / v1.4.5, with the last successful
+metadata check on 5 October. This is an unavailable check, not a no-change result.
+
+The monitor remains active and now uses the matching baseline in the current
+`Omuse-next-studio` checkout; the older checkout is preserved. Local evidence is
+retained under `Omuse-release-evidence/omaphoto-watch-2026-10-10/availability.json`.
+No upstream code was executed or copied, and no Omuse runtime, installed build
+or published release changed in this watch. Earlier comparisons below remain
+historical; current Omuse development has its own
+[photo qualification record](photo-preview-qualification.md).
+
+## Last successful watch — 5 October 2026, Omuse 0.9.0
+
+The **01:02 UTC / 09:02 Perth** repository snapshot contains no new OmaPhoto
+release or source change. Main and annotated **v1.4.5** still resolve to
+`4c7d98b17f80c3cbaecc17ac75c27af74f2f703b`. All five tags, five releases and
+27 asset records, four pull requests and ten workflow runs match the preceding
+review. Of eleven non-PR issues, only
+[issue #15](https://github.com/ZacharyZhang-NY/OmaPhoto/issues/15) changed: its
+title now starts with **[Feature Request]**. It remains open with zero comments.
+OmaStore #14 and AppImage #8 remain unmerged proposals.
+
+Pinned [ShapeTool.cpp](https://github.com/ZacharyZhang-NY/OmaPhoto/blob/4c7d98b17f80c3cbaecc17ac75c27af74f2f703b/src/Document/ShapeTool.cpp#L267)
+still fills rectangles and ellipses; only the line branch applies stroke width.
+[ColorPalette.h](https://github.com/ZacharyZhang-NY/OmaPhoto/blob/4c7d98b17f80c3cbaecc17ac75c27af74f2f703b/src/Document/ColorPalette.h#L9)
+stores RGB without alpha. The request for editable outline shapes therefore
+remains a request, not shipped functionality.
+
+Omuse already supports this workflow: open **Vector artwork** with **Shift+P**,
+add a rectangle or ellipse, give **Fill** an alpha of `00` (for example
+`#00000000`), and set **Stroke** to the desired colour with a positive width.
+Width **0** disables the stroke. The
+[published vector controls](https://github.com/Sugata-Software/Omuse/blob/65c95cc165f9d730a9f0bcea51c51a84cf4adb7e/rust/src/vector_ui.rs#L381)
+and [editable shape model](https://github.com/Sugata-Software/Omuse/blob/65c95cc165f9d730a9f0bcea51c51a84cf4adb7e/rust/src/vector_scene.rs#L544)
+retain separate fill and stroke; this is not a destructive pixel-cutout workaround.
+
+### What has changed on the Omuse side
+
+The current comparison baseline is published and installed **Omuse 0.9.0**,
+source [`65c95cc1`](https://github.com/Sugata-Software/Omuse/commit/65c95cc165f9d730a9f0bcea51c51a84cf4adb7e).
+This supersedes the older Omuse 0.8 gap assessment below; it does not rewrite
+that historical review or qualify current development changes.
+
+| Earlier gap | Released Omuse 0.9 behavior and remaining limit |
+| --- | --- |
+| Retouch detail and stability | Blur/Smudge/Liquify operate on native layer or mask pixels, with independent Blur radius and captured-stroke endpoint handling. Admission and fallible-buffer checks refuse unsupported work atomically. Native retouch is limited to 8-bit sources up to 16 MP and a 256 MiB working-buffer budget; strokes compute on release. This is not process-wide out-of-memory protection. |
+| Grid consistency and reach | One configurable grid model drives visible spacing and snapping, with 4/8/16/32 px spacing and 1/2/4/8 subdivisions. Move, selections and shape/gradient drawing use visible grid/guide snapping. Dense drawing simplifies at low zoom; Shift bypasses grid snapping only. |
+| Mask inspection and folders | Alt-click **MASK** provides read-only grayscale inspection. **Ungroup folder** retains children/order for supported ordinary folders and refuses cases whose appearance, locks or clipping cannot be preserved. |
+| Direct font changes | Installed-font search previews selected letters; choosing a font keeps the draft, and dismissal restores the captured styling. Up to 64 matches; final Apply/Cancel commits or abandons the text edit. |
+| Download delivery | Reviewed Linux and unsigned experimental Windows archives, checksums and manifest are published and anonymously verified. The normal 0.9 install and complete 0.8 rollback generation have recorded checks. Clean-machine acceptance and interactive Windows/hardware qualification remain separate work. |
+
+The [0.9 qualification record](https://github.com/Sugata-Software/Omuse/blob/653f9edb0c447c5feac43fb5eb38c43dd65a8007/docs/release-090-qualification.md)
+records 1,405 Linux and 1,387 Windows core tests passing (four ignored per OS),
+final native/package checks and 35 cross-version export comparisons across
+nine projects. These are existing release results, **not tests rerun during
+this watch**. Suite counts are not comparable between the two applications.
+
+Controlled removal now uses versioned boundary-context reconstruction, but the
+reviewed portrait still has seam/texture mismatch; automatic Spot Heal repeated
+nearby lettering on a large target. Keep visual review and broader photographic
+quality ahead of a blanket superiority claim. Curves/Soft Light reference
+validation, broader hardware coverage, project tabs, saved previews and further
+retro finishes remain separate follow-ups. This watch ran no application,
+benchmark, installer or provider request and makes no speed or full-parity claim.
+
+
+## Historical release review — OmaPhoto 1.4.5, 4 October 2026
 
 [OmaPhoto 1.4.5](https://github.com/ZacharyZhang-NY/OmaPhoto/releases/tag/v1.4.5)
 was published at **05:10 UTC / 13:10 Perth**. The annotated tag resolves to

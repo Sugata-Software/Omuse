@@ -124,6 +124,29 @@ requests from one brief and ends in one review. Keep applies the complete
 editable result once; Stop, Local-only, a changed source, or a failed step
 halts anything not yet sent.
 
+## Revise one page and finish the pack
+
+In **0.10**, **Design & layout** can address existing text on
+other pages in the collection. For example: “Revise only page three. Change
+its heading to ‘Name it for your future self’ and add a concrete filename
+example. Leave the other pages unchanged.” Review the selected page and the
+proposed wording, then **Keep**. Ordinary Undo reverses the kept revision;
+Redo restores it. The [development qualification](../content-workflow-qualification.md)
+and [release record](../release-0100-qualification.md) separate
+local checks from live-provider results.
+
+This task sends bounded text and editable text-layer IDs from other collection
+pages with the brief. It does not attach their images. Large collections or
+pages may exceed the context limit; select the intended page and submit again
+if the assistant cannot identify its text. Image-task layout finishing remains
+limited to its own page.
+
+After a revision, check that page's **Caption** and **Alt text** in **Export**;
+artwork copy and export copy are separate fields. Save the `.omuse` project,
+then reopen it and inspect all pages. Export a new content pack and check the
+ordered images, PDF and `content.json`. Keep the editable package with the
+export so you can make another revision later.
+
 ## Make a short animation
 
 1. In **Motion**, set **Page seconds** and **Frames / second**.

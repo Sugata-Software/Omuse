@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "version": "0.9.0",
-  "tag": "v0.9.0",
-  "title": "Omuse 0.9.0 — Photo detail, precise control",
-  "date": "2026-10-04",
+  "version": "0.10.0",
+  "tag": "v0.10.0",
+  "title": "Omuse 0.10.0 — Shape your next idea",
+  "date": "2026-10-11",
   "prerelease": true,
-  "sourceRevision": "65c95cc165f9d730a9f0bcea51c51a84cf4adb7e",
-  "notes": "docs/releases/v0.9.0.md",
-  "validationRun": 37207585304
+  "sourceRevision": "920ae0fddb9a58ba69526b7e7976b5d770435fd9",
+  "notes": "docs/releases/v0.10.0.md",
+  "validationRun": 38097640432
 }

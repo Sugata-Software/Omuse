@@ -529,5 +529,103 @@
     ],
     "qualification": "Read-only primary GitHub release, exact source/test and workflow review, including an independent bounded release-evidence reviewer, plus current Omuse source and installed version/receipt. No application suite, native journey, upstream installer or benchmark run. Only local comparison/watch/guide documents and private dashboard refreshed; no runtime, changelog, installed-app, GitHub-write, tag or release mutation. Planned follow-ups are not shipped features."
   },
-  "reviewedAtUtc": "2026-10-04T06:30:19Z"
+  "reviewedAtUtc": "2026-10-04T06:30:19Z",
+  "lastCheck": {
+    "checkedAt": "2026-10-05",
+    "snapshotFetchedAtUtc": "2026-10-05T01:02:22Z",
+    "reviewedHead": "4c7d98b17f80c3cbaecc17ac75c27af74f2f703b",
+    "releaseTag": "v1.4.5",
+    "releaseChanged": false,
+    "sourceChanged": false,
+    "coverage": {
+      "branches": 1,
+      "tags": 5,
+      "releases": 5,
+      "releaseAssets": 27,
+      "pullRequests": 4,
+      "nonPullRequestIssues": 11,
+      "workflowRuns": 10
+    },
+    "summary": "Main, all tag identities, five release note/asset records, four PR records and ten workflow runs match the 4 October review. Only issue 15 title/update metadata changed; no new release or shipped source change.",
+    "changedIssueRecords": [
+      {
+        "number": 15,
+        "title": "[Feature Request] Shape tool: stroke-only (outline) style for rectangle and ellipse",
+        "state": "open",
+        "updatedAt": "2026-10-04T16:01:36Z",
+        "url": "https://github.com/ZacharyZhang-NY/OmaPhoto/issues/15"
+      }
+    ],
+    "issue15Comments": 0,
+    "issue15Assessment": "The [Feature Request] title prefix does not implement outline shapes. Pinned shapeImage fills rectangles/ellipses and strokes only lines; PaletteColor stores RGB without alpha. Omuse 0.9 already has editable rectangle/ellipse fill and separate strokes, including transparent fill.",
+    "sourceReviews": [
+      {
+        "repository": "ZacharyZhang-NY/OmaPhoto",
+        "revision": "4c7d98b17f80c3cbaecc17ac75c27af74f2f703b",
+        "path": "src/Document/ShapeTool.cpp",
+        "blob": "f7e041eab0e8b1e52beaaf432f71b8bfe56f4622",
+        "scope": "Lines 228-305: non-line shapes fill their path; line width affects the line branch."
+      },
+      {
+        "repository": "ZacharyZhang-NY/OmaPhoto",
+        "revision": "4c7d98b17f80c3cbaecc17ac75c27af74f2f703b",
+        "path": "src/Document/ColorPalette.h",
+        "blob": "059dd0a4295f54d55cc45f377fa015c14eb849e1",
+        "scope": "Lines 1-75: stored PaletteColor channels are RGB; color() defaults to opaque alpha."
+      },
+      {
+        "repository": "Sugata-Software/Omuse",
+        "revision": "65c95cc165f9d730a9f0bcea51c51a84cf4adb7e",
+        "path": "rust/src/vector_ui.rs",
+        "blob": "cabe295072240af387eaec187272a0fb2862615c",
+        "scope": "Published lines 390-410 plus matching local colour/style controls: independent fill/stroke RGBA and stroke width 0-4096."
+      },
+      {
+        "repository": "Sugata-Software/Omuse",
+        "revision": "65c95cc165f9d730a9f0bcea51c51a84cf4adb7e",
+        "path": "rust/src/vector_scene.rs",
+        "blob": "fb2475a4c4288c3a007deb33488aca06253a1e5a",
+        "scope": "Lines 541-610: editable rectangle/ellipse objects accept separate optional fill/stroke."
+      }
+    ],
+    "omuseRelease": "0.9.0",
+    "omusePublicRuntime": "65c95cc165f9d730a9f0bcea51c51a84cf4adb7e",
+    "omuseReleaseEvidence": "https://github.com/Sugata-Software/Omuse/blob/653f9edb0c447c5feac43fb5eb38c43dd65a8007/docs/release-090-qualification.md",
+    "omusePosition": "Published Linux and unsigned experimental Windows downloads, recorded normal 0.9 installation, native-source retouch, configurable grid/snapping, mask inspection, safe folder Ungroup and selected-letter font preview supersede the older 0.8 gaps. Scope and limits remain in the exact 0.9 qualification record.",
+    "snapshotHashes": {
+      "upstream-snapshot.json": "ef2438dd225dbfa27a30ca922d5d4ea7a2eec37e3d46f6ba4b06d300143d538d",
+      "normalized-current.json": "1c72f0d2558547f1cdad5d30b67225e5a7b2e7a5a338ae6e1819994945e00386",
+      "comparison.json": "48b48d0e3c72927881f1388146eaf7704024b5a7a3044ea819835995b7fa9361"
+    },
+    "qualification": "Read-only saved GitHub snapshot comparison and pinned source review, with existing published/installed Omuse 0.9 qualification records. No application, test suite, benchmark, installer or live provider executed during this watch. No claim of better photographic quality, universal parity or comparative speed. Historical review and measurements below are unchanged."
+  },
+  "lastAttempt": {
+    "checkedAtUtc": "2026-10-10T02:11:03.408759+00:00",
+    "status": "upstream-unavailable",
+    "reviewAdvanced": false,
+    "reviewedHeadRetained": "4c7d98b17f80c3cbaecc17ac75c27af74f2f703b",
+    "releaseBaselineRetained": "v1.4.5",
+    "lastSuccessfulCheck": "2026-10-05T01:02:22Z",
+    "checks": [
+      {
+        "url": "https://github.com/ZacharyZhang-NY/OmaPhoto",
+        "status": 404
+      },
+      {
+        "url": "https://api.github.com/repos/ZacharyZhang-NY/OmaPhoto",
+        "status": 404
+      },
+      {
+        "url": "https://api.github.com/users/ZacharyZhang-NY/repos?per_page=100",
+        "status": 200
+      }
+    ],
+    "ownerPublicRepositoryCount": 0,
+    "ownerCollectionPaginatedCompletely": true,
+    "summary": "Fresh repository page and API requests returned 404; owner public-repository listing returned an empty list. Cached README text is not a current review. Cause unconfirmed; do not infer no changes or advance inspected commit/release records.",
+    "evidenceSha256": "d8edfaed4ff53564d62bde07767daf66e4fcb37f229ae13e68434712cf4f83dc",
+    "evidenceLocation": "Omuse-release-evidence/omaphoto-watch-2026-10-10/availability.json",
+    "monitorCheckout": "active Omuse development checkout",
+    "baselineMigration": "The requested older-checkout watch file was byte-identical before this attempt. The active checkout now holds future attempt records; older checkout preserved."
+  }
 }

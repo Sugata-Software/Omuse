@@ -5,7 +5,12 @@ Use **P** to draw, **A** to refine points and **V** to move objects. Trace a bit
 when you want a simpler graphic, or use the colour tools to refine a photo.
 
 [User manual](README.md) · [Photo editing](photo-editing.md) ·
-[Create content](create-content.md) · [Current interface gallery](../releases/v0.8.0-gallery.md)
+[Create content](create-content.md) · [0.8 interface gallery](../releases/v0.8.0-gallery.md)
+
+**New in 0.10:** [Shape Builder, curve-preserving geometry, precise snapping
+and editable repeats](photo-vector-development.md). This chapter retains the
+0.8/0.9 foundations and labels their historical boolean/SVG behavior where
+0.10 changes it.
 
 ## Photo and vector tools in 0.8.0
 
@@ -53,8 +58,9 @@ Subtract cuts later selected shapes from that bottom object. Divide partitions
 that bottom object with each later cutter; cutter-only areas are discarded.
 Unselected objects remain in the scene.
 
-The result is editable geometry. Curves are flattened with a 0.05-source-pixel
-tolerance, so the operation does not preserve the original Bézier handles.
+In published 0.8/0.9, the result is editable geometry but curves are flattened
+with a 0.05-source-pixel tolerance, without retaining the original Bézier
+handles. Omuse **0.10** uses [curve-preserving operations](photo-vector-development.md#build-and-refine-shapes).
 Undo restores the exact original objects. Open paths and objects without a
 fill are refused. Operations have object, point and output budgets; cancellation
 discards the draft and a stale result cannot replace newer document work.
@@ -74,7 +80,10 @@ caps, joins, dashes and offsets; skewed or nonuniformly transformed strokes are
 refused. Gradients can use Pad, Repeat or Reflect.
 
 SVG text import, gradient/pattern strokes, clipping, masks, effects, group
-opacity and external resources remain unsupported. Omuse's text-on-curve
+opacity and external resources remain unsupported in **published 0.8/0.9**.
+Omuse **0.10** expands supported text and strokes into editable outlines
+and admits single-painted-child group opacity; [see the conversion rules](photo-vector-development.md#exchange-svg-artwork).
+Omuse's text-on-curve
 objects export as glyph outlines, so another editor receives paths rather than
 editable text. Keep the `.omuse` file for its text recipe. General SVG raster
 import is still available for artwork outside the editable subset.
@@ -97,8 +106,10 @@ import is still available for artwork outside the editable subset.
    the selected objects.
 
 Use draft Undo to compare, and **Done** to keep the artwork session. Stops can
-carry transparency. Variable-width strokes, stroke expansion, live offsets,
-mesh gradients and pattern fills are still planned.
+carry transparency. Omuse **0.10** adds [Outline strokes and Offset
+path](photo-vector-development.md#build-and-refine-shapes) as editable geometry.
+Variable-width strokes, persistent live offsets, mesh gradients and pattern
+fills remain planned.
 
 ### Put editable text on a curve
 
@@ -158,7 +169,7 @@ preview, not unlimited-resolution zoom or a persistent vector tile renderer.
 
 **Compatibility:** save a separate original before trying new features.
 
-| Artwork retained in the development build | Scene version | Canvas format |
+| Artwork retained since 0.8.0 | Scene version | Canvas format |
 | --- | --- | --- |
 | Legacy flat vector objects | 1 | 11 |
 | Organizational groups | 2 | 12 |
@@ -180,8 +191,10 @@ Photoshop. Imported masks retain whether pixels outside their bitmap are
 hidden or revealed. Truncated or invalid records produce an error.
 
 The existing [Photoshop import limits](photo-editing.md#import-photoshop-or-svg-artwork)
-still apply, including refusal of embedded ICC profiles and 16/32-bit or CMYK
-files. This does not add complete PSD round-trip or mixed-style Photoshop text.
+still apply to layered import, including refusal of embedded ICC profiles.
+Omuse **0.10** separately supports [16-bit RGB merged composites](../psd-exchange.md);
+32-bit and CMYK files remain unsupported. This does not add complete PSD
+round-trip or mixed-style Photoshop text.
 
 Supported external format-11 projects can also contain UTF-16 font runs alongside
 colour runs. Opening converts valid ranges to Omuse text spans without
