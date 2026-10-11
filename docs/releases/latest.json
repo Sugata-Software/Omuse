@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "version": "0.10.0",
-  "tag": "v0.10.0",
-  "title": "Omuse 0.10.0 — Shape your next idea",
+  "version": "0.11.0",
+  "tag": "v0.11.0",
+  "title": "Omuse 0.11.0 — A clearer canvas",
   "date": "2026-10-11",
   "prerelease": true,
-  "sourceRevision": "920ae0fddb9a58ba69526b7e7976b5d770435fd9",
-  "notes": "docs/releases/v0.10.0.md",
-  "validationRun": 38097640432
+  "sourceRevision": "e72bccdcef066cb6ab60a99faa9d7609de86c2e4",
+  "notes": "docs/releases/v0.11.0.md",
+  "validationRun": 38130013300
 }

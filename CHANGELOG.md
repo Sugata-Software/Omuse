@@ -6,6 +6,12 @@ for numbering, qualification and publication.
 
 ## Unreleased
 
+No changes announced after 0.11.0.
+
+## [0.11.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.11.0) — 2026-10-11
+
+**A clearer canvas · Linux / Omarchy source pre-release · unsigned experimental Windows**
+
 - Add contextual actions on the shared canvas for photos, editable text and
   artwork, pixel selections, layer groups, vector drafts and floating pixels.
   The dock wraps within the viewport, yields during gestures and painting,
@@ -16,7 +22,8 @@ for numbering, qualification and publication.
   bounded wrapping. Reflow joins the original edit's Undo transaction. Rules
   preserve editable sources; layout projects require native format 15. Nested
   frames, rotated children, general constraints and clipping relationships
-  remain unsupported. See the [development guide](docs/user-guide/canvas-workflows.md).
+  remain unsupported. Keep the retained master and Release rules in a separate
+  copy for older editors. See the [illustrated guide](docs/user-guide/canvas-workflows.md).
 - Compare AI proposals side by side, inspect individual previews, highlight
   visible preview differences and pin one retained variation for comparison.
   Comparing is local and preserves existing Keep/stale-result checks. Differences
@@ -26,6 +33,11 @@ for numbering, qualification and publication.
   the composer to refine, with draft text, references and active Stop controls
   preserved. Review thumbnails preserve image proportions instead of stretching
   rectangular artwork into a square.
+
+See the [release notes](docs/releases/v0.11.0.md) and
+[qualification record](docs/release-0110-qualification.md) for exact source,
+package evidence and platform limits. Preview comparisons use local images;
+this release does not establish new live-provider access or image quality.
 
 ## [0.10.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.10.0) — 2026-10-11
 

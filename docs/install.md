@@ -36,28 +36,32 @@ from source**. Reviewed application archives have a separate
 
 ## Tested source channel
 
-The current source declaration is [Omuse 0.10.0](releases/v0.10.0.md).
+The source declaration for this release is [Omuse 0.11.0](releases/v0.11.0.md).
 Its Git tag identifies the tested runtime; the normal curl command follows the
 current tested channel and may advance to later qualified releases. Publication
 status and public asset verification are tracked in the
-[0.10 release qualification](release-0100-qualification.md).
+[0.11 release qualification](release-0110-qualification.md).
 
 The release installer selects commit
-[`920ae0fddb9a58ba69526b7e7976b5d770435fd9`](https://github.com/Sugata-Software/Omuse/commit/920ae0fddb9a58ba69526b7e7976b5d770435fd9).
+[`e72bccdcef066cb6ab60a99faa9d7609de86c2e4`](https://github.com/Sugata-Software/Omuse/commit/e72bccdcef066cb6ab60a99faa9d7609de86c2e4).
 It fetches that exact revision and checks the checkout before building.
-The complete [Linux and Windows workflow](https://github.com/Sugata-Software/Omuse/actions/runs/38097640432)
-passed, reporting **1,554 Linux** and **1,536 Windows** application passes,
-with five ignored on each platform. Optional external-file checks can return
-early when their inputs are absent; these counts are not fresh live-provider
-or comprehensive external-file qualification.
+The [Linux and Windows workflow](https://github.com/Sugata-Software/Omuse/actions/runs/38130013300)
+is tied to that source. Its Linux suite reports **1,599 application passes**,
+zero failures and five ignored manual benchmarks. The qualification record
+separately identifies Windows results and the package checks. Optional
+external-file tests can return early when their inputs are absent: three RAW
+and two PSD cases did so in this CI configuration, separately from the five
+ignored benchmarks. Suite counts are not fresh live-provider or comprehensive
+external-file qualification.
 
-Both packages passed their archive and runtime checks. The Linux package also
-passed a bounded native Shape Builder, Keep and Undo/Redo journey on the
-development laptop. Windows remains unsigned experimental; Windows Server CI
-does not qualify interactive Windows 10/11. Earlier 0.8 → 0.9 rollback and
-photo checks retain their own [historical evidence](release-090-qualification.md).
-Use the current release record for the separate 0.10 installation and rollback
-scope instead of treating those earlier measurements as new results.
+Both exact packages passed their archive and native runner checks. The Linux
+package also passed 24 scripted checks on each of Wayland and XWayland, plus
+direct interaction with retained layout, immediate Undo and local AI review.
+A separate 0.10 → 0.11 → rollback → forward journey preserved both complete
+installations and profile bytes, with 62 exact pixel comparisons and six safe
+old-reader refusals. Windows remains unsigned experimental; Windows Server CI
+does not qualify interactive Windows 10/11. Prior release measurements retain
+their own [historical evidence](release-0100-qualification.md).
 
 All new projects use `.omuse`. Opening an older project does not rewrite it.
 Ordinary canvases use format 10; flat legacy vector scenes use 11, grouped
@@ -75,6 +79,12 @@ New 0.10 **Texture** removal and **SmoothV1** tone recipes require a reader
 that understands their versions. An older build can refuse the containing
 project. Keep the editable original and rasterize a separate copy in the newer
 build before backward editing. Ordinary Camera Raw Apply produces raster pixels.
+
+New 0.11 **retained layout** requires native format 15, including photo-only
+frames. Omuse 0.10 and older refuse those projects. Preserve the retained master,
+then **Auto layout → Release rules** and **Save As** a separate copy for backward
+editing. Remaining content retains its own format requirements. See the
+[illustrated layout guide](user-guide/canvas-workflows.md).
 
 No new cloud AI request was sent for this editing release; earlier provider
 receipts keep their own runtime identities. Local subject-model checks do not

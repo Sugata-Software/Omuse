@@ -200,7 +200,7 @@
   "snapshotDate": "2026-10-11",
   "project": "Omuse",
   "releaseScope": "Native Rust/GPUI application for Arch/Omarchy Linux x86_64",
-  "releaseState": "Omuse 0.10.0 published with verified Linux and experimental Windows downloads and installed as normal Omuse. Previous complete local installations and published 0.9 remain preserved.",
+  "releaseState": "Omuse 0.11.0 qualified and installed as normal Omuse. Exact Linux/Windows CI, reviewed packages, native Linux interaction and cross-version rollback passed. Public source and permanent download publication is in progress; existing releases are preserved.",
   "visualizationMirror": "omuse-project-guide.html",
   "statusDefinitions": [
     {
@@ -232,14 +232,20 @@
   "releaseSnapshot": [
     {
       "label": "Current release",
-      "value": "0.10.0 — Shape your next idea",
-      "detail": "Public runtime 920ae0fddb9a58ba69526b7e7976b5d770435fd9 passed Linux validation (1,554 reported passes) and Windows validation (1,536), zero failures and five ignored each. Both exact archives passed integrity, notices and native runner smoke. Omarchy native Shape Builder history and complete 0.9/0.10 cross-version checks passed: four editing self-tests, 43 pixel-equal exports and four safe old-reader refusals. Source publisher 38099819987 and download publisher 38099884639 succeeded; all four permanent assets matched anonymous size/hash checks. Installed as normal Omuse with both older generations preserved. README, illustrated manual, installer and release documentation updated. Windows remains unsigned experimental and Texture removal opt-in experimental.",
+      "value": "0.11.0 — A clearer canvas",
+      "detail": "Exact e72bccdc validation 38130013300 passed: 1,599 Linux reported application passes (563 library, 454 GPUI, 582 integration) and 1,581 Windows (548, 452, 581), zero failures and five ignored per platform. Three external RAW and two external PSD cases return early without their optional fixtures, separate from ignored benchmarks. Editing, retained layout, Create/motion, 80 template variants, media/recovery and dependency notices passed. Twenty dependency-helper Rust cases per platform are separate from core totals. Reviewed build 38130013292 attempt 1 binds both archives to e72bccdc. Both passed integrity and native runner smoke; inventories contain 621 Linux and 423 Windows dependencies with zero notice findings. Linux host smoke and 24 scripted checks on each Wayland/XWayland passed. Cua checked layout actions, immediate Undo, settings/Escape and local AI comparisons/draft preservation; no provider requests. Normal Omuse is 0.11.0 source e72bccdcef066cb6ab60a99faa9d7609de86c2e4, binary SHA-256 8ae84dd9e2f6b940fe4e77d8599a251f0fdbb5788455ed2b289470046ccf1af2. All 35 installed files match the reviewed generation. Previous 35-file and older 22-file generations, four config files and 620 data files remain unchanged. Installed Wayland passed 24 native checks in an isolated profile. Public source/download publication is pending.",
       "status": "locally-tested"
     },
     {
-      "label": "Canvas workflows — unreleased development",
+      "label": "Canvas workflows — 0.11 qualification",
       "value": "Context actions, retained frames and AI comparisons",
-      "detail": "Unreleased development on feature/canvas-workflows after 0.10.0: 1,599 tests passed, 5 manual benchmarks ignored; editing, retained-layout, six-page Create/motion and 80 template-variant journeys passed. Native XWayland passed 24 scripted checks plus Cua inspection of layout, keyboard Undo and local AI comparisons/draft preservation. The installed 0.10.0 reader safely refuses retained-layout format 15 and renders released rules with exact pixels. No new live-provider, Windows or performance qualification. Omastrator is the fifth monitored upstream; source and website beta remain separate.",
+      "detail": "Context actions, retained frames and AI comparison/composer controls passed exact-source and packaged native checks. Actual 0.10 → 0.11 → rollback → forward passed four installed editing journeys, 62 exact pixel comparisons across 17 synthetic projects and six safe format-15 refusals. Complete generations, profile bytes and project inputs stayed exact. A separately rules-released format-14 layout exports exactly like its retained Fill master. No new live-provider, Windows desktop or performance qualification. Omastrator is the fifth monitored upstream; source and website beta remain separate.",
+      "status": "locally-tested"
+    },
+    {
+      "label": "Previous published release — 0.10 historical",
+      "value": "0.10.0 — Shape your next idea",
+      "detail": "Public runtime 920ae0fddb9a58ba69526b7e7976b5d770435fd9 passed Linux validation (1,554 reported passes) and Windows validation (1,536), zero failures and five ignored each. Both exact archives passed integrity, notices and native runner smoke. Omarchy native Shape Builder history and complete 0.9/0.10 cross-version checks passed: four editing self-tests, 43 pixel-equal exports and four safe old-reader refusals. Source publisher 38099819987 and download publisher 38099884639 succeeded; all four permanent assets matched anonymous size/hash checks. Installed as normal Omuse with both older generations preserved. README, illustrated manual, installer and release documentation updated. Windows remains unsigned experimental and Texture removal opt-in experimental.",
       "status": "locally-tested"
     },
     {
@@ -281,7 +287,7 @@
     {
       "label": "One project extension",
       "value": ".omuse for every project",
-      "detail": ".omuse for canvases, collections, pages/components and recovery. Ordinary canvases use format 10, flat vector scenes 11, grouped scenes 12, styled scenes 13 and editable curved text 14. Omuse 0.7.0 cannot open formats 12–14 or the reference-colour operation. Use Save As to preserve an older original; it does not downgrade new semantics. The reviewed compatibility matrix is in user-guide/README.md. New 0.9 ContextualV1 removal recipes add an algorithm choice within the existing formats: 0.8 can show the cached result, but editing/resaving there can lose the choice. Keep the 0.9 original and use a separate rasterized copy for backward editing. New 0.10 SmoothV1 and TextureV2 recipes are safely refused by older readers. Rasterize a separate copy in 0.10 for backward editing; rolling back the application does not downgrade projects.",
+      "detail": ".omuse for canvases, collections, pages/components and recovery. Ordinary canvases use format 10, flat vector scenes 11, grouped scenes 12, styled scenes 13 and editable curved text 14. Omuse 0.7.0 cannot open formats 12–14 or the reference-colour operation. Use Save As to preserve an older original; it does not downgrade new semantics. The reviewed compatibility matrix is in user-guide/README.md. New 0.9 ContextualV1 removal recipes add an algorithm choice within the existing formats: 0.8 can show the cached result, but editing/resaving there can lose the choice. Keep the 0.9 original and use a separate rasterized copy for backward editing. New 0.10 SmoothV1 and TextureV2 recipes are safely refused by older readers. Rasterize a separate copy in 0.10 for backward editing; rolling back the application does not downgrade projects. Omuse 0.11 retained layout requires format 15, including photo-only frames. Older readers refuse it; keep the retained master and Release rules in a separate copy for backward use.",
       "status": "locally-tested"
     },
     {
@@ -298,8 +304,8 @@
     },
     {
       "label": "Current release regression suite",
-      "value": "1,554 Linux / 1,536 Windows tests passed",
-      "detail": "Exact 920ae0fd validation passed both full application suites, with zero failures and five ignored per platform. Linux: 563 library, 427 GPUI, 564 integration. Windows: 548 library, 425 GPUI, 563 integration. Complete editing/Create/templates/motion/media/recovery and notice gates passed. Separate dependency-helper tests are not folded into core totals. Optional environment-gated external PSD tests may return early; historical runs retain their own records.",
+      "value": "1,599 Linux / 1,581 Windows reported passes",
+      "detail": "Exact e72bccdc validation 38130013300 passed: 1,599 Linux reported application passes (563 library, 454 GPUI, 582 integration) and 1,581 Windows (548, 452, 581), zero failures and five ignored per platform. Three external RAW and two external PSD cases return early without their optional fixtures, separate from ignored benchmarks. Editing, retained layout, Create/motion, 80 template variants, media/recovery and dependency notices passed. Twenty dependency-helper Rust cases per platform are separate from core totals.",
       "status": "locally-tested"
     },
     {
@@ -311,7 +317,7 @@
     {
       "label": "Public-release blockers",
       "value": "Open gates",
-      "detail": "0.10 source/package qualification, public publication and anonymous verification of all four assets are complete. Normal installation is verified with both previous complete local generations preserved. Clean-machine, broad hardware/accessibility, interactive Windows, live Windows AI and stable/signed-release acceptance remain open.",
+      "detail": "0.11 source/package qualification and normal installation are complete. Public source/download publication and anonymous readback are in progress. Clean-machine, broad hardware/accessibility, interactive Windows, live Windows AI and stable/signed-release acceptance remain open.",
       "status": "blocked-deferred"
     },
     {
@@ -1388,10 +1394,11 @@
           "name": "Retained auto-layout frames",
           "status": "locally-tested",
           "current": "Direct mixed photo/text/vector layers support horizontal/vertical frames, four-side padding, gap, alignment, hug/fixed/fill sizing and bounded wrapping. Rules reflow at ordinary editor transaction boundaries and persist with native format 15.",
-          "boundary": "Unreleased. Direct unrotated leaves only; no nested frames, clipping relationships or general constraints. Fixed/Fill scale source rectangles rather than wrapping text. Eighteen engine tests, four layout UI tests, synthetic save/reopen and installed-reader compatibility passed. No performance claim at resource limits.",
+          "boundary": "Omuse 0.11. Direct unrotated leaves only; no nested frames, clipping relationships or general constraints. Fixed/Fill scale source rectangles rather than wrapping text. Eighteen engine tests, four layout UI tests, synthetic save/reopen and installed-reader compatibility passed. No performance claim at resource limits.",
           "evidence": [
             "docs/user-guide/canvas-workflows.md",
-            "docs/canvas-workflows-qualification.md"
+            "docs/canvas-workflows-qualification.md",
+            "docs/release-0110-qualification.md"
           ],
           "modules": [
             "rust/src/auto_layout.rs",
@@ -1530,10 +1537,11 @@
           "name": "Side-by-side proposals and retained variations",
           "status": "locally-tested",
           "current": "Before/After pairs, individual previews, a bounded visible-difference map and one pinned variation support local comparison. Source-framing checks prevent misleading aligned differences. Plan/response summaries expand for details. Completed reviews collapse the composer while preserving drafts; proportional previews are bounded to a 640-pixel longest edge. Native Cua verified comparisons, Changes, original-source reset, refinement and draft retention.",
-          "boundary": "Unreleased. Reduced-preview measurement is not a full-resolution audit or quality score. Existing Keep/stale-source/provider rules remain authoritative. Local synthetic native checks and regression tests do not add live provider or account qualification.",
+          "boundary": "Omuse 0.11. Reduced-preview measurement is not a full-resolution audit or quality score. Existing Keep/stale-source/provider rules remain authoritative. Local synthetic native checks and regression tests do not add live provider or account qualification.",
           "evidence": [
             "docs/user-guide/canvas-workflows.md",
-            "docs/canvas-workflows-qualification.md"
+            "docs/canvas-workflows-qualification.md",
+            "docs/release-0110-qualification.md"
           ],
           "modules": [
             "rust/src/ai_review.rs",
@@ -2013,11 +2021,12 @@
           "name": "Contextual canvas actions",
           "status": "locally-tested",
           "current": "A stable bottom dock adapts existing commands to photo/text/artwork, selected pixels, groups, vector drafts and floating selections. User visibility is persisted and searchable; painting, busy work and gestures hide the surface.",
-          "boundary": "Unreleased. Ten GPUI context tests passed, including pointer activation, prerequisites, focus and narrow viewport behavior. Native Cua confirmed frame Ungroup followed by keyboard Undo and layout dialog focus. The dock is not draggable or selection-following.",
+          "boundary": "Omuse 0.11. Ten GPUI context tests passed, including pointer activation, prerequisites, focus and narrow viewport behavior. Native Cua confirmed frame Ungroup followed by keyboard Undo and layout dialog focus. The dock is not draggable or selection-following.",
           "evidence": [
             "docs/user-guide/canvas-workflows.md",
             "docs/canvas-workflows-qualification.md",
-            "docs/omastrator-adoption.md"
+            "docs/omastrator-adoption.md",
+            "docs/release-0110-qualification.md"
           ],
           "modules": [
             "rust/src/canvas_context_ui.rs",
@@ -2159,8 +2168,8 @@
           "id": "linux-install",
           "name": "One-command install and rollback",
           "status": "locally-tested",
-          "current": "The curl installer and normal launcher select published Omuse 0.8.0 runtime eb558dc59ccdf88a3d62dfc2d706a6b836da1eda. The prior complete 0.7.0 generation remains preserved for rollback. The production editing self-test passed; the public Linux archive also passed isolated installation, same-version replacement/rollback and profile preservation.",
-          "boundary": "The curl path compiles the pinned source locally; a separate verified archive installer is available. Existing windows keep their running version until reopened. Clean-machine and power-loss acceptance remain open. Rollback does not downgrade artwork; 0.7.0 cannot read formats 12–14 or the reference-colour operation, so retain a compatible original with Save As.",
+          "current": "Normal Omuse is 0.11.0 source e72bccdcef066cb6ab60a99faa9d7609de86c2e4, binary SHA-256 8ae84dd9e2f6b940fe4e77d8599a251f0fdbb5788455ed2b289470046ccf1af2. All 35 installed files match the reviewed generation. Previous 35-file and older 22-file generations, four config files and 620 data files remain unchanged. Installed Wayland passed 24 native checks in an isolated profile.",
+          "boundary": "The curl installer compiles the pinned source; reviewed bundles provide a separate installation path. Previous complete generations remain retained. Rollback does not downgrade format-15 projects. Clean-machine and power-loss acceptance remain open.",
           "evidence": [
             "docs/release-060-qualification.md",
             "docs/release-050-qualification.md",
@@ -2178,7 +2187,8 @@
             "docs/ai-claude-qualification.md",
             "docs/release-080-qualification.md",
             "docs/release-080-receipts.json",
-            "docs/downloadable-releases.md"
+            "docs/downloadable-releases.md",
+            "docs/release-0110-qualification.md"
           ],
           "modules": [
             "install.sh",
@@ -2466,7 +2476,7 @@
           "id": "release-current-suite",
           "name": "Current release regression suite",
           "status": "locally-tested",
-          "current": "Final 65c95cc1 Linux CI passed 1,405 application cases (549 library / 394 GPUI / 462 integration); Windows passed 1,387 (534 / 392 / 461). Both had zero failures and four ignored. Full editing/Create/templates/motion/media/recovery and notice gates passed. Separate dependency-helper tests are excluded from core counts. Earlier local 8f72ce5c passed 1,405; published 0.8 passed 1,352 and 0.7 passed 1,206, each with its own evidence.",
+          "current": "Exact e72bccdc validation 38130013300 passed: 1,599 Linux reported application passes (563 library, 454 GPUI, 582 integration) and 1,581 Windows (548, 452, 581), zero failures and five ignored per platform. Three external RAW and two external PSD cases return early without their optional fixtures, separate from ignored benchmarks. Editing, retained layout, Create/motion, 80 template variants, media/recovery and dependency notices passed. Twenty dependency-helper Rust cases per platform are separate from core totals.",
           "boundary": "Clean-machine installation, broad hardware/accessibility acceptance and live-provider quality remain outside this suite. The AI gallery view was offline and sent no request.",
           "evidence": [
             "docs/release-060-qualification.md",
@@ -2489,7 +2499,8 @@
             "docs/ai-claude-qualification.md",
             "docs/release-080-qualification.md",
             "docs/release-090-qualification.md",
-            "docs/release-090-receipts.json"
+            "docs/release-090-receipts.json",
+            "docs/release-0110-qualification.md"
           ],
           "modules": [
             "scripts/test-rust.sh",
@@ -2502,12 +2513,13 @@
           "id": "release-legal",
           "name": "Dependency notices and embedded-profile provenance",
           "status": "locally-tested",
-          "current": "Unresolved hexf-parse/mac dependencies were replaced with tested local compatible implementations. Exact eb558dc Linux and Windows package inventories report zero notice findings, with 619 and 421 dependency entries. Exact svg2pdf ICC CC0 notice is retained; earlier 73a2d6b inventory counts remain historical.",
+          "current": "Exact e72bccdc Linux and Windows archive inventories have 621 and 423 dependency entries and zero notice findings. Byte-verified notice provenance and tested local dependency replacements remain included.",
           "boundary": "The final native package jobs regenerated and verified notices for their exact source and target. This is documented provenance/inventory evidence, not a legal opinion.",
           "evidence": [
             "docs/rust-license-findings.md",
             "docs/public-release-readiness.md",
-            "docs/release-080-qualification.md"
+            "docs/release-080-qualification.md",
+            "docs/release-0110-qualification.md"
           ],
           "modules": [
             "scripts/rust-license-inventory.py",
@@ -2518,8 +2530,8 @@
           "id": "release-ci-github",
           "name": "Published source and Linux/Windows CI",
           "status": "locally-tested",
-          "current": "Published runtime 65c95cc165f9d730a9f0bcea51c51a84cf4adb7e passed complete validation 37207585304 and download build 37207585335, attempt 1. Linux 1,405 / Windows 1,387 application tests passed, four ignored each; complete journeys and notice gates passed. Source publisher 37209968347 and download publisher 37210058961 completed; exact tag, notes and four permanent assets were verified. Historical 0.8 CI remains in its immutable record.",
-          "boundary": "Both exact-source workflows and publication are complete. Interactive Windows/live AI, clean-machine, mixed-DPI and broader hardware acceptance remain outside this prerelease's evidence.",
+          "current": "Exact e72bccdc validation 38130013300 passed: 1,599 Linux reported application passes (563 library, 454 GPUI, 582 integration) and 1,581 Windows (548, 452, 581), zero failures and five ignored per platform. Three external RAW and two external PSD cases return early without their optional fixtures, separate from ignored benchmarks. Editing, retained layout, Create/motion, 80 template variants, media/recovery and dependency notices passed. Twenty dependency-helper Rust cases per platform are separate from core totals. Reviewed build 38130013292 attempt 1 binds both archives to e72bccdc. Both passed integrity and native runner smoke; inventories contain 621 Linux and 423 Windows dependencies with zero notice findings. Linux host smoke and 24 scripted checks on each Wayland/XWayland passed. Cua checked layout actions, immediate Undo, settings/Escape and local AI comparisons/draft preservation; no provider requests.",
+          "boundary": "Both exact-source attempt-1 workflows succeeded. Public source/download publication and anonymous readback are pending; interactive Windows, live AI, clean-machine and broader hardware are separate gates.",
           "evidence": [
             "docs/release-060-qualification.md",
             "docs/release-070-qualification.md",
@@ -2540,7 +2552,8 @@
             "docs/release-080-receipts.json",
             "docs/releases/downloads/v0.8.0.json",
             "docs/release-090-qualification.md",
-            "docs/release-090-receipts.json"
+            "docs/release-090-receipts.json",
+            "docs/release-0110-qualification.md"
           ],
           "modules": [
             ".github/workflows/rust-validation.yml",
@@ -2551,8 +2564,8 @@
           "id": "release-artifact",
           "name": "Clean install and release identity",
           "status": "blocked-deferred",
-          "current": "The normal launcher selects 0.9.0 source 65c95cc165f9d730a9f0bcea51c51a84cf4adb7e with binary SHA-256 da39ef88d0c6f08074051784974668841e62a2ac9c56c527b73c9ba4685e4ec6. All 22 files of prior 0.8 remained exact; profile/settings bytes were preserved. Its installed-launcher native journey passed 24 checks with an isolated profile.",
-          "boundary": "The same qualified runtime is selected by the public source installer, published tag and verified archives. These receipts do not close clean-machine, broader hardware/accessibility or live Windows AI gates.",
+          "current": "Normal Omuse is 0.11.0 source e72bccdcef066cb6ab60a99faa9d7609de86c2e4, binary SHA-256 8ae84dd9e2f6b940fe4e77d8599a251f0fdbb5788455ed2b289470046ccf1af2. All 35 installed files match the reviewed generation. Previous 35-file and older 22-file generations, four config files and 620 data files remain unchanged. Installed Wayland passed 24 native checks in an isolated profile.",
+          "boundary": "Exact installed-package evidence does not close clean-machine, broad hardware/accessibility or live Windows AI gates.",
           "evidence": [
             "docs/release-070-qualification.md",
             "docs/release-070-receipts.json",
@@ -2572,7 +2585,8 @@
             "docs/release-080-receipts.json",
             "docs/releases/downloads/v0.8.0.json",
             "docs/release-090-qualification.md",
-            "docs/release-090-receipts.json"
+            "docs/release-090-receipts.json",
+            "docs/release-0110-qualification.md"
           ],
           "modules": [
             "scripts/package-rust.sh",
@@ -2625,8 +2639,8 @@
           "id": "release-user-manual",
           "name": "User manual and common workflows",
           "status": "locally-tested",
-          "current": "The illustrated 0.7.0 manual covers first edits, local/AI object removal, crop/zoom, layer copying, photo adjustments, imports, masks, integrated vector points/curves, local Image Trace, colour uniformity, social pages, motion, export and troubleshooting. Current production screenshots sit beside the steps they explain; the AI capture is explicitly offline. The README links a new two-minute film with four photo comparisons exported by 0.7.0, all ten interface views, native motion, chapter markers, WebVTT captions and retained credited music.",
-          "boundary": "The film uses editorial animation around actual captures and native exports. Its AI segment is offline, with no new provider request. Procedural documentation and promotional media do not qualify every photographic outcome, provider account or hardware setup.",
+          "current": "The manual now covers Omuse 0.11 canvas actions, retained layout and AI comparison/composer controls, with three actual final-package screenshots and format-15 compatibility steps. Existing photo, vector, retouch, Create/export and shortcut guides remain available. The README film remains the separately identified historical 0.7.0 production.",
+          "boundary": "Screenshots show local synthetic artwork and AI review fixtures. Documentation and historical promotional media do not qualify live provider access, photographic quality or broader hardware.",
           "evidence": [
             "docs/user-guide/README.md",
             "docs/user-guide/remove-objects.md",
@@ -2638,7 +2652,8 @@
             "docs/user-guide/photo-vector.md",
             "docs/releases/v0.7.0-gallery.md",
             "docs/media/omuse-0.7.0-studio-film.md",
-            "docs/media/omuse-0.7.0-studio-film-receipt.json"
+            "docs/media/omuse-0.7.0-studio-film-receipt.json",
+            "docs/release-0110-qualification.md"
           ],
           "modules": [
             "rust/src/shortcuts.rs",
@@ -2702,8 +2717,8 @@
           "id": "release-versioned-downloads",
           "name": "Permanent Linux and Windows preview downloads",
           "status": "locally-tested",
-          "current": "Omuse 0.9 has four permanent assets: Linux archive, unsigned Windows ZIP, SHA256SUMS and reviewed manifest. Download publication 37210058961 succeeded. All four anonymous downloads matched declared sizes and SHA-256; manifest bytes, source tag and notes stayed exact. Previous 0.8 was unchanged.",
-          "boundary": "Final archives passed native package smoke, Linux host repeat and cross-version compatibility; permanent publication and anonymous verification are now complete. Windows desktop/live AI and broader hardware remain separate gates.",
+          "current": "Both 0.11 candidate archives and the canonical generated manifest passed review. Permanent source/asset publication is in progress; check the qualification record for availability. Earlier releases are preserved.",
+          "boundary": "Unsigned experimental packages; Windows desktop, mixed-DPI and live-provider qualification remain separate.",
           "evidence": [
             "docs/downloadable-releases.md",
             "docs/release-080-qualification.md",
@@ -2711,7 +2726,9 @@
             "docs/public-release-readiness.md",
             "docs/release-090-qualification.md",
             "docs/release-090-receipts.json",
-            "docs/releases/downloads/v0.9.0.json"
+            "docs/releases/downloads/v0.9.0.json",
+            "docs/release-0110-qualification.md",
+            "docs/releases/downloads/v0.11.0.json"
           ],
           "modules": [
             "scripts/release-downloads.py",

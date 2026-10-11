@@ -1,8 +1,8 @@
 # Omuse user manual
 
 **Make, retouch and finish images on Linux.** This manual describes Omuse
-0.10.0 for Arch/Omarchy x86_64: photo editing, editable vectors, Shape Builder,
-Photoshop exchange, Create and optional AI workflows. Windows packages remain
+0.11.0 for Arch/Omarchy x86_64: photo editing, editable vectors, Shape Builder,
+Photoshop exchange, retained layout, Create and optional AI workflows. Windows packages remain
 unsigned experimental with separate desktop and live AI limits. Start with a
 photo, keep an editable project, and export a copy when it is ready.
 
@@ -14,13 +14,14 @@ Start with the [illustrated 0.10 photo and vector guide](photo-vector-developmen
 for Shape Builder, curve finishing, precise snapping, editable repeats and PSD
 exchange. The [photo chapter](photo-editing.md) covers background retouch, quick
 previews and optional Texture removal; [Create](create-content.md) covers
-targeted page revisions. See [release qualification](../release-0100-qualification.md)
+targeted page revisions. See [release qualification](../release-0110-qualification.md)
 and [installation options](../install.md) for exact availability and limits.
 Earlier [retouch and canvas controls](retouch-and-controls.md) remain documented.
 
-Working from the development branch after 0.10.0? See
-[canvas actions, retained layout frames and AI comparisons](canvas-workflows.md).
-That chapter marks unreleased features and their compatibility limits separately.
+New in 0.11: [canvas actions, retained layout frames and AI comparisons](canvas-workflows.md).
+The illustrated chapter explains the controls and compatibility limits. Projects
+with retained layout require format 15 and cannot open in 0.10 or older. Keep the
+retained master; Release rules and Save As a separate copy for backward use.
 
 Prefer a quick overview? [Watch the two-minute 0.7.0 studio film](../media/omuse-0.7.0-studio-film.md),
 then follow the illustrated workflows below.
@@ -139,6 +140,12 @@ Omuse **0.10** also introduces versioned Texture removal and Camera Raw
 tone recipes. Older builds can reject a project containing a recipe they do not
 understand. Preserve an editable original; rasterize a separate copy in the
 newer build before backward editing. [Compatibility details](photo-vector-development.md#keep-a-compatible-original).
+
+Omuse **0.11** writes **format 15** when retained layout rules are present,
+including photo-only frames. Omuse 0.10 and older refuse these projects. Keep
+the retained master, then choose **Auto layout → Release rules** and **Save As**
+a separate copy in 0.11 for older use. That copy retains the arranged content
+and its remaining features' format requirements.
 
 ## AI is optional
 

@@ -6,7 +6,7 @@ whole directory. Readers identify the contents, not just the filename suffix.
 
 | Package | Manifest | Current write version |
 | --- | --- | --- |
-| Single canvas | `manifest.json`, `com.compositor.project` | 10 |
+| Single canvas | `manifest.json`, `com.compositor.project` | 10–15, according to retained features |
 | Create collection | `project.json`, `com.omuse.create-project` | 2 |
 
 The save dialog adds `.omuse` automatically. An entered `.comp` suffix becomes
@@ -37,15 +37,16 @@ CLI export and batch recipes use a collection's saved active page. Use Create's
 content-pack export for multiple pages. The document manifest identifier remains
 unchanged for compatibility; the public product and filename are Omuse.
 
-## Single-canvas document schema, versions 1–10
+## Single-canvas document schema, versions 1–15
 
 A canvas package contains `manifest.json` and an `images/` directory of
 `<layer UUID>.png` assets. Omuse reads and writes the JSON manifest and asset
 layout through its native Rust document layer.
 
 The manifest retains the legacy `com.compositor.project` identifier for wire
-compatibility. Omuse writes version `10` for new saves (versions `1`–`9` remain
-readable) and records the sRGB working space. It stores document UUID, pixel
+compatibility. Omuse writes version `10` for ordinary canvases, `11`–`14` for
+vector scenes and `15` for retained layout. Versions `1`–`15` remain readable
+subject to feature validation. It records the sRGB working space, document UUID, pixel
 dimensions, active layer UUID, and layers in bottom-to-top order. Each layer
 stores its UUID, name, visibility, transform (origin, size, clockwise rotation,
 flips, sampling), and optional image filename. Blank layers have no image
@@ -129,7 +130,28 @@ An optional `effects` record contains independent `stroke`, `shadow`, `colorOver
 | 6 | Folder masks |
 | 7 | Adjustment layers |
 | 8 | Document guides and pass-through group opacity |
-| 9 | Current writer baseline; full feature validation still applies |
+| 9 | Earlier writer baseline; full feature validation still applies |
+| 10 | Explicit mask outside coverage; ordinary-canvas writer baseline |
+| 11 | Flat legacy editable vector scenes |
+| 12 | Grouped editable vector scenes |
+| 13 | Gradient and advanced-stroke vector styles |
+| 14 | Editable text on vector curves |
+| 15 | Retained auto-layout frames and members |
+
+Retained layout selects version 15 even when a frame contains only raster
+photos. Its rules and member sizing survive saves together with editable
+source layers. The reader validates the settled layout before accepting the
+document; inconsistent or unsupported relationships are refused. This version
+gate prevents older readers from silently discarding the layout rules.
+
+**Omuse 0.10 and older refuse format 15.** Keep the retained master. In 0.11 or
+later, choose **Auto layout → Release rules**, then **Save As** a separate
+project for backward editing. The writer selects the format required by the
+remaining content; a curved-text scene still needs 14, for example. Exported
+images are flattened derivatives. Reinstalling an older application never
+converts a project automatically. See the
+[illustrated layout guide](user-guide/canvas-workflows.md) for supported members,
+work limits and edit restrictions.
 
 Omuse's Rust reader, writer and validation live in `rust/src/document.rs`, with
 round-trip coverage under `rust/tests/`. Run `scripts/test-rust.sh` for the

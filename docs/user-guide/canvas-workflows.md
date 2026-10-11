@@ -1,11 +1,11 @@
 # Canvas actions, layout frames and AI comparisons
 
 [User manual](README.md) · [All shortcuts](../keyboard-shortcuts.md) ·
-[Development evidence](../canvas-workflows-qualification.md)
+[Release evidence](../release-0110-qualification.md)
 
-**Development branch after 0.10.0.** These controls are not yet in the published
-0.10.0 downloads. They use the same canvas, layers, Omarchy theme and Undo
-history as the rest of Omuse.
+**New in Omuse 0.11.0.** These controls use the same canvas, layers, Omarchy
+theme and Undo history as the rest of Omuse. Retained layout requires a newer
+project format; keep a separate copy before adding rules to an older project.
 
 ## Reach the right action from the canvas
 
@@ -31,7 +31,7 @@ Choose **×** to hide the bar. To restore it, press **Ctrl+K**, search **Canvas
 actions**, then press **Enter**. This view preference is saved for your user.
 Shortcut tooltips follow your customised bindings.
 
-![Contextual actions for a selected layout frame](images/canvas-workflows-context.png)
+![Contextual actions for a selected layout frame](../releases/images/v0.11.0/01-canvas-layout.png)
 
 ## Keep spacing consistent with an auto-layout frame
 
@@ -45,7 +45,7 @@ Shortcut tooltips follow your customised bindings.
 5. Choose **Apply layout**. The layers become children of a retained frame.
    **Ctrl+Z** restores the complete operation in one step.
 
-![Auto-layout controls in the native Omuse window](images/canvas-workflows-layout.png)
+![Auto-layout controls in the native Omuse window](../releases/images/v0.11.0/02-layout-settings.png)
 
 The rules remain in the `.omuse` project. Text edits, layer visibility and
 stack order can reflow the frame in the same Undo step as the original edit.
@@ -130,8 +130,8 @@ and references for later. The prompt stays open while you are typing, and
 active requests retain their progress and **Stop** controls. **Ctrl+Enter**
 only submits from the focused prompt; a collapsed draft is not sent.
 
-![Local synthetic fixture comparing two saved variations](images/canvas-workflows-ai.png)
+![Local synthetic fixture comparing two saved variations](../releases/images/v0.11.0/03-ai-comparison.png)
 
-These screenshots show the development Linux build. The AI example uses local
+These screenshots show the exact 0.11.0 Linux release package on Omarchy/XWayland. The AI example uses local
 synthetic results to demonstrate review controls; it is not a generated-photo
 quality example or evidence of a connected provider.

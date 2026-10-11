@@ -1,9 +1,72 @@
 # Public release readiness
 
-**4 October 2026: Omuse 0.9.0 is published as a source prerelease with verified
-Linux and unsigned experimental Windows downloads. The curl installer selects
-tested source `65c95cc1`; the normal app is verified at 0.9.0 with its complete
-0.8.0 rollback preserved. Broader stable-release gates remain open.**
+**11 October 2026: Omuse 0.11.0 has qualified Linux and Windows source builds,
+reviewed archives and a verified normal Omarchy installation. Public release
+publication is being verified; the prepared source installer selects the exact
+0.11.0 runtime. Windows remains unsigned experimental, and broader stable-release
+gates remain open.**
+
+The [0.11 release qualification](release-0110-qualification.md) tracks exact
+versioned-source validation, package review, local installation and publication.
+Contextual canvas actions, retained auto-layout and AI comparisons are implemented;
+the [illustrated guide](user-guide/canvas-workflows.md) shows their controls and
+limits. Exact public source `e72bccdc` passed
+[validation 38130013300](https://github.com/Sugata-Software/Omuse/actions/runs/38130013300)
+and [package build 38130013292](https://github.com/Sugata-Software/Omuse/actions/runs/38130013292)
+on their first attempts. Linux reported 1,599 application passes and Windows
+1,581, with zero failures and five ignored per platform. Three
+external RAW and two external PSD cases returned early without configured
+fixtures; they are separate from the ignored benchmarks. Both archive reviews,
+Linux host smoke, 24 scripted checks on each Linux backend, foreground XWayland
+layout/AI interaction, both platforms' acceptance journeys and actual-package
+rollback passed. Public publication remains pending. The
+normal installation's launcher/source/binary and complete 35-file payload are
+verified at 0.11.0, with both prior generations and profile bytes preserved;
+its isolated-profile Wayland journey passed all 24 native checks. These final
+release results remain distinct from the earlier
+[development qualification](canvas-workflows-qualification.md); AI review uses
+local fixtures and establishes no new provider access.
+
+Retained-layout projects require native format 15. Omuse 0.10.0 and older refuse
+them. Keep the retained master, Release rules in the newer app and Save As a
+separate copy before older editing. Other features retain their own format
+requirements. Rolling back an application does not downgrade a project.
+
+## Published 0.10.0 — preserved record
+
+The [0.10 release](https://github.com/Sugata-Software/Omuse/releases/tag/v0.10.0)
+uses public runtime
+[`920ae0fddb9a58ba69526b7e7976b5d770435fd9`](https://github.com/Sugata-Software/Omuse/commit/920ae0fddb9a58ba69526b7e7976b5d770435fd9).
+[Validation 38097640432](https://github.com/Sugata-Software/Omuse/actions/runs/38097640432)
+and [download build 38097640470](https://github.com/Sugata-Software/Omuse/actions/runs/38097640470)
+passed. The final application suites reported 1,554 Linux and 1,536 Windows
+passes, with zero failures and five ignored per platform; optional unconfigured
+external-fixture tests do not establish fresh external-file execution.
+
+[Source publication 38099819987](https://github.com/Sugata-Software/Omuse/actions/runs/38099819987)
+and [download publication 38099884639](https://github.com/Sugata-Software/Omuse/actions/runs/38099884639)
+succeeded. All four public assets matched their reviewed sizes and SHA-256
+hashes through anonymous downloads. The
+[download manifest](releases/downloads/v0.10.0.json) and
+[release qualification](release-0100-qualification.md) preserve exact identities,
+native package checks and the installed Linux source. The curl installer
+selected that tested runtime at the 0.10 checkpoint. The installation retained its previous
+complete generations; the actual published 0.9 → 0.10 → rollback → forward
+journey passed four editing self-tests, 43 pixel-equal exports and four expected
+old-reader refusals.
+
+Shape Builder, path finishing, converted PSD exchange, responsive photo preview
+and background retouch have bounded qualification. Texture removal remains
+experimental, and Photoshop/Affinity visual acceptance, interactive Windows,
+clean-machine, broad hardware and live-provider checks remain separate.
+These 0.10 results are not reused as proof of the 0.11 release.
+
+## Previous 0.9.0 publication — historical record
+
+**4 October 2026:** Omuse 0.9.0 was published as a source prerelease with verified
+Linux and unsigned experimental Windows downloads. At that checkpoint the curl
+installer selected tested source `65c95cc1`, and the normal app was verified at
+0.9.0 with its complete 0.8.0 rollback preserved.
 
 The [0.9 release](https://github.com/Sugata-Software/Omuse/releases/tag/v0.9.0)
 retains the exact tested source and reviewed notes. [Source publication 37209968347](https://github.com/Sugata-Software/Omuse/actions/runs/37209968347)
@@ -51,7 +114,7 @@ Windows archive was verified on Linux; its automated Windows execution remains
 tied to download run 37161936378. Publication added no local Windows desktop,
 mixed-DPI or live-AI qualification.
 
-## Qualified 0.9.0 source and editing workflows
+## Qualified 0.9.0 source and editing workflows — historical record
 
 The [0.9 release notes](releases/v0.9.0.md) and
 [illustrated guide](user-guide/retouch-and-controls.md) cover native-resolution
@@ -90,16 +153,19 @@ its suites and native controls but failed real-photo removal review; that
 quality finding blocked it and led to the current context-guided algorithm.
 Its historical checks are not relabeled as final-source results.
 
-## Current installation and compatibility
+## Recorded 0.9.0 installation and compatibility
 
-The normal development-host launcher is now verified at **0.9.0**, exact source
+At the 0.9.0 checkpoint, the normal development-host launcher was verified at
+**0.9.0**, exact source
 `65c95cc165f9d730a9f0bcea51c51a84cf4adb7e`, with binary SHA-256
 `da39ef88d0c6f08074051784974668841e62a2ac9c56c527b73c9ba4685e4ec6`.
 All **22 files** from its prior 0.8.0 generation and profile/settings bytes were
 preserved. The installed launcher passed **24 native checks** in an isolated
-profile. The public curl installer and latest declaration select this same tested
-source; the numbered prerelease and all four permanent download assets are
-published and verified. Installation and publication retain separate receipts.
+profile. The public curl installer and latest declaration then selected this
+same tested source; the numbered prerelease and all four permanent download
+assets were published and verified. Installation and publication retain
+separate receipts. This historical installation identity does not describe the
+current 0.11.0 development-host installation.
 
 New controlled-removal recipes use **ContextualV1**; absent algorithm fields
 retain **Legacy** behavior. **0.8 can display cached new results, but editing or
@@ -174,17 +240,20 @@ physical input support, all advertised provider operations or Linux portability.
 The [one-command installer](install.md) builds a tested Omuse revision locally on
 Arch/Omarchy, with dependency setup, verified optional assets and complete
 installation rollback. The active tree contains Linux Omuse; old platform
-implementations remain in Git history with attribution. The 0.8.0 source
-release and its reviewed prebuilt archives are published.
+implementations remain in Git history with attribution. The 0.10.0 source
+release and its reviewed prebuilt archives remain available; 0.11.0 qualification
+and publication are tracked separately above.
 
 ## Downloadable prerelease and remaining release gates
 
 | Gate | Current state | Completion evidence |
 | --- | --- | --- |
-| Current 0.9 publication | Exact-source validation 37207585304 and download build 37207585335 passed; source publisher 37209968347 and download publisher 37210058961 succeeded. Four permanent assets matched anonymous size/hash checks. | Completed for this unsigned prerelease; broad portability and stable-release gates remain open |
-| Clean CI build and publication | Runtime `eb558dc` validation [37161936414](https://github.com/Sugata-Software/Omuse/actions/runs/37161936414), download build [37161936378](https://github.com/Sugata-Software/Omuse/actions/runs/37161936378) and publication [37200321434](https://github.com/Sugata-Software/Omuse/actions/runs/37200321434) succeeded; all four permanent assets passed anonymous size/hash verification | Completed for 0.8.0; every later candidate needs its own exact-source evidence and reviewed publication |
-| Dependency legal texts | Candidate Linux and Windows package inventories report zero notice findings, with 619 and 421 dependency entries | Retain the exact candidate inventory and notice review; see the [notice review](rust-license-findings.md) |
-| Recorded release identity | Published tag `v0.8.0` identifies exact runtime `eb558dc`; clean CI builds and reviewed archive/binary/inventory hashes are recorded in the [download manifest](releases/downloads/v0.8.0.json) and [release receipt](release-080-receipts.json); publication left tag and notes unchanged | Preserve the immutable release identity; independent bit-for-bit build reproducibility is not established |
+| 0.11 publication | Exact-source validation and package builds passed on attempt 1. Linux/Windows reported 1,599/1,581 application passes, with documented external-fixture early returns. Archive reviews, Linux native checks, cross-version rollback and normal host installation passed. Public publication is being verified. | Local installation and the prepared installer select 0.11.0; publication receipts are recorded separately in the [0.11 qualification](release-0110-qualification.md) |
+| Historical 0.10 publication | Exact-source validation 38097640432 and download build 38097640470 passed; source publisher 38099819987 and download publisher 38099884639 succeeded. Four assets matched anonymous size/hash checks; exact Linux package installation and rollback were verified. | Preserved 0.10 source-prerelease evidence; broad portability and stable-release gates remain open |
+| Historical 0.9 publication | Exact-source validation 37207585304 and download build 37207585335 passed; source publisher 37209968347 and download publisher 37210058961 succeeded. Four permanent assets matched anonymous size/hash checks. | Preserved 0.9 evidence; not candidate qualification |
+| Historical 0.8 clean CI and publication | Runtime `eb558dc` validation [37161936414](https://github.com/Sugata-Software/Omuse/actions/runs/37161936414), download build [37161936378](https://github.com/Sugata-Software/Omuse/actions/runs/37161936378) and publication [37200321434](https://github.com/Sugata-Software/Omuse/actions/runs/37200321434) succeeded; all four permanent assets passed anonymous size/hash verification | Completed for 0.8.0; every later candidate needs its own exact-source evidence and reviewed publication |
+| Dependency legal texts | Reviewed 0.11 Linux and Windows package inventories report zero findings, with 621 and 423 dependency entries. Historical 0.10 counts are also 621/423; 0.8 counts remain 619/421. | Retain each candidate's exact inventory and notice review; see [0.11 qualification](release-0110-qualification.md) and the [earlier notice review](rust-license-findings.md) |
+| Recorded release identity | Qualified 0.11 source is `e72bccdc`; its [download manifest](releases/downloads/v0.11.0.json) records exact archive/binary/inventory hashes. Prior published identities remain in the [0.10 manifest](releases/downloads/v0.10.0.json), [0.8 manifest](releases/downloads/v0.8.0.json) and [receipt](release-080-receipts.json). | Verify the public 0.11 tag and preserve immutable tags, notes and assets; independent bit-for-bit build reproducibility is not established |
 | Clean target installation | Passed only on the development host | Install, launch, upgrade and rollback on a clean supported Arch/Omarchy system |
 | Physical desktop acceptance | Native in-process journeys pass; bounded Cua foreground XWayland Camera Raw and Subject Refine Apply/Undo/Redo checks passed | Broader foreground keyboard/pointer, clipboard, file dialogs and supported display/DPI configurations |
 | Feature claims | Local editor and selected Codex journeys have evidence | Each advertised AI operation has its own acceptance receipt; unqualified routes remain unavailable or explicitly experimental |

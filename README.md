@@ -10,23 +10,23 @@
 
 **Built for Omarchy and Arch Linux, with an experimental Windows build.**
 The Linux installer builds the tested source release and adds **Omuse** to your
-application launcher. Windows x64 users can download a portable development ZIP.
+application launcher. Reviewed Linux bundles and a portable Windows x64 ZIP
+are also available; Windows remains unsigned experimental.
 
 **[Install on Linux](#linux)** · **[Download for Windows](#windows-experimental)**
 
-**Current source pre-release: [0.10.0 — Shape your next idea](https://github.com/Sugata-Software/Omuse/releases/tag/v0.10.0)**
-— build shapes by dragging, refine curves, repeat editable motifs and exchange
-Photoshop files. Background retouch and quick photo previews support more
-responsive editing; Texture removal remains experimental.
-[Explore what’s new](#new-in-0100) ·
-[Follow the illustrated guide](docs/user-guide/photo-vector-development.md).
+**Current source pre-release: [0.11.0 — A clearer canvas](docs/releases/v0.11.0.md)**
+— contextual canvas controls, retained layout frames and clearer AI comparisons.
+Exact-source Linux and Windows validation, reviewed archives and the normal
+Omarchy installation have passed qualification.
+[Explore what’s new](#new-in-0110) ·
+[Follow the illustrated guide](docs/user-guide/canvas-workflows.md).
 
-**Linux and Windows downloads are available** on the
-[0.10 release page](https://github.com/Sugata-Software/Omuse/releases/tag/v0.10.0),
-with reviewed checksums. Windows remains unsigned experimental.
-
-The curl installer builds the tested source revision.
-[Qualification and limits](docs/release-0100-qualification.md) record the supported scope.
+**Permanent download publication is in progress.** Linux and unsigned
+experimental Windows bundles will be available on the
+[0.11 release page](https://github.com/Sugata-Software/Omuse/releases/tag/v0.11.0).
+[Qualification and availability](docs/release-0110-qualification.md) distinguish
+reviewed artifacts from verified public downloads.
 
 **[Read the user manual](docs/user-guide/README.md)** ·
 [Edit a photo](docs/user-guide/photo-editing.md) ·
@@ -88,18 +88,20 @@ The installer sets up dependencies, builds Omuse, verifies the editor and
 installs it for your user. Camera RAW and local subject-selection assets are
 included. It asks for your password only if system packages need installing.
 Run the command as your normal desktop user; do not prefix it with `sudo`.
-The installer pins the [tested application revision](docs/install.md#tested-source-channel);
+The installer pins the [tested 0.11.0 application revision](docs/install.md#tested-source-channel);
 application changes on `main` are built only after that pin advances. The installer
 script itself is downloaded from `main`.
 
 **The current installer builds from source.** Allow time for the first build
 and about 12 GB of free disk space. Later installs reuse the build cache.
-The [reviewed Linux archive](https://github.com/Sugata-Software/Omuse/releases/download/v0.10.0/omuse-0.10.0-linux-x86_64.tar.gz)
-and [checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.10.0/omuse-0.10.0-SHA256SUMS)
-are available now. See the
-[archive installation guide](docs/downloadable-releases.md).
-The curl command remains the source installer.
-You can [inspect it](install.sh) before running it.
+For an already-built application, use the
+[reviewed Linux archive](https://github.com/Sugata-Software/Omuse/releases/download/v0.11.0/omuse-0.11.0-linux-x86_64.tar.gz)
+and [checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.11.0/omuse-0.11.0-SHA256SUMS)
+with the [archive installation guide](docs/downloadable-releases.md).
+Permanent archive publication is still being verified; see
+[release availability](docs/release-0110-qualification.md).
+The curl command uses the source-build path; you can
+[inspect it](install.sh) before running it.
 
 | Task | Command |
 | --- | --- |
@@ -116,21 +118,22 @@ and troubleshooting.
 
 ### Windows (experimental)
 
-**[Download the Windows x64 ZIP](https://github.com/Sugata-Software/Omuse/releases/download/v0.10.0/omuse-0.10.0-windows-x86_64.zip)** ·
-[Checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.10.0/omuse-0.10.0-SHA256SUMS) ·
-[Release notes](docs/releases/v0.10.0.md)
+**[Download the Windows x64 ZIP](https://github.com/Sugata-Software/Omuse/releases/download/v0.11.0/omuse-0.11.0-windows-x86_64.zip)** ·
+[Checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.11.0/omuse-0.11.0-SHA256SUMS) ·
+[Release notes](docs/releases/v0.11.0.md)
 
-The portable **Windows x64** preview needs neither Rust nor Visual Studio.
-The 0.10.0 package passed automated Windows checks; interactive
-Windows 10/11 qualification is still separate.
+The portable **Windows x64** application needs neither Rust nor Visual Studio.
+The 0.11.0 package passed automated Windows checks; interactive
+Windows 10/11 qualification is still separate. Permanent download publication
+is in progress; [check availability](docs/release-0110-qualification.md).
 
-1. Download [omuse-0.10.0-windows-x86_64.zip](https://github.com/Sugata-Software/Omuse/releases/download/v0.10.0/omuse-0.10.0-windows-x86_64.zip)
-   and verify it against the [checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.10.0/omuse-0.10.0-SHA256SUMS).
+1. Download [omuse-0.11.0-windows-x86_64.zip](https://github.com/Sugata-Software/Omuse/releases/download/v0.11.0/omuse-0.11.0-windows-x86_64.zip)
+   and verify it against the [checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.11.0/omuse-0.11.0-SHA256SUMS).
 2. Extract the complete ZIP into a new folder.
 3. Run **omuse.exe**, keeping **lib**, **models** and **licenses** alongside it.
 
 To update, keep the old complete folder, close the old app and launch the new
-folder’s executable. The [reviewed manifest](docs/releases/downloads/v0.10.0.json)
+folder’s executable. The [reviewed manifest](docs/releases/downloads/v0.11.0.json)
 records the source, native checks and archive hashes.
 
 Photo editing and Camera RAW are included. These features have extra requirements:
@@ -144,11 +147,53 @@ Photo editing and Camera RAW are included. These features have extra requirement
 The Windows ZIP is **experimental and unsigned**, so SmartScreen may show a
 warning. Live Windows AI generation/editing and clean-machine acceptance remain
 unqualified; detecting a signed-in CLI does not establish that an AI task works.
-The 0.10.0 package includes reviewed dependency notices. See the
+The 0.11.0 package includes reviewed dependency notices. See the
 [Windows build notes](rust/README.md#build-on-windows-in-development) for
 connection requirements and known limits.
 
 ## Highlights
+
+### New in 0.11.0
+
+Keep the next action close to your artwork, keep spacing consistent as content
+changes, and compare proposals before committing them. These controls share the
+existing canvas, Omarchy theme and Undo history.
+
+| Workflow | What changes |
+| --- | --- |
+| **Act from the canvas** | Select Move and a layer to reach relevant photo, text, vector or selection actions from a compact dock. Hide it when you want space; restore it with **Ctrl+K → Canvas actions**. [Canvas actions](docs/user-guide/canvas-workflows.md#reach-the-right-action-from-the-canvas). |
+| **Keep an editable arrangement** | Retain horizontal or vertical flow, gap, padding, alignment and sizing in a layout frame. Supported content edits reflow with the same Undo step. Release rules to keep the arrangement and resume ordinary positioning. [Auto layout](docs/user-guide/canvas-workflows.md#keep-spacing-consistent-with-an-auto-layout-frame). |
+| **Compare AI variations** | Review Before / After, enlarge either preview or highlight Changes. Pin one retained variation to compare another, then return to the original. Comparison makes no provider request. [AI review](docs/user-guide/canvas-workflows.md#compare-an-ai-proposal-before-keeping-it). |
+| **Keep your prompt and your space** | Completed reviews use a compact composer footer. Refine or reopen your saved draft and references when ready; active work retains progress and Stop. Rectangular previews keep their proportions. |
+| **Continue with the keyboard** | Context actions restore canvas focus before handing control to an editor or dialog. Ungroup and Hide leave ordinary Undo available; collapsed AI drafts cannot submit through Ctrl+Enter. |
+
+![Contextual canvas controls around an editable retained layout](docs/releases/images/v0.11.0/01-canvas-layout.png)
+
+![Proportional AI variation previews and compact review controls](docs/releases/images/v0.11.0/03-ai-comparison.png)
+
+*Actual packaged Omuse 0.11.0 on Linux/XWayland, source `e72bccdc`.
+The AI image pair is a local synthetic fixture, not a provider-generated photo.
+[Capture provenance](docs/releases/images/v0.11.0/README.md) ·
+[Illustrated workflow](docs/user-guide/canvas-workflows.md).*
+
+**Keep a separate master when trying retained layout.** Layout rules require
+native project format 15, which Omuse 0.10.0 and older refuse. Release rules in
+the newer editor and Save As a separate copy for older editing; other features
+retain their own compatibility limits. An application rollback does not
+downgrade artwork. Layout supports direct unrotated leaf layers, not nested
+frames; Fill scales editable text instead of rewrapping it.
+
+The [0.11 release record](docs/release-0110-qualification.md) records 1,599 Linux
+and 1,581 Windows reported application passes, reviewed archives and 24 native
+checks on each Linux backend. Foreground XWayland interaction
+covered layout and AI review; actual-package rollback and format-15 compatibility
+also passed. The normal Omarchy host installation is verified at 0.11.0;
+Linux and Windows workflows both completed successfully. Permanent download
+publication is tracked separately. Five optional external RAW/PSD cases returned early
+without configured fixtures, separately from five ignored benchmarks. These
+checks do not establish new live-provider access or a performance guarantee; the earlier
+[development checkpoint](docs/canvas-workflows-qualification.md) keeps its own
+source identity.
 
 ### New in 0.10.0
 

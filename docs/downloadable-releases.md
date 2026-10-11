@@ -11,7 +11,20 @@ prerequisites for making clearly labeled automated previews downloadable. A
 preview passing these checks must not be described as a stable, signed, or
 generally portable release.
 
-## Current 0.10.0 publication
+## 0.11.0 release qualification
+
+The [0.11 qualification](release-0110-qualification.md) identifies exact source
+`e72bccdcef066cb6ab60a99faa9d7609de86c2e4`, validation
+[38130013300](https://github.com/Sugata-Software/Omuse/actions/runs/38130013300)
+and package build
+[38130013292](https://github.com/Sugata-Software/Omuse/actions/runs/38130013292).
+Both target archives passed integrity, source identity, notices and native
+runner smoke. The Linux package also passed host Wayland/XWayland and
+0.10 → 0.11 → rollback → forward checks. Permanent asset publication is a
+separate step; its completion and anonymous readback are recorded in the
+qualification record before download availability is announced.
+
+## Published 0.10.0 — historical
 
 The [0.10 release](https://github.com/Sugata-Software/Omuse/releases/tag/v0.10.0)
 is published from exact source `920ae0fddb9a58ba69526b7e7976b5d770435fd9`.
@@ -118,10 +131,10 @@ version and its own qualification.
 With an authenticated maintainer CLI that can dispatch Actions, run:
 
 ```sh
-gh workflow run publish-downloads.yml --repo Sugata-Software/Omuse --ref main -f version=0.10.0
+gh workflow run publish-downloads.yml --repo Sugata-Software/Omuse --ref main -f version=0.11.0
 ```
 
-Alternatively, create the branch `publish-downloads/v0.10.0` at the **exact
+Alternatively, create the branch `publish-downloads/v0.11.0` at the **exact
 reviewed public main commit**. This is an explicit publication request, not an
 application development branch. The ordinary GitHub branch API or a normal push
 can create it; no personal token, additional permission grant, or local `gh`
@@ -130,7 +143,7 @@ creation. For example, after reviewing the fetched main commit:
 
 ```sh
 git fetch origin main
-git push origin refs/remotes/origin/main:refs/heads/publish-downloads/v0.10.0
+git push origin refs/remotes/origin/main:refs/heads/publish-downloads/v0.11.0
 ```
 
 Both routes require the workflow commit and checked-out commit to be the exact
