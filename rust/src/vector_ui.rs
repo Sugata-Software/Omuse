@@ -14,10 +14,18 @@ mod scene;
 #[cfg(all(test, feature = "ui-test"))]
 #[path = "vector_tests.rs"]
 mod tests;
+#[path = "vector_builder_ui.rs"]
+mod vector_builder_ui;
 #[path = "vector_canvas_ui.rs"]
 mod vector_canvas;
+#[path = "vector_geometry_ui.rs"]
+mod vector_geometry_ui;
+#[path = "vector_repeat_ui.rs"]
+mod vector_repeat_ui;
 #[path = "vector_selection_ui.rs"]
 mod vector_selection;
+#[path = "vector_snap_ui.rs"]
+mod vector_snap_ui;
 #[path = "vector_style_ui.rs"]
 mod vector_style;
 #[path = "vector_text_ui.rs"]
@@ -58,6 +66,8 @@ pub(super) struct VectorDraft {
     preview_bounds: Rc<Cell<Bounds<Pixels>>>,
     selected: Option<(usize, usize)>,
     drag: Option<VectorDrag>,
+    snap_cache: Option<std::result::Result<omuse::vector_snap::SnapIndex, String>>,
+    snap_indicator: Option<VectorPoint>,
 }
 
 impl VectorDraft {
@@ -68,6 +78,8 @@ impl VectorDraft {
         part: DragPart,
         screen_start: Point<Pixels>,
     ) {
+        self.snap_cache = None;
+        self.snap_indicator = None;
         let Some(original) = self
             .path
             .subpaths
@@ -326,6 +338,8 @@ impl EditorView {
             preview_bounds: Rc::new(Cell::new(Bounds::default())),
             selected: None,
             drag: None,
+            snap_cache: None,
+            snap_indicator: None,
             dimensions: state.source.dimensions(),
             state: Some(state),
             scene: None,
@@ -683,6 +697,9 @@ impl EditorView {
         if self.update_scene_marquee(point, window, cx) {
             return;
         }
+        if self.builder_pointer(point, false, event.modifiers.alt, cx) {
+            return;
+        }
         if let Some(origin) = self
             .vector_draft
             .as_ref()
@@ -703,6 +720,7 @@ impl EditorView {
             }
             return;
         }
+        let point = self.snap_vector_drag_point(point, event.modifiers.shift);
         let Some(draft) = self.vector_draft.as_mut() else {
             return;
         };
@@ -739,12 +757,46 @@ impl EditorView {
 
     pub(in crate::ui) fn vector_up(
         &mut self,
-        _event: &MouseUpEvent,
-        _window: &mut Window,
+        event: &MouseUpEvent,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        let finish_node_drag = self.vector_draft.as_ref().is_some_and(|draft| {
+            draft.drag.as_ref().is_some_and(|drag| {
+                event.position != drag.screen_start
+                    || draft
+                        .path
+                        .subpaths
+                        .get(drag.subpath)
+                        .and_then(|subpath| subpath.anchors.get(drag.anchor))
+                        != Some(&drag.original)
+            })
+        });
+        if finish_node_drag {
+            // Pointer-up can carry a newer position than the last move. Keep
+            // snapping/constraints identical without moving a stationary click.
+            self.vector_move(
+                &MouseMoveEvent {
+                    position: event.position,
+                    pressed_button: Some(event.button),
+                    modifiers: event.modifiers,
+                },
+                window,
+                cx,
+            );
+        }
+        if !self.busy
+            && let Some(point) = self.vector_point(event.position)
+        {
+            self.builder_pointer(point, false, event.modifiers.alt, cx);
+        }
+        if self.finish_builder_gesture(window, cx) {
+            return;
+        }
         if let Some(draft) = self.vector_draft.as_mut() {
             draft.drag = None;
+            draft.snap_cache = None;
+            draft.snap_indicator = None;
             if let Some(scene) = draft.scene.as_mut() {
                 scene.drag_origin = None;
                 scene.marquee = None;
@@ -772,6 +824,69 @@ impl EditorView {
             }
         }
         self.vector_scene_changed(cx);
+        cx.notify();
+    }
+
+    fn vector_topology_action(&mut self, join: bool, cx: &mut Context<Self>) {
+        if self.busy {
+            return;
+        }
+        let result = (|| -> anyhow::Result<VectorPath> {
+            use omuse::vector_edit::{self, Endpoint};
+            let draft = self
+                .vector_draft
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("Open a vector path"))?;
+            anyhow::ensure!(
+                draft
+                    .scene
+                    .as_ref()
+                    .is_none_or(|s| s.artwork.objects[s.active].text_path.is_none()),
+                "Convert text to outlines before editing its nodes"
+            );
+            let (si, ai) = draft
+                .selected
+                .ok_or_else(|| anyhow::anyhow!("Select a node first"))?;
+            if join {
+                let sub = draft
+                    .path
+                    .subpaths
+                    .get(si)
+                    .ok_or_else(|| anyhow::anyhow!("Select an endpoint"))?;
+                anyhow::ensure!(
+                    !sub.closed && (ai == 0 || ai + 1 == sub.anchors.len()),
+                    "Select the first or last node of an open path"
+                );
+                let from = Endpoint {
+                    subpath: si,
+                    last: ai != 0,
+                };
+                vector_edit::join(
+                    &draft.path,
+                    from,
+                    vector_edit::nearest_endpoint(&draft.path, from)?,
+                )
+            } else {
+                vector_edit::split_at(&draft.path, si, ai)
+            }
+        })();
+        match result {
+            Ok(path) => {
+                self.scene_checkpoint();
+                let draft = self.vector_draft.as_mut().unwrap();
+                draft.path = path;
+                draft.selected = None;
+                draft.drag = None;
+                self.vector_scene_changed(cx);
+                self.status = if join {
+                    "Joined nearest endpoints · Existing curves retained · Ctrl+Z to undo"
+                } else {
+                    "Split at node · Existing curves retained · Ctrl+Z to undo"
+                }
+                .into();
+            }
+            Err(error) => self.status = error.to_string(),
+        }
         cx.notify();
     }
 
@@ -1105,6 +1220,28 @@ impl EditorView {
             .flex()
             .flex_wrap()
             .gap_2()
+            .child(
+                button(
+                    "vector-split-node",
+                    "Split at node",
+                    ButtonVariant::Outline,
+                    cx,
+                )
+                .disabled(self.busy || !has_selected)
+                .debug_selector(|| "vector-split-node".into())
+                .on_click(cx.listener(|this, _, _, cx| this.vector_topology_action(false, cx))),
+            )
+            .child(
+                button(
+                    "vector-join-endpoints",
+                    "Join nearest end",
+                    ButtonVariant::Outline,
+                    cx,
+                )
+                .disabled(self.busy || !has_selected || closed)
+                .debug_selector(|| "vector-join-endpoints".into())
+                .on_click(cx.listener(|this, _, _, cx| this.vector_topology_action(true, cx))),
+            )
             .child(
                 button("vector-delete", "Delete node", ButtonVariant::Outline, cx)
                     .disabled(self.busy || !has_selected)

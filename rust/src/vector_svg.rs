@@ -313,9 +313,19 @@ pub(crate) fn prepare_encoded_export(path: &Path, encoded: &str) -> Result<Prepa
 
 /// Shared no-replace publication for validated SVG and vector PDF output.
 pub(crate) fn prepare_bytes_export(path: &Path, encoded: &[u8]) -> Result<PreparedExport> {
+    prepare_bytes_export_bounded(path, encoded, 16 * 1024 * 1024)
+}
+
+/// Reuse the no-replace publication transaction with a caller's validated
+/// format limit. The ordinary SVG/PDF entry point retains its 16 MiB cap.
+pub(crate) fn prepare_bytes_export_bounded(
+    path: &Path,
+    encoded: &[u8],
+    max_bytes: usize,
+) -> Result<PreparedExport> {
     ensure!(
-        encoded.len() <= 16 * 1024 * 1024,
-        "Vector export exceeds 16 MiB"
+        encoded.len() <= max_bytes,
+        "Export exceeds its {max_bytes}-byte format limit"
     );
     let parent = path
         .parent()

@@ -8,10 +8,14 @@ pub(super) struct PhotoIoJob {
     generation: u64,
     cancel: Arc<AtomicBool>,
     export: Option<Arc<raster::ExportCancellation>>,
+    finished: bool,
 }
 
 impl Drop for PhotoIoJob {
     fn drop(&mut self) {
+        if self.finished {
+            return;
+        }
         self.cancel.store(true, Ordering::Relaxed);
         if let Some(export) = &self.export {
             export.cancel();
@@ -81,6 +85,7 @@ impl EditorView {
             generation: self.dialog_generation,
             cancel: cancel.clone(),
             export: None,
+            finished: false,
         });
         self.busy = true;
         Some(cancel)
@@ -117,6 +122,10 @@ impl EditorView {
             return false;
         }
         let cancelled = cancel.load(Ordering::Relaxed);
+        // The worker has returned. Releasing its admission slot is not a
+        // cancellation request; consumers may still check this token before
+        // committing prepared pixels. Disposal of an unfinished job cancels.
+        self.photo_io.as_mut().unwrap().finished = true;
         self.photo_io = None;
         // A native close request can replace this dialog with Unsaved without
         // advancing its generation. Release only this job's busy state even
@@ -285,6 +294,13 @@ impl EditorView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if path
+            .extension()
+            .is_some_and(|e| e.eq_ignore_ascii_case("psd"))
+        {
+            self.export_psd_background(document, path, window, cx);
+            return;
+        }
         let Some(cancel) = self.begin_photo_io(cx) else {
             return;
         };
@@ -326,6 +342,100 @@ impl EditorView {
                 }
                 cx.notify();
             });
+        })
+        .detach();
+        cx.notify();
+    }
+
+    fn export_psd_background(
+        &mut self,
+        document: Document,
+        path: PathBuf,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(cancel) = self.begin_photo_io(cx) else {
+            return;
+        };
+        let instance = self.editor.instance_id();
+        let identity = (
+            self.dialog,
+            self.dialog_generation,
+            self.create.epoch,
+            self.editor.revision(),
+        );
+        self.status =
+            "Preparing converted layered PSD… Original .omuse artwork stays editable".into();
+        cx.spawn_in(window, async move |view, cx| {
+            let task_cancel = cancel.clone();
+            let result =
+                cx.background_executor()
+                    .spawn(async move {
+                        omuse::psd_export::prepare_export(&path, &document, &task_cancel)
+                    })
+                    .await;
+            let published = view
+                .update_in(cx, |this, window, cx| {
+                    if !this.finish_photo_io(&cancel, identity) {
+                        if !cancel.load(Ordering::Relaxed)
+                            && this.dialog == identity.0
+                            && this.dialog_generation == identity.1
+                        {
+                            this.status =
+                                "Document changed; PSD export discarded before publication".into();
+                        }
+                        cx.notify();
+                        return None;
+                    }
+                    if this.editor.instance_id() != instance {
+                        this.status =
+                            "Document changed; PSD export discarded before publication".into();
+                        cx.notify();
+                        return None;
+                    }
+                    match result.and_then(|export| Ok((export.prepared.publish()?, export.report)))
+                    {
+                        Ok((published, report)) => {
+                            // Publication happens on this UI turn after the exact snapshot guard.
+                            // Cancellation after this point must not claim the file was removed.
+                            let status = format!(
+                                "Exported {} · {} pixel layers · Converted 8-bit · Ctrl+K → Export conversion report",
+                                published.destination().display(),
+                                report.layer_count,
+                            );
+                            this.export_notes = vec![format!("File: {}", published.destination().display())];
+                            this.export_notes.extend(report.warnings);
+                            this.status = status.clone();
+                            this.dialog = Dialog::None;
+                            this.focus.focus(window, cx);
+                            cx.notify();
+                            Some((published, status))
+                        }
+                        Err(error) => {
+                            this.status = format!("PSD export failed: {error:#}");
+                            cx.notify();
+                            None
+                        }
+                    }
+                })
+                .ok()
+                .flatten();
+            if let Some((published, status)) = published {
+                let result = cx
+                    .background_executor()
+                    .spawn(async move { published.finish() })
+                    .await;
+                if let Err(error) = result {
+                    let _ = view.update_in(cx, |this, _, cx| {
+                        if this.status == status {
+                            this.status = format!(
+                                "PSD file created, but durability could not be confirmed: {error:#}"
+                            );
+                            cx.notify();
+                        }
+                    });
+                }
+            }
         })
         .detach();
         cx.notify();
@@ -663,11 +773,22 @@ mod tests {
             assert!(!view.finish_photo_io(&cancel, identity));
             assert!(view.photo_io.is_none());
             assert!(!view.busy);
+            assert!(cancel.load(Ordering::Relaxed));
 
             let completion_cancel = view.begin_photo_io(cx).expect("second export admission");
             assert!(view.finish_photo_io(&completion_cancel, identity));
             assert!(view.photo_io.is_none());
             assert!(!view.busy);
+            assert!(
+                !completion_cancel.load(Ordering::Relaxed),
+                "completion is not cancellation"
+            );
+            let unfinished = view.begin_photo_io(cx).unwrap();
+            view.photo_io = None;
+            assert!(
+                unfinished.load(Ordering::Relaxed),
+                "disposing unfinished work cancels it"
+            );
         });
     }
 

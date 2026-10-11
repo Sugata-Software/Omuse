@@ -6,7 +6,7 @@ use omuse::{vector_scene::VectorScene, vector_svg_scene};
 
 enum EditableSvg {
     Path(SvgArtwork),
-    Scene(VectorScene),
+    Scene(vector_svg_scene::ImportedScene),
 }
 
 pub(super) struct Guard {
@@ -327,7 +327,9 @@ impl EditorView {
                             .spawn(async move {
                                 ensure!(!cancel.load(Ordering::Relaxed), "SVG import cancelled");
                                 let artwork = if scene {
-                                    EditableSvg::Scene(vector_svg_scene::import_scene(&path)?)
+                                    EditableSvg::Scene(vector_svg_scene::import_scene_with_report(
+                                        &path,
+                                    )?)
                                 } else {
                                     EditableSvg::Path(vector_svg::import(&path)?)
                                 };
@@ -348,8 +350,13 @@ impl EditorView {
                     Some(result) => {
                         if let Err(error) = result.and_then(|artwork| match artwork {
                             EditableSvg::Path(path) => this.import_vector_artwork(path, window, cx),
-                            EditableSvg::Scene(scene) => {
-                                this.import_vector_scene_artwork(scene, window, cx)
+                            EditableSvg::Scene(report) => {
+                                this.import_vector_scene_artwork(report.scene, window, cx)?;
+                                if !report.warnings.is_empty() {
+                                    this.status =
+                                        format!("SVG imported · {}", report.warnings.join(" · "));
+                                }
+                                Ok(())
                             }
                         }) {
                             this.status = format!("Editable SVG import: {error:#}");
@@ -396,7 +403,10 @@ impl EditorView {
                 self.update_vector_style(cx)?;
                 let scene = self.vector_draft.as_ref().unwrap().scene_snapshot()?;
                 vector_svg_scene::encode_scene(&scene)?;
-                Ok(EditableSvg::Scene(scene))
+                Ok(EditableSvg::Scene(vector_svg_scene::ImportedScene {
+                    scene,
+                    warnings: Vec::new(),
+                }))
             } else {
                 Ok(EditableSvg::Path(self.vector_artwork(cx)?))
             }
@@ -464,10 +474,15 @@ impl EditorView {
                                     EditableSvg::Scene(scene) => {
                                         if pdf {
                                             omuse::vector_pdf::prepare_scene_export(
-                                                &path, scene, dpi,
+                                                &path,
+                                                &scene.scene,
+                                                dpi,
                                             )?
                                         } else {
-                                            vector_svg_scene::prepare_scene_export(&path, scene)?
+                                            vector_svg_scene::prepare_scene_export(
+                                                &path,
+                                                &scene.scene,
+                                            )?
                                         }
                                     }
                                 };

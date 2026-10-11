@@ -271,6 +271,285 @@ fn outline_view_does_not_change_artwork_or_history(cx: &mut TestAppContext) {
 }
 
 #[gpui_kit::test]
+fn builder_release_includes_final_segment_and_undo_restores_the_source(cx: &mut TestAppContext) {
+    let (view, cx) = open(cx);
+    let before = snapshot(&view, cx);
+    cx.update(|window, cx| {
+        view.update(cx, |view, cx| {
+            view.set_scene_selection([0, 1].into_iter().collect(), None, window, cx);
+            view.command("vector-shape-builder", window, cx);
+        })
+    });
+    cx.run_until_parked();
+    draw(cx);
+    view.update(cx, |view, _| {
+        assert!(!view.busy, "{}", view.status);
+        assert!(
+            view.vector_draft
+                .as_ref()
+                .unwrap()
+                .scene
+                .as_ref()
+                .unwrap()
+                .builder
+                .is_some(),
+            "{}",
+            view.status
+        );
+    });
+    let from = canvas_point(&view, cx, 4., 6.);
+    let to = canvas_point(&view, cx, 24., 6.);
+    cx.simulate_event(MouseDownEvent {
+        position: from,
+        button: MouseButton::Left,
+        modifiers: Modifiers {
+            alt: true,
+            ..Default::default()
+        },
+        click_count: 1,
+        first_mouse: false,
+    });
+    // The release may carry a newer position than the final mouse-move event.
+    cx.simulate_event(MouseUpEvent {
+        position: to,
+        button: MouseButton::Left,
+        modifiers: Modifiers {
+            alt: true,
+            ..Default::default()
+        },
+        click_count: 1,
+    });
+    cx.run_until_parked();
+    draw(cx);
+    let result = snapshot(&view, cx);
+    assert_eq!(result.objects.last(), before.objects.last());
+    assert_eq!(result.objects, vec![before.objects[2].clone()]);
+    cx.simulate_keystrokes("ctrl-z");
+    assert_eq!(snapshot(&view, cx), before);
+    cx.simulate_keystrokes("ctrl-shift-z");
+    assert_eq!(snapshot(&view, cx), result);
+}
+
+#[gpui_kit::test]
+fn builder_rejects_interleaved_stacks_and_selection_changes_disarm_it(cx: &mut TestAppContext) {
+    let (view, cx) = open(cx);
+    let before = snapshot(&view, cx);
+    cx.update(|window, cx| {
+        view.update(cx, |view, cx| {
+            view.set_scene_selection([0, 2].into_iter().collect(), None, window, cx);
+            view.start_scene_builder(window, cx);
+            assert!(view.status.contains("consecutive"));
+            assert!(!view.busy);
+            view.set_scene_selection([0, 1].into_iter().collect(), None, window, cx);
+            view.start_scene_builder(window, cx);
+        })
+    });
+    cx.run_until_parked();
+    cx.update(|window, cx| {
+        view.update(cx, |view, cx| {
+            assert!(
+                view.vector_draft
+                    .as_ref()
+                    .unwrap()
+                    .scene
+                    .as_ref()
+                    .unwrap()
+                    .builder
+                    .is_some()
+            );
+            view.set_scene_selection([2].into_iter().collect(), None, window, cx);
+            assert!(
+                view.vector_draft
+                    .as_ref()
+                    .unwrap()
+                    .scene
+                    .as_ref()
+                    .unwrap()
+                    .builder
+                    .is_none()
+            );
+        })
+    });
+    assert_eq!(snapshot(&view, cx), before);
+}
+
+#[gpui_kit::test]
+fn node_split_and_nearest_join_each_have_one_undo(cx: &mut TestAppContext) {
+    let (view, cx) = open(cx);
+    let before = snapshot(&view, cx);
+    cx.update(|window, cx| {
+        view.update(cx, |view, cx| {
+            view.vector_draft.as_mut().unwrap().selected = Some((0, 1));
+            view.command("vector-split-node", window, cx);
+        })
+    });
+    let split = snapshot(&view, cx);
+    assert!(!split.objects[0].path.subpaths[0].closed);
+    assert_eq!(split.objects[0].path.subpaths[0].anchors.len(), 5);
+    cx.update(|window, cx| {
+        view.update(cx, |view, cx| {
+            view.vector_draft.as_mut().unwrap().selected = Some((0, 0));
+            view.command("vector-join-endpoints", window, cx);
+        })
+    });
+    assert!(snapshot(&view, cx).objects[0].path.subpaths[0].closed);
+    cx.simulate_keystrokes("ctrl-z");
+    assert_eq!(snapshot(&view, cx), split);
+    cx.simulate_keystrokes("ctrl-z");
+    assert_eq!(snapshot(&view, cx), before);
+}
+
+#[gpui_kit::test]
+fn node_drag_snaps_to_grid_and_other_anchors_with_reversible_edits(cx: &mut TestAppContext) {
+    let (view, cx) = open(cx);
+    let before = snapshot(&view, cx);
+    cx.update(|window, cx| {
+        view.update(cx, |view, cx| {
+            view.preferences.snapping = true;
+            view.preferences.grid_spacing = 8;
+            view.preferences.grid_subdivisions = 1;
+            view.show_grid = true;
+            view.command("vector-nodes", window, cx);
+        })
+    });
+    let from = canvas_point(&view, cx, 2., 3.);
+    let to = canvas_point(&view, cx, 7.6, 8.4);
+    drag(cx, from, to, MouseButton::Left);
+    let actual = snapshot(&view, cx).objects[0].path.subpaths[0].anchors[0].position;
+    assert_eq!(actual, VectorPoint { x: 8., y: 8. });
+    view.update(cx, |view, _| {
+        assert!(view.vector_draft.as_ref().unwrap().snap_cache.is_none());
+        assert!(view.vector_draft.as_ref().unwrap().snap_indicator.is_none());
+    });
+    cx.simulate_keystrokes("ctrl-z");
+    assert_eq!(snapshot(&view, cx), before);
+    let target = canvas_point(&view, cx, 17.7, 5.2);
+    drag(cx, from, target, MouseButton::Left);
+    let actual = snapshot(&view, cx).objects[0].path.subpaths[0].anchors[0].position;
+    assert_eq!(actual, VectorPoint { x: 18., y: 5. });
+    cx.simulate_keystrokes("ctrl-z");
+    assert_eq!(snapshot(&view, cx), before);
+}
+
+#[gpui_kit::test]
+fn shift_bypasses_node_snapping_while_preserving_angle_constraint(cx: &mut TestAppContext) {
+    let (view, cx) = open(cx);
+    let before = snapshot(&view, cx);
+    cx.update(|window, cx| {
+        view.update(cx, |view, cx| {
+            view.preferences.snapping = true;
+            view.preferences.grid_spacing = 8;
+            view.preferences.grid_subdivisions = 1;
+            view.show_grid = true;
+            view.command("vector-nodes", window, cx);
+        })
+    });
+    let from = canvas_point(&view, cx, 2., 3.);
+    let to = canvas_point(&view, cx, 7.6, 8.4);
+    drag_with_modifiers(
+        cx,
+        from,
+        to,
+        MouseButton::Left,
+        Modifiers {
+            shift: true,
+            ..Default::default()
+        },
+    );
+    let actual = snapshot(&view, cx).objects[0].path.subpaths[0].anchors[0].position;
+    assert!((actual.x - 7.5009).abs() < 0.002);
+    assert!((actual.y - 8.5009).abs() < 0.002);
+    assert!((actual.x - 2. - (actual.y - 3.)).abs() < 0.001);
+    assert_ne!(actual, VectorPoint { x: 8., y: 8. });
+    cx.simulate_keystrokes("ctrl-z");
+    assert_eq!(snapshot(&view, cx), before);
+}
+
+#[gpui_kit::test]
+fn node_release_uses_final_snap_target_without_a_move_event(cx: &mut TestAppContext) {
+    let (view, cx) = open(cx);
+    let before = snapshot(&view, cx);
+    view.update_in(cx, |view, window, cx| {
+        view.preferences.snapping = true;
+        view.preferences.grid_spacing = 8;
+        view.preferences.grid_subdivisions = 1;
+        view.show_grid = true;
+        view.command("vector-nodes", window, cx);
+    });
+    let from = canvas_point(&view, cx, 2., 3.);
+    let to = canvas_point(&view, cx, 7.6, 8.4);
+    cx.simulate_event(MouseDownEvent {
+        position: from,
+        button: MouseButton::Left,
+        modifiers: Modifiers::default(),
+        click_count: 1,
+        first_mouse: false,
+    });
+    cx.simulate_event(MouseUpEvent {
+        position: to,
+        button: MouseButton::Left,
+        modifiers: Modifiers::default(),
+        click_count: 1,
+    });
+    draw(cx);
+    assert_eq!(
+        snapshot(&view, cx).objects[0].path.subpaths[0].anchors[0].position,
+        VectorPoint { x: 8., y: 8. }
+    );
+    cx.simulate_keystrokes("ctrl-z");
+    assert_eq!(snapshot(&view, cx), before);
+}
+
+#[gpui_kit::test]
+fn snap_settings_stay_in_the_vector_draft_and_clear_cached_targets(cx: &mut TestAppContext) {
+    let (view, cx) = open(cx);
+    let before = snapshot(&view, cx);
+    for command in [
+        "snapping",
+        "grid-spacing",
+        "grid-subdivisions",
+        "guides",
+        "grid",
+    ] {
+        view.update_in(cx, |view, window, cx| {
+            let draft = view.vector_draft.as_mut().unwrap();
+            draft.snap_cache = Some(Err("cached error from previous drag".into()));
+            draft.snap_indicator = Some(VectorPoint { x: 8., y: 8. });
+            view.command(command, window, cx);
+            assert!(
+                view.vector_scene_active(),
+                "{command} must keep the edit open"
+            );
+            let draft = view.vector_draft.as_ref().unwrap();
+            assert!(draft.snap_cache.is_none());
+            assert!(draft.snap_indicator.is_none());
+            assert_eq!(view.editor.undo_depth(), 0);
+        });
+        assert_eq!(snapshot(&view, cx), before);
+    }
+}
+
+#[gpui_kit::test]
+fn grid_repeat_command_keeps_originals_and_one_draft_undo(cx: &mut TestAppContext) {
+    let (view, cx) = open(cx);
+    let before = snapshot(&view, cx);
+    cx.update(|window, cx| {
+        view.update(cx, |view, cx| {
+            view.command("vector-repeat-grid", window, cx);
+        })
+    });
+    cx.run_until_parked();
+    draw(cx);
+    let after = snapshot(&view, cx);
+    assert_eq!(&after.objects[..3], &before.objects[..]);
+    assert_eq!(after.objects.len(), 8);
+    cx.simulate_keystrokes("ctrl-z");
+    assert_eq!(snapshot(&view, cx), before);
+    cx.simulate_keystrokes("ctrl-shift-z");
+    assert_eq!(snapshot(&view, cx), after);
+}
+
+#[gpui_kit::test]
 fn stale_async_operations_release_busy_and_leave_newer_document_intact(cx: &mut TestAppContext) {
     let (view, cx) = open(cx);
     cx.update(|window, cx| {

@@ -1,4 +1,5 @@
-//! Bounded Photoshop PSD/PSB (versions 1/2, 8-bit RGB) layered import.
+//! Bounded Photoshop PSD/PSB import: 8-bit RGB layers, or an explicitly
+//! converted 16-bit RGB merged composite with a retained high-precision source.
 //!
 //! This is an original implementation of Adobe's PSD file format records. It
 //! retains supported Photoshop layers, while a PSD with no layer records opens
@@ -11,6 +12,7 @@ use serde_json::{Value, json};
 use std::{collections::HashMap, fs, io::Read, path::Path};
 
 const MAX_FILE: u64 = 512 * 1024 * 1024;
+const MAX_HIGH_DEPTH_FILE: u64 = 64 * 1024 * 1024;
 const MAX_ADDITIONAL_INFO_BLOCKS: usize = 4096;
 
 /// PSB widens only these tagged block lengths, even with an 8BIM signature.
@@ -80,13 +82,25 @@ pub fn open(path: &Path) -> Result<Document> {
         meta.file_type().is_file() && meta.len() <= MAX_FILE,
         "Photoshop input must be a regular file no larger than 512 MiB"
     );
-    let mut data = Vec::new();
-    fs::File::open(path)?
-        .take(MAX_FILE + 1)
-        .read_to_end(&mut data)?;
+    // Inspect the fixed header before reading a possibly large high-depth
+    // container. Its merged decode and retained 16-bit source need a smaller
+    // budget than the existing 8-bit layered path.
+    let mut file = fs::File::open(path)?;
+    let mut header = [0u8; 26];
+    file.read_exact(&mut header)
+        .context("Truncated Photoshop header")?;
+    let limit = if &header[..4] == b"8BPS" && u16::from_be_bytes([header[22], header[23]]) == 16 {
+        preflight_high_depth(&header, meta.len())?;
+        MAX_HIGH_DEPTH_FILE
+    } else {
+        MAX_FILE
+    };
+    let mut data = header.to_vec();
+    file.take(limit - 26 + 1).read_to_end(&mut data)?;
     ensure!(
-        data.len() as u64 <= MAX_FILE,
-        "Photoshop input exceeds 512 MiB"
+        data.len() as u64 <= limit,
+        "Photoshop input exceeds its {} MiB import limit",
+        limit / (1024 * 1024)
     );
     parse(
         &data,
@@ -117,9 +131,13 @@ fn parse(data: &[u8], name: &str) -> Result<Document> {
         valid_dimensions(width, height),
         "PSD dimensions exceed limits"
     );
+    let depth = c.u16()?;
+    if depth == 16 {
+        return high_depth_composite(data, name);
+    }
     ensure!(
-        c.u16()? == 8,
-        "only 8-bit Photoshop documents are supported"
+        depth == 8,
+        "unsupported Photoshop depth {depth}: use 8-bit layered RGB or a 16-bit RGB merged composite"
     );
     ensure!(c.u16()? == 3, "only RGB Photoshop documents are supported");
     let color_len = usize::try_from(c.u32()?)?;
@@ -263,6 +281,203 @@ fn parse(data: &[u8], name: &str) -> Result<Document> {
     })
 }
 
+fn preflight_high_depth(header: &[u8], file_bytes: u64) -> Result<()> {
+    ensure!(header.len() >= 26, "Truncated 16-bit Photoshop header");
+    ensure!(
+        file_bytes <= MAX_HIGH_DEPTH_FILE,
+        "16-bit Photoshop merged import is limited to 64 MiB files"
+    );
+    let word = |i| u16::from_be_bytes([header[i], header[i + 1]]);
+    let wide = |i| u32::from_be_bytes([header[i], header[i + 1], header[i + 2], header[i + 3]]);
+    ensure!(
+        &header[..4] == b"8BPS" && matches!(word(4), 1 | 2),
+        "Unsupported Photoshop file version"
+    );
+    ensure!(
+        word(22) == 16 && word(24) == 3,
+        "16-bit Photoshop import supports RGB merged composites only; convert CMYK/Lab/HDR in the source editor first"
+    );
+    ensure!(
+        matches!(word(12), 3 | 4),
+        "16-bit Photoshop import supports RGB and an explicitly declared transparency channel; extra/spot channels are unsupported"
+    );
+    let (w, h) = (wide(18), wide(14));
+    ensure!(
+        valid_dimensions(w, h)
+            && u64::from(w) * u64::from(h) <= crate::advanced::MAX_ADVANCED_PIXELS,
+        "16-bit Photoshop merged image exceeds the 16 megapixel editable-source limit"
+    );
+    ensure!(
+        word(4) == 2 || (w <= 30_000 && h <= 30_000),
+        "PSD canvas exceeds 30,000 pixels per side"
+    );
+    Ok(())
+}
+
+/// The composite was already rendered by the source editor, so ICC conversion
+/// cannot alter the blending of individually converted layers. Never interpret
+/// this compatibility path as an editable-layer or lossless PSD round trip.
+fn high_depth_composite(data: &[u8], name: &str) -> Result<Document> {
+    preflight_high_depth(data, data.len() as u64)?;
+    let file =
+        photocraft_psd::PsdFile::from_bytes(data).context("Invalid 16-bit Photoshop container")?;
+    file.validate()
+        .context("Invalid 16-bit Photoshop structure")?;
+    let header = &file.header;
+    let (width, height) = (header.width, header.height);
+    let psb = header.version.is_psb();
+    ensure!(
+        file.resources.iter().filter(|r| r.id == 1039).count() <= 1,
+        "16-bit Photoshop has ambiguous duplicate ICC profiles"
+    );
+    for resource in file.resources.iter().filter(|r| r.id == 1057) {
+        match resource.parsed() {
+            Some(Ok(photocraft_psd::ResourceData::VersionInfo(info))) => ensure!(
+                info.has_real_merged_data,
+                "This 16-bit Photoshop file has no real merged preview. Save it with Maximize Compatibility in the source editor first."
+            ),
+            _ => anyhow::bail!("Invalid Photoshop merged-preview declaration"),
+        }
+    }
+    let merged_alpha = file
+        .layer_info
+        .as_ref()
+        .is_some_and(|info| info.merged_alpha)
+        || file
+            .global_blocks
+            .iter()
+            .any(|block| matches!(&block.key, b"Mt16" | b"Mtrn"));
+    ensure!(
+        header.channels == 3 || merged_alpha,
+        "16-bit Photoshop has an extra channel without an explicit merged-transparency declaration; refusing to treat a spot channel as alpha"
+    );
+    let profile = file
+        .icc_profile()
+        .filter(|p| !p.is_empty())
+        .map(<[u8]>::to_vec);
+    if let Some(profile) = &profile {
+        ensure!(
+            (128..=16 * 1024 * 1024).contains(&profile.len()) && &profile[16..20] == b"RGB ",
+            "Unsupported or invalid Photoshop ICC profile; an RGB profile is required"
+        );
+    }
+    let resolution = match file.resolution() {
+        Some(r) => {
+            ensure!(
+                matches!(r.h_res_unit, 1 | 2),
+                "Unsupported Photoshop resolution unit"
+            );
+            r.h_res() * if r.h_res_unit == 2 { 2.54 } else { 1. }
+        }
+        None => 72.,
+    };
+    ensure!(
+        resolution.is_finite() && (1. ..=9600.).contains(&resolution),
+        "Invalid Photoshop resolution"
+    );
+    let channels = usize::from(header.channels);
+    let pixels = width as usize * height as usize;
+    let plane_bytes = pixels
+        .checked_mul(2)
+        .context("Photoshop 16-bit size overflow")?;
+    let expected = plane_bytes
+        .checked_mul(channels)
+        .context("Photoshop 16-bit channel overflow")?;
+    if file.image_data.compression == photocraft_psd::Compression::Raw {
+        ensure!(
+            file.image_data.data.len() == expected,
+            "Invalid raw 16-bit Photoshop composite size"
+        );
+    }
+    // Keep Omuse's strict exact-length decode gates. The format crate also
+    // serves archival readers and intentionally tolerates surplus encoded
+    // bytes; an editable import must not silently truncate extra samples.
+    let planes = match file.image_data.compression {
+        photocraft_psd::Compression::Raw => file.decode_merged()?,
+        photocraft_psd::Compression::Rle => unpack_packbits_version(
+            width as usize * 2,
+            height as usize * channels,
+            &file.image_data.data,
+            psb,
+        )?,
+        photocraft_psd::Compression::Zip | photocraft_psd::Compression::ZipPrediction => {
+            let mut decoded = decode_zip_exact(
+                &file.image_data.data,
+                expected,
+                "invalid 16-bit Photoshop ZIP composite size",
+            )?;
+            if file.image_data.compression == photocraft_psd::Compression::ZipPrediction {
+                photocraft_psd::compression::unpredict(
+                    &mut decoded,
+                    &photocraft_psd::ImageData::layout(header),
+                )?;
+            }
+            decoded
+        }
+        other => anyhow::bail!("unsupported 16-bit Photoshop compression {other:?}"),
+    };
+    ensure!(
+        planes.len() == expected,
+        "Invalid 16-bit Photoshop composite size"
+    );
+    drop(file);
+    let exact = crate::precision::Rgba16Image::from_fn(width, height, |x, y| {
+        let i = (y as usize * width as usize + x as usize) * 2;
+        let sample = |channel| {
+            let offset = channel * plane_bytes + i;
+            u16::from_be_bytes([planes[offset], planes[offset + 1]])
+        };
+        let alpha = if channels == 4 { sample(3) } else { u16::MAX };
+        let color = |channel| {
+            unblend_merged_sample(u32::from(sample(channel)), u32::from(alpha), 65_535) as u16
+        };
+        Rgba([color(0), color(1), color(2), alpha])
+    });
+    drop(planes);
+    let exact = if let Some(profile) = &profile {
+        crate::color_management::to_srgb16(&exact, Some(profile))?
+    } else {
+        exact
+    };
+    let image = RgbaImage::from_fn(width, height, |x, y| {
+        Rgba(
+            exact
+                .get_pixel(x, y)
+                .0
+                .map(|v| ((u32::from(v) * 255 + 32_767) / 65_535) as u8),
+        )
+    });
+    let mut layer = Layer::paint("16-bit merged composite", 1, 1);
+    layer.image = Some(image.into());
+    layer.advanced = Some(std::sync::Arc::new(
+        crate::advanced::LayerState::from_rgba16(&exact, name)?,
+    ));
+    layer.metadata = json!({"psdMergedComposite":true,"sourceBitDepth":16,"psdConversions":[
+        "Opened the Photoshop 16-bit merged composite as one editable high-precision image. Original layers, masks, text, adjustments and Photoshop metadata are not imported; keep the original PSD/PSB for them."
+    ]});
+    if channels == 4 {
+        layer.metadata["psdConversions"].as_array_mut().unwrap().push(json!(
+            "Declared merged transparency was unblended from Photoshop's white matte before colour conversion. The retained 16-bit source is the interpreted RGBA result; quantization can prevent exact recovery of colours before matting. Unblending preserves fully transparent hidden RGB."
+        ));
+    }
+    if let Some(profile) = &profile {
+        let source = crate::color_management::source_profile_metadata(profile)?;
+        let digest = profile.iter().fold(0xcbf29ce484222325u64, |hash, byte| {
+            (hash ^ u64::from(*byte)).wrapping_mul(0x100000001b3)
+        });
+        layer.metadata["sourceColorProfile"] = json!({"description":source.description,"iccBytes":profile.len(),"fnv1a64":format!("{digest:016x}")});
+        layer.metadata["psdConversions"].as_array_mut().unwrap().push(json!("The merged RGB image was colour-managed from its embedded ICC profile into 16-bit sRGB."));
+    }
+    Ok(Document {
+        width,
+        height,
+        name: name.into(),
+        background: [0; 4],
+        layers: vec![layer],
+        metadata: json!({"documentID":uuid::Uuid::new_v4().to_string().to_uppercase(),"resolution":resolution,"sourceFormat":if psb {"PSB"} else {"PSD"},"sourceBitDepth":16}),
+    })
+}
+
 /// The layer-and-mask section can carry tagged blocks after the global mask.
 /// `Mtrn` is Photoshop's explicit declaration that the extra merged-image
 /// plane is transparency, rather than an arbitrary saved/spot channel.
@@ -297,6 +512,20 @@ fn has_merged_transparency(data: &[u8], psb: bool) -> Result<bool> {
     Ok(merged_transparency)
 }
 
+/// Photoshop's merged RGB preview is white-matted; layer channels are not.
+/// Invert in the source colour space before any ICC conversion. The reference
+/// readers also preserve hidden RGB at zero alpha and clamp malformed mattes:
+/// https://github.com/ImageMagick/ImageMagick/blob/7.1.2-31/coders/psd.c
+/// (`CorrectPSDAlphaBlend`) and psd-tools `numpy_io._remove_background`.
+/// Inputs are decoded 8- or 16-bit samples, so u64 arithmetic is bounded.
+fn unblend_merged_sample(sample: u32, alpha: u32, max: u32) -> u32 {
+    if alpha == 0 || alpha == max {
+        return sample;
+    }
+    let numerator = u64::from(sample.saturating_sub(max - alpha)) * u64::from(max);
+    ((numerator + u64::from(alpha) / 2) / u64::from(alpha)).min(u64::from(max)) as u32
+}
+
 fn flattened_document(
     width: u32,
     height: u32,
@@ -328,22 +557,30 @@ fn flattened_document(
         .context("PSD composite RGBA size overflow")?;
     let mut rgba = Vec::with_capacity(rgba_len);
     for index in 0..pixels {
-        rgba.extend_from_slice(&[
-            planes[index],
-            planes[pixels + index],
-            planes[pixels * 2 + index],
-            if channel_count == 4 {
-                planes[pixels * 3 + index]
-            } else {
-                255
-            },
-        ]);
+        let alpha = if channel_count == 4 {
+            planes[pixels * 3 + index]
+        } else {
+            255
+        };
+        let color = |channel| {
+            unblend_merged_sample(
+                u32::from(planes[pixels * channel + index]),
+                u32::from(alpha),
+                255,
+            ) as u8
+        };
+        rgba.extend_from_slice(&[color(0), color(1), color(2), alpha]);
     }
     let image = RgbaImage::from_raw(width, height, rgba)
         .context("PSD composite dimensions did not match decoded pixels")?;
     let mut layer = Layer::paint("Merged composite", 1, 1);
     layer.image = Some(image.into());
     layer.metadata = json!({"psdMergedComposite": true});
+    if channel_count == 4 {
+        layer.metadata["psdConversions"] = json!([
+            "Declared merged transparency was unblended from Photoshop's white matte. Quantization can prevent exact recovery of colours before matting; fully transparent hidden RGB is preserved."
+        ]);
+    }
     Ok(Document {
         width,
         height,
@@ -1640,24 +1877,94 @@ mod tests {
 
     #[test]
     fn flattened_alpha_requires_an_explicit_merged_transparency_marker() {
+        // Independent stored white-matted planes. At alpha 64, quantization
+        // maps the stored green 204 to straight 52, not the original 50.
+        let stored = [
+            [10, 20, 30, 0],
+            [201, 204, 206, 64],
+            [162, 167, 172, 128],
+            [100, 110, 120, 255],
+        ];
         let pixels = [
             [10, 20, 30, 0],
-            [40, 50, 60, 64],
+            [40, 52, 60, 64],
             [70, 80, 90, 128],
             [100, 110, 120, 255],
         ];
-        let planes = planar(&pixels, 4);
+        let planes = planar(&stored, 4);
         let mut layer_section = Vec::new();
         layer_section.extend_from_slice(&0u32.to_be_bytes()); // no layer-info records
         layer_section.extend_from_slice(&0u32.to_be_bytes()); // no global mask
         layer_section.extend_from_slice(b"8BIM");
         layer_section.extend_from_slice(b"Mtrn");
         layer_section.extend_from_slice(&0u32.to_be_bytes());
-        assert_flattened_pixels(&flattened_psd(2, 2, 4, &layer_section, 0, &planes), &pixels);
+        for compression in 0..=3 {
+            let payload = match compression {
+                0 => planes.clone(),
+                1 => rle_literal_planar(2, 2, 4, &planes),
+                2 => zip(&planes),
+                _ => zip(&predicted_planar(2, 2, &planes)),
+            };
+            let bytes = flattened_psd(2, 2, 4, &layer_section, compression, &payload);
+            assert_flattened_pixels(&bytes, &pixels);
+            assert!(
+                crate::import_report::conversion_notes(&parse(&bytes, "Matte").unwrap())
+                    .iter()
+                    .any(|note| note.contains("white matte"))
+            );
+        }
         let error = parse(&flattened_psd(2, 2, 4, &[], 0, &planes), "Spot")
             .unwrap_err()
             .to_string();
         assert!(error.contains("refusing to treat a spot channel as alpha"));
+    }
+
+    #[test]
+    fn merged_white_unblend_matches_independent_reference_and_never_changes_layer_samples() {
+        for max in [255u32, 65_535] {
+            for alpha in [0, 1, max / 3, max / 2, max - 1, max] {
+                for sample in 0..=max {
+                    let reference = if alpha == 0 || alpha == max {
+                        sample
+                    } else {
+                        ((f64::from(sample) - f64::from(max - alpha)) * f64::from(max)
+                            / f64::from(alpha))
+                        .round()
+                        .clamp(0., f64::from(max)) as u32
+                    };
+                    assert_eq!(
+                        unblend_merged_sample(sample, alpha, max),
+                        reference,
+                        "sample {sample}, alpha {alpha}, depth max {max}"
+                    );
+                }
+            }
+        }
+        let straight = vec![[12, 34, 56, 64], [78, 90, 123, 128]];
+        let bytes = synthetic_layered_psd(
+            2,
+            1,
+            &[SyntheticLayer {
+                name: "Straight layer",
+                blend: "norm",
+                opacity: 255,
+                clipping: false,
+                section: None,
+                pixels: Some(straight.clone()),
+                mask: None,
+            }],
+        );
+        let doc = parse(&bytes, "Straight layer").unwrap();
+        assert_eq!(
+            doc.layers[0]
+                .image
+                .as_ref()
+                .unwrap()
+                .pixels()
+                .map(|p| p.0)
+                .collect::<Vec<_>>(),
+            straight
+        );
     }
 
     #[test]
@@ -1970,13 +2277,30 @@ mod zip_tests {
             assert_flattened_pixels(&psb, &pixels);
             assert_eq!(parse(&psb, "PSB").unwrap().metadata["sourceFormat"], "PSB");
         }
-        let rgba = [[1, 2, 3, 0], [4, 5, 6, 127]];
+        let stored = [[1, 2, 3, 0], [130, 131, 132, 127]];
+        let rgba = [[1, 2, 3, 0], [4, 6, 8, 127]];
         let mut layer_section = 0u64.to_be_bytes().to_vec();
         layer_section.extend_from_slice(&0u32.to_be_bytes());
         layer_section.extend_from_slice(b"8BIMMtrn");
         layer_section.extend_from_slice(&0u64.to_be_bytes());
-        let psb = widen_flattened_psd(flattened_psd(2, 1, 4, &layer_section, 0, &planar(&rgba, 4)));
-        assert_flattened_pixels(&psb, &rgba);
+        let planes = planar(&stored, 4);
+        for compression in 0..=3 {
+            let payload = match compression {
+                0 => planes.clone(),
+                1 => wide_rle(2, 1, 4, &planes),
+                2 => zip(&planes),
+                _ => zip(&predicted_planar(2, 1, &planes)),
+            };
+            let psb = widen_flattened_psd(flattened_psd(
+                2,
+                1,
+                4,
+                &layer_section,
+                compression,
+                &payload,
+            ));
+            assert_flattened_pixels(&psb, &rgba);
+        }
     }
 
     #[test]

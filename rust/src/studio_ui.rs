@@ -1551,6 +1551,31 @@ impl EditorView {
                     .text_color(t.secondary)
                     .child(self.status.clone()),
             )
+            .when(
+                self.busy && self.photo_io.is_some() && self.dialog == Dialog::None,
+                |bar| {
+                    bar.child(
+                        button(
+                            "cancel-image-operation",
+                            "Cancel · Esc",
+                            ButtonVariant::Outline,
+                            cx,
+                        )
+                        .debug_selector(|| "cancel-image-operation".into())
+                        .h(px(24.))
+                        .py_0()
+                        .px_2()
+                        .text_size(px(10.))
+                        .on_click(cx.listener(|this, _, window, cx| {
+                            if this.cancel_photo_io() {
+                                this.dialog_generation = this.dialog_generation.wrapping_add(1);
+                                this.focus.focus(window, cx);
+                                cx.notify();
+                            }
+                        })),
+                    )
+                },
+            )
             .child(
                 div()
                     .flex_shrink_0()

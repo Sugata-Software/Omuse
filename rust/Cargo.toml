@@ -1,6 +1,6 @@
 [package]
 name = "omuse"
-version = "0.9.0"
+version = "0.10.0"
 edition = "2024"
 license = "MIT"
 
@@ -16,6 +16,9 @@ serde_json = "1"
 uuid = { version = "1", features = ["v4", "serde"] }
 anyhow = "1"
 i_overlay = { version = "=1.9.4", default-features = false }
+kurbo = "=0.13.1"
+linesweeper = "=0.4.0"
+photocraft-psd = { path = "vendor/photocraft-psd" }
 cosmic-text = "0.19"
 libloading = "=0.8.9"
 flate2 = "=1.1.10"

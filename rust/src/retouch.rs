@@ -1,6 +1,7 @@
 //! Deterministic content-aware fill ported from the preserved compositor kernel.
 use anyhow::{Result, ensure};
 use image::{GrayImage, RgbaImage};
+pub mod texture;
 fn next_random(s: &mut u32) -> u32 {
     *s = s.wrapping_mul(1664525).wrapping_add(1013904223);
     *s

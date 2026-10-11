@@ -31,6 +31,7 @@ pub(super) struct SceneDraft {
     pub(super) gradient_stop: usize,
     pub(super) requested: u64,
     pub(super) running: bool,
+    pub(super) builder: Option<super::vector_builder_ui::BuilderDraft>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -320,6 +321,8 @@ impl EditorView {
             preview_bounds: Rc::new(Cell::new(Bounds::default())),
             selected: None,
             drag: None,
+            snap_cache: None,
+            snap_indicator: None,
             scene: Some(SceneDraft {
                 original: artwork.clone(),
                 mode: if is_new {
@@ -351,10 +354,38 @@ impl EditorView {
                 gradient_stop: 0,
                 requested: 0,
                 running: false,
+                builder: None,
             }),
         });
         self.load_scene_style(window, cx);
         self.reset_scene_transform_inputs(window, cx);
+        for (index, value) in [
+            (18, "0.5"),
+            (19, "8"),
+            (20, "3"),
+            (21, "2"),
+            (22, "100"),
+            (23, "100"),
+            (24, "6"),
+            (25, "60"),
+            (28, "rotate"),
+        ] {
+            self.detail_inputs[index].update(cx, |input, cx| input.set_value(value, window, cx));
+        }
+        for (index, value) in [
+            (
+                26,
+                self.vector_draft.as_ref().unwrap().dimensions.0 as f32 / 2.,
+            ),
+            (
+                27,
+                self.vector_draft.as_ref().unwrap().dimensions.1 as f32 / 2.,
+            ),
+        ] {
+            self.detail_inputs[index].update(cx, |input, cx| {
+                input.set_value(value.to_string(), window, cx)
+            });
+        }
         self.dialog = Dialog::None;
         self.tool = Tool::Move;
         self.inspector_tab = studio_ui::InspectorTab::Layers;
@@ -400,6 +431,7 @@ impl EditorView {
         let Some(scene) = self.vector_draft.as_mut().and_then(|d| d.scene.as_mut()) else {
             return;
         };
+        scene.builder = None;
         if let Some(cancel) = &scene.preview_cancel {
             cancel.store(true, Ordering::Relaxed);
         }

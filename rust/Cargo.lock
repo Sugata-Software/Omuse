@@ -230,6 +230,9 @@ name = "arrayvec"
 version = "0.7.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d3fb67a6e08acf24fdeccbac2cb6ac4305825bd1f117462e0e6f2f193345ad56"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "as-raw-xcb-connection"
@@ -3652,6 +3655,7 @@ dependencies = [
  "arrayvec",
  "euclid",
  "polycool",
+ "serde",
  "smallvec",
 ]
 
@@ -3745,6 +3749,19 @@ name = "linebender_resource_handle"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d4a5ff6bcca6c4867b1c4fd4ef63e4db7436ef363e0ad7531d1558856bae64f4"
+
+[[package]]
+name = "linesweeper"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9c19728333c060c6569a53c9a0e56c4be0df52cb4e6e07a8fbe16084cecce769"
+dependencies = [
+ "arrayvec",
+ "kurbo 0.13.1",
+ "polycool",
+ "rustc-hash 2.1.3",
+ "smallvec",
+]
 
 [[package]]
 name = "link-section"
@@ -4727,7 +4744,7 @@ dependencies = [
 
 [[package]]
 name = "omuse"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "cosmic-text",
@@ -4739,8 +4756,11 @@ dependencies = [
  "gpui-omarchy",
  "i_overlay",
  "image",
+ "kurbo 0.13.1",
  "lcms2-sys",
  "libloading",
+ "linesweeper",
+ "photocraft-psd",
  "png 0.18.1",
  "resvg 0.46.0",
  "roxmltree 0.21.1",
@@ -5002,6 +5022,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e57fef6bc5981e38c2ce2d63bfa546861309f875b8a75f092d1d54ae2d64f266"
 dependencies = [
  "siphasher",
+]
+
+[[package]]
+name = "photocraft-psd"
+version = "0.6.0"
+dependencies = [
+ "flate2",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -6416,6 +6444,9 @@ name = "smallvec"
 version = "1.16.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9395f0f0eee849a9b707b2f06bb92a6a422090e2123bb2ef8e87a0e61892a8e"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "smol"

@@ -134,7 +134,7 @@ fn main() {
     }
     if matches!(args.first().map(String::as_str), Some("--help" | "-h")) {
         println!(
-            "Omuse {}\n\nUsage: omuse [PROJECT.omuse | IMAGE]\n       omuse --export INPUT.omuse OUTPUT.png\n       omuse --batch RECIPE.json INPUT_FOLDER OUTPUT_FOLDER [png|jpg|webp|tiff] [CANCEL_FILE]\n       omuse --self-test [EVIDENCE_DIRECTORY]\n       omuse --ui-smoke EVIDENCE_DIRECTORY\n\nNative Linux editor using GPUI and gpui-omarchy. Legacy .comp projects remain readable. Collection exports and batch recipes use the saved active page.",
+            "Omuse {}\n\nUsage: omuse [PROJECT.omuse | IMAGE]\n       omuse --export INPUT.omuse OUTPUT.png|OUTPUT.psd\n       omuse --batch RECIPE.json INPUT_FOLDER OUTPUT_FOLDER [png|jpg|webp|tiff] [CANCEL_FILE]\n       omuse --self-test [EVIDENCE_DIRECTORY]\n       omuse --ui-smoke EVIDENCE_DIRECTORY\n\nNative Linux editor using GPUI and gpui-omarchy. Legacy .comp projects remain readable. Collection exports and batch recipes use the saved active page.",
             env!("CARGO_PKG_VERSION")
         );
         return;
@@ -146,11 +146,25 @@ fn main() {
 
     if args.first().map(String::as_str) == Some("--export") {
         if args.len() != 3 {
-            eprintln!("Usage: omuse --export INPUT.omuse OUTPUT.png");
+            eprintln!("Usage: omuse --export INPUT.omuse OUTPUT.png|OUTPUT.psd");
             std::process::exit(2);
         }
-        let result = ui::EditorView::open_content(std::path::Path::new(&args[1]))
-            .and_then(|(doc, _)| omuse::raster::export(&doc, std::path::Path::new(&args[2])));
+        let result =
+            ui::EditorView::open_content(std::path::Path::new(&args[1])).and_then(|(doc, _)| {
+                let destination = std::path::Path::new(&args[2]);
+                if destination
+                    .extension()
+                    .is_some_and(|e| e.eq_ignore_ascii_case("psd"))
+                {
+                    let report = omuse::psd_export::export(&doc, destination)?;
+                    for warning in report.warnings {
+                        eprintln!("PSD conversion: {warning}");
+                    }
+                    Ok(())
+                } else {
+                    omuse::raster::export(&doc, destination)
+                }
+            });
         if let Err(error) = result {
             eprintln!("{error:#}");
             std::process::exit(1);

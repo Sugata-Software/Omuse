@@ -97,7 +97,11 @@ pub fn fields(draft: &Value, section: usize) -> Vec<Field> {
     if key.is_empty() {
         if let Some(map) = draft.as_object() {
             for (k, v) in map {
-                if !EFFECTS.contains(&k.as_str()) && !v.is_object() && !v.is_array() {
+                if k != "toneMapping"
+                    && !EFFECTS.contains(&k.as_str())
+                    && !v.is_object()
+                    && !v.is_array()
+                {
                     walk(v, &format!("/{k}"), &label(k), &mut out)
                 }
             }
@@ -164,16 +168,22 @@ mod tests {
     use super::*;
     #[test]
     fn all_default_forms_roundtrip() {
-        let mut draft = serde_json::to_value(omuse::camera_raw::Settings::default()).unwrap();
-        let original = draft.clone();
-        for i in 0..SECTIONS.len() {
-            for f in fields(&draft, i) {
-                store(&mut draft, &f, &display(&f.value)).unwrap();
+        for settings in [
+            omuse::camera_raw::Settings::default(),
+            omuse::camera_raw::Settings::for_new_edit(),
+        ] {
+            let mut draft = serde_json::to_value(settings).unwrap();
+            let original = draft.clone();
+            for i in 0..SECTIONS.len() {
+                for f in fields(&draft, i) {
+                    assert_ne!(f.path, "/toneMapping");
+                    store(&mut draft, &f, &display(&f.value)).unwrap();
+                }
             }
+            assert_eq!(draft, original);
+            let settings = serde_json::from_value(draft).unwrap();
+            omuse::camera_raw::validate(&settings).unwrap();
         }
-        assert_eq!(draft, original);
-        let settings = serde_json::from_value(draft).unwrap();
-        omuse::camera_raw::validate(&settings).unwrap();
     }
     #[test]
     fn curve_units_are_not_adjustment_byte_units() {

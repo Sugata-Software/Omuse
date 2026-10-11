@@ -147,7 +147,7 @@ pub fn composite_region(
 /// image instead. Keep this allowlist closed so unknown extensions and future
 /// rendering semantics fall back to the complete compositor. Blend If is the
 /// one active metadata record here; regional blending evaluates it per pixel.
-fn region_metadata_is_supported(layer: &Layer) -> bool {
+pub(crate) fn region_metadata_is_supported(layer: &Layer) -> bool {
     let Some(metadata) = layer.metadata.as_object() else {
         return false;
     };

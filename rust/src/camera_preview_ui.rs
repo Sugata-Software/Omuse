@@ -15,12 +15,14 @@ struct SourceKey {
     layer: String,
 }
 
+#[derive(Clone)]
 struct Request {
     id: u64,
     key: SourceKey,
     settings: Settings,
     sampling: Option<omuse::camera_raw::SampleStage>,
     preview: bool,
+    draft_size: Option<(u32, u32)>,
     source: Arc<image::RgbaImage>,
     selection: Option<Selection>,
     document: Document,
@@ -35,6 +37,9 @@ pub(super) struct CameraPreviewState {
     active: Option<Arc<Request>>,
     queued: Option<Arc<Request>>,
     window: Option<gpui_kit::AnyWindowHandle>,
+    display_scale: f32,
+    cache: Option<Arc<omuse::camera_raw::preview::DraftSource>>,
+    draft_visible: bool,
 }
 impl Drop for CameraPreviewState {
     fn drop(&mut self) {
@@ -45,6 +50,10 @@ impl Drop for CameraPreviewState {
 }
 
 enum Output {
+    Draft {
+        pixels: image::RgbaImage,
+        cache: Arc<omuse::camera_raw::preview::DraftSource>,
+    },
     Preview {
         pixels: image::RgbaImage,
         scopes: Arc<omuse::photo_scopes::PhotoScopes>,
@@ -98,6 +107,7 @@ impl EditorView {
         );
         ensure!(
             layer.advanced.is_none()
+                && layer.vector_scene.is_none()
                 && !layer.is_group()
                 && !layer.metadata.get("text").is_some_and(|v| !v.is_null())
                 && !layer.metadata.get("shape").is_some_and(|v| !v.is_null()),
@@ -130,9 +140,14 @@ impl EditorView {
             request.cancel.store(true, Ordering::Relaxed);
         }
         self.camera_preview.queued = None;
+        self.camera_preview.cache = None;
+        self.camera_preview.draft_visible = false;
         self.camera_gestures = Default::default();
         self.camera_scopes_generation = self.camera_scopes_generation.wrapping_add(1);
         if self.dialog == Dialog::CameraRaw {
+            // Native close can show the Unsaved dialog without a later
+            // refresh. A cancelled preview must never remain behind it.
+            self.display.replace(&self.pixels);
             self.busy = false;
         }
     }
@@ -151,7 +166,8 @@ impl EditorView {
         self.dialog_generation = self.dialog_generation.wrapping_add(1);
         self.dialog = Dialog::CameraRaw;
         self.camera_preview.window = Some(window.window_handle());
-        self.camera_draft = serde_json::to_value(Settings::default()).unwrap();
+        self.camera_preview.display_scale = window.scale_factor();
+        self.camera_draft = serde_json::to_value(Settings::for_new_edit()).unwrap();
         self.camera_section = 0;
         self.camera_clip_shadows = false;
         self.camera_clip_highlights = false;
@@ -228,12 +244,29 @@ impl EditorView {
         };
         self.camera_scopes_generation = self.camera_scopes_generation.wrapping_add(1);
         self.camera_preview.next_id = self.camera_preview.next_id.wrapping_add(1);
+        let sampling = preview.then(|| self.camera_sample_stage()).flatten();
+        let draft_size = (preview
+            && omuse::camera_raw::preview::supported(
+                &self.editor.document,
+                &self.editor.active_layer,
+                self.editor.selection.is_some(),
+                &settings,
+            ))
+        .then(|| {
+            omuse::camera_raw::preview::dimensions(
+                source.width(),
+                source.height(),
+                self.zoom * self.camera_preview.display_scale,
+            )
+        })
+        .flatten();
         let request = Arc::new(Request {
             id: self.camera_preview.next_id,
             key: self.camera_source_key(),
             settings,
-            sampling: preview.then(|| self.camera_sample_stage()).flatten(),
+            sampling,
             preview,
+            draft_size,
             source,
             selection: self.editor.selection.clone(),
             document: self.editor.document.clone(),
@@ -260,7 +293,44 @@ impl EditorView {
     fn launch_camera_request(&mut self, request: Arc<Request>, cx: &mut Context<Self>) {
         self.camera_preview.active = Some(request.clone());
         let worker = request.clone();
+        let cached = self.camera_preview.cache.clone();
         let task = cx.background_executor().spawn(async move {
+            if let Some(size) = worker.draft_size {
+                let cache = match cached.filter(|cache| cache.matches(&worker.source, size)) {
+                    Some(cache) => cache,
+                    None => Arc::new(omuse::camera_raw::preview::DraftSource::new(
+                        worker.source.clone(),
+                        size,
+                        &worker.cancel,
+                    )?),
+                };
+                let mut pixels = omuse::camera_raw::apply_cancellable(
+                    cache.pixels(),
+                    &worker.settings,
+                    &worker.cancel,
+                )?;
+                if worker.clip_shadows || worker.clip_highlights {
+                    pixels = omuse::camera_raw::clipping_preview(
+                        &pixels,
+                        worker.clip_shadows,
+                        worker.clip_highlights,
+                    );
+                }
+                let mut document = worker.document.clone();
+                document.width = size.0;
+                document.height = size.1;
+                document.layers[0].image = Some(pixels.into());
+                ensure!(
+                    !worker.cancel.load(Ordering::Relaxed),
+                    "Camera Raw cancelled"
+                );
+                let pixels = raster::composite(&document);
+                ensure!(
+                    !worker.cancel.load(Ordering::Relaxed),
+                    "Camera Raw cancelled"
+                );
+                return Ok(Output::Draft { pixels, cache });
+            }
             let (image, sampled) = if let Some(stage) = worker.sampling {
                 let (image, sampled) = omuse::camera_raw::apply_with_sample(
                     &worker.source,
@@ -343,12 +413,9 @@ impl EditorView {
         result: Result<Output>,
         cx: &mut Context<Self>,
     ) {
-        if !self
-            .camera_preview
-            .active
-            .as_ref()
-            .is_some_and(|active| active.id == request.id)
-        {
+        if !self.camera_preview.active.as_ref().is_some_and(|active| {
+            active.id == request.id && active.draft_size == request.draft_size
+        }) {
             return;
         }
         self.camera_preview.active = None;
@@ -361,6 +428,7 @@ impl EditorView {
                 self.busy = false;
                 self.status =
                     "The layer or selection changed. Preview again before applying.".into();
+                self.camera_preview.draft_visible = false;
                 self.refresh(cx);
             }
             return;
@@ -372,15 +440,34 @@ impl EditorView {
         self.busy = false;
         if request.cancel.load(Ordering::Relaxed) || !self.camera_request_is_current(&request) {
             self.status = "The layer or selection changed. Preview again before applying.".into();
+            self.camera_preview.draft_visible = false;
             self.refresh(cx);
             return;
         }
         match result {
+            Ok(Output::Draft { pixels, cache }) => {
+                self.display.replace(&pixels);
+                self.camera_preview.draft_visible = true;
+                self.camera_preview.cache = Some(cache);
+                // Scopes and colour pickers wait for the full-size reference.
+                self.camera_scopes = None;
+                self.camera_scopes_preview = false;
+                self.busy = true;
+                self.status = "Quick preview · refining full detail…".into();
+                self.launch_camera_request(
+                    Arc::new(Request {
+                        draft_size: None,
+                        ..request.as_ref().clone()
+                    }),
+                    cx,
+                );
+            }
             Ok(Output::Preview {
                 pixels,
                 scopes,
                 sampled,
             }) => {
+                self.camera_preview.draft_visible = false;
                 self.display.replace(&pixels);
                 self.camera_scopes = Some(scopes);
                 self.camera_scopes_preview = true;
@@ -398,6 +485,8 @@ impl EditorView {
             }
             Ok(Output::Apply(image)) => match self.editor.apply_image_operation(|_| Ok(image)) {
                 Ok(changed) => {
+                    self.camera_preview.cache = None;
+                    self.camera_preview.draft_visible = false;
                     self.dialog = Dialog::None;
                     self.camera_gestures = Default::default();
                     self.dialog_generation = self.dialog_generation.wrapping_add(1);
@@ -426,9 +515,21 @@ impl EditorView {
                         });
                     }
                 }
-                Err(error) => self.status = error.to_string(),
+                Err(error) => {
+                    if self.camera_preview.draft_visible {
+                        self.camera_preview.draft_visible = false;
+                        self.refresh(cx);
+                    }
+                    self.status = error.to_string();
+                }
             },
-            Err(error) => self.status = format!("Development failed: {error:#}"),
+            Err(error) => {
+                if self.camera_preview.draft_visible {
+                    self.camera_preview.draft_visible = false;
+                    self.refresh(cx);
+                }
+                self.status = format!("Development failed: {error:#}");
+            }
         }
         cx.notify();
     }
@@ -442,7 +543,7 @@ mod tests {
     fn settings(exposure: f32) -> Settings {
         Settings {
             exposure,
-            ..Default::default()
+            ..Settings::for_new_edit()
         }
     }
 
@@ -477,6 +578,7 @@ mod tests {
             view.editor = Editor::new(document);
             view.refresh(cx);
             view.open_camera_raw(window, cx);
+            assert_eq!(view.camera_draft["toneMapping"], "SmoothV1");
             view
         });
         (view, cx, recovery)
@@ -734,6 +836,213 @@ mod tests {
                 view.camera_scopes.as_deref(),
                 Some(&omuse::photo_scopes::PhotoScopes::analyze(&expected))
             );
+        });
+    }
+
+    fn large_photo(view: &mut EditorView, window: &mut Window, cx: &mut Context<EditorView>) {
+        view.cancel_camera_raw();
+        let mut document = Document::new(640, 480);
+        document.background = [18, 42, 73, 255];
+        document.layers[0].opacity = 0.8;
+        document.layers[0].image = Some(
+            image::RgbaImage::from_fn(640, 480, |x, y| {
+                image::Rgba([
+                    (x * 5) as u8,
+                    (y * 7) as u8,
+                    84,
+                    if x % 7 == 0 { 128 } else { 255 },
+                ])
+            })
+            .into(),
+        );
+        view.editor = Editor::new(document);
+        // Exercise a 40% physical-pixel view regardless of test-display DPI.
+        view.zoom = 0.4 / window.scale_factor();
+        view.refresh(cx);
+        view.open_camera_raw(window, cx);
+    }
+
+    #[gpui_kit::test]
+    fn camera_large_preview_refines_exactly_and_apply_keeps_one_full_size_undo(
+        cx: &mut TestAppContext,
+    ) {
+        let (view, cx, _recovery) = setup(cx);
+        let original = view.update_in(cx, |view, window, cx| {
+            large_photo(view, window, cx);
+            let original = view.pixels.clone();
+            view.start_camera_raw(settings(0.6), true, cx);
+            let request = view.camera_preview.active.as_ref().unwrap();
+            assert!(request.draft_size.is_some());
+            assert_eq!(
+                request.sampling,
+                Some(omuse::camera_raw::SampleStage::WhiteBalance)
+            );
+            original
+        });
+        cx.run_until_parked();
+        let (cache, expected) = view.update(cx, |view, cx| {
+            assert!(!view.busy && !view.camera_preview.draft_visible);
+            assert_eq!(view.display.dimensions(), (640, 480));
+            assert_eq!(view.pixels, original);
+            assert_eq!(view.editor.undo_depth(), 0);
+            let graded =
+                omuse::camera_raw::apply(&view.camera_source().unwrap(), &settings(0.6)).unwrap();
+            assert_eq!(
+                view.camera_scopes.as_deref(),
+                Some(&omuse::photo_scopes::PhotoScopes::analyze(&graded))
+            );
+            let cache = view.camera_preview.cache.as_ref().unwrap().clone();
+            assert_eq!(cache.pixels().dimensions(), (256, 192));
+            let mut expected = view.editor.document.clone();
+            expected.layers[0].image = Some(graded.into());
+            // A second preview shares the sampled source, never the graded result.
+            view.start_camera_raw(settings(0.6), true, cx);
+            (cache, raster::composite(&expected))
+        });
+        cx.run_until_parked();
+        view.update(cx, |view, cx| {
+            assert!(Arc::ptr_eq(
+                &cache,
+                view.camera_preview.cache.as_ref().unwrap()
+            ));
+            view.start_camera_raw(settings(0.6), false, cx);
+            assert!(
+                view.camera_preview
+                    .active
+                    .as_ref()
+                    .unwrap()
+                    .draft_size
+                    .is_none()
+            );
+        });
+        cx.run_until_parked();
+        view.update(cx, |view, cx| {
+            assert_eq!(view.pixels, expected);
+            assert_eq!(view.editor.undo_depth(), 1);
+            assert!(view.camera_preview.cache.is_none());
+            assert!(view.editor.undo());
+            view.refresh(cx);
+            assert_eq!(view.pixels, original);
+        });
+    }
+
+    #[gpui_kit::test]
+    fn camera_cancel_and_source_change_clear_draft_cache(cx: &mut TestAppContext) {
+        let (view, cx, _recovery) = setup(cx);
+        view.update_in(cx, |view, window, cx| {
+            large_photo(view, window, cx);
+            view.start_camera_raw(settings(0.4), true, cx);
+        });
+        cx.run_until_parked();
+        view.update_in(cx, |view, window, cx| {
+            assert!(view.camera_preview.cache.is_some());
+            view.start_camera_raw(settings(1.0), true, cx);
+            view.cancel_camera_raw();
+            assert!(view.camera_preview.cache.is_none());
+            large_photo(view, window, cx);
+            view.start_camera_raw(settings(-0.3), true, cx);
+        });
+        cx.run_until_parked();
+        view.update(cx, |view, _| {
+            assert!(!view.busy && !view.camera_preview.draft_visible);
+            let cache = view.camera_preview.cache.as_ref().unwrap();
+            assert!(cache.matches(&view.camera_source().unwrap(), (256, 192)));
+            assert_eq!(view.editor.undo_depth(), 0);
+            let expected =
+                omuse::camera_raw::apply(&view.camera_source().unwrap(), &settings(-0.3)).unwrap();
+            assert_eq!(
+                view.camera_scopes.as_deref(),
+                Some(&omuse::photo_scopes::PhotoScopes::analyze(&expected))
+            );
+        });
+    }
+
+    #[gpui_kit::test]
+    fn camera_failed_refinement_restores_original_view(cx: &mut TestAppContext) {
+        let (view, cx, _recovery) = setup(cx);
+        view.update(cx, |view, cx| {
+            view.start_camera_raw(settings(0.5), true, cx);
+            let request = view.camera_preview.active.as_ref().unwrap().clone();
+            // A full worker failure following a visible draft must not leave
+            // an approximate view presented as the completed preview.
+            view.display.replace(&image::RgbaImage::new(4, 3));
+            view.camera_preview.draft_visible = true;
+            view.finish_camera_request(
+                request,
+                Err(anyhow::anyhow!("injected refinement failure")),
+                cx,
+            );
+            assert!(!view.busy && !view.camera_preview.draft_visible);
+            assert_eq!(view.display.dimensions(), (48, 32));
+            assert!(view.status.contains("injected refinement failure"));
+            assert_eq!(view.editor.undo_depth(), 0);
+        });
+        cx.run_until_parked();
+    }
+
+    #[gpui_kit::test]
+    fn camera_visible_draft_cancel_restores_committed_display_before_close_prompt(
+        cx: &mut TestAppContext,
+    ) {
+        let (view, cx, _recovery) = setup(cx);
+        view.update_in(cx, |view, window, cx| {
+            large_photo(view, window, cx);
+            view.start_camera_raw(settings(0.5), true, cx);
+            let request = view.camera_preview.active.as_ref().unwrap().clone();
+            // Simulate a received first frame while its refinement is pending.
+            // No user pixels/history are changed by a transient display frame.
+            let cache = Arc::new(
+                omuse::camera_raw::preview::DraftSource::new(
+                    request.source.clone(),
+                    request.draft_size.unwrap(),
+                    &AtomicBool::new(false),
+                )
+                .unwrap(),
+            );
+            view.display.replace(cache.pixels());
+            view.camera_preview.cache = Some(cache);
+            view.camera_preview.draft_visible = true;
+            assert_ne!(view.display.dimensions(), view.pixels.dimensions());
+            view.cancel_camera_raw();
+            view.dialog_generation += 1;
+            view.dialog = Dialog::Unsaved;
+            assert_eq!(view.display.dimensions(), view.pixels.dimensions());
+            assert!(view.camera_preview.cache.is_none());
+            assert!(!view.camera_preview.draft_visible);
+            assert!(request.cancel.load(Ordering::Relaxed));
+            assert_eq!(view.editor.undo_depth(), 0);
+        });
+        cx.run_until_parked();
+        view.update(cx, |view, _| {
+            assert_eq!(view.dialog, Dialog::Unsaved);
+            assert_eq!(view.display.dimensions(), (640, 480));
+            assert!(view.camera_preview.active.is_none());
+        });
+    }
+
+    #[gpui_kit::test]
+    fn camera_rejects_editable_vector_even_with_a_raster_cache(cx: &mut TestAppContext) {
+        let (view, cx, _recovery) = setup(cx);
+        view.update(cx, |view, _| {
+            let layer = view
+                .editor
+                .document
+                .find_layer_mut(&view.editor.active_layer)
+                .unwrap();
+            assert!(layer.image.is_some());
+            layer.vector_scene = Some(Arc::new(omuse::vector_scene::VectorScene {
+                version: 1,
+                width: 32,
+                height: 24,
+                objects: Vec::new(),
+            }));
+            assert!(
+                view.camera_source()
+                    .unwrap_err()
+                    .to_string()
+                    .contains("rasterize a copy")
+            );
+            assert_eq!(view.editor.undo_depth(), 0);
         });
     }
 }

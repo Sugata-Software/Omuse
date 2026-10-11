@@ -1,0 +1,13 @@
+Omuse uses the standalone photocraft-psd crate from PhotoCraft.
+
+Upstream: https://github.com/storytold/photocraft
+Revision: 7722172585a01cbdb93c06f0f5ff2634fcb17999
+Package: crates/psd, version 0.6.0
+Licence: MIT OR Apache-2.0; licence texts and upstream NOTICE accompany this file.
+
+All 27 vendored Rust source files are unchanged from the pinned revision.
+Only Cargo.toml was adapted from workspace inheritance to standalone settings.
+The source identity inventory is rust/vendor/photocraft-psd/UPSTREAM.json.
+No PhotoCraft application assets, names, logos or UI are incorporated.
+Omuse uses its own bounded export adapter; supported exchange behaviour and
+conversion limits are documented separately.

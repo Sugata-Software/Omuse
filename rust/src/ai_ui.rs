@@ -1150,6 +1150,12 @@ impl EditorView {
             };
             let mut context_card =
                 panel_section("SHARED WITH YOUR REQUEST", cx).child(label(context, cx));
+            if self.ai.task == AiTask::Design {
+                context_card = context_card.child(label(
+                    "Also shares bounded text from other collection pages for page-specific revisions. Their images are not included.",
+                    cx,
+                ));
+            }
             if self.ai.task == AiTask::Design
                 && self.ai_task_provider() == Some(ProviderId::CodexSubscription)
             {
@@ -3646,6 +3652,28 @@ fn creative_operation_review(
 ) -> Vec<String> {
     let prefix = format!("{index}. ");
     match operation {
+        CreativeOperation::EditVector {
+            layer_id,
+            object_ids,
+            command,
+        } => {
+            use omuse::vector_commands::VectorCommand as V;
+            let detail = match command {
+                V::Simplify { tolerance } => format!("Simplify curves · {tolerance} px tolerance"),
+                V::Offset { distance } => format!("Offset paths · {distance:+} px"),
+                V::OutlineStroke => "Convert strokes to filled outlines".into(),
+                V::Unite => "Unite shapes".into(),
+                V::Subtract => "Subtract upper shapes".into(),
+                V::Intersect => "Keep shape intersection".into(),
+                V::Exclude => "Exclude overlap".into(),
+                V::Divide => "Divide bottom shape".into(),
+            };
+            vec![format!(
+                "{prefix}{detail} · {} objects in \"{}\" · Editable paths, with Undo.",
+                object_ids.len(),
+                review_layer_reference(layer_id, documents, workflow_layer_steps)
+            )]
+        }
         CreativeOperation::SelectPage { page_id } => vec![format!(
             "{prefix}Select existing page \"{}\" for subsequent native edits.",
             review_text(page_id)
@@ -3935,6 +3963,10 @@ fn prepare_assistant_request(
         "No canvas preview is supplied. Base the proposal on the editable layer description and project brief."
     };
     let mut project_brief = assistant_project_brief(&pending.source_project);
+    if pending.task == AiTask::Design && pending.workflow.is_none() {
+        project_brief["otherPageText"] =
+            omuse::creative_context::project_text_context(&pending.source_project);
+    }
     if pending.workflow.is_some() && pending.task == AiTask::Design {
         // A finishing step edits this page's existing layers. Do not advertise
         // newly packaged result resources as independent insertion targets.

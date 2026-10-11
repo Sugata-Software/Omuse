@@ -675,6 +675,42 @@ impl Project {
         self.page_document_mut(&id)
     }
 
+    /// Read one page without materializing it in any shared lazy-page cache.
+    /// The visitor must return owned data; temporary decoded pixels are dropped.
+    pub(crate) fn inspect_page_document<R>(
+        &self,
+        id: &str,
+        visit: impl FnOnce(&Document) -> Result<R>,
+    ) -> Result<R> {
+        let page = self
+            .pages
+            .iter()
+            .find(|page| page.id == id)
+            .context("Page not found")?;
+        match &page.storage {
+            DocumentStorage::Loaded(document) => visit(document),
+            DocumentStorage::CheckedOut => {
+                anyhow::bail!("Create page is checked out to an editor; restore its document first")
+            }
+            DocumentStorage::Lazy { path, cache } => {
+                let cached = cache
+                    .lock()
+                    .map_err(|_| anyhow::anyhow!("Create page cache is unavailable"))?
+                    .clone();
+                let mut document = match cached {
+                    Some(document) => document,
+                    None => read_lazy_document(path, self.source.as_ref())?,
+                };
+                ensure!(
+                    document.width == page.width && document.height == page.height,
+                    "Page dimensions differ from the Create manifest"
+                );
+                document.name = page.name.clone();
+                visit(&document)
+            }
+        }
+    }
+
     pub fn page_document(&mut self, id: &str) -> Result<&Document> {
         let source = self.source.clone();
         self.pages
@@ -1757,6 +1793,37 @@ fn rename_new(from: &Path, to: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn inspect_page_document_does_not_fill_shared_lazy_cache() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("inspect.omuse");
+        let mut seed = Project::new("Inspect", Document::new(8, 8));
+        let inactive = seed.add_page("Inactive", Document::new(8, 8)).unwrap();
+        seed.save(&path).unwrap();
+        let mut source = Project::open(&path).unwrap();
+        let sibling = source.clone();
+        let empty_cache = |project: &Project| match &project
+            .pages
+            .iter()
+            .find(|p| p.id == inactive)
+            .unwrap()
+            .storage
+        {
+            DocumentStorage::Lazy { cache, .. } => cache.lock().unwrap().is_none(),
+            _ => false,
+        };
+        assert!(empty_cache(&source) && empty_cache(&sibling));
+        let name = source
+            .inspect_page_document(&inactive, |doc| Ok(doc.name.clone()))
+            .unwrap();
+        assert_eq!(name, "Inactive");
+        assert!(empty_cache(&source) && empty_cache(&sibling));
+        // Confirm the assertion observes the shared cell, not just its enum tag.
+        source.page_document(&inactive).unwrap();
+        assert!(!empty_cache(&sibling));
+    }
+
     use image::{Rgba, RgbaImage};
     use tempfile::tempdir;
 

@@ -1,0 +1,11 @@
+# Omuse path operations attribution
+
+`snap.rs` selectively adapts horizontal-edge snapping from VectorCraft's
+`crates/pathops/src/boolean.rs` at commit
+`9f659195c324419c087604a79c4e3b434874a62c`:
+https://github.com/storytold/vectorcraft/tree/9f659195c324419c087604a79c4e3b434874a62c
+
+Used under the MIT option; the complete copyright and licence text is in
+`LICENSE-MIT`. Omuse's adapters, resource limits, object/style handling and
+integration tests are separate. No VectorCraft assets, marks, fonts, or UI are
+included. `kurbo` and `linesweeper` remain separately licensed dependencies.

@@ -1,6 +1,6 @@
 # Omuse keyboard shortcuts
 
-This reference is generated from Omuse's command catalog. Press **Ctrl+K** in the editor to search and run any of the 204 commands. 106 commands have a default shortcut; every unbound command remains searchable and executable.
+This reference is generated from Omuse's command catalog. Press **Ctrl+K** in the editor to search and run any of the 213 commands. 107 commands have a default shortcut; every unbound command remains searchable and executable.
 
 Open **Keyboard shortcuts** with **Ctrl+Alt+K** to assign, clear, or reset a binding. Custom bindings are stored per user. Omuse reserves **Super** for Omarchy and other Linux desktop shortcuts, and rejects Linux virtual-terminal chords such as Ctrl+Alt+F3.
 
@@ -41,6 +41,7 @@ Legacy default changes: Export moved from Ctrl+E to **Ctrl+Alt+Shift+S**, Create
 | Import | Ctrl+Shift+O | Import an image into the current document. |
 | Export | Ctrl+Alt+Shift+S | Export the finished artwork. |
 | Import conversion report | Unbound | Show conversions made while importing the current document. |
+| Export conversion report | Unbound | Show conversions recorded for the last layered PSD exported in this session. |
 | Previous page | Alt+Page Up | Activate the previous page in a Create project. |
 | Next page | Alt+Page Down | Activate the next page in a Create project. |
 
@@ -147,6 +148,8 @@ Legacy default changes: Export moved from Ctrl+E to **Ctrl+Alt+Shift+S**, Create
 | Command | Default | What it does |
 |---|---:|---|
 | Group vector selection | Unbound | Group selected vector objects. Ctrl+G also groups objects while editing artwork. |
+| Split path at selected node | Unbound | Split an interior node or open a closed contour at the selected node, preserving existing curves. |
+| Join nearest path endpoints | Unbound | Join the selected endpoint to the nearest open endpoint in the same compound path. Coincident endpoints become one node. |
 | Ungroup vector selection | Ctrl+Shift+G | Release selected outer vector groups while retaining object order and geometry. |
 | Toggle vector outline view | Ctrl+Y | Inspect vector contours at the current zoom. This viewing mode does not change exports. |
 | Unite vector shapes | Unbound | Combine selected filled shapes; the bottom shape supplies the style. Undo restores the originals. |
@@ -154,6 +157,12 @@ Legacy default changes: Export moved from Ctrl+E to **Ctrl+Alt+Shift+S**, Create
 | Intersect vector shapes | Unbound | Keep the shared filled area of selected shapes. |
 | Exclude vector overlap | Unbound | Keep areas covered by an odd number of selected shapes. |
 | Divide vector shape | Unbound | Partition the bottom selected shape using the upper selected shapes. |
+| Simplify vector paths | Unbound | Simplify selected paths using the inspector tolerance. Preview on canvas; Ctrl+Z restores the original nodes. |
+| Shape Builder | Alt+M | Select 2–8 opaque filled paths, then drag through regions to merge them. Hold Alt at the start of the gesture to erase regions. Ctrl+Z restores the originals. |
+| Repeat vector grid | Unbound | Preview editable grid copies using the inspector counts and steps. Originals stay in place; copies are added above them. Undo before changing the repeat settings. |
+| Repeat vectors radially | Unbound | Preview radial copies using the inspector count, angle, centre and orientation. The count includes the original; copies remain individually editable. |
+| Offset vector paths | Unbound | Grow or shrink selected filled paths by the inspector distance in pixels. Positive grows; negative shrinks. |
+| Convert strokes to outlines | Unbound | Convert selected strokes into filled editable paths while preserving the original fill as a separate object. |
 | Align vectors left | Unbound | Align selected objects or groups to the left edge of the selection. |
 | Centre vectors horizontally | Unbound | Align selected objects or groups to their shared horizontal centre. |
 | Align vectors right | Unbound | Align selected objects or groups to the right edge of the selection. |
@@ -205,7 +214,7 @@ Legacy default changes: Export moved from Ctrl+E to **Ctrl+Alt+Shift+S**, Create
 | Change grid subdivisions | Unbound | Cycle the canvas grid's minor subdivisions. |
 | Toggle guides | Ctrl+; | Show or hide guides. |
 | Toggle rulers | Ctrl+R | Show or hide canvas rulers. |
-| Toggle snapping | Ctrl+Shift+; | Enable or disable snapping to the grid and guides. |
+| Toggle snapping | Ctrl+Shift+; | Enable or disable grid/guide snapping and main-canvas vector node/handle snapping. Shift bypasses snapping for a vector drag while retaining angle constraints. |
 | Toggle auto-select | Unbound | Choose layers from the canvas when using Move. |
 | Toggle transform box | Unbound | Show or hide Move-tool transform handles. |
 | Manage guides | Unbound | Add, clear, or configure guides. |
@@ -293,6 +302,7 @@ These temporary gestures are fixed so they remain available while other shortcut
 
 | Action | Gesture |
 |---|---:|
+| Cancel pending Blur, Smudge or Liquify | Escape or Cancel · Esc while the stroke is processing; Undo after it applies |
 | Temporarily pan the canvas | Hold Space and drag |
 | Pan the canvas from any tool | Middle-button drag |
 | Zoom around the pointer | Scroll over the canvas |

@@ -310,6 +310,17 @@ impl EditorView {
             return name.starts_with("vector-");
         }
         match name {
+            "vector-shape-builder" => self.start_scene_builder(window, cx),
+            "vector-repeat-grid" | "vector-repeat-radial" => {
+                self.scene_repeat_action(name == "vector-repeat-radial", window, cx);
+            }
+            "vector-simplify" | "vector-offset" | "vector-outline-stroke" => {
+                self.scene_geometry_action(name, window, cx);
+            }
+            "vector-split-node" | "vector-join-endpoints" => {
+                self.vector_topology_action(name == "vector-join-endpoints", cx);
+                self.focus.focus(window, cx);
+            }
             "select-all" | "deselect" => {
                 let scene = self.vector_draft.as_ref().unwrap().scene.as_ref().unwrap();
                 let selected = if name == "select-all" {
@@ -562,6 +573,8 @@ impl EditorView {
                 cx,
             ))
             .child(booleans)
+            .child(self.vector_geometry_controls(window, cx))
+            .child(self.vector_repeat_controls(window, cx))
             .child(matching)
             .into_any_element()
     }
@@ -590,6 +603,7 @@ impl EditorView {
         let Some(scene) = draft.scene.as_mut() else {
             return;
         };
+        scene.builder = None;
         scene.selected_objects = selected
             .into_iter()
             .filter(|i| *i < scene.artwork.objects.len())

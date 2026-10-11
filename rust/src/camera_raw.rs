@@ -4,6 +4,9 @@ use image::RgbaImage;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 
+#[path = "camera_preview.rs"]
+pub mod preview;
+
 fn check_cancel(cancel: &AtomicBool) -> Result<()> {
     ensure!(!cancel.load(Ordering::Relaxed), "Camera Raw cancelled");
     Ok(())
@@ -305,9 +308,25 @@ impl Default for CalibrationSettings {
         }
     }
 }
+/// Stored recipes without a version retain the original C-compatible tone math.
+/// New edits opt in explicitly; unknown versions fail deserialization.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ToneMapping {
+    #[default]
+    Legacy,
+    SmoothV1,
+}
+impl ToneMapping {
+    fn is_legacy(&self) -> bool {
+        *self == Self::Legacy
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields, rename_all = "camelCase")]
 pub struct Settings {
+    #[serde(default, skip_serializing_if = "ToneMapping::is_legacy")]
+    pub tone_mapping: ToneMapping,
     pub white_balance: WhiteBalance,
     pub temperature: f32,
     pub tint: f32,
@@ -347,6 +366,7 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
+            tone_mapping: ToneMapping::Legacy,
             white_balance: WhiteBalance::Custom,
             temperature: 0.,
             tint: 0.,
@@ -382,6 +402,15 @@ impl Default for Settings {
             optics: Default::default(),
             geometry: Default::default(),
             calibration: Default::default(),
+        }
+    }
+}
+impl Settings {
+    /// For a newly initiated edit. `Default` remains the stored legacy contract.
+    pub fn for_new_edit() -> Self {
+        Self {
+            tone_mapping: ToneMapping::SmoothV1,
+            ..Default::default()
         }
     }
 }
@@ -640,6 +669,32 @@ fn sl(a: &mut [f64; 3], t: f64) {
     } else {
         for x in a {
             *x = c(*x * c(t) / q)
+        }
+    }
+}
+fn set_luminance(a: &mut [f64; 3], target: f64, mapping: ToneMapping) {
+    if mapping == ToneMapping::Legacy {
+        sl(a, target);
+        return;
+    }
+    // Mix toward white when lifting and toward black when darkening. Both are
+    // convex operations: they reach the requested luminance without clipping
+    // one channel or amplifying a near-black colour ratio into a saturated spike.
+    // In particular, lifting [0,0,epsilon] converges to lifting [0,0,0].
+    for channel in a.iter_mut() {
+        *channel = c(*channel);
+    }
+    let current = y(*a);
+    let target = c(target);
+    if target > current {
+        let amount = (target - current) / (1. - current);
+        for channel in a {
+            *channel = c(*channel + (1. - *channel) * amount);
+        }
+    } else if target < current {
+        let amount = target / current;
+        for channel in a {
+            *channel = c(*channel * amount);
         }
     }
 }
@@ -925,7 +980,7 @@ fn apply_effects(image: &mut RgbaImage, s: &Settings, cancel: &AtomicBool) -> Re
             detail += f64::from(s.clarity) / 100. * (tone - f64::from(v[index]));
         }
         if detail != 0. {
-            sl(&mut rgb, c(tone + detail));
+            set_luminance(&mut rgb, c(tone + detail), s.tone_mapping);
         }
         if s.dehaze != 0. {
             let d = f64::from(s.dehaze) / 100.;
@@ -938,7 +993,7 @@ fn apply_effects(image: &mut RgbaImage, s: &Settings, cancel: &AtomicBool) -> Re
             } else {
                 target = c(target - d * (0.4 - target).max(0.))
             }
-            sl(&mut rgb, target);
+            set_luminance(&mut rgb, target, s.tone_mapping);
             let lum = y(rgb);
             let saturation = 1. + 0.7 * d;
             for channel in &mut rgb {
@@ -1107,7 +1162,12 @@ fn write_premultiplied_pixel(pixel: &mut image::Rgba<u8>, rgb: [f64; 3]) {
     }
 }
 
-fn apply_detail(image: &mut RgbaImage, s: &DetailSettings, cancel: &AtomicBool) -> Result<()> {
+fn apply_detail(
+    image: &mut RgbaImage,
+    s: &DetailSettings,
+    tone_mapping: ToneMapping,
+    cancel: &AtomicBool,
+) -> Result<()> {
     if s.sharpen_amount == 0. && s.noise_luminance == 0. && s.noise_color == 0. {
         return Ok(());
     }
@@ -1167,7 +1227,7 @@ fn apply_detail(image: &mut RgbaImage, s: &DetailSettings, cancel: &AtomicBool) 
                 f64::from(p[1]) / f64::from(p[3]),
                 f64::from(p[2]) / f64::from(p[3]),
             ];
-            sl(&mut rgb, f64::from(target));
+            set_luminance(&mut rgb, f64::from(target), tone_mapping);
             write_premultiplied_pixel(p, rgb);
         }
     }
@@ -1260,7 +1320,7 @@ fn apply_detail(image: &mut RgbaImage, s: &DetailSettings, cancel: &AtomicBool) 
                 f64::from(p[1]) / f64::from(p[3]),
                 f64::from(p[2]) / f64::from(p[3]),
             ];
-            sl(&mut rgb, target);
+            set_luminance(&mut rgb, target, tone_mapping);
             write_premultiplied_pixel(p, rgb);
         }
     }
@@ -1679,7 +1739,7 @@ fn apply_geometry_cancellable(
 pub(crate) fn apply_master_curve(mut rgb: [f64; 3], s: &Settings) -> [f64; 3] {
     let tone = y(rgb);
     let mapped = curve_value(parametric(tone, &s.curve), &s.curve.rgb);
-    sl(&mut rgb, mapped);
+    set_luminance(&mut rgb, mapped, s.tone_mapping);
     if s.curve.refine_saturation != 0. && tone > 1e-4 {
         let factor = 1. + f64::from(s.curve.refine_saturation) / 100. * (mapped / tone - 1.);
         let lum = y(rgb);
@@ -1785,7 +1845,7 @@ fn apply_grading(mut rgb: [f64; 3], s: &Settings) -> [f64; 3] {
         }
         if grade_luminance != 0. {
             let target = c(y(rgb) + grade_luminance * 0.25 * weight);
-            sl(&mut rgb, target);
+            set_luminance(&mut rgb, target, s.tone_mapping);
         }
     }
     rgb
@@ -1843,7 +1903,12 @@ fn develop(
         "Camera Raw supports images up to 16 million pixels"
     );
     validate(s)?;
-    if *s == Settings::default() {
+    if *s
+        == (Settings {
+            tone_mapping: s.tone_mapping,
+            ..Default::default()
+        })
+    {
         return Ok((i.clone(), capture.map(|_| i.clone())));
     }
     let mut sample = capture
@@ -1894,35 +1959,44 @@ fn develop(
             a[k] = c(li(a[k]) * g[k] * 2f64.powf(f64::from(s.exposure)));
             a[k] = c(0.5 + (sr(a[k]) - 0.5) * (1. + f64::from(s.contrast) / 100.))
         }
-        // The C kernel rescales and clamps RGB after each tone control. Applying
-        // all four controls to luminance before one rescale loses those stage
-        // boundaries and can turn saturated highlights into full clipping.
+        // Keep every tone stage separate. Legacy recipes retain the C kernel's
+        // ratio/clipping behavior; new edits use continuous, bounded mixing.
         let mut luminance = y(a);
         let t = c((luminance - 0.5) / 0.5).powi(2);
         luminance = c(if s.highlights >= 0. {
             luminance + f64::from(s.highlights) / 100. * t * (1. - luminance)
+        } else if s.tone_mapping == ToneMapping::SmoothV1 {
+            // Quadratic compression has nonnegative slope over the full
+            // slider range. The legacy cubic reverses highlights below -33⅓.
+            luminance + f64::from(s.highlights) / 100. * t * 0.25
         } else {
             luminance + f64::from(s.highlights) / 100. * t * (luminance - 0.5)
         });
-        sl(&mut a, luminance);
+        set_luminance(&mut a, luminance, s.tone_mapping);
         luminance = y(a);
         let t = c((0.5 - luminance) / 0.5).powi(2);
-        luminance = c(if s.shadows >= 0. {
-            luminance + f64::from(s.shadows) / 100. * t * (0.5 - luminance)
-        } else {
-            luminance + f64::from(s.shadows) / 100. * t * luminance
-        });
-        sl(&mut a, luminance);
+        luminance = c(
+            if s.shadows >= 0. && s.tone_mapping == ToneMapping::SmoothV1 {
+                // At +100 the slope reaches zero only at black, never becoming
+                // negative. Keep the midpoint and its slope continuous.
+                luminance + f64::from(s.shadows) / 100. * t * 0.25
+            } else if s.shadows >= 0. {
+                luminance + f64::from(s.shadows) / 100. * t * (0.5 - luminance)
+            } else {
+                luminance + f64::from(s.shadows) / 100. * t * luminance
+            },
+        );
+        set_luminance(&mut a, luminance, s.tone_mapping);
         luminance = y(a);
         if luminance > 0.75 {
             luminance = c(0.75 + (luminance - 0.75) * (1. + f64::from(s.whites) / 100.));
         }
-        sl(&mut a, luminance);
+        set_luminance(&mut a, luminance, s.tone_mapping);
         luminance = y(a);
         if luminance < 0.25 {
             luminance = c(0.25 + (luminance - 0.25) * (1. - f64::from(s.blacks) / 100.));
         }
-        sl(&mut a, luminance);
+        set_luminance(&mut a, luminance, s.tone_mapping);
         let l = y(a);
         let mx = a.iter().copied().fold(0., f64::max);
         let mn = a.iter().copied().fold(1., f64::min);
@@ -1999,7 +2073,7 @@ fn develop(
         cancel,
         (capture == Some(SampleStage::Optics)).then_some(&mut sample),
     )?;
-    apply_detail(&mut o, &s.detail, cancel)?;
+    apply_detail(&mut o, &s.detail, s.tone_mapping, cancel)?;
     check_cancel(cancel)?;
     Ok((o, sample))
 }
@@ -2041,6 +2115,50 @@ pub fn clipping_preview(image: &RgbaImage, shadows: bool, highlights: bool) -> R
 mod tests {
     use super::*;
     use image::Rgba;
+    #[test]
+    fn smooth_luminance_reaches_target_without_clipping_or_reversing_channels() {
+        for r in [0., 0.0001, 0.2, 0.75, 1.] {
+            for g in [0., 0.0001, 0.2, 0.75, 1.] {
+                for b in [0., 0.0001, 0.2, 0.75, 1.] {
+                    let original = [r, g, b];
+                    for target in [0., 0.0001, 0.1, 0.5, 0.99, 1.] {
+                        let mut mapped = original;
+                        set_luminance(&mut mapped, target, ToneMapping::SmoothV1);
+                        assert!((y(mapped) - target).abs() < 1e-12);
+                        assert!(
+                            mapped
+                                .iter()
+                                .all(|v| v.is_finite() && (0. ..=1.).contains(v))
+                        );
+                        for a in 0..3 {
+                            for b in 0..3 {
+                                if original[a] <= original[b] {
+                                    assert!(mapped[a] <= mapped[b]);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    #[test]
+    fn smooth_luminance_is_continuous_at_black_and_white() {
+        for target in [0., 0.02, 0.5, 0.99, 1.] {
+            for endpoint in [0., 1.] {
+                let mut reference = [endpoint; 3];
+                set_luminance(&mut reference, target, ToneMapping::SmoothV1);
+                for channel in 0..3 {
+                    let mut nearby = [endpoint; 3];
+                    nearby[channel] = if endpoint == 0. { 1e-9 } else { 1. - 1e-9 };
+                    set_luminance(&mut nearby, target, ToneMapping::SmoothV1);
+                    for k in 0..3 {
+                        assert!((nearby[k] - reference[k]).abs() < 2e-9);
+                    }
+                }
+            }
+        }
+    }
     #[test]
     fn point_colour_weights_are_periodic_after_repeated_hue_shifts() {
         let point = PointColor {

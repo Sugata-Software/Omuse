@@ -153,13 +153,13 @@ fn font_search_keyboard_commit_caret_typing_and_stale_hover_preserve_text(cx: &m
 #[gpui_kit::test]
 fn long_stroke_release_duplicate_is_free_and_overflow_is_atomic(cx: &mut TestAppContext) {
     let (view, cx, _temp) = setup(cx);
+    let before = view.update(cx, |v, _| v.pixels.clone());
     view.update_in(cx, |v, w, cx| {
         v.tool = Tool::BlurBrush;
         v.zoom = 1.;
         v.pan = (0., 0.);
         v.viewport
             .set(Bounds::new(point(px(0.), px(0.)), size(px(80.), px(60.))));
-        let before = v.pixels.clone();
         v.drag_start = Some((30., 30.));
         v.lasso = (0..100_000)
             .map(|i| (30. + (i % 2) as f32 * 0.001, 30.))
@@ -175,6 +175,12 @@ fn long_stroke_release_duplicate_is_free_and_overflow_is_atomic(cx: &mut TestApp
             cx,
         );
         assert!(!v.status.contains("too many"), "{}", v.status);
+        assert!(v.busy);
+        assert_eq!(v.editor.undo_depth(), 0);
+    });
+    cx.run_until_parked();
+    view.update_in(cx, |v, w, cx| {
+        assert!(!v.busy);
         assert_eq!(v.editor.undo_depth(), 1, "{}", v.status);
         if v.editor.undo_depth() > 0 {
             assert!(v.editor.undo());

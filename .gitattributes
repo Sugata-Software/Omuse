@@ -3,3 +3,8 @@
 rust/licenses/** -text
 # The pinned hexf-parse source is also checked byte for byte against upstream.
 rust/vendor/hexf-parse/** -text
+# Preserve the exact upstream sources and notices recorded by their provenance.
+rust/vendor/photocraft-psd/** -text
+rust/vendor/omuse-pathops/** -text
+# Colour regression cases and reviewed references have exact byte digests.
+rust/tests/reference/photo-color/** -text

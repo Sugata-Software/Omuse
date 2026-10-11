@@ -272,6 +272,7 @@ pub enum ContentAwareAlgorithm {
     #[default]
     Legacy,
     ContextualV1,
+    TextureV2,
 }
 
 impl ContentAwareAlgorithm {
@@ -441,8 +442,13 @@ pub fn validate_operation_dimensions(
         }
         AdvancedOperation::ContentAwareReplace(settings) => {
             ensure!(
-                u64::from(width) * u64::from(height) <= MAX_CONTENT_PIXELS,
-                "content-aware replacement is limited to 4 million pixels"
+                u64::from(width) * u64::from(height)
+                    <= if settings.algorithm == ContentAwareAlgorithm::TextureV2 {
+                        MAX_OPERATION_PIXELS
+                    } else {
+                        MAX_CONTENT_PIXELS
+                    },
+                "Content-aware source exceeds this method's pixel limit"
             );
             settings.target_mask.validate(Some(dimensions))?;
             settings.allowed_source_mask.validate(Some(dimensions))?;
@@ -454,7 +460,19 @@ pub fn validate_operation_dimensions(
                 settings.patch_radius <= MAX_CONTENT_PATCH_RADIUS,
                 "content patch radius exceeds {MAX_CONTENT_PATCH_RADIUS}"
             );
-            content_candidate_budget(settings)?;
+            if settings.algorithm == ContentAwareAlgorithm::TextureV2 {
+                crate::retouch::texture::validate_inputs(
+                    width,
+                    height,
+                    &settings.target_mask.data,
+                    &settings.allowed_source_mask.data,
+                    settings.search_radius,
+                    settings.patch_radius,
+                    settings.feather,
+                )?;
+            } else {
+                content_candidate_budget(settings)?;
+            }
             finite_range(settings.feather, 0.0..=1.0, "content replacement feather")
         }
         AdvancedOperation::TargetColourUniformity(settings) => {
@@ -537,7 +555,9 @@ fn content_candidate_budget(settings: &ContentAwareReplace) -> Result<usize> {
     let patch = match settings.algorithm {
         ContentAwareAlgorithm::Legacy => settings.patch_radius,
         // Point-sized patches still need immediate, legitimate neighbour context.
-        ContentAwareAlgorithm::ContextualV1 => settings.patch_radius.max(1),
+        ContentAwareAlgorithm::ContextualV1 | ContentAwareAlgorithm::TextureV2 => {
+            settings.patch_radius.max(1)
+        }
     };
     let side = u64::from(patch) * 2 + 1;
     let patch_area = side.saturating_mul(side);
@@ -1301,6 +1321,16 @@ pub(crate) fn visit_content_samples(
         ContentAwareAlgorithm::ContextualV1 => {
             visit_content_samples_contextual(original, settings, cancelled, sample)
         }
+        ContentAwareAlgorithm::TextureV2 => crate::retouch::texture::visit_samples(
+            original,
+            &settings.target_mask.data,
+            &settings.allowed_source_mask.data,
+            settings.search_radius,
+            settings.patch_radius,
+            settings.feather,
+            cancelled,
+            sample,
+        ),
     }
 }
 

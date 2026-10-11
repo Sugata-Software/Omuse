@@ -2,6 +2,9 @@
 #[path = "mask_inspection_ui_tests.rs"]
 mod mask_inspection_ui_tests;
 #[cfg(all(test, feature = "ui-test"))]
+#[path = "photo_exchange_tests.rs"]
+mod photo_exchange_tests;
+#[cfg(all(test, feature = "ui-test"))]
 #[path = "photo_reliability_ui_tests.rs"]
 mod photo_reliability_ui_tests;
 
@@ -68,6 +71,8 @@ mod range_ui;
 mod recent_ui;
 #[path = "restore_ui.rs"]
 mod restore_ui;
+#[path = "retouch_ui.rs"]
+mod retouch_ui;
 #[path = "rich_text_ui.rs"]
 mod rich_text_ui;
 #[path = "selection_outline_ui.rs"]
@@ -285,6 +290,7 @@ enum Dialog {
     Workflow,
     Pro,
     ImportReport,
+    ExportReport,
     ToolSettings,
     Gradient,
 }
@@ -492,6 +498,7 @@ pub struct EditorView {
     guide_drag: Option<(String, omuse::editor::GuideAxis, f32)>,
     preferences: crate::preferences::Preferences,
     import_notes: Vec<String>,
+    export_notes: Vec<String>,
     selection_contour: RefCell<SelectionContourCache>,
     selection_ant_phase: u8,
     clipboard_origin: Option<(u64, (u32, u32), (f32, f32))>,
@@ -679,8 +686,30 @@ impl EditorView {
             .unwrap_or(true)
         });
         let weak = cx.entity().downgrade();
+        let editor_window = window.window_handle();
         cx.intercept_keystrokes(move |event, window, cx| {
             let _ = weak.update(cx, |this, cx| {
+                // Bound input actions run before raw key capture. Intercept
+                // Escape here so a focused numeric/text field cannot consume
+                // cancellation of this editor window's pending image work.
+                let modifiers = event.keystroke.modifiers;
+                if this.busy
+                    && this.photo_io.is_some()
+                    && this.dialog == Dialog::None
+                    && window.window_handle() == editor_window
+                    && event.keystroke.key == "escape"
+                    && !modifiers.control
+                    && !modifiers.shift
+                    && !modifiers.alt
+                    && !modifiers.platform
+                    && this.cancel_photo_io()
+                {
+                    this.dialog_generation = this.dialog_generation.wrapping_add(1);
+                    this.focus.focus(window, cx);
+                    cx.stop_propagation();
+                    cx.notify();
+                    return;
+                }
                 if this.inline_font_key(&event.keystroke, window, cx)
                     || this.recent_key(&event.keystroke, window, cx)
                     || this.command_search_key(&event.keystroke, window, cx)
@@ -996,6 +1025,7 @@ impl EditorView {
             guide_drag: None,
             preferences,
             import_notes: Vec::new(),
+            export_notes: Vec::new(),
             selection_contour: RefCell::new(SelectionContourCache::default()),
             selection_ant_phase: 0,
             clipboard_origin: None,
@@ -2008,25 +2038,10 @@ impl EditorView {
                     Tool::Liquify => omuse::retouch_brush::RetouchMode::Liquify,
                     _ => omuse::retouch_brush::RetouchMode::Blur,
                 };
-                let result = if self.paint_mask {
-                    let id = self.editor.active_layer.clone();
-                    self.editor.retouch_mask_stroke(&id, &self.lasso, mode)
-                } else {
-                    self.editor.retouch_stroke(&self.lasso, mode)
-                };
-                match result {
-                    Ok(true) => {
-                        self.status = if self.paint_mask {
-                            "Mask retouch stroke applied"
-                        } else {
-                            "Retouch stroke applied"
-                        }
-                        .into()
-                    }
-                    Ok(false) => self.status = "Retouch stroke made no change".into(),
-                    Err(e) => self.status = e.to_string(),
-                }
                 self.selection_box = None;
+                let points = std::mem::take(&mut self.lasso);
+                self.start_background_retouch(points, mode, window, cx);
+                return;
             }
 
             Tool::Lasso => {
@@ -3433,6 +3448,15 @@ impl EditorView {
                     self.status = "No import conversion notes for this document".into();
                 } else {
                     self.dialog = Dialog::ImportReport;
+                }
+                cx.notify();
+            }
+            "export-report" => {
+                if self.export_notes.is_empty() {
+                    self.status = "No export conversion report in this session".into();
+                } else {
+                    self.dialog = Dialog::ExportReport;
+                    self.modal_focus.focus(window, cx);
                 }
                 cx.notify();
             }
@@ -6847,6 +6871,7 @@ impl EditorView {
             Dialog::Pro => self.pro_title(),
             Dialog::Finishing => "Finishing effects",
             Dialog::ImportReport => "Import conversion report",
+            Dialog::ExportReport => "Last export conversion report",
             Dialog::ToolSettings => "Tool settings",
             Dialog::Gradient => "Gradient preview",
             Dialog::None => "",
@@ -6870,11 +6895,16 @@ impl EditorView {
                     .child(title),
             );
         let mut footer = None;
-        if self.dialog == Dialog::ImportReport {
-            if self.import_notes.is_empty() {
+        if matches!(self.dialog, Dialog::ImportReport | Dialog::ExportReport) {
+            let notes = if self.dialog == Dialog::ExportReport {
+                &self.export_notes
+            } else {
+                &self.import_notes
+            };
+            if notes.is_empty() {
                 body = body.child("No conversion notes were recorded.");
             } else {
-                for note in &self.import_notes {
+                for note in notes {
                     body = body.child(div().text_sm().child(format!("• {note}")));
                 }
             }
@@ -8330,7 +8360,7 @@ impl EditorView {
                                     this.native_browse(window, cx)
                                 })),
                         );
-                        body=body.child(div().text_sm().text_color(t.secondary).child(match self.dialog{Dialog::Export=>"PNG · JPEG · WebP · TIFF. Choose the format using the file extension.",Dialog::Save=>"Omuse project folder (.omuse). Layers and collection pages remain editable. The extension is added automatically.",Dialog::Open=>"Choose an .omuse project, an image, or an older .comp project.",_=>"The image will be added as a new layer."}));
+                        body=body.child(div().text_sm().text_color(t.secondary).child(match self.dialog{Dialog::Export=>"PNG · JPEG · WebP · TIFF · PSD. Choose with the extension. PSD exports converted 8-bit pixel layers; keep .omuse for editable text, vectors and full precision.",Dialog::Save=>"Omuse project folder (.omuse). Layers and collection pages remain editable. The extension is added automatically.",Dialog::Open=>"Choose an .omuse project, an image, or an older .comp project.",_=>"The image will be added as a new layer."}));
                     }
                 }
             }

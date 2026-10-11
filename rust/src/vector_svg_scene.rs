@@ -14,36 +14,63 @@ use crate::{
 };
 use anyhow::{Context, Result, bail, ensure};
 use resvg::{tiny_skia, usvg};
-use std::{collections::HashMap, path::Path};
+use std::{
+    collections::HashMap,
+    path::Path,
+    sync::{Arc, Mutex, OnceLock},
+};
 
 const MAX_INPUT_BYTES: usize = 4 * 1024 * 1024;
 const MAX_OUTPUT_BYTES: usize = MAX_INPUT_BYTES;
 const MAX_XML_DEPTH: usize = 48;
+const MAX_TEXT_CHARACTERS: usize = 4_096;
+
+/// Appearance conversions are explicit: outlined text and strokes remain
+/// editable geometry, but are no longer live text or width-controlled strokes.
+#[derive(Debug)]
+pub struct ImportedScene {
+    pub scene: VectorScene,
+    pub warnings: Vec<String>,
+}
 
 pub fn import_scene(path: &Path) -> Result<VectorScene> {
     decode_scene(&vector_svg::read_bounded(path)?)
 }
 
 pub fn decode_scene(input: &[u8]) -> Result<VectorScene> {
+    Ok(decode_scene_with_report(input)?.scene)
+}
+
+pub fn import_scene_with_report(path: &Path) -> Result<ImportedScene> {
+    decode_scene_with_report(&vector_svg::read_bounded(path)?)
+}
+
+pub fn decode_scene_with_report(input: &[u8]) -> Result<ImportedScene> {
     ensure!(
         input.len() <= MAX_INPUT_BYTES,
         "Editable SVG input exceeds 4 MiB"
     );
     let text = std::str::from_utf8(input).context("Editable SVG must be UTF-8 XML")?;
-    // The narrow importer owns the strict XML policy.  Scene exchange permits
-    // only path-level opacity, so apply an equivalent structural preflight here
-    // and reject all resource/compositing features before usvg sees the input.
+    // Reject external resources and unsupported compositing before parsing.
+    // Text and stroke conversion are bounded and reported to the caller.
     scene_preflight(text)?;
     let (normalized, hidden_ids) = normalize_hidden(text)?;
     let group_names = group_names(&normalized)?;
     let shape_ids = shape_ids(&normalized)?;
-    let tree = usvg::Tree::from_str(&normalized, &usvg::Options::default())
-        .context("Cannot parse editable SVG scene")?;
+    let font_notices = Arc::new(Mutex::new(Vec::new()));
+    let options = if normalized.contains("<text ") {
+        text_options(font_notices.clone())
+    } else {
+        usvg::Options::default()
+    };
+    let tree =
+        usvg::Tree::from_str(&normalized, &options).context("Cannot parse editable SVG scene")?;
     let width = dimension(tree.size().width(), "width")?;
     let height = dimension(tree.size().height(), "height")?;
     let mut objects = Vec::new();
     let mut group_stack = Vec::new();
     let mut generated = 0usize;
+    let mut warnings = Vec::new();
     collect_nodes(
         tree.root(),
         &group_names,
@@ -55,7 +82,12 @@ pub fn decode_scene(input: &[u8]) -> Result<VectorScene> {
         &mut group_stack,
         &mut objects,
         &mut generated,
+        tiny_skia::Transform::identity(),
+        &mut warnings,
     )?;
+    for notice in font_notices.lock().unwrap().iter() {
+        warning(&mut warnings, notice.clone());
+    }
     ensure!(
         !objects.is_empty(),
         "Editable SVG scene has no painted paths"
@@ -76,7 +108,53 @@ pub fn decode_scene(input: &[u8]) -> Result<VectorScene> {
         objects,
     };
     scene.validate()?;
-    Ok(scene)
+    Ok(ImportedScene { scene, warnings })
+}
+
+fn warning(warnings: &mut Vec<String>, message: String) {
+    if !warnings.contains(&message) && warnings.len() < 64 {
+        warnings.push(message);
+    }
+}
+
+fn text_options(notices: Arc<Mutex<Vec<String>>>) -> usvg::Options<'static> {
+    static FONTS: OnceLock<Arc<usvg::fontdb::Database>> = OnceLock::new();
+    let fontdb = FONTS
+        .get_or_init(|| {
+            let mut db = usvg::fontdb::Database::new();
+            db.load_system_fonts();
+            db.load_font_data(include_bytes!("../assets/fonts/Outfit.ttf").to_vec());
+            db.set_sans_serif_family("Outfit");
+            db.set_serif_family("Outfit");
+            Arc::new(db)
+        })
+        .clone();
+    let selector = usvg::FontResolver::default_font_selector();
+    let mut options = usvg::Options {
+        fontdb,
+        font_family: "Outfit".into(),
+        ..Default::default()
+    };
+    options.font_resolver.select_font = Box::new(move |font, db| {
+        let selected = selector(font, db);
+        if let Some(face) = selected.and_then(|id| db.face(id)) {
+            let requested = font
+                .families()
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join(", ");
+            let resolved = face.families.first().map_or("Unknown", |f| f.0.as_str());
+            warning(
+                &mut notices.lock().unwrap(),
+                format!(
+                    "SVG font {requested} resolved to {resolved}. Outlines use the fonts available on this machine."
+                ),
+            );
+        }
+        selected
+    });
+    options
 }
 
 pub fn encode_scene(scene: &VectorScene) -> Result<String> {
@@ -187,6 +265,8 @@ fn collect_nodes(
     ancestry: &mut Vec<VectorGroup>,
     output: &mut Vec<VectorObject>,
     generated: &mut usize,
+    extra_transform: tiny_skia::Transform,
+    warnings: &mut Vec<String>,
 ) -> Result<()> {
     ensure!(
         group.blend_mode() == usvg::BlendMode::Normal
@@ -210,14 +290,10 @@ fn collect_nodes(
         "invalid SVG group opacity"
     );
     ensure!(
-        shape_wrapper || group_opacity == 1.0,
-        "SVG group opacity is unsupported for editable scene import"
+        group_opacity == 1.0 || painted_paths(group) <= 1,
+        "SVG opacity over multiple painted objects cannot be preserved as independent editable objects"
     );
-    let object_opacity = if shape_wrapper {
-        inherited_opacity * group_opacity
-    } else {
-        inherited_opacity
-    };
+    let object_opacity = inherited_opacity * group_opacity;
     let pushed = if shape_wrapper || (group.id().is_empty() && is_root) {
         None
     } else {
@@ -245,15 +321,18 @@ fn collect_nodes(
                 ancestry,
                 output,
                 generated,
+                extra_transform,
+                warnings,
             )?,
             usvg::Node::Path(path) => {
+                let transform = extra_transform.pre_concat(path.abs_transform());
                 ensure!(
                     path.paint_order() == usvg::PaintOrder::FillAndStroke,
                     "SVG path paint order is unsupported"
                 );
                 let fill_gradient = path
                     .fill()
-                    .map(|f| gradient_fill(f, path.abs_transform()))
+                    .map(|f| gradient_fill(f, transform))
                     .transpose()?
                     .flatten();
                 let fill = if let Some(gradient) = &fill_gradient {
@@ -261,55 +340,251 @@ fn collect_nodes(
                 } else {
                     path.fill().map(solid_fill).transpose()?
                 };
+                let expand_stroke = path.stroke().is_some_and(|stroke| {
+                    !matches!(stroke.paint(), usvg::Paint::Color(_))
+                        || uniform_scale(transform).is_err()
+                });
+                if expand_stroke {
+                    ensure!(
+                        fill.is_none() || object_opacity == 1.,
+                        "SVG fill and expanded stroke with object opacity cannot be separated faithfully"
+                    );
+                }
                 let stroke_options = path
                     .stroke()
-                    .map(|s| stroke_options(s, path.abs_transform()))
+                    .filter(|_| !expand_stroke)
+                    .map(|s| stroke_options(s, transform))
                     .transpose()?
                     .flatten();
                 let stroke = path
                     .stroke()
-                    .map(|s| solid_stroke(s, path.abs_transform()))
+                    .filter(|_| !expand_stroke)
+                    .map(|s| solid_stroke(s, transform))
                     .transpose()?;
                 ensure!(
-                    fill.is_some() || stroke.is_some(),
+                    fill.is_some() || stroke.is_some() || expand_stroke,
                     "SVG path must have a solid fill or stroke"
                 );
-                let mut geometry = convert_path(path.data(), path.abs_transform())?;
+                let mut geometry = convert_path(path.data(), transform)?;
                 geometry.fill_rule = path.fill().map_or(FillRule::NonZero, |f| match f.rule() {
                     usvg::FillRule::NonZero => FillRule::NonZero,
                     usvg::FillRule::EvenOdd => FillRule::EvenOdd,
                 });
-                *generated += 1;
-                let id = uuid::Uuid::new_v4().to_string().to_uppercase();
-                output.push(VectorObject {
-                    id,
-                    name: group_names
-                        .get(path.id())
-                        .cloned()
-                        .unwrap_or_else(|| path.id().to_owned())
-                        .if_empty_then(|| format!("Path {}", output.len() + 1)),
-                    path: geometry,
-                    transform: [1., 0., 0., 1., 0., 0.],
-                    fill,
-                    stroke,
-                    fill_gradient,
-                    stroke_options,
-                    text_path: None,
-                    opacity: object_opacity,
-                    visible: path.is_visible() && !group_hidden && !hidden_ids.contains(path.id()),
-                    groups: ancestry.clone(),
-                });
+                geometry.validate()?;
+                let name = group_names
+                    .get(path.id())
+                    .cloned()
+                    .unwrap_or_else(|| path.id().to_owned())
+                    .if_empty_then(|| format!("Path {}", output.len() + 1));
+                let visible = path.is_visible() && !group_hidden && !hidden_ids.contains(path.id());
+                if fill.is_some() || stroke.is_some() {
+                    *generated += geometry
+                        .subpaths
+                        .iter()
+                        .map(|s| s.anchors.len())
+                        .sum::<usize>();
+                    ensure!(
+                        *generated <= crate::vector_scene::MAX_SCENE_ANCHORS,
+                        "SVG exceeds the editable anchor limit"
+                    );
+                    let id = uuid::Uuid::new_v4().to_string().to_uppercase();
+                    output.push(VectorObject {
+                        id,
+                        name: name.clone(),
+                        path: geometry,
+                        transform: [1., 0., 0., 1., 0., 0.],
+                        fill,
+                        stroke,
+                        fill_gradient,
+                        stroke_options,
+                        text_path: None,
+                        opacity: object_opacity,
+                        visible,
+                        groups: ancestry.clone(),
+                    });
+                }
+                if expand_stroke {
+                    let outline =
+                        expanded_stroke(path, transform, name, object_opacity, visible, ancestry)?;
+                    *generated += outline
+                        .path
+                        .subpaths
+                        .iter()
+                        .map(|s| s.anchors.len())
+                        .sum::<usize>();
+                    ensure!(
+                        *generated <= crate::vector_scene::MAX_SCENE_ANCHORS,
+                        "SVG exceeds the editable anchor limit"
+                    );
+                    output.push(outline);
+                    warning(warnings, "SVG gradient or nonuniformly transformed strokes were converted to editable filled outlines; stroke width and dash settings are no longer live.".into());
+                }
+                ensure!(
+                    output.len() <= crate::vector_scene::MAX_SCENE_OBJECTS,
+                    "SVG exceeds the editable object limit"
+                );
             }
             usvg::Node::Image(_) => {
                 bail!("Embedded bitmap content is unsupported for editable scene import")
             }
-            usvg::Node::Text(_) => bail!("SVG text is unsupported for editable scene import"),
+            usvg::Node::Text(text) => {
+                ensure!(
+                    text.layouted()
+                        .iter()
+                        .flat_map(|span| &span.positioned_glyphs)
+                        .all(|glyph| glyph.id.0 != 0),
+                    "SVG text contains glyphs unavailable in installed fonts; choose another font or supply outlined SVG"
+                );
+                ensure!(
+                    text.flattened()
+                        .children()
+                        .iter()
+                        .all(|child| matches!(child, usvg::Node::Path(_))),
+                    "Colour, bitmap and SVG-in-font glyphs are unsupported for editable SVG text; supply outlined SVG"
+                );
+                let first = output.len();
+                collect_nodes(
+                    text.flattened(),
+                    group_names,
+                    shape_ids,
+                    hidden_ids,
+                    object_opacity,
+                    group_hidden || hidden_ids.contains(text.id()),
+                    false,
+                    ancestry,
+                    output,
+                    generated,
+                    extra_transform.pre_concat(text.abs_transform()),
+                    warnings,
+                )?;
+                for object in &mut output[first..] {
+                    object.name = format!(
+                        "{} · outlines",
+                        group_names.get(text.id()).map_or(text.id(), String::as_str)
+                    );
+                }
+                warning(warnings, "SVG text was converted to editable outlines. Characters, font settings and text flow are not retained as live text.".into());
+            }
         }
     }
     if pushed.is_some() {
         ancestry.pop();
     }
     Ok(())
+}
+
+fn painted_paths(group: &usvg::Group) -> usize {
+    let mut count = 0;
+    for node in group.children() {
+        count += match node {
+            usvg::Node::Group(group) => painted_paths(group),
+            usvg::Node::Text(text) => painted_paths(text.flattened()),
+            _ => 1,
+        };
+        if count >= 2 {
+            return 2;
+        }
+    }
+    count
+}
+
+fn expanded_stroke(
+    path: &usvg::Path,
+    transform: tiny_skia::Transform,
+    name: String,
+    opacity: f32,
+    visible: bool,
+    groups: &[VectorGroup],
+) -> Result<VectorObject> {
+    let stroke = path.stroke().context("Missing SVG stroke")?;
+    let identity = tiny_skia::Transform::identity();
+    let options = stroke_options(stroke, identity)?.unwrap_or_default();
+    let resolution = transform
+        .sx
+        .hypot(transform.ky)
+        .max(transform.kx.hypot(transform.sy))
+        .max(1.);
+    ensure!(
+        resolution.is_finite() && resolution <= 64.,
+        "SVG stroke expansion supports transforms up to 64 times source size"
+    );
+    ensure!(
+        stroke.width().get() <= 100_000.,
+        "SVG stroke width exceeds the editable limit"
+    );
+    let mut segments = 0usize;
+    let mut length = 0f64;
+    let mut previous = tiny_skia::Point::from_xy(0., 0.);
+    let mut start = previous;
+    for segment in path.data().segments() {
+        segments += 1;
+        ensure!(
+            segments <= 4_096,
+            "SVG stroke expansion exceeds the input segment limit"
+        );
+        let mut visit = |point: tiny_skia::Point| {
+            length += f64::from(point.x - previous.x).hypot(f64::from(point.y - previous.y));
+            previous = point;
+        };
+        match segment {
+            tiny_skia::PathSegment::MoveTo(p) => {
+                previous = p;
+                start = p;
+            }
+            tiny_skia::PathSegment::LineTo(p) => visit(p),
+            tiny_skia::PathSegment::QuadTo(c, p) => {
+                visit(c);
+                visit(p);
+            }
+            tiny_skia::PathSegment::CubicTo(a, b, p) => {
+                visit(a);
+                visit(b);
+                visit(p);
+            }
+            tiny_skia::PathSegment::Close => visit(start),
+        }
+    }
+    let mut pen = options.stroke(stroke.width().get(), 1.);
+    let dashed;
+    let source = if let Some(dash) = pen.dash.take() {
+        let smallest = options.dashes.iter().copied().fold(f32::INFINITY, f32::min);
+        ensure!(
+            length / f64::from(smallest) + segments as f64 <= 4_096.,
+            "SVG stroke expansion exceeds the dash work limit"
+        );
+        dashed = path
+            .data()
+            .dash(&dash, resolution)
+            .context("Cannot expand SVG stroke dashes")?;
+        &dashed
+    } else {
+        path.data()
+    };
+    let outline = source
+        .stroke(&pen, resolution)
+        .context("Cannot expand SVG stroke geometry")?;
+    let geometry = convert_path(&outline, transform)?;
+    geometry.validate()?;
+    let gradient = gradient_paint(stroke.paint(), stroke.opacity(), transform)?;
+    let fill = if let Some(gradient) = &gradient {
+        gradient.stops[0].color
+    } else {
+        color(stroke.paint(), stroke.opacity(), "stroke")?
+    };
+    Ok(VectorObject {
+        id: uuid::Uuid::new_v4().to_string().to_uppercase(),
+        name: format!("{name} · stroke outlines"),
+        path: geometry,
+        transform: [1., 0., 0., 1., 0., 0.],
+        fill: Some(fill),
+        stroke: None,
+        fill_gradient: gradient,
+        stroke_options: None,
+        text_path: None,
+        opacity,
+        visible,
+        groups: groups.to_vec(),
+    })
 }
 
 fn scene_preflight(text: &str) -> Result<()> {
@@ -326,6 +601,22 @@ fn scene_preflight(text: &str) -> Result<()> {
         doc.root_element().tag_name().name() == "svg"
             && doc.root_element().tag_name().namespace() == Some("http://www.w3.org/2000/svg"),
         "Expected an SVG document with the SVG namespace"
+    );
+    let text_characters = doc
+        .descendants()
+        .filter(|node| node.is_text() && node.ancestors().any(|parent| parent.has_tag_name("text")))
+        .map(|node| node.text().unwrap_or_default().chars().count())
+        .sum::<usize>();
+    ensure!(
+        text_characters <= MAX_TEXT_CHARACTERS,
+        "Editable SVG text exceeds 4096 characters"
+    );
+    ensure!(
+        doc.descendants()
+            .filter(|node| node.has_tag_name("text"))
+            .count()
+            <= 128,
+        "Editable SVG exceeds 128 text elements"
     );
     for node in doc.descendants().filter(|node| node.is_element()) {
         ensure!(
@@ -360,6 +651,8 @@ fn scene_preflight(text: &str) -> Result<()> {
                     | "linearGradient"
                     | "radialGradient"
                     | "stop"
+                    | "text"
+                    | "tspan"
             ),
             "Unsupported SVG element <{tag}>"
         );
@@ -367,7 +660,11 @@ fn scene_preflight(text: &str) -> Result<()> {
             let name = attribute.name();
             let value = attribute.value().to_ascii_lowercase();
             ensure!(
-                attribute.namespace().is_none() && name != "href" && name != "vector-effect",
+                (attribute.namespace().is_none()
+                    || (attribute.namespace() == Some("http://www.w3.org/XML/1998/namespace")
+                        && name == "space"))
+                    && name != "href"
+                    && name != "vector-effect",
                 "SVG resource references are unsupported"
             );
             ensure!(
@@ -383,8 +680,8 @@ fn scene_preflight(text: &str) -> Result<()> {
             );
             if value.contains("url(") {
                 ensure!(
-                    matches!(name, "fill" | "style"),
-                    "Only local fill gradient references are supported"
+                    matches!(name, "fill" | "stroke" | "style"),
+                    "Only local fill or stroke gradient references are supported"
                 );
                 for reference in attribute.value().split("url(").skip(1) {
                     let reference = reference
@@ -418,10 +715,21 @@ fn scene_preflight(text: &str) -> Result<()> {
                     "Only sRGB gradient interpolation is supported"
                 );
             }
-            if name == "opacity" && tag == "g" {
+            ensure!(
+                !matches!(
+                    name,
+                    "inline-size"
+                        | "shape-inside"
+                        | "shape-subtract"
+                        | "font-feature-settings"
+                        | "font-variation-settings"
+                ),
+                "SVG text layout feature is unsupported; supply outlined text"
+            );
+            if tag == "tspan" {
                 ensure!(
-                    value.trim() == "1" || value.trim() == "1.0",
-                    "SVG group opacity is unsupported for editable scene import"
+                    !matches!(name, "visibility" | "display" | "opacity"),
+                    "Per-span SVG visibility or opacity is unsupported; split the text into separate elements"
                 );
             }
             if name == "style" {
@@ -451,8 +759,27 @@ fn scene_preflight(text: &str) -> Result<()> {
                                 | "display"
                                 | "visibility"
                                 | "transform"
+                                | "font-family"
+                                | "font-size"
+                                | "font-style"
+                                | "font-weight"
+                                | "font-stretch"
+                                | "font-variant"
+                                | "letter-spacing"
+                                | "word-spacing"
+                                | "text-anchor"
+                                | "text-decoration"
+                                | "text-rendering"
+                                | "dominant-baseline"
+                                | "alignment-baseline"
+                                | "baseline-shift"
+                                | "writing-mode"
                         ),
                         "Unsupported SVG CSS property"
+                    );
+                    ensure!(
+                        tag != "tspan" || !matches!(property, "visibility" | "display" | "opacity"),
+                        "Per-span SVG visibility or opacity is unsupported; split the text into separate elements"
                     );
                 }
             }
@@ -476,7 +803,14 @@ fn group_names(text: &str) -> Result<HashMap<String, String>> {
             node.is_element()
                 && matches!(
                     node.tag_name().name(),
-                    "g" | "path" | "rect" | "circle" | "ellipse" | "line" | "polyline" | "polygon"
+                    "g" | "path"
+                        | "rect"
+                        | "circle"
+                        | "ellipse"
+                        | "line"
+                        | "polyline"
+                        | "polygon"
+                        | "text"
                 )
         })
         .filter_map(|node| {
@@ -611,6 +945,9 @@ fn serialize_svg_node(
             continue;
         }
         out.push(' ');
+        if attribute.namespace() == Some("http://www.w3.org/XML/1998/namespace") {
+            out.push_str("xml:");
+        }
         out.push_str(name);
         out.push_str("=\"");
         out.push_str(&xml(attribute.value()));
@@ -626,7 +963,13 @@ fn serialize_svg_node(
         if node.attribute("data-name").is_none() {
             out.push_str(&format!(
                 " data-name=\"{} {}\"",
-                if tag == "g" { "Group" } else { "Path" },
+                if tag == "g" {
+                    "Group"
+                } else if tag == "text" {
+                    "Text"
+                } else {
+                    "Path"
+                },
                 *generated
             ));
         }
@@ -1008,7 +1351,15 @@ fn gradient_fill(
     fill: &usvg::Fill,
     transform: tiny_skia::Transform,
 ) -> Result<Option<GradientFill>> {
-    let (base, kind): (&usvg::BaseGradient, GradientKind) = match fill.paint() {
+    gradient_paint(fill.paint(), fill.opacity(), transform)
+}
+
+fn gradient_paint(
+    paint: &usvg::Paint,
+    opacity: usvg::Opacity,
+    transform: tiny_skia::Transform,
+) -> Result<Option<GradientFill>> {
+    let (base, kind): (&usvg::BaseGradient, GradientKind) = match paint {
         usvg::Paint::Color(_) => return Ok(None),
         usvg::Paint::LinearGradient(g) => (
             g,
@@ -1050,7 +1401,7 @@ fn gradient_fill(
                     s.color().red,
                     s.color().green,
                     s.color().blue,
-                    (s.opacity().get() * fill.opacity().get() * 255.).round() as u8,
+                    (s.opacity().get() * opacity.get() * 255.).round() as u8,
                 ],
             })
             .collect(),

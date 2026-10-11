@@ -541,7 +541,8 @@ fn box_pass(
     cancelled: &AtomicBool,
 ) -> Result<()> {
     if radius == 0 {
-        output.as_mut().copy_from_slice(input.as_raw());
+        let pixels: &mut [u8] = output.as_mut();
+        pixels.copy_from_slice(input.as_raw());
         return Ok(());
     }
     let (len, lines) = if horizontal {

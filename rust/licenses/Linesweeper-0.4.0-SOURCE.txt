@@ -1,0 +1,21 @@
+Omuse dependency notice provenance: linesweeper 0.4.0
+
+Package: linesweeper 0.4.0
+Declared licence: MIT OR Apache-2.0
+Repository: https://github.com/jneem/linesweeper
+Published VCS revision: 7e735ff3eae44fb6580e92a2ff4f67a34b12e75c
+Published VCS path: (repository root)
+Crate archive: https://static.crates.io/crates/linesweeper/linesweeper-0.4.0.crate
+Crate archive SHA-256: 9c19728333c060c6569a53c9a0e56c4be0df52cb4e6e07a8fbe16084cecce769
+
+The archive digest matches the pinned package in rust/Cargo.lock. The following
+licence texts are copied byte-for-byte from LICENSE-MIT and LICENSE-APACHE in
+that archive, with only their installed filenames changed:
+
+Linesweeper-0.4.0-MIT.txt
+  SHA-256: 23c23145f6eac25c28cdcc03d38506a5712a9a8cffb5bd5301457f6173ea696e
+Linesweeper-0.4.0-APACHE-2.0.txt
+  SHA-256: cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30
+
+These curated copies accompany source installs as well as packaged builds.
+The generated Rust dependency inventory independently records this package.

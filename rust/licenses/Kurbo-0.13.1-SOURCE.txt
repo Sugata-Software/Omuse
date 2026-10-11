@@ -1,0 +1,21 @@
+Omuse dependency notice provenance: kurbo 0.13.1
+
+Package: kurbo 0.13.1
+Declared licence: Apache-2.0 OR MIT
+Repository: https://github.com/linebender/kurbo
+Published VCS revision: 838b69ef35f3381cefc007d86aa8364f5a6dc673
+Published VCS path: kurbo
+Crate archive: https://static.crates.io/crates/kurbo/kurbo-0.13.1.crate
+Crate archive SHA-256: 4b60dfc32f652b926df6192e55525b16d186c69d47876c3ead4da5cc9f8450e2
+
+The archive digest matches the pinned package in rust/Cargo.lock. The following
+licence texts are copied byte-for-byte from LICENSE-MIT and LICENSE-APACHE in
+that archive, with only their installed filenames changed:
+
+Kurbo-0.13.1-MIT.txt
+  SHA-256: 23c23145f6eac25c28cdcc03d38506a5712a9a8cffb5bd5301457f6173ea696e
+Kurbo-0.13.1-APACHE-2.0.txt
+  SHA-256: cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30
+
+These curated copies accompany source installs as well as packaged builds.
+The generated Rust dependency inventory independently records this package.

@@ -1,3 +1,4 @@
+pub mod creative_context;
 pub mod document;
 pub mod editor;
 pub mod model;
@@ -9,11 +10,14 @@ pub mod model;
 )]
 mod onnx_bindings;
 pub mod psd;
+pub mod psd_export;
 mod psd_text;
 pub mod raster;
 pub mod raw_import;
 pub mod segmentation;
 pub mod svg_import;
+pub mod vector_repeat;
+pub mod vector_snap;
 
 pub mod canvas_grid;
 pub mod canvas_navigation;
@@ -77,6 +81,10 @@ pub mod shared_image;
 pub mod smart_source;
 pub mod social_preview;
 pub mod vector_boolean;
+pub mod vector_builder;
+pub mod vector_commands;
+pub mod vector_edit;
+pub mod vector_geometry;
 pub mod vector_path;
 pub mod vector_pdf;
 pub mod vector_scene;

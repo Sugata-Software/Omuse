@@ -51,6 +51,7 @@ pub(super) struct ProDraft {
     pending_pin: Option<[f32; 2]>,
     freeze: bool,
     retouch: usize,
+    removal_algorithm: ContentAwareAlgorithm,
     source: Arc<RenderImage>,
     preview: Option<Arc<RenderImage>>,
     preview_dimensions: (u32, u32),
@@ -239,6 +240,7 @@ impl EditorView {
                 pending_pin: None,
                 freeze: false,
                 retouch: 0,
+                removal_algorithm: ContentAwareAlgorithm::ContextualV1,
                 source: render_image(&pro_thumbnail(&image)),
                 preview: None,
                 preview_dimensions: image.dimensions(),
@@ -1020,6 +1022,7 @@ impl EditorView {
                 let search_radius = self.pro_integer(4, 64, cx)?;
                 let patch_radius = self.pro_integer(5, 4, cx)? as u8;
                 let feather = n(6)?;
+                let algorithm = d.removal_algorithm;
                 Ok(Box::new(move || {
                     let mut allowed = vec![0; w as usize * h as usize];
                     for py in y..y + height {
@@ -1033,7 +1036,7 @@ impl EditorView {
                     state.recipe.nodes.push(new_node(
                         "Content-aware removal",
                         AdvancedOperation::ContentAwareReplace(ContentAwareReplace {
-                            algorithm: omuse::advanced_ops::ContentAwareAlgorithm::ContextualV1,
+                            algorithm,
                             target_mask: target,
                             allowed_source_mask: SoftMask::new(w, h, allowed)?,
                             search_radius,
@@ -1481,6 +1484,7 @@ impl EditorView {
         let background = d.background;
         let freeze = d.freeze;
         let retouch = d.retouch;
+        let removal_algorithm = d.removal_algorithm;
         let overlay_bounds = bounds.clone();
         let source_view = range_ui::range_image("pro-source", Some(source), dims, Some(bounds))
             .relative()
@@ -1805,6 +1809,45 @@ impl EditorView {
                     ));
                 }
             }
+        }
+        if kind == Kind::Remove {
+            let mut choices = div().flex().flex_wrap().gap_2();
+            for (id, label, algorithm) in [
+                (
+                    "pro-remove-context",
+                    "Context",
+                    ContentAwareAlgorithm::ContextualV1,
+                ),
+                (
+                    "pro-remove-texture",
+                    "Texture · experimental",
+                    ContentAwareAlgorithm::TextureV2,
+                ),
+            ] {
+                choices = choices.child(
+                    button(id, label, ButtonVariant::Outline, cx)
+                        .selected(removal_algorithm == algorithm)
+                        .disabled(self.busy)
+                        .debug_selector(move || id.into())
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            if this.busy {
+                                return;
+                            }
+                            if let Some(d) = this.pro_draft.as_mut() {
+                                d.removal_algorithm = algorithm;
+                                if let Some(previous) = d.preview.take() {
+                                    let _ = cx.drop_image(previous, None);
+                                }
+                                d.cancel.store(true, Ordering::Relaxed);
+                                d.job = d.job.wrapping_add(1);
+                            }
+                            this.status = "Removal method changed · Preview before applying".into();
+                            cx.notify();
+                        })),
+                );
+            }
+            body = body.child(choices).child(inspector_ui::panel_note(
+                "Texture copies coherent source patches for grain and repeating detail. Compare the preview; the original stays embedded.", cx));
         }
         if kind == Kind::Retouch {
             let mut choices = div().flex().flex_wrap().gap_2();

@@ -1,0 +1,145 @@
+{
+  "schema": 1,
+  "origin": "Omuse camera_raw appearance baseline; not Adobe parity or a colour-accuracy certification",
+  "sourceRevisionContext": "1c987c132053a240e4887a225b3b8ed4f9bab1c4",
+  "revisionIsContextOnly": true,
+  "omuseVersion": "0.9.0",
+  "platform": {
+    "os": "linux",
+    "arch": "x86_64"
+  },
+  "cameraRawSourceSha256": "e991f94231f37cd23d2691f0822cb2bc19ed412208e316cf5ccf4267dea67ae8",
+  "generatorSourceSha256": "c4cb062cd0d8baf07cdc2044f11e596cfc02ce8a8252f6a502c0e9afb9647ba6",
+  "fixtureDefinitionSha256": "363bc83f94e2be5ba354248dfe8ee86df757160f2d1373565b11664f7cdbf325",
+  "caseDefinitionsSha256": "e975198fda39f9a63bfdf78d99c41d387a99523abe22d26b794ec16367584291",
+  "width": 256,
+  "height": 16,
+  "rows": [
+    "neutral ramp",
+    "near-black ramp",
+    "near-white ramp",
+    "red ramp",
+    "green ramp",
+    "blue ramp",
+    "hue wheel",
+    "pastel hue wheel",
+    "warm skin-tone proxies",
+    "neutral patches",
+    "synthetic colour chart",
+    "warm/cool neutral ramp",
+    "skin proxy alpha ramp",
+    "blue alpha ramp",
+    "magenta alpha boundaries",
+    "mixed colour alpha boundaries"
+  ],
+  "inputPixelsSha256": "30c5beeff93a25dafb3e0e6f03d45a07cf343d555b95ab7acd19234a2ee6e325",
+  "inputPngSha256": "97dab808dd02c0bfbd3472d8aac350484b1edc81efce02e8b09091fba756534a",
+  "references": [
+    {
+      "name": "identity",
+      "purpose": "Exact neutral identity, including hidden RGB at zero alpha",
+      "file": "identity.png",
+      "pixelsSha256": "30c5beeff93a25dafb3e0e6f03d45a07cf343d555b95ab7acd19234a2ee6e325",
+      "pngSha256": "97dab808dd02c0bfbd3472d8aac350484b1edc81efce02e8b09091fba756534a"
+    },
+    {
+      "name": "exposure_plus",
+      "purpose": "Positive linear-light exposure and highlight clipping",
+      "file": "exposure_plus.png",
+      "pixelsSha256": "f58e5bba549e7494283c8eb1661e1db54308cf15999953878cf9beca7cb6f182",
+      "pngSha256": "155aaeba4477ce0a58e9c7828a53b3c3a4f086ccb8715942cbc279c00d65f870"
+    },
+    {
+      "name": "exposure_minus",
+      "purpose": "Negative exposure and dark-tone quantization",
+      "file": "exposure_minus.png",
+      "pixelsSha256": "90da30699250360f30c356fd6937538aec85997f37c06c383558ba936a309c6a",
+      "pngSha256": "7d1757fe886313bbbf13ad1d27e8b9c6bf386cd6242c7f3f07b7936f43406306"
+    },
+    {
+      "name": "highlight_recovery",
+      "purpose": "Sequential highlight/shadow/white/black tone controls",
+      "file": "highlight_recovery.png",
+      "pixelsSha256": "c1be91fab90a099d9ea04049efbcfa368c76a645d6052ce96251a7d6a72ebea1",
+      "pngSha256": "8c4f6f3fca42ce1a30b0cca2ba606e2be70fb8b9657aa52768c809dbafe50c1c"
+    },
+    {
+      "name": "strong_tone",
+      "purpose": "Contrasting tone controls exercise per-stage clipping",
+      "file": "strong_tone.png",
+      "pixelsSha256": "db38e353888eb4e8f3f4ae6039496d5fb5e08f82346390ec87fd31dff441b289",
+      "pngSha256": "58698c1d186603eadf9922d813b15872019f190c2fbac4077bc9326908959ada"
+    },
+    {
+      "name": "warm_balance",
+      "purpose": "Temperature and tint across neutrals and saturated colours",
+      "file": "warm_balance.png",
+      "pixelsSha256": "d4fe4ce82cfd2ae90f97d155e982d65928bc886a30a4853e169eb6edcdee07ba",
+      "pngSha256": "a9e8ad6d16d55eb94d80b25ced30863209b6590cca1a1cc452705992606a0760"
+    },
+    {
+      "name": "vibrance_skin",
+      "purpose": "Vibrance skin-hue protection and saturation interaction",
+      "file": "vibrance_skin.png",
+      "pixelsSha256": "a9b58c588acfc9ed99fc6e82342b9ca03a6eb4357c045c66193299c9012daed1",
+      "pngSha256": "797848595bb9ccf82da34579bea107555248859d36f1c311b5e04a9387ae0463"
+    },
+    {
+      "name": "curve_master",
+      "purpose": "Nonlinear master curve and saturation refinement",
+      "file": "curve_master.png",
+      "pixelsSha256": "3f3054cbc9c07475327a7ab795bf8ade1e696ee2809733f6ec107a72a9fed45c",
+      "pngSha256": "a00584a7c0bbd4d645092a30ecbb2d2dc173d0c02090c35b58dc03aa50266746"
+    },
+    {
+      "name": "curve_channels",
+      "purpose": "Independent RGB curves with lifted and compressed endpoints",
+      "file": "curve_channels.png",
+      "pixelsSha256": "e6080de20778aba1abc58c26469f0f7e02024c544a8625ad4eaeb20fa7e34ac8",
+      "pngSha256": "a789cb5fbf100f8d697d212b9cdf72f194727f4760dbade2b0c4d3412bbe9074"
+    },
+    {
+      "name": "curve_parametric",
+      "purpose": "Four parametric curve regions and nondefault split positions",
+      "file": "curve_parametric.png",
+      "pixelsSha256": "80c0fa60bebaac7c99b3bdaa6e3514393aad6595c7ed888b64af1d7564a7a50d",
+      "pngSha256": "e71486404d5fc7019d9b0d70e269600867ff1b4e6ec1ed0bac053db45417c7e1"
+    },
+    {
+      "name": "mixer_hsl",
+      "purpose": "Eight hue sectors, including hue wrap and adjacent sector weighting",
+      "file": "mixer_hsl.png",
+      "pixelsSha256": "da3123755e98b991cae271da7fc863c866bf50cc63a4cb313e949479274bef6a",
+      "pngSha256": "85803475baf3ec940a1bae25e448182114bfcd221f6739ccfb27f73c134dfa98"
+    },
+    {
+      "name": "point_skin",
+      "purpose": "Point-colour hue/saturation/luminance selection around warm proxies",
+      "file": "point_skin.png",
+      "pixelsSha256": "8f61ea25c26ae7589a42bfd934bccc2e04f1cc8b10920ddcadfb6a7399a961e3",
+      "pngSha256": "02abf9aae8620c108151dd12ea267077216e4f2fe00c6cffe3de65fffaa6ece9"
+    },
+    {
+      "name": "grade_global",
+      "purpose": "Global grading wheel with hue and luminance change",
+      "file": "grade_global.png",
+      "pixelsSha256": "2a9c33b1107a381239cb8c03b7ac05cbdf82c20045c1f73a19bae7c55624fd86",
+      "pngSha256": "5f4cd66d24ad76c219e4b0179d9887ea15f45600f0560009ef62a262bb7b7816"
+    },
+    {
+      "name": "grade_split",
+      "purpose": "Three tonal grading wheels with balance and blending",
+      "file": "grade_split.png",
+      "pixelsSha256": "a3c87c4d37844b374c8d9b9b4982402be88f49bbe47de2942ad6841798250b6b",
+      "pngSha256": "abec8f3d67ca89c126014de678cdccc5326480ba36367cdbfb086e9009d72432"
+    },
+    {
+      "name": "combined",
+      "purpose": "Noncommuting basic, master/channel curve, mixer and grading stages",
+      "file": "combined.png",
+      "pixelsSha256": "984b374ea17011e14de321eea309a0feeb0abe8d1df41b01d42c1f2801add21b",
+      "pngSha256": "4b5b77ebf8484e5bcffe3c6e6ea3541eea0936eaad66eed1562afe2196e14b10"
+    }
+  ],
+  "review": "Candidate files require explicit review and manual promotion; tests never generate or bless references."
+}

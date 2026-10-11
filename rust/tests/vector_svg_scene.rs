@@ -140,7 +140,7 @@ fn file_import_keeps_no_follow_and_size_bounds() {
 }
 
 #[test]
-fn rejects_resources_and_group_opacity() {
+fn rejects_resources_and_opacity_over_multiple_objects() {
     let image = SVG.replace(
         "<g id=\"background\">",
         "<g id=\"background\"><image href=\"data:image/png;base64,AA==\"/>",
@@ -148,7 +148,7 @@ fn rejects_resources_and_group_opacity() {
     assert!(decode_scene(image.as_bytes()).is_err());
     let opacity = SVG.replace(
         "<g id=\"foreground\">",
-        "<g id=\"foreground\" opacity=\"0.5\">",
+        "<g id=\"foreground\" opacity=\"0.5\"><rect width=\"20\" height=\"20\"/>",
     );
     assert!(decode_scene(opacity.as_bytes()).is_err());
 }

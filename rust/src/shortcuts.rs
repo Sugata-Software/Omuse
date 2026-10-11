@@ -60,6 +60,7 @@ define_commands! {
     command!("import", "Import", "ctrl-shift-o", "File", "place add image photo", "Import an image into the current document.");
     command!("export", "Export", "ctrl-alt-shift-s", "File", "render publish png jpeg jpg webp tiff", "Export the finished artwork.");
     command!("import-report", "Import conversion report", "", "File", "compatibility conversion notes psd", "Show conversions made while importing the current document.");
+    command!("export-report", "Export conversion report", "", "File", "compatibility conversion notes psd last export", "Show conversions recorded for the last layered PSD exported in this session.");
     command!("previous-page", "Previous page", "alt-pageup", "File", "artboard earlier back", "Activate the previous page in a Create project.");
     command!("next-page", "Next page", "alt-pagedown", "File", "artboard later forward", "Activate the next page in a Create project.");
 
@@ -131,6 +132,8 @@ define_commands! {
     command!("vector-scene", "Vector artwork on canvas", "shift-p", "Object", "illustration objects scene rectangle ellipse bezier svg pdf gradient stroke dash text curve typography", "Draw and edit objects on the main canvas with the shared layer stack. Enter keeps edits; Escape discards them.");
     command!("vector-nodes", "Vector node tool", "a", "Object", "direct selection bezier handles curves anchors", "Drag anchors or handles on the main canvas. Double-click a segment to add a point; Alt frees a handle, Shift constrains to 45 degrees. Delete removes points.");
     command!("vector-group", "Group vector selection", "", "Vector", "objects folder collect", "Group selected vector objects. Ctrl+G also groups objects while editing artwork.");
+    command!("vector-split-node", "Split path at selected node", "", "Vector", "scissors cut open curve anchor", "Split an interior node or open a closed contour at the selected node, preserving existing curves.");
+    command!("vector-join-endpoints", "Join nearest path endpoints", "", "Vector", "connect close join anchor", "Join the selected endpoint to the nearest open endpoint in the same compound path. Coincident endpoints become one node.");
     command!("vector-ungroup", "Ungroup vector selection", "ctrl-shift-g", "Vector", "objects folder release", "Release selected outer vector groups while retaining object order and geometry.");
     command!("vector-outline", "Toggle vector outline view", "ctrl-y", "Vector", "wireframe paths precision", "Inspect vector contours at the current zoom. This viewing mode does not change exports.");
     command!("vector-union", "Unite vector shapes", "", "Vector", "boolean union pathfinder combine", "Combine selected filled shapes; the bottom shape supplies the style. Undo restores the originals.");
@@ -138,6 +141,12 @@ define_commands! {
     command!("vector-intersect", "Intersect vector shapes", "", "Vector", "boolean overlap pathfinder", "Keep the shared filled area of selected shapes.");
     command!("vector-exclude", "Exclude vector overlap", "", "Vector", "boolean xor pathfinder", "Keep areas covered by an odd number of selected shapes.");
     command!("vector-divide", "Divide vector shape", "", "Vector", "boolean split pathfinder", "Partition the bottom selected shape using the upper selected shapes.");
+    command!("vector-simplify", "Simplify vector paths", "", "Vector", "reduce anchors nodes cleanup curves", "Simplify selected paths using the inspector tolerance. Preview on canvas; Ctrl+Z restores the original nodes.");
+    command!("vector-shape-builder", "Shape Builder", "alt-m", "Vector", "merge regions drag erase construct", "Select 2–8 opaque filled paths, then drag through regions to merge them. Hold Alt at the start of the gesture to erase regions. Ctrl+Z restores the originals.");
+    command!("vector-repeat-grid", "Repeat vector grid", "", "Vector", "copies pattern rows columns repeat motif", "Preview editable grid copies using the inspector counts and steps. Originals stay in place; copies are added above them. Undo before changing the repeat settings.");
+    command!("vector-repeat-radial", "Repeat vectors radially", "", "Vector", "copies circular ring rotate repeat motif", "Preview radial copies using the inspector count, angle, centre and orientation. The count includes the original; copies remain individually editable.");
+    command!("vector-offset", "Offset vector paths", "", "Vector", "inset outset grow shrink sticker border", "Grow or shrink selected filled paths by the inspector distance in pixels. Positive grows; negative shrinks.");
+    command!("vector-outline-stroke", "Convert strokes to outlines", "", "Vector", "expand stroke editable border", "Convert selected strokes into filled editable paths while preserving the original fill as a separate object.");
     command!("vector-align-left", "Align vectors left", "", "Vector", "objects arrange", "Align selected objects or groups to the left edge of the selection.");
     command!("vector-align-center-x", "Centre vectors horizontally", "", "Vector", "objects align horizontal center", "Align selected objects or groups to their shared horizontal centre.");
     command!("vector-align-right", "Align vectors right", "", "Vector", "objects arrange", "Align selected objects or groups to the right edge of the selection.");
@@ -191,7 +200,7 @@ define_commands! {
     command!("grid-subdivisions", "Change grid subdivisions", "", "View", "grid subdivisions minor lines settings", "Cycle the canvas grid's minor subdivisions.");
     command!("guides", "Toggle guides", "ctrl-;", "View", "show hide alignment", "Show or hide guides.");
     command!("rulers", "Toggle rulers", "ctrl-r", "View", "show hide measurements", "Show or hide canvas rulers.");
-    command!("snapping", "Toggle snapping", "ctrl-:", "View", "align grid guides snap", "Enable or disable snapping to the grid and guides.");
+    command!("snapping", "Toggle snapping", "ctrl-:", "View", "align grid guides vector anchors nodes snap", "Enable or disable grid/guide snapping and main-canvas vector node/handle snapping. Shift bypasses snapping for a vector drag while retaining angle constraints.");
     command!("auto-select", "Toggle auto-select", "", "View", "move tool layers click", "Choose layers from the canvas when using Move.");
     command!("transform-box", "Toggle transform box", "", "View", "handles bounds move tool", "Show or hide Move-tool transform handles.");
     command!("add-guide", "Manage guides", "", "View", "guide alignment position", "Add, clear, or configure guides.");
@@ -264,6 +273,10 @@ define_commands! {
 
 /// Temporary and pointer gestures that are intentionally not remappable.
 pub const GESTURES: &[(&str, &str)] = &[
+    (
+        "Cancel pending Blur, Smudge or Liquify",
+        "Escape or Cancel · Esc while the stroke is processing; Undo after it applies",
+    ),
     ("Temporarily pan the canvas", "Hold Space and drag"),
     ("Pan the canvas from any tool", "Middle-button drag"),
     ("Zoom around the pointer", "Scroll over the canvas"),

@@ -1,0 +1,166 @@
+{
+  "repository": "https://github.com/storytold/photocraft",
+  "commit": "7722172585a01cbdb93c06f0f5ff2634fcb17999",
+  "crate": "crates/psd",
+  "licence": "MIT OR Apache-2.0",
+  "sourceFiles": [
+    {
+      "path": "src/abr.rs",
+      "gitBlob": "0bb5147608dd015f788c3a047e9ac9351c6639cf",
+      "bytes": 38774
+    },
+    {
+      "path": "src/aco.rs",
+      "gitBlob": "6f32d6b0b05bad5be07cb3958604e666ce62c736",
+      "bytes": 12048
+    },
+    {
+      "path": "src/ase.rs",
+      "gitBlob": "71f93e22bee32991d9be553bdc8a9b32d96a6e29",
+      "bytes": 14407
+    },
+    {
+      "path": "src/blend.rs",
+      "gitBlob": "a968c10c8bc15cfc2830603dee33d10f64a9b568",
+      "bytes": 4212
+    },
+    {
+      "path": "src/builder.rs",
+      "gitBlob": "7343bcf479a577254fc8423c1e528d07f91b5946",
+      "bytes": 15951
+    },
+    {
+      "path": "src/compression.rs",
+      "gitBlob": "a8fa0f426a49efeb28cfdcdaddb98bdf9dbeea6a",
+      "bytes": 29496
+    },
+    {
+      "path": "src/descriptor.rs",
+      "gitBlob": "a2eab7ae52c06ec8913c5c5bb5764efc2030eb12",
+      "bytes": 27302
+    },
+    {
+      "path": "src/error.rs",
+      "gitBlob": "da519e6698f443012eb16c373900401d1f1c583f",
+      "bytes": 1841
+    },
+    {
+      "path": "src/file.rs",
+      "gitBlob": "ef15813885b8018957ab29ab4fcfcdb42eae9f56",
+      "bytes": 13748
+    },
+    {
+      "path": "src/filter_effects.rs",
+      "gitBlob": "e8b5efb6987e9e19a9925640ece93ca15281950e",
+      "bytes": 13685
+    },
+    {
+      "path": "src/grd.rs",
+      "gitBlob": "2e0223b63982ecd42da8e31f17680fa72f8525f5",
+      "bytes": 9947
+    },
+    {
+      "path": "src/hdr.rs",
+      "gitBlob": "2b576c2ba4f89db47ee0cae3ed9d7ad943256d76",
+      "bytes": 3439
+    },
+    {
+      "path": "src/header.rs",
+      "gitBlob": "d99555be2b9836c8d36b47ad171c1d575da8dfc9",
+      "bytes": 8066
+    },
+    {
+      "path": "src/image_data.rs",
+      "gitBlob": "0f05eed90964f4a566add8feb2825a6fae0ce8f0",
+      "bytes": 2315
+    },
+    {
+      "path": "src/io.rs",
+      "gitBlob": "81bcf3cda85fe33da521c5830271c223f786de59",
+      "bytes": 10877
+    },
+    {
+      "path": "src/layer.rs",
+      "gitBlob": "2ecf0df6f3df05a978ca3e7e7056e77de54b0527",
+      "bytes": 40206
+    },
+    {
+      "path": "src/lib.rs",
+      "gitBlob": "a3fb3c42c31def1592ffae09d61ab15d095bbb9d",
+      "bytes": 3256
+    },
+    {
+      "path": "src/metadata.rs",
+      "gitBlob": "d105a2894761fd57a9c6c38a064e43d557d2486b",
+      "bytes": 3319
+    },
+    {
+      "path": "src/path.rs",
+      "gitBlob": "ea345b8ce4bb73ad3479de87a2527eba7b4c1433",
+      "bytes": 11528
+    },
+    {
+      "path": "src/patterns.rs",
+      "gitBlob": "00e61934de342687d2552b836ae65f058f125485",
+      "bytes": 29398
+    },
+    {
+      "path": "src/pixels.rs",
+      "gitBlob": "0f019741dac0ab714a397704e77164cbc709aba9",
+      "bytes": 10230
+    },
+    {
+      "path": "src/resources.rs",
+      "gitBlob": "ba2674ba80d78966697d5dae3d5664781ed2020b",
+      "bytes": 12728
+    },
+    {
+      "path": "src/slices.rs",
+      "gitBlob": "dadfb95af3819193dc8a789ba39c345b309db613",
+      "bytes": 17124
+    },
+    {
+      "path": "src/tagged.rs",
+      "gitBlob": "97501e240112e0d0f2eea443a34de033867b7f90",
+      "bytes": 25029
+    },
+    {
+      "path": "src/testgen.rs",
+      "gitBlob": "d2d4784cb9a97594b1d3c13b2fa730d9666dbcc8",
+      "bytes": 16452
+    },
+    {
+      "path": "src/tiff.rs",
+      "gitBlob": "1cd2057cfa3e864edeb7d0e48c379fbaeb47f97b",
+      "bytes": 95444
+    },
+    {
+      "path": "src/tree.rs",
+      "gitBlob": "02682ef841831f73f83fb4b8c18421f6ae13611c",
+      "bytes": 3283
+    }
+  ],
+  "changes": [
+    "Cargo.toml adapted from upstream workspace inheritance to a standalone path dependency; upstream Rust source files are unchanged.",
+    "Upstream README retained as README.upstream.md; original licences and root NOTICE retained.",
+    "Only the source package is vendored. Upstream examples, integration tests, fuzz harness and corpus downloads are not included. Omuse has separate adapter integration tests."
+  ],
+  "retainedNotices": [
+    {
+      "path": "LICENSE-MIT",
+      "sha256": "1a8f66d8a86b146f5336fa0d4b1186576c8aa98e60823080c85c7811cfd810af"
+    },
+    {
+      "path": "LICENSE-APACHE",
+      "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
+    },
+    {
+      "path": "NOTICE",
+      "sha256": "fb7d6f0e57c396b6c94f6315d3dba13048a296d81e7546d33e2b7c77c71ea147"
+    },
+    {
+      "path": "README.upstream.md",
+      "sha256": "6e711742a1e19c4b63f611630610e93c003370376130479f39c5967427a234e6"
+    }
+  ]
+}

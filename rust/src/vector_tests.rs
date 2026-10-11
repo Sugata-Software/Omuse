@@ -640,6 +640,10 @@ fn direct_selection_couples_smooth_handles_alt_breaks_and_shift_constrains(
     cx: &mut TestAppContext,
 ) {
     let (view, cx) = setup(cx);
+    // This small fixture exercises handle coupling at exact coordinates.
+    // Main-canvas snapping has separate tests; at this zoom its six-screen-
+    // pixel radius would legitimately capture the neighbouring endpoint.
+    view.update(cx, |view, _| view.preferences.snapping = false);
     cx.update(|window, cx| view.update(cx, |view, cx| view.open_vector_scene(window, cx)));
     draw(cx);
     view.update(cx, |view, _| {

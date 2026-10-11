@@ -393,6 +393,7 @@ impl EditorView {
     pub(super) fn undo_or_collection(&mut self, cx: &mut Context<Self>) -> anyhow::Result<bool> {
         if self.editor.undo() {
             self.selection_box = None;
+            self.status = "Last edit undone".into();
             self.changed(cx);
             return Ok(true);
         }
@@ -409,6 +410,7 @@ impl EditorView {
     }
     pub(super) fn redo_or_collection(&mut self, cx: &mut Context<Self>) -> anyhow::Result<bool> {
         if self.editor.redo() {
+            self.status = "Last edit restored".into();
             self.changed(cx);
             return Ok(true);
         }
@@ -1772,6 +1774,92 @@ mod tests {
             assert_eq!(view.editor.document.background, [220, 80, 40, 255]);
         });
     }
+    #[gpui_kit::test]
+    fn inactive_page_text_revision_keeps_other_pages_and_standard_history(cx: &mut TestAppContext) {
+        use omuse::creative_commands::{CreativeOperation, CreativePlan};
+        cx.update(crate::init_test_theme);
+        let temp = tempfile::tempdir().unwrap();
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            let mut view = EditorView::new(None, window, cx);
+            view.recovery = Recovery::at(temp.path().join("recovery"));
+            view.editor = Editor::new(Document::new(160, 120));
+            view.dialog = Dialog::None;
+            view
+        });
+        view.update_in(cx, |view, window, cx| {
+            let mut original = view.content_snapshot().unwrap();
+            let cover = original.active_page_id().to_owned();
+            for index in 2..=6 {
+                let mut page = Document::new(160, 120);
+                page.layers = vec![
+                    objects::live_text_layer(
+                        "Headline",
+                        objects::ObjectPoint { x: 8., y: 8. },
+                        objects::LiveTextStyle {
+                            content: format!("Step {index}"),
+                            font_size: 20.,
+                            ..Default::default()
+                        },
+                    )
+                    .unwrap(),
+                ];
+                original.add_page(format!("Page {index}"), page).unwrap();
+            }
+            original.set_active_page(&cover).unwrap();
+            view.apply_creative_project(original, cx).unwrap();
+            let mut before = view.content_snapshot().unwrap();
+            let context = omuse::creative_context::project_text_context(&before);
+            let target = &context["pages"][1];
+            let plan = CreativePlan {
+                summary: "Revise only page three".into(),
+                operations: vec![
+                    CreativeOperation::SelectPage {
+                        page_id: target["pageID"].as_str().unwrap().into(),
+                    },
+                    CreativeOperation::SetText {
+                        layer_id: target["layers"][0]["id"].as_str().unwrap().into(),
+                        content: "Clear names".into(),
+                    },
+                ],
+            };
+            let prepared = plan.prepare_project(&before).unwrap();
+            view.apply_creative_project(prepared, cx).unwrap();
+            let mut after = view.content_snapshot().unwrap();
+            assert_eq!(after.active_page_id(), target["pageID"].as_str().unwrap());
+            for id in before.page_ids() {
+                assert_eq!(
+                    omuse::create_history::documents_match(
+                        before.page_document(&id).unwrap(),
+                        after.page_document(&id).unwrap()
+                    ),
+                    id != after.active_page_id()
+                );
+            }
+            view.command("undo", window, cx);
+            let mut undone = view.content_snapshot().unwrap();
+            assert!(
+                omuse::create_history::project_documents_match(&mut before, &mut undone).unwrap()
+            );
+            view.command("redo", window, cx);
+            let mut redone = view.content_snapshot().unwrap();
+            assert!(
+                omuse::create_history::project_documents_match(&mut after, &mut redone).unwrap()
+            );
+            let saved = temp.path().join("revised.omuse");
+            redone.save(&saved).unwrap();
+            let mut reopened = Project::open(&saved).unwrap();
+            for id in after.page_ids() {
+                let expected = after.page_document(&id).unwrap();
+                let loaded = reopened.page_document(&id).unwrap();
+                assert_eq!(
+                    omuse::creative_commands::document_context(expected),
+                    omuse::creative_commands::document_context(loaded)
+                );
+                assert_eq!(raster::composite(expected), raster::composite(loaded));
+            }
+        });
+    }
+
     #[gpui_kit::test]
     fn collection_switch_save_and_reopen_preserves_inactive_edits(cx: &mut TestAppContext) {
         cx.update(crate::init_test_theme);

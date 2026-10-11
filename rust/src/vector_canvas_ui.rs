@@ -69,6 +69,7 @@ pub(in crate::ui) struct CanvasVectorOverlay {
     selected: Option<(usize, usize)>,
     dimensions: (u32, u32),
     show_nodes: bool,
+    snap_indicator: Option<VectorPoint>,
 }
 
 impl CanvasVectorOverlay {
@@ -89,6 +90,17 @@ impl CanvasVectorOverlay {
                 None,
                 self.show_nodes,
             );
+            if let Some(snapped) = self.snap_indicator {
+                let p = screen_point(snapped, rect, self.dimensions);
+                let mut marker = PathBuilder::stroke(px(1.5));
+                marker.move_to(p - point(px(8.), px(0.)));
+                marker.line_to(p + point(px(8.), px(0.)));
+                marker.move_to(p - point(px(0.), px(8.)));
+                marker.line_to(p + point(px(0.), px(8.)));
+                if let Ok(marker) = marker.build() {
+                    window.paint_path(marker, rgb(0xf1c75b));
+                }
+            }
         });
     }
 }
@@ -280,7 +292,16 @@ impl EditorView {
         if scene.mode != SceneMode::Select && !scene.artwork.objects[scene.active].visible {
             return None;
         }
-        let mut path = if scene.mode == SceneMode::Select || scene.outline {
+        let mut path = if let Some(builder) = &scene.builder {
+            let mut path = VectorPath::default();
+            for region in &builder.regions.regions {
+                if builder.chosen.is_empty() || builder.chosen.contains(&region.id) {
+                    path.subpaths
+                        .extend(region.object.path.subpaths.iter().cloned());
+                }
+            }
+            path
+        } else if scene.mode == SceneMode::Select || scene.outline {
             let mut path = VectorPath::default();
             for (i, object) in scene.artwork.objects.iter().enumerate() {
                 if object.visible && (scene.outline || scene.selected_objects.contains(&i)) {
@@ -331,6 +352,7 @@ impl EditorView {
             selected: draft.selected,
             dimensions: (self.editor.document.width, self.editor.document.height),
             show_nodes: scene.mode != SceneMode::Select && !scene.outline,
+            snap_indicator: draft.snap_indicator,
         })
     }
 
@@ -461,6 +483,9 @@ impl EditorView {
         let Some(p) = self.vector_canvas_point(event.position) else {
             return;
         };
+        if self.builder_pointer(p, true, event.modifiers.alt, cx) {
+            return;
+        }
         let draft = self.vector_draft.as_ref().unwrap();
         let mode = draft.scene.as_ref().unwrap().mode;
         // Test handles in screen coordinates: hit targets stay nine pixels wide
@@ -681,6 +706,7 @@ impl EditorView {
                     return;
                 }
                 scene.mode = mode;
+                scene.builder = None;
                 scene.drag_origin = None;
                 scene.marquee = None;
                 if mode != SceneMode::Select {
@@ -836,8 +862,36 @@ impl EditorView {
         if !self.vector_scene_active() {
             return false;
         }
+        if self.busy
+            && !matches!(
+                name,
+                "zoom-in"
+                    | "zoom-in-plus"
+                    | "zoom-out"
+                    | "fit"
+                    | "actual"
+                    | "command-search"
+                    | "shortcuts"
+            )
+        {
+            self.status = "Wait for the vector operation, or press Escape to cancel".into();
+            cx.notify();
+            return true;
+        }
         if self.vector_selection_command(name, window, cx) {
             return true;
+        }
+        if matches!(
+            name,
+            "grid" | "grid-spacing" | "grid-subdivisions" | "guides" | "snapping"
+        ) {
+            // A setting may change during a drag. Rebuild against the visible
+            // grid/guides on the next move without committing the artwork.
+            if let Some(draft) = self.vector_draft.as_mut() {
+                draft.snap_cache = None;
+                draft.snap_indicator = None;
+            }
+            return false;
         }
         match name {
             "undo" | "redo" => {
@@ -850,7 +904,7 @@ impl EditorView {
                 true
             }
             "zoom-in" | "zoom-in-plus" | "zoom-out" | "fit" | "actual" | "toggle-panels"
-            | "grid" | "guides" | "rulers" | "command-search" | "shortcuts" => false,
+            | "rulers" | "command-search" | "shortcuts" => false,
             "vector-scene" | "edit-object" => {
                 self.inspector_visible = true;
                 self.inspector_tab = studio_ui::InspectorTab::Layers;
@@ -1054,6 +1108,23 @@ impl EditorView {
                     .on_click(cx.listener(move |this, _, w, cx| this.set_scene_mode(value, w, cx))),
             );
         }
+        modes = modes.child(
+            button(
+                "scene-builder",
+                "Shape Builder · Alt+M",
+                ButtonVariant::Secondary,
+                cx,
+            )
+            .selected(
+                self.vector_draft
+                    .as_ref()
+                    .and_then(|d| d.scene.as_ref())
+                    .is_some_and(|s| s.builder.is_some()),
+            )
+            .disabled(self.busy)
+            .debug_selector(|| "scene-builder".into())
+            .on_click(cx.listener(|this, _, w, cx| this.start_scene_builder(w, cx))),
+        );
         div()
             .id("vector-canvas-context")
             .debug_selector(|| "vector-canvas-context".into())

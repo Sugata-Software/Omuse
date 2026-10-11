@@ -276,11 +276,11 @@ impl EditorView {
     }
     pub(super) fn init_camera_gestures(&mut self) {
         self.camera_gestures = CameraGestureState::default();
-        // The default pipeline is the original image, so the initial point-
+        // A newly opened dialog is neutral, so the initial point-
         // colour sampler remains immediately usable on the Mixer tab.
         self.camera_gestures.ready = Some(Ready {
             guard: self.camera_gesture_guard(),
-            settings: Settings::default(),
+            settings: Settings::for_new_edit(),
             stage: SampleStage::PointColor,
         });
     }
