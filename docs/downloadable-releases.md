@@ -11,7 +11,7 @@ prerequisites for making clearly labeled automated previews downloadable. A
 preview passing these checks must not be described as a stable, signed, or
 generally portable release.
 
-## 0.11.0 release qualification
+## Published 0.11.0
 
 The [0.11 qualification](release-0110-qualification.md) identifies exact source
 `e72bccdcef066cb6ab60a99faa9d7609de86c2e4`, validation
@@ -20,9 +20,25 @@ and package build
 [38130013292](https://github.com/Sugata-Software/Omuse/actions/runs/38130013292).
 Both target archives passed integrity, source identity, notices and native
 runner smoke. The Linux package also passed host Wayland/XWayland and
-0.10 → 0.11 → rollback → forward checks. Permanent asset publication is a
-separate step; its completion and anonymous readback are recorded in the
-qualification record before download availability is announced.
+0.10 → 0.11 → rollback → forward checks.
+
+[Source publication 38132530557](https://github.com/Sugata-Software/Omuse/actions/runs/38132530557)
+and [download publication 38132594953](https://github.com/Sugata-Software/Omuse/actions/runs/38132594953)
+both succeeded. The [0.11 release](https://github.com/Sugata-Software/Omuse/releases/tag/v0.11.0)
+now carries these reviewed downloads:
+
+- [Linux x86_64 bundle](https://github.com/Sugata-Software/Omuse/releases/download/v0.11.0/omuse-0.11.0-linux-x86_64.tar.gz)
+- [Windows x64 ZIP](https://github.com/Sugata-Software/Omuse/releases/download/v0.11.0/omuse-0.11.0-windows-x86_64.zip), unsigned experimental
+- [SHA-256 checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.11.0/omuse-0.11.0-SHA256SUMS)
+- [Download manifest](https://github.com/Sugata-Software/Omuse/releases/download/v0.11.0/omuse-0.11.0-downloads.json)
+
+All four permanent assets were downloaded anonymously and matched the reviewed
+sizes and SHA-256 hashes. Manifest and checksum bytes matched exactly. The source
+tag, notes and public installer pin also passed readback; the prior 0.10 release,
+its tag, notes and all asset identities remain unchanged. The normal Omarchy
+installation is verified at 0.11.0 with complete prior generations preserved.
+See the [qualification record](release-0110-qualification.md) for scope and the
+[installation guide](install.md) for the source-build curl path.
 
 ## Published 0.10.0 — historical
 

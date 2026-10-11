@@ -200,7 +200,7 @@
   "snapshotDate": "2026-10-11",
   "project": "Omuse",
   "releaseScope": "Native Rust/GPUI application for Arch/Omarchy Linux x86_64",
-  "releaseState": "Omuse 0.11.0 qualified and installed as normal Omuse. Exact Linux/Windows CI, reviewed packages, native Linux interaction and cross-version rollback passed. Public source and permanent download publication is in progress; existing releases are preserved.",
+  "releaseState": "Omuse 0.11.0 published and installed as normal Omuse. Exact Linux/Windows CI, reviewed packages, native Linux interaction and cross-version rollback passed. Public source, curl installer and all four permanent downloads passed anonymous readback; previous releases and complete local generations are preserved.",
   "visualizationMirror": "omuse-project-guide.html",
   "statusDefinitions": [
     {
@@ -233,7 +233,7 @@
     {
       "label": "Current release",
       "value": "0.11.0 — A clearer canvas",
-      "detail": "Exact e72bccdc validation 38130013300 passed: 1,599 Linux reported application passes (563 library, 454 GPUI, 582 integration) and 1,581 Windows (548, 452, 581), zero failures and five ignored per platform. Three external RAW and two external PSD cases return early without their optional fixtures, separate from ignored benchmarks. Editing, retained layout, Create/motion, 80 template variants, media/recovery and dependency notices passed. Twenty dependency-helper Rust cases per platform are separate from core totals. Reviewed build 38130013292 attempt 1 binds both archives to e72bccdc. Both passed integrity and native runner smoke; inventories contain 621 Linux and 423 Windows dependencies with zero notice findings. Linux host smoke and 24 scripted checks on each Wayland/XWayland passed. Cua checked layout actions, immediate Undo, settings/Escape and local AI comparisons/draft preservation; no provider requests. Normal Omuse is 0.11.0 source e72bccdcef066cb6ab60a99faa9d7609de86c2e4, binary SHA-256 8ae84dd9e2f6b940fe4e77d8599a251f0fdbb5788455ed2b289470046ccf1af2. All 35 installed files match the reviewed generation. Previous 35-file and older 22-file generations, four config files and 620 data files remain unchanged. Installed Wayland passed 24 native checks in an isolated profile. Public source/download publication is pending.",
+      "detail": "Exact e72bccdc validation 38130013300 passed: 1,599 Linux reported application passes (563 library, 454 GPUI, 582 integration) and 1,581 Windows (548, 452, 581), zero failures and five ignored per platform. Three external RAW and two external PSD cases return early without their optional fixtures, separate from ignored benchmarks. Editing, retained layout, Create/motion, 80 template variants, media/recovery and dependency notices passed. Twenty dependency-helper Rust cases per platform are separate from core totals. Reviewed build 38130013292 attempt 1 binds both archives to e72bccdc. Both passed integrity and native runner smoke; inventories contain 621 Linux and 423 Windows dependencies with zero notice findings. Linux host smoke and 24 scripted checks on each Wayland/XWayland passed. Cua checked layout actions, immediate Undo, settings/Escape and local AI comparisons/draft preservation; no provider requests. Normal Omuse is 0.11.0 source e72bccdcef066cb6ab60a99faa9d7609de86c2e4, binary SHA-256 8ae84dd9e2f6b940fe4e77d8599a251f0fdbb5788455ed2b289470046ccf1af2. All 35 installed files match the reviewed generation. Previous 35-file and older 22-file generations, four config files and 620 data files remain unchanged. Installed Wayland passed 24 native checks in an isolated profile. Source publisher 38132530557 and download publisher 38132594953 succeeded. All four permanent 0.11 assets passed anonymous size and SHA-256 checks, with exact manifest/checksum bytes. Public tag, notes, latest declaration and curl installer pin match the reviewed source; prior 0.10 release, tag, notes and asset identities are unchanged.",
       "status": "locally-tested"
     },
     {
@@ -317,7 +317,7 @@
     {
       "label": "Public-release blockers",
       "value": "Open gates",
-      "detail": "0.11 source/package qualification and normal installation are complete. Public source/download publication and anonymous readback are in progress. Clean-machine, broad hardware/accessibility, interactive Windows, live Windows AI and stable/signed-release acceptance remain open.",
+      "detail": "0.11 source/package qualification, normal installation, public source/download publication and anonymous readback are complete. Clean-machine, broad hardware/accessibility, interactive Windows, live Windows AI and stable/signed-release acceptance remain open.",
       "status": "blocked-deferred"
     },
     {
@@ -2530,8 +2530,8 @@
           "id": "release-ci-github",
           "name": "Published source and Linux/Windows CI",
           "status": "locally-tested",
-          "current": "Exact e72bccdc validation 38130013300 passed: 1,599 Linux reported application passes (563 library, 454 GPUI, 582 integration) and 1,581 Windows (548, 452, 581), zero failures and five ignored per platform. Three external RAW and two external PSD cases return early without their optional fixtures, separate from ignored benchmarks. Editing, retained layout, Create/motion, 80 template variants, media/recovery and dependency notices passed. Twenty dependency-helper Rust cases per platform are separate from core totals. Reviewed build 38130013292 attempt 1 binds both archives to e72bccdc. Both passed integrity and native runner smoke; inventories contain 621 Linux and 423 Windows dependencies with zero notice findings. Linux host smoke and 24 scripted checks on each Wayland/XWayland passed. Cua checked layout actions, immediate Undo, settings/Escape and local AI comparisons/draft preservation; no provider requests.",
-          "boundary": "Both exact-source attempt-1 workflows succeeded. Public source/download publication and anonymous readback are pending; interactive Windows, live AI, clean-machine and broader hardware are separate gates.",
+          "current": "Exact e72bccdc validation 38130013300 passed: 1,599 Linux reported application passes (563 library, 454 GPUI, 582 integration) and 1,581 Windows (548, 452, 581), zero failures and five ignored per platform. Three external RAW and two external PSD cases return early without their optional fixtures, separate from ignored benchmarks. Editing, retained layout, Create/motion, 80 template variants, media/recovery and dependency notices passed. Twenty dependency-helper Rust cases per platform are separate from core totals. Reviewed build 38130013292 attempt 1 binds both archives to e72bccdc. Both passed integrity and native runner smoke; inventories contain 621 Linux and 423 Windows dependencies with zero notice findings. Linux host smoke and 24 scripted checks on each Wayland/XWayland passed. Cua checked layout actions, immediate Undo, settings/Escape and local AI comparisons/draft preservation; no provider requests. Source publisher 38132530557 and download publisher 38132594953 succeeded. All four permanent 0.11 assets passed anonymous size and SHA-256 checks, with exact manifest/checksum bytes. Public tag, notes, latest declaration and curl installer pin match the reviewed source; prior 0.10 release, tag, notes and asset identities are unchanged.",
+          "boundary": "Both exact-source attempt-1 workflows, public publication and anonymous readback succeeded. Interactive Windows, live AI, clean-machine and broader hardware remain separate gates.",
           "evidence": [
             "docs/release-060-qualification.md",
             "docs/release-070-qualification.md",
@@ -2717,7 +2717,7 @@
           "id": "release-versioned-downloads",
           "name": "Permanent Linux and Windows preview downloads",
           "status": "locally-tested",
-          "current": "Both 0.11 candidate archives and the canonical generated manifest passed review. Permanent source/asset publication is in progress; check the qualification record for availability. Earlier releases are preserved.",
+          "current": "Both 0.11 archives and the canonical generated manifest passed review. Source publisher 38132530557 and download publisher 38132594953 succeeded. All four permanent 0.11 assets passed anonymous size and SHA-256 checks, with exact manifest/checksum bytes. Public tag, notes, latest declaration and curl installer pin match the reviewed source; prior 0.10 release, tag, notes and asset identities are unchanged.",
           "boundary": "Unsigned experimental packages; Windows desktop, mixed-DPI and live-provider qualification remain separate.",
           "evidence": [
             "docs/downloadable-releases.md",

@@ -1,9 +1,9 @@
 # Public release readiness
 
-**11 October 2026: Omuse 0.11.0 has qualified Linux and Windows source builds,
-reviewed archives and a verified normal Omarchy installation. Public release
-publication is being verified; the prepared source installer selects the exact
-0.11.0 runtime. Windows remains unsigned experimental, and broader stable-release
+**11 October 2026: Omuse 0.11.0 is published and verified, with qualified Linux
+and Windows source builds, reviewed public downloads and a verified normal
+Omarchy installation. The public source installer selects the exact 0.11.0
+runtime. Windows remains unsigned experimental, and broader stable-release
 gates remain open.**
 
 The [0.11 release qualification](release-0110-qualification.md) tracks exact
@@ -14,18 +14,29 @@ limits. Exact public source `e72bccdc` passed
 [validation 38130013300](https://github.com/Sugata-Software/Omuse/actions/runs/38130013300)
 and [package build 38130013292](https://github.com/Sugata-Software/Omuse/actions/runs/38130013292)
 on their first attempts. Linux reported 1,599 application passes and Windows
-1,581, with zero failures and five ignored per platform. Three
+1,581, with zero failures and five ignored per platform across 70 executable
+targets plus a zero-test doctest result. Three
 external RAW and two external PSD cases returned early without configured
 fixtures; they are separate from the ignored benchmarks. Both archive reviews,
 Linux host smoke, 24 scripted checks on each Linux backend, foreground XWayland
 layout/AI interaction, both platforms' acceptance journeys and actual-package
-rollback passed. Public publication remains pending. The
+rollback passed. The
 normal installation's launcher/source/binary and complete 35-file payload are
 verified at 0.11.0, with both prior generations and profile bytes preserved;
 its isolated-profile Wayland journey passed all 24 native checks. These final
 release results remain distinct from the earlier
 [development qualification](canvas-workflows-qualification.md); AI review uses
 local fixtures and establishes no new provider access.
+
+[Source publication 38132530557](https://github.com/Sugata-Software/Omuse/actions/runs/38132530557)
+and [download publication 38132594953](https://github.com/Sugata-Software/Omuse/actions/runs/38132594953)
+succeeded. Anonymous downloads of all four permanent assets matched reviewed
+sizes and SHA-256 hashes; the public manifest also matches its canonical bytes.
+The verified tag points to runtime `e72bccdc`. Release notes, raw installer
+bytes, source pin and latest declaration matched the reviewed publication.
+The prior 0.10 release, tag, notes and asset IDs, sizes and hashes are unchanged.
+See [published asset identities](release-0110-qualification.md#published-asset-identities)
+and the [0.11 release page](https://github.com/Sugata-Software/Omuse/releases/tag/v0.11.0).
 
 Retained-layout projects require native format 15. Omuse 0.10.0 and older refuse
 them. Keep the retained master, Release rules in the newer app and Save As a
@@ -240,20 +251,20 @@ physical input support, all advertised provider operations or Linux portability.
 The [one-command installer](install.md) builds a tested Omuse revision locally on
 Arch/Omarchy, with dependency setup, verified optional assets and complete
 installation rollback. The active tree contains Linux Omuse; old platform
-implementations remain in Git history with attribution. The 0.10.0 source
-release and its reviewed prebuilt archives remain available; 0.11.0 qualification
-and publication are tracked separately above.
+implementations remain in Git history with attribution. The 0.11.0 source
+release and its reviewed prebuilt archives are published; previous releases
+and their evidence remain available.
 
 ## Downloadable prerelease and remaining release gates
 
 | Gate | Current state | Completion evidence |
 | --- | --- | --- |
-| 0.11 publication | Exact-source validation and package builds passed on attempt 1. Linux/Windows reported 1,599/1,581 application passes, with documented external-fixture early returns. Archive reviews, Linux native checks, cross-version rollback and normal host installation passed. Public publication is being verified. | Local installation and the prepared installer select 0.11.0; publication receipts are recorded separately in the [0.11 qualification](release-0110-qualification.md) |
+| 0.11 publication | Exact-source validation and package builds passed on attempt 1. Linux/Windows reported 1,599/1,581 application passes, with documented external-fixture early returns. Archive reviews, Linux native checks, cross-version rollback and normal host installation passed. Both publishers succeeded and all four anonymous asset downloads matched their reviewed sizes/hashes. | Published and verified; local installation and the public installer select 0.11.0. Exact receipts remain in the [0.11 qualification](release-0110-qualification.md) |
 | Historical 0.10 publication | Exact-source validation 38097640432 and download build 38097640470 passed; source publisher 38099819987 and download publisher 38099884639 succeeded. Four assets matched anonymous size/hash checks; exact Linux package installation and rollback were verified. | Preserved 0.10 source-prerelease evidence; broad portability and stable-release gates remain open |
 | Historical 0.9 publication | Exact-source validation 37207585304 and download build 37207585335 passed; source publisher 37209968347 and download publisher 37210058961 succeeded. Four permanent assets matched anonymous size/hash checks. | Preserved 0.9 evidence; not candidate qualification |
 | Historical 0.8 clean CI and publication | Runtime `eb558dc` validation [37161936414](https://github.com/Sugata-Software/Omuse/actions/runs/37161936414), download build [37161936378](https://github.com/Sugata-Software/Omuse/actions/runs/37161936378) and publication [37200321434](https://github.com/Sugata-Software/Omuse/actions/runs/37200321434) succeeded; all four permanent assets passed anonymous size/hash verification | Completed for 0.8.0; every later candidate needs its own exact-source evidence and reviewed publication |
 | Dependency legal texts | Reviewed 0.11 Linux and Windows package inventories report zero findings, with 621 and 423 dependency entries. Historical 0.10 counts are also 621/423; 0.8 counts remain 619/421. | Retain each candidate's exact inventory and notice review; see [0.11 qualification](release-0110-qualification.md) and the [earlier notice review](rust-license-findings.md) |
-| Recorded release identity | Qualified 0.11 source is `e72bccdc`; its [download manifest](releases/downloads/v0.11.0.json) records exact archive/binary/inventory hashes. Prior published identities remain in the [0.10 manifest](releases/downloads/v0.10.0.json), [0.8 manifest](releases/downloads/v0.8.0.json) and [receipt](release-080-receipts.json). | Verify the public 0.11 tag and preserve immutable tags, notes and assets; independent bit-for-bit build reproducibility is not established |
+| Recorded release identity | Verified public tag `v0.11.0` selects exact source `e72bccdc`; its [download manifest](releases/downloads/v0.11.0.json) records archive/binary/inventory hashes and matches the public asset. Prior identities remain in the [0.10 manifest](releases/downloads/v0.10.0.json), [0.8 manifest](releases/downloads/v0.8.0.json) and [receipt](release-080-receipts.json). | Preserve immutable tags, notes and assets; independent bit-for-bit build reproducibility is not established |
 | Clean target installation | Passed only on the development host | Install, launch, upgrade and rollback on a clean supported Arch/Omarchy system |
 | Physical desktop acceptance | Native in-process journeys pass; bounded Cua foreground XWayland Camera Raw and Subject Refine Apply/Undo/Redo checks passed | Broader foreground keyboard/pointer, clipboard, file dialogs and supported display/DPI configurations |
 | Feature claims | Local editor and selected Codex journeys have evidence | Each advertised AI operation has its own acceptance receipt; unqualified routes remain unavailable or explicitly experimental |

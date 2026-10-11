@@ -15,18 +15,18 @@ are also available; Windows remains unsigned experimental.
 
 **[Install on Linux](#linux)** · **[Download for Windows](#windows-experimental)**
 
-**Current source pre-release: [0.11.0 — A clearer canvas](docs/releases/v0.11.0.md)**
+**Current source pre-release: [0.11.0 — A clearer canvas](https://github.com/Sugata-Software/Omuse/releases/tag/v0.11.0)**
 — contextual canvas controls, retained layout frames and clearer AI comparisons.
 Exact-source Linux and Windows validation, reviewed archives and the normal
 Omarchy installation have passed qualification.
 [Explore what’s new](#new-in-0110) ·
 [Follow the illustrated guide](docs/user-guide/canvas-workflows.md).
 
-**Permanent download publication is in progress.** Linux and unsigned
-experimental Windows bundles will be available on the
+**Linux and Windows downloads are published and verified** on the
 [0.11 release page](https://github.com/Sugata-Software/Omuse/releases/tag/v0.11.0).
-[Qualification and availability](docs/release-0110-qualification.md) distinguish
-reviewed artifacts from verified public downloads.
+Windows remains unsigned experimental.
+[Qualification and limits](docs/release-0110-qualification.md) record exact
+source, checksums, installation and public-download verification.
 
 **[Read the user manual](docs/user-guide/README.md)** ·
 [Edit a photo](docs/user-guide/photo-editing.md) ·
@@ -98,8 +98,7 @@ For an already-built application, use the
 [reviewed Linux archive](https://github.com/Sugata-Software/Omuse/releases/download/v0.11.0/omuse-0.11.0-linux-x86_64.tar.gz)
 and [checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.11.0/omuse-0.11.0-SHA256SUMS)
 with the [archive installation guide](docs/downloadable-releases.md).
-Permanent archive publication is still being verified; see
-[release availability](docs/release-0110-qualification.md).
+Its public download matches the reviewed size and SHA-256 checksum.
 The curl command uses the source-build path; you can
 [inspect it](install.sh) before running it.
 
@@ -124,8 +123,8 @@ and troubleshooting.
 
 The portable **Windows x64** application needs neither Rust nor Visual Studio.
 The 0.11.0 package passed automated Windows checks; interactive
-Windows 10/11 qualification is still separate. Permanent download publication
-is in progress; [check availability](docs/release-0110-qualification.md).
+Windows 10/11 qualification is still separate. Its permanent download and
+checksum have been [verified](docs/release-0110-qualification.md).
 
 1. Download [omuse-0.11.0-windows-x86_64.zip](https://github.com/Sugata-Software/Omuse/releases/download/v0.11.0/omuse-0.11.0-windows-x86_64.zip)
    and verify it against the [checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.11.0/omuse-0.11.0-SHA256SUMS).
@@ -188,8 +187,8 @@ and 1,581 Windows reported application passes, reviewed archives and 24 native
 checks on each Linux backend. Foreground XWayland interaction
 covered layout and AI review; actual-package rollback and format-15 compatibility
 also passed. The normal Omarchy host installation is verified at 0.11.0;
-Linux and Windows workflows both completed successfully. Permanent download
-publication is tracked separately. Five optional external RAW/PSD cases returned early
+Linux and Windows workflows, source publication and all four permanent asset
+downloads are verified. Five optional external RAW/PSD cases returned early
 without configured fixtures, separately from five ignored benchmarks. These
 checks do not establish new live-provider access or a performance guarantee; the earlier
 [development checkpoint](docs/canvas-workflows-qualification.md) keeps its own
