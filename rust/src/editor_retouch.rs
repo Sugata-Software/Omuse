@@ -166,8 +166,7 @@ impl Editor {
         } else {
             layer.image = Some(output.into());
         }
-        self.commit(prepared.before);
-        Ok(true)
+        self.commit_checked(prepared.before)
     }
 
     /// Synchronous compatibility API, using the same capture/compute/commit path.

@@ -1,3 +1,4 @@
+pub mod auto_layout;
 pub mod creative_context;
 pub mod document;
 pub mod editor;

@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 1,
+  "repository": "https://github.com/iretonsean/Omastrator",
+  "reviewedAt": "2026-10-11",
+  "defaultBranch": "main",
+  "reviewedHead": "235f058af7b5de8ec3eb5ffc553f60c0e7f8d3a8",
+  "reviewStatus": "Partial source and documentation baseline only. No upstream build, tests, benchmarks, agent requests or installed application executed. Website beta and pinned public source are not established as equivalent.",
+  "reviewScope": {
+    "branches": "Cached branch-list response inspected; not a complete ongoing branch audit.",
+    "releases": "Cached release-list response contains v0.1.0; tag target not dereferenced in this review.",
+    "pullRequests": "Not reviewed.",
+    "issues": "Not reviewed.",
+    "workflows": "Not reviewed.",
+    "source": "Three selected implementation files and three documentation files; not a repository-wide correctness audit."
+  },
+  "branches": [
+    {
+      "name": "claude/sponsorship-links",
+      "sha": "7e32eec57558ba46aa38b5ec06c1c4ebade3fbce"
+    },
+    {
+      "name": "main",
+      "sha": "235f058af7b5de8ec3eb5ffc553f60c0e7f8d3a8"
+    }
+  ],
+  "releases": [
+    {
+      "tag": "v0.1.0",
+      "id": 400483143,
+      "publishedAt": "2026-09-30T22:28:26Z",
+      "prerelease": false,
+      "targetCommitish": "main",
+      "resolvedCommit": null,
+      "assetsDownloaded": false
+    }
+  ],
+  "websiteBaseline": {
+    "url": "https://seanireton.com/omastrator",
+    "advertisedVersion": "0.2.3 beta 1",
+    "packageVersion": "0.2.3_beta.1-1",
+    "packageName": "omastrator-beta",
+    "architectures": [
+      "x86_64",
+      "aarch64"
+    ],
+    "htmlSha256": "eaffdd75b648d64009b56e576b7a2cb5123ca8c16a1de3966ce35712d332a9b7",
+    "packagesDownloaded": false,
+    "sourceMappingVerified": false,
+    "note": "Website labels the beta as installed alongside 0.1; pinned repository README describes alpha. Do not assign beta capabilities or stability to the reviewed main SHA."
+  },
+  "sourceEvidence": [
+    {
+      "cachedName": "readme.md",
+      "upstreamPath": "README.md",
+      "url": "https://github.com/iretonsean/Omastrator/blob/235f058af7b5de8ec3eb5ffc553f60c0e7f8d3a8/README.md",
+      "sha256": "73f5e055a5c38b702388a4e3ef9b36cbc07e630539121bc092f54ed49121eeae"
+    },
+    {
+      "cachedName": "layout.md",
+      "upstreamPath": null,
+      "url": null,
+      "sha256": "ceb6853c0f49a646d0a2d0be4281872a0d2f01081984e632354d83ccb56769f1"
+    },
+    {
+      "cachedName": "ai.md",
+      "upstreamPath": null,
+      "url": null,
+      "sha256": "b71369cd1e58f14f1392284d93936099acf123effe306ac691f07028e1616299"
+    },
+    {
+      "cachedName": "src/Canvas/TaskBar.cpp",
+      "upstreamPath": "src/Canvas/TaskBar.cpp",
+      "url": "https://github.com/iretonsean/Omastrator/blob/235f058af7b5de8ec3eb5ffc553f60c0e7f8d3a8/src/Canvas/TaskBar.cpp",
+      "sha256": "8aa3309be5445764d6135dee6489840a165a52f2f2e978fe81d13100b0ce9f53"
+    },
+    {
+      "cachedName": "src/Document/AutoLayout.cpp",
+      "upstreamPath": "src/Document/AutoLayout.cpp",
+      "url": "https://github.com/iretonsean/Omastrator/blob/235f058af7b5de8ec3eb5ffc553f60c0e7f8d3a8/src/Document/AutoLayout.cpp",
+      "sha256": "e7734f5e2401ed2e073869ebaf28a5373de0a878b6c3635481c3ec204d706161"
+    },
+    {
+      "cachedName": "src/Agent/AgentLauncher+Run.cpp",
+      "upstreamPath": "src/Agent/AgentLauncher+Run.cpp",
+      "url": "https://github.com/iretonsean/Omastrator/blob/235f058af7b5de8ec3eb5ffc553f60c0e7f8d3a8/src/Agent/AgentLauncher+Run.cpp",
+      "sha256": "29cd8d2179db10f29e261ac7f543dc6f47278c10bea90f541f5abef9431d12b5"
+    }
+  ],
+  "adoption": {
+    "status": "Unreleased Omuse development; implementation and qualification tracked separately.",
+    "priorities": [
+      "Contextual canvas actions using existing command admission and themed controls.",
+      "Retained bounded layout for editable design content, with transactional history.",
+      "Clearer AI proposal review, scope and cancellation inside Omuse."
+    ],
+    "deferred": [
+      "Live browser editing and deployment.",
+      "Desktop overlays and Hyprland workspace mutation.",
+      "Design-token and component-system interchange."
+    ],
+    "comparisonDocument": "omastrator-adoption.md"
+  },
+  "watchPolicy": {
+    "scope": "Whole repository plus public website; separate proposed PRs, merged source, published packages and verified runtime.",
+    "baselineCoverage": "Partial; expand metadata and targeted source coverage on meaningful changes.",
+    "avoidClaims": [
+      "Upstream runtime or visual quality verified",
+      "Upstream and Omuse performance compared",
+      "Website beta proven to match reviewed main",
+      "Omuse feature parity or current development released"
+    ]
+  }
+}

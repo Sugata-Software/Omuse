@@ -30,7 +30,8 @@ pub const PROJECT_LEGACY_SCENE_VERSION: u64 = 11;
 pub const PROJECT_SCENE_VERSION: u64 = 12;
 pub const PROJECT_STYLE_VERSION: u64 = 13;
 pub const PROJECT_TEXT_VERSION: u64 = 14;
-pub const PROJECT_MAX_READ_VERSION: u64 = PROJECT_TEXT_VERSION;
+pub const PROJECT_LAYOUT_VERSION: u64 = 15;
+pub const PROJECT_MAX_READ_VERSION: u64 = PROJECT_LAYOUT_VERSION;
 const VECTOR_SCENE_FORMAT_VERSION: u32 = 1;
 const MAX_VECTOR_SCENE_COMPRESSED: u64 = 32 * 1024 * 1024;
 const MAX_VECTOR_SCENE_JSON: u64 = 64 * 1024 * 1024;
@@ -867,7 +868,8 @@ pub fn open(path: &Path) -> Result<Document> {
         );
     }
     ensure!(
-        version < PROJECT_SCENE_VERSION || vector_scene_count > 0,
+        !(PROJECT_SCENE_VERSION..=PROJECT_TEXT_VERSION).contains(&version)
+            || vector_scene_count > 0,
         "Project formats 12–14 require at least one vector scene"
     );
     if let Some(count) = manifest.get("rustVectorSceneCount") {
@@ -947,6 +949,13 @@ pub fn open(path: &Path) -> Result<Document> {
         metadata: manifest,
     };
     validate_live_objects(&document.layers)?;
+    if crate::auto_layout::has_layout(&document.layers) {
+        ensure!(
+            version >= PROJECT_LAYOUT_VERSION,
+            "Retained auto-layout requires project version 15"
+        );
+        crate::auto_layout::validate_settled(&document)?;
+    }
     let render_errors = crate::raster::validate(&document);
     ensure!(
         render_errors.is_empty(),
@@ -1095,6 +1104,9 @@ where
         "Canvas exceeds dimension or pixel limits"
     );
     validate_live_objects(&doc.layers)?;
+    if crate::auto_layout::has_layout(&doc.layers) {
+        crate::auto_layout::validate_settled(doc)?;
+    }
     crate::advanced::validate_document_budget(doc)?;
     let render_errors = crate::raster::validate(doc);
     ensure!(
@@ -1119,7 +1131,9 @@ where
     let mut ids = HashSet::new();
     let mut records = vec![];
     let has_vector_scene = flat.iter().any(|(layer, _)| layer.vector_scene.is_some());
-    let write_version = if has_vector_scene {
+    let write_version = if crate::auto_layout::has_layout(&doc.layers) {
+        PROJECT_LAYOUT_VERSION
+    } else if has_vector_scene {
         if flat.iter().any(|(layer, _)| {
             layer.vector_scene.as_ref().is_some_and(|scene| {
                 scene.version >= crate::vector_scene::VECTOR_SCENE_TEXT_VERSION

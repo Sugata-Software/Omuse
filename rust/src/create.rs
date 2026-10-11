@@ -1462,6 +1462,36 @@ pub fn resize_layout_in_place(
     height: u32,
     strategy: ResizeStrategy,
 ) -> Result<()> {
+    if crate::auto_layout::has_layout(&document.layers) {
+        // Reflow cannot detect an already-moved origin when a frame has no
+        // visible members. Fence effective locks before staging any resize.
+        fn locked_frame(layers: &[Layer], parent_locked: bool) -> bool {
+            layers.iter().any(|layer| {
+                let locked = parent_locked || layer.locked;
+                (locked && layer.metadata.get(crate::auto_layout::FRAME_KEY).is_some())
+                    || locked_frame(&layer.children, locked)
+            })
+        }
+        ensure!(
+            (width, height) == (document.width, document.height)
+                || !locked_frame(&document.layers, false),
+            "Unlock the auto-layout frame and its ancestors before adapting its size"
+        );
+        let mut candidate = document.clone();
+        resize_layout_without_reflow(&mut candidate, width, height, strategy)?;
+        crate::auto_layout::reflow(&mut candidate, &std::sync::atomic::AtomicBool::new(false))?;
+        *document = candidate;
+        return Ok(());
+    }
+    resize_layout_without_reflow(document, width, height, strategy)
+}
+
+fn resize_layout_without_reflow(
+    document: &mut Document,
+    width: u32,
+    height: u32,
+    strategy: ResizeStrategy,
+) -> Result<()> {
     ensure!(
         valid_dimensions(width, height),
         "Target layout exceeds supported bounds"
@@ -1505,6 +1535,56 @@ fn resize_layers(
     scale_y: f32,
 ) -> Result<()> {
     for layer in layers {
+        if let Some(mut frame) = crate::auto_layout::frame_rule(layer)? {
+            // A retained frame owns its children's sizing. Scale its authored
+            // rules once; individual Create anchors must not compete with flow.
+            let resize = resize_rule(layer, strategy)?;
+            let (sx, sy) = match resize.scale {
+                LayoutScale::Preserve => (1., 1.),
+                LayoutScale::Uniform => {
+                    let s = scale_x.min(scale_y);
+                    (s, s)
+                }
+                LayoutScale::Stretch => (scale_x, scale_y),
+            };
+            if layer.locked || layer.children.iter().any(|l| l.locked) {
+                anyhow::bail!(
+                    "Unlock the auto-layout frame and its children before adapting its size"
+                );
+            }
+            resize_layer_position(
+                layer, resize, old_width, old_height, new_width, new_height, scale_x, scale_y,
+            );
+            let scaled = |size: crate::auto_layout::FrameSize, s: f32| match size {
+                crate::auto_layout::FrameSize::Hug => size,
+                crate::auto_layout::FrameSize::Fixed(n) => {
+                    crate::auto_layout::FrameSize::Fixed(n * s)
+                }
+            };
+            frame.width = scaled(frame.width, sx);
+            frame.height = scaled(frame.height, sy);
+            frame.padding[0] *= sy;
+            frame.padding[2] *= sy;
+            frame.padding[1] *= sx;
+            frame.padding[3] *= sx;
+            // One gap controls both members and wrapped lines in version 1.
+            frame.gap *= sx.min(sy);
+            crate::auto_layout::set_frame_rule(layer, &frame)?;
+            for child in &mut layer.children {
+                let mut item = crate::auto_layout::item_rule(child)?
+                    .unwrap_or_else(|| crate::auto_layout::ItemRule::natural(child));
+                item.basis_scale[0] *= sx;
+                item.basis_scale[1] *= sy;
+                if let crate::auto_layout::ItemSize::Fixed(n) = item.width {
+                    item.width = crate::auto_layout::ItemSize::Fixed(n * sx);
+                }
+                if let crate::auto_layout::ItemSize::Fixed(n) = item.height {
+                    item.height = crate::auto_layout::ItemSize::Fixed(n * sy);
+                }
+                crate::auto_layout::set_item_rule(child, &item)?;
+            }
+            continue;
+        }
         if !layer.children.is_empty() {
             // Groups are pass-through folders: their children retain canvas
             // coordinates, while the group also records its own placement for

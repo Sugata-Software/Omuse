@@ -15,10 +15,14 @@ mod advanced_ui;
 mod ai_ui;
 #[path = "asset_ui.rs"]
 mod asset_ui;
+#[path = "auto_layout_ui.rs"]
+mod auto_layout_ui;
 #[path = "camera_gesture_ui.rs"]
 mod camera_gesture_ui;
 #[path = "camera_preview_ui.rs"]
 mod camera_preview_ui;
+#[path = "canvas_context_ui.rs"]
+mod canvas_context_ui;
 #[path = "clipboard_ui.rs"]
 mod clipboard_ui;
 #[path = "command_search_ui.rs"]
@@ -263,6 +267,7 @@ enum Dialog {
     Recover,
     Filter,
     Finishing,
+    AutoLayout,
     Text,
     LayerMenu,
     Nest,
@@ -371,6 +376,7 @@ pub struct EditorView {
     inspector_visible: bool,
     create: create_ui::CreateState,
     ai: ai_ui::AiState,
+    auto_layout_draft: Option<auto_layout_ui::AutoLayoutDraft>,
     product: product_ui::ProductUiState,
     asset_ui: asset_ui::AssetUiState,
     spot_healing_mode: omuse::spot_heal::SpotHealingMode,
@@ -710,7 +716,8 @@ impl EditorView {
                     cx.notify();
                     return;
                 }
-                if this.inline_font_key(&event.keystroke, window, cx)
+                if this.auto_layout_key(&event.keystroke, window, cx)
+                    || this.inline_font_key(&event.keystroke, window, cx)
                     || this.recent_key(&event.keystroke, window, cx)
                     || this.command_search_key(&event.keystroke, window, cx)
                 {
@@ -889,6 +896,7 @@ impl EditorView {
             inspector_visible: true,
             create: create_ui::CreateState::new(project, window, cx),
             ai: ai_ui::AiState::new(window, cx),
+            auto_layout_draft: None,
             product: product_ui::ProductUiState::new(window, cx),
             asset_ui: asset_ui::AssetUiState::new(window, cx),
             spot_healing_mode: omuse::spot_heal::SpotHealingMode::ContentAware,
@@ -1240,6 +1248,9 @@ impl EditorView {
 
     fn changed(&mut self, cx: &mut Context<Self>) {
         self.crop = None;
+        if let Some(error) = self.editor.take_layout_error() {
+            self.status = format!("Auto-layout: {error}");
+        }
         if self.macro_recording && self.macro_revision != self.editor.revision() {
             self.macro_recording = false;
             self.status = "Recipe recording paused: this edit is not a whole-image recipe step. Recorded steps remain available in Automation.".into();
@@ -3383,6 +3394,23 @@ impl EditorView {
         }
         match name {
             "command-search" => self.open_command_search(window, cx),
+            "auto-layout" => self.open_auto_layout(window, cx),
+            "context-toolbar" => {
+                self.preferences.context_toolbar = !self.preferences.context_toolbar;
+                self.status = match self.preferences.persist() {
+                    Ok(()) => {
+                        if self.preferences.context_toolbar {
+                            "Canvas actions shown when the current selection has actions".into()
+                        } else {
+                            "Canvas actions hidden; restore with Ctrl+K → Canvas actions".into()
+                        }
+                    }
+                    Err(error) => {
+                        format!("Canvas actions changed for this session; settings: {error}")
+                    }
+                };
+                cx.notify();
+            }
             "ask-omuse" => {
                 self.inspector_tab = studio_ui::InspectorTab::Assistant;
                 self.inspector_visible = true;
@@ -6800,9 +6828,13 @@ impl EditorView {
                 )
                 .size_full(),
             )
+            .child(self.canvas_context_toolbar(cx))
             .into_any_element()
     }
     fn dialog_view(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        if self.dialog == Dialog::AutoLayout {
+            return self.render_auto_layout(window, cx);
+        }
         if self.dialog == Dialog::Recent {
             return self.recent_view(window, cx);
         }
@@ -6870,6 +6902,7 @@ impl EditorView {
             Dialog::Workflow => self.workflow_title(),
             Dialog::Pro => self.pro_title(),
             Dialog::Finishing => "Finishing effects",
+            Dialog::AutoLayout => "Auto layout",
             Dialog::ImportReport => "Import conversion report",
             Dialog::ExportReport => "Last export conversion report",
             Dialog::ToolSettings => "Tool settings",
@@ -8513,6 +8546,11 @@ impl Render for EditorView {
         if let Some(error) = self.editor.take_mask_paint_error() {
             self.refresh(cx);
             self.status = format!("Mask edit left your work unchanged: {error}");
+        }
+        if let Some(error) = self.editor.take_layout_error() {
+            // Refused bool-returning edits do not necessarily call changed().
+            // Surface the actual layout prerequisite instead of a generic lock error.
+            self.status = format!("Auto-layout: {error}");
         }
         self.sync_create_fields(window, cx);
         self.sync_motion_fields(window, cx);
@@ -12394,7 +12432,10 @@ impl EditorView {
                         this.begin_inline_text(None,(80.,110.),Some(objects::ObjectSize { width: 320., height: 160. }),window,cx);
                         this.inline_text.as_ref().unwrap().input.update(cx,|s,cx|s.set_value("Edit directly on canvas\nOmuse on Linux",window,cx));
                     } else if let Ok(panel) = omuse::identity::env_var("OMUSE_NATIVE_PANEL") {
-                        if panel == "image-trace" {
+                        if panel == "ai-review" {
+                            this.prepare_native_ai_review_inspection(cx)?;
+                            this.command("fit",window,cx);
+                        } else if panel == "image-trace" {
                             let pixels=image::load_from_memory(include_bytes!("../assets/omuse.png"))?.to_rgba8();
                             let mut doc=Document::new(pixels.width(),pixels.height());
                             doc.layers[0].name="Muse artwork".into();
@@ -12564,7 +12605,12 @@ impl EditorView {
                 Ok::<(),anyhow::Error>(())
             }.await;
             if let Err(error)=result{let _=std::fs::write(dir.join("native-error.txt"),format!("{error:#}"));eprintln!("Native GUI journey failed: {error:#}");}
-            cx.background_executor().timer(std::time::Duration::from_secs(45)).await;
+            // The native harness normally exits promptly. An explicit bounded
+            // inspection window leaves time for real keyboard/pointer review.
+            let inspect_seconds = omuse::identity::env_var("OMUSE_NATIVE_INSPECT_SECONDS")
+                .ok().and_then(|value| value.parse::<u64>().ok())
+                .unwrap_or(45).clamp(5, 600);
+            cx.background_executor().timer(std::time::Duration::from_secs(inspect_seconds)).await;
             let _=cx.update(|_,cx|cx.quit());
         }).detach();
     }

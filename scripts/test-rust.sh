@@ -28,5 +28,6 @@ cargo test --manifest-path rust/Cargo.toml --release --locked --features ui-test
 cargo run --manifest-path rust/Cargo.toml --release --locked --features ui-test --jobs "$jobs" -- --self-test "$scratch/journey"
 cargo run --manifest-path rust/Cargo.toml --release --locked --example create_acceptance --jobs "$jobs" -- "$scratch/create-journey" --motion
 cargo run --manifest-path rust/Cargo.toml --release --locked --example catalog_acceptance --jobs "$jobs" -- "$scratch/template-catalog"
+cargo run --manifest-path rust/Cargo.toml --release --locked --example auto_layout_workflow --jobs "$jobs" -- "$scratch/auto-layout"
 cat "$scratch/journey/results.json"
 printf '\n%s\n' 'Omuse validation complete; test documents were created only in the temporary test directory.'

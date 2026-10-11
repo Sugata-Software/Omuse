@@ -418,6 +418,9 @@ fn connections_get_full_height_and_return_to_the_unchanged_draft(cx: &mut TestAp
             .prompt
             .update(cx, |state, cx| state.set_value("Keep my brief", window, cx));
         view.ai.result = Some(proposal(view));
+        // This case starts from an actively edited, expanded composer.
+        // The compact review's Connections round-trip has separate coverage.
+        view.focus_ai_prompt(window, cx);
     });
     cx.simulate_resize(size(px(800.), px(600.)));
     draw(cx);

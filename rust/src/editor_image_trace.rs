@@ -29,7 +29,7 @@ impl Editor {
         let before = self.snapshot();
         self.document = prepared.document;
         self.active_layer = prepared.layer_id.clone();
-        self.commit(before);
+        self.commit_checked(before)?;
         Ok(prepared.layer_id)
     }
 }

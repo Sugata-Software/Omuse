@@ -16,6 +16,7 @@ pub struct Preferences {
     pub snapping: bool,
     pub auto_select: bool,
     pub transform_box: bool,
+    pub context_toolbar: bool,
     pub grid_spacing: u32,
     pub grid_subdivisions: u8,
 }
@@ -28,6 +29,7 @@ impl Default for Preferences {
             snapping: true,
             auto_select: true,
             transform_box: true,
+            context_toolbar: true,
             grid_spacing: GridSettings::default().spacing,
             grid_subdivisions: GridSettings::default().subdivisions,
         }

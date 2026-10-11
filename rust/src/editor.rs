@@ -10,6 +10,8 @@ use image::{GrayImage, Rgba, RgbaImage};
 use std::collections::VecDeque;
 #[path = "editor_advanced.rs"]
 mod advanced;
+#[path = "editor_auto_layout.rs"]
+mod auto_layout;
 #[path = "editor_clipboard.rs"]
 mod editor_clipboard;
 #[path = "editor_dynamics.rs"]
@@ -344,6 +346,7 @@ pub struct Editor {
     stroke: Option<Stroke>,
     floating: Option<FloatingSelection>,
     mask_paint_error: Option<String>,
+    layout_error: Option<String>,
 }
 
 impl Editor {
@@ -369,6 +372,7 @@ impl Editor {
             stroke: None,
             floating: None,
             mask_paint_error: None,
+            layout_error: None,
         }
     }
     /// Drain the exact bounding rectangle of pixels actually changed by stamps.
@@ -428,7 +432,12 @@ impl Editor {
             self.selection = None;
             self.selection_revision = self.selection_revision.wrapping_add(1);
         }
-        self.commit(before);
+        anyhow::ensure!(
+            self.commit(before),
+            "{}",
+            self.take_layout_error()
+                .unwrap_or_else(|| "Document edit refused".into())
+        );
         Ok(())
     }
     pub fn can_undo(&self) -> bool {
@@ -554,12 +563,32 @@ impl Editor {
         self.selection = snapshot.selection;
         self.revision = snapshot.revision;
     }
-    fn commit(&mut self, before: Snapshot) {
-        self.commit_history(HistoryEntry::Snapshot(before));
+    fn commit(&mut self, before: Snapshot) -> bool {
+        self.commit_history(HistoryEntry::Snapshot(before))
     }
-    fn commit_history(&mut self, mut before: HistoryEntry) {
+    fn commit_history(&mut self, mut before: HistoryEntry) -> bool {
+        self.layout_error = None;
         if self.floating.is_some() {
-            return;
+            // The mutation succeeded inside a deferred floating-selection edit.
+            // Its original snapshot owns the eventual single commit or cancel;
+            // do not reflow temporary layers, advance revision or add Undo here.
+            return true;
+        }
+        // Geometry, text and hierarchy edits retain a complete shared-image
+        // snapshot. Reflow joins that same transaction. Region-only stroke
+        // history does not change source dimensions or layer placement.
+        if matches!(before, HistoryEntry::Snapshot(_)) {
+            crate::auto_layout::release_orphans(&mut self.document.layers, false);
+            if let Err(error) = crate::auto_layout::reflow(
+                &mut self.document,
+                &std::sync::atomic::AtomicBool::new(false),
+            ) {
+                if let HistoryEntry::Snapshot(snapshot) = before {
+                    self.restore(snapshot);
+                }
+                self.layout_error = Some(error.to_string());
+                return false;
+            }
         }
         if let HistoryEntry::Raster(patch) = &mut before {
             patch.expected_revision = self.next_revision;
@@ -569,6 +598,7 @@ impl Editor {
         self.revision = self.next_revision;
         self.next_revision = self.next_revision.saturating_add(1);
         self.trim_history();
+        true
     }
     fn trim_history(&mut self) {
         while self.undo.len() + self.redo.len() > MAX_HISTORY_STEPS
@@ -1328,7 +1358,7 @@ impl Editor {
             return false;
         }
         if stroke.changed {
-            self.commit_history(stroke.before);
+            return self.commit_history(stroke.before);
         } else if stroke.mask_target {
             // Grid/background preparation is not a user edit by itself.
             self.document = stroke.before.state().document.clone();
@@ -1356,8 +1386,11 @@ impl Editor {
         let id = layer.id.clone();
         self.document.layers.push(layer);
         self.active_layer = id.clone();
-        self.commit(before);
-        id
+        if self.commit(before) {
+            id
+        } else {
+            String::new()
+        }
     }
     pub fn add_group(&mut self, name: &str) -> String {
         if self.floating.is_some() || tree_count(&self.document.layers) >= crate::model::MAX_LAYERS
@@ -1370,8 +1403,11 @@ impl Editor {
         let id = layer.id.clone();
         self.document.layers.push(layer);
         self.active_layer = id.clone();
-        self.commit(before);
-        id
+        if self.commit(before) {
+            id
+        } else {
+            String::new()
+        }
     }
     pub fn import_layer(&mut self, layer: Layer) -> String {
         self.insert_layer(layer)
@@ -1403,8 +1439,11 @@ impl Editor {
         let id = layer.id.clone();
         self.document.layers.push(layer);
         self.active_layer = id.clone();
-        self.commit(before);
-        id
+        if self.commit(before) {
+            id
+        } else {
+            String::new()
+        }
     }
     /// Insert a fully rendered editable vector scene as one history step.
     /// The revision fence keeps off-thread rendering from publishing over a
@@ -1516,8 +1555,7 @@ impl Editor {
         self.finish_stroke();
         let before = self.snapshot();
         self.document = candidate;
-        self.commit(before);
-        Ok(true)
+        self.commit_checked(before)
     }
     pub fn delete_layer(&mut self, id: &str) -> bool {
         self.finish_stroke();
@@ -1539,8 +1577,7 @@ impl Editor {
             self.active_layer = first_paint(&self.document.layers)
                 .unwrap_or_else(|| self.document.layers[0].id.clone());
         }
-        self.commit(before);
-        true
+        self.commit(before)
     }
     pub fn duplicate_layer(&mut self, id: &str) -> Option<String> {
         self.finish_stroke();
@@ -1551,8 +1588,7 @@ impl Editor {
         let new_id = copy.id.clone();
         insert_after(&mut self.document.layers, id, copy);
         self.active_layer = new_id.clone();
-        self.commit(before);
-        Some(new_id)
+        self.commit(before).then_some(new_id)
     }
     /// Canonical selected roots in bottom-to-top hierarchy order; selected folders carry descendants.
     pub fn selected_layer_roots(&self, ids: &[String]) -> Vec<String> {
@@ -1633,8 +1669,7 @@ impl Editor {
         let siblings = target_siblings_mut(&mut self.document.layers, parent.as_deref()).unwrap();
         siblings.insert(insertion.min(siblings.len()), group);
         self.active_layer = id.clone();
-        self.commit(before);
-        Some(id)
+        self.commit(before).then_some(id)
     }
     /// Duplicate each selected tree immediately above itself as one transaction.
     pub fn duplicate_layers(&mut self, ids: &[String]) -> Vec<String> {
@@ -1736,8 +1771,11 @@ impl Editor {
             return Vec::new();
         }
         self.active_layer = copied_ids.last().unwrap().clone();
-        self.commit(before);
-        copied_ids
+        if self.commit(before) {
+            copied_ids
+        } else {
+            Vec::new()
+        }
     }
     /// Delete selected trees atomically. External live-mask links require an explicit unlink choice.
     pub fn delete_layers(&mut self, ids: &[String]) -> bool {
@@ -1801,8 +1839,7 @@ impl Editor {
             self.active_layer = first_paint(&self.document.layers)
                 .unwrap_or_else(|| self.document.layers[0].id.clone());
         }
-        self.commit(before);
-        true
+        self.commit(before)
     }
     /// Move selected roots as a contiguous block. Index is measured AFTER their removal.
     pub fn reparent_layers(&mut self, ids: &[String], parent: Option<&str>, index: usize) -> bool {
@@ -1855,8 +1892,7 @@ impl Editor {
             return false;
         }
         self.active_layer = roots.last().unwrap().clone();
-        self.commit(before);
-        true
+        self.commit(before)
     }
     /// UI drop helper: -1 below, +1 above, 0 inside target group. None means root top.
     /// Returns selected roots/copies on success, empty on rejected/no-op drops.
@@ -1930,6 +1966,14 @@ impl Editor {
         let Some(roots) = selected_roots(&self.document.layers, ids) else {
             return false;
         };
+        if roots.iter().any(|id| {
+            self.document
+                .find_layer(id)
+                .is_some_and(|l| l.metadata.get(crate::auto_layout::ITEM_KEY).is_some())
+        }) {
+            self.layout_error = Some("Auto-layout controls member positions; reorder layers, move the frame, or release its rules".into());
+            return false;
+        }
         if roots.is_empty() || !roots_editable(&self.document.layers, &roots) {
             return false;
         }
@@ -1965,8 +2009,7 @@ impl Editor {
         for id in &roots {
             shift(self.document.find_layer_mut(id).unwrap(), dx, dy, dw, dh);
         }
-        self.commit(before);
-        true
+        self.commit(before)
     }
     /// Copy/move an editable bitmap mask in document space. Clipping links stay on their original layers.
     pub fn copy_layer_mask(
@@ -2137,8 +2180,7 @@ impl Editor {
             }
         }
         self.active_layer = target.to_owned();
-        self.commit(before);
-        Ok(true)
+        self.commit_checked(before)
     }
     /// Copy/move an entire layer-effects stack; other destination metadata is preserved.
     pub fn copy_layer_effects(
@@ -2241,8 +2283,7 @@ impl Editor {
             }
         }
         self.active_layer = target.to_owned();
-        self.commit(before);
-        Ok(true)
+        self.commit_checked(before)
     }
     pub fn rename_layer(&mut self, id: &str, name: &str) -> bool {
         let name = name.trim();
@@ -2386,8 +2427,7 @@ impl Editor {
         if !change(self.document.find_layer_mut(id).unwrap()) {
             return false;
         }
-        self.commit(before);
-        true
+        self.commit(before)
     }
     /// Move into a group or root at a bottom-to-top index after removal.
     /// Cycles, image parents, and changes under locked ancestors are rejected.
@@ -2436,8 +2476,7 @@ impl Editor {
             &mut self.document.layers
         };
         target.insert(index.min(target.len()), layer);
-        self.commit(before);
-        true
+        self.commit(before)
     }
     pub fn transform_layer(
         &mut self,
@@ -2466,19 +2505,64 @@ impl Editor {
         {
             return false;
         }
+        let layer = self.document.find_layer(id).unwrap();
+        let mut item = match crate::auto_layout::item_rule(layer) {
+            Ok(item) => item,
+            Err(error) => {
+                self.layout_error = Some(error.to_string());
+                return false;
+            }
+        };
+        if let Some(rule) = &mut item {
+            if rotation.rem_euclid(360.) != 0. {
+                self.layout_error =
+                    Some("Release auto-layout rules before rotating this member".into());
+                return false;
+            }
+            let resized =
+                scale_x.abs() != layer.scale_x.abs() || scale_y.abs() != layer.scale_y.abs();
+            if !resized && (x != layer.offset_x || y != layer.offset_y) {
+                self.layout_error = Some(
+                    "Auto-layout controls member positions; reorder layers or move the frame"
+                        .into(),
+                );
+                return false;
+            }
+            let image = layer.image.as_ref().unwrap();
+            if scale_x.abs() != layer.scale_x.abs() {
+                rule.width =
+                    crate::auto_layout::ItemSize::Fixed(image.width() as f32 * scale_x.abs());
+            }
+            if scale_y.abs() != layer.scale_y.abs() {
+                rule.height =
+                    crate::auto_layout::ItemSize::Fixed(image.height() as f32 * scale_y.abs());
+            }
+            if let Err(error) = rule.validate() {
+                self.layout_error = Some(error.to_string());
+                return false;
+            }
+        }
         let before_placement = self.layer_placement(id);
-        let changed = self.change_layer(id, |l| {
+        let dimensions = (self.document.width, self.document.height);
+        self.change_layer(id, |l| {
+            if let Some(rule) = &item {
+                // Rule was validated before entering the transaction.
+                l.metadata[crate::auto_layout::ITEM_KEY] = serde_json::to_value(rule).unwrap();
+            }
             let old = (l.offset_x, l.offset_y, l.rotation, l.scale_x, l.scale_y);
             (l.offset_x, l.offset_y, l.rotation, l.scale_x, l.scale_y) =
                 (x, y, rotation.rem_euclid(360.0), scale_x, scale_y);
-            old != (l.offset_x, l.offset_y, l.rotation, l.scale_x, l.scale_y)
-        });
-        if changed {
-            if let (Some(old), Some(new)) = (before_placement, self.layer_placement(id)) {
-                carry_mask_placement(self.document.find_layer_mut(id).unwrap(), old, new);
+            let changed = old != (l.offset_x, l.offset_y, l.rotation, l.scale_x, l.scale_y);
+            if changed
+                && let (Some(old), Some(new)) = (
+                    before_placement,
+                    placement_of(l, dimensions.0, dimensions.1),
+                )
+            {
+                carry_mask_placement(l, old, new);
             }
-        }
-        changed
+            changed
+        })
     }
 
     pub fn layer_placement(&self, id: &str) -> Option<LayerPlacement> {
@@ -2541,6 +2625,15 @@ impl Editor {
         }) {
             return false;
         }
+        if unique.iter().any(|id| {
+            self.document
+                .find_layer(id)
+                .is_some_and(|layer| layer.metadata.get(crate::auto_layout::ITEM_KEY).is_some())
+        }) {
+            self.layout_error =
+                Some("Resize layout members individually, or change their frame rules".into());
+            return false;
+        }
         let originals: Vec<_> = unique
             .iter()
             .filter_map(|id| self.layer_placement(id).map(|p| (id.clone(), p)))
@@ -2569,10 +2662,7 @@ impl Editor {
             carry_mask_placement(layer, old, next);
             changed |= old != next;
         }
-        if changed {
-            self.commit(before);
-        }
-        changed
+        if changed { self.commit(before) } else { false }
     }
 
     /// Destructively resample a raster layer into canvas-space corners ordered
@@ -2653,8 +2743,7 @@ impl Editor {
         if mask_linked(layer) {
             remove_metadata(layer, "maskPlacement");
         }
-        self.commit(before);
-        Ok(true)
+        self.commit_checked(before)
     }
 
     pub fn set_mask_linked(&mut self, id: &str, linked: bool) -> bool {
@@ -2740,8 +2829,7 @@ impl Editor {
         }
         let before = self.snapshot();
         *self.document.find_layer_mut(id).unwrap() = replacement;
-        self.commit(before);
-        Ok(true)
+        self.commit_checked(before)
     }
     pub fn set_live_shape(
         &mut self,
@@ -2775,8 +2863,7 @@ impl Editor {
         }
         crate::objects::set_live_shape(layer, style, width, height)?;
         restore_placement_bounds(layer, old_place);
-        self.commit(before);
-        Ok(true)
+        self.commit_checked(before)
     }
     /// Explicit conversion required before pixel painting a live object.
     pub fn rasterize_layer(&mut self, id: &str) -> bool {
@@ -2810,8 +2897,7 @@ impl Editor {
             if let Some(metadata) = layer.metadata.as_object_mut() {
                 metadata.remove("rustVectorScene");
             }
-            self.commit(before);
-            return true;
+            return self.commit(before);
         }
         if let Some((proxy, blend_if)) = advanced_proxy {
             layer.advanced = None;
@@ -2826,8 +2912,7 @@ impl Editor {
                     );
                 }
             }
-            self.commit(before);
-            return true;
+            return self.commit(before);
         }
         if layer
             .metadata
@@ -2840,15 +2925,13 @@ impl Editor {
             // to ordinary pixels must not substitute fonts, change layout, or
             // resize that cache merely to discard text editability.
             crate::objects::detach_live_object(layer);
-            self.commit(before);
-            return true;
+            return self.commit(before);
         }
         if crate::objects::rasterize_live_object(layer).ok() != Some(true) {
             return false;
         }
         crate::objects::detach_live_object(layer);
-        self.commit(before);
-        true
+        self.commit(before)
     }
 
     pub fn set_layer_effects(
@@ -2884,7 +2967,7 @@ impl Editor {
         let id = layer.id.clone();
         self.document.layers.push(layer);
         self.active_layer = id.clone();
-        self.commit(before);
+        self.commit_checked(before)?;
         Ok(id)
     }
     pub fn set_adjustment(
@@ -2968,8 +3051,7 @@ impl Editor {
             position,
         });
         set_guides(&mut self.document.metadata, &guides);
-        self.commit(before);
-        Some(id)
+        self.commit(before).then_some(id)
     }
     pub fn move_guide(&mut self, id: &str, position: f32) -> bool {
         self.finish_stroke();
@@ -2986,8 +3068,7 @@ impl Editor {
         let before = self.snapshot();
         guide.position = position;
         set_guides(&mut self.document.metadata, &guides);
-        self.commit(before);
-        true
+        self.commit(before)
     }
     pub fn remove_guide(&mut self, id: &str) -> bool {
         self.finish_stroke();
@@ -2999,8 +3080,7 @@ impl Editor {
         }
         let before = self.snapshot();
         set_guides(&mut self.document.metadata, &guides);
-        self.commit(before);
-        true
+        self.commit(before)
     }
 
     pub fn flip_horizontal(&mut self) -> bool {
@@ -3416,8 +3496,7 @@ impl Editor {
         for (px, py) in pixels {
             image.put_pixel(px, py, Rgba(color));
         }
-        self.commit(before);
-        true
+        self.commit(before)
     }
     pub fn fill_selection(&mut self, color: [u8; 4]) -> bool {
         self.map_active_pixels(|_, _, _| color)
@@ -3482,10 +3561,7 @@ impl Editor {
             changed |= next != pixel.0;
             pixel.0 = next;
         }
-        if changed {
-            self.commit(before);
-        }
-        changed
+        if changed { self.commit(before) } else { false }
     }
     /// Synthesize selected source pixels using the preserved deterministic patch-search kernel.
     pub fn content_aware_fill(&mut self) -> anyhow::Result<bool> {
@@ -3540,8 +3616,7 @@ impl Editor {
             .find_layer_mut(&self.active_layer)
             .unwrap()
             .image = Some(output.into());
-        self.commit(before);
-        Ok(true)
+        self.commit_checked(before)
     }
 
     /// Apply the preserved source-free Spot Healing kernel in one undo step.
@@ -3629,8 +3704,7 @@ impl Editor {
             .find_layer_mut(&self.active_layer)
             .unwrap()
             .image = Some(output.into());
-        self.commit(before);
-        Ok(true)
+        self.commit_checked(before)
     }
 
     /// Run a bounded image operation, then commit only selected source pixels.
@@ -3671,8 +3745,7 @@ impl Editor {
             .find_layer_mut(&self.active_layer)
             .unwrap()
             .image = Some(output.into());
-        self.commit(before);
-        Ok(true)
+        self.commit_checked(before)
     }
     pub fn adjust(&mut self, adjustment: Adjustment) -> bool {
         match adjustment {
@@ -3733,10 +3806,7 @@ impl Editor {
                     changed |= pixel.0 != next;
                     pixel.0 = next;
                 }
-                if changed {
-                    self.commit(before);
-                }
-                changed
+                if changed { self.commit(before) } else { false }
             }
             _ => {
                 if let Adjustment::Brightness(v)
@@ -3807,10 +3877,7 @@ impl Editor {
             changed |= pixel.0 != next;
             pixel.0 = next;
         }
-        if changed {
-            self.commit(before);
-        }
-        changed
+        if changed { self.commit(before) } else { false }
     }
     /// Polygon/lasso selection using the even-odd fill rule at pixel centers.
     pub fn select_polygon(&mut self, points: &[(f32, f32)]) -> bool {
@@ -3888,16 +3955,20 @@ impl Editor {
             return false;
         }
         let before = self.snapshot();
-        fn shift(layer: &mut Layer, dx: f32, dy: f32) {
+        fn shift(layer: &mut Layer, dx: f32, dy: f32, dw: u32, dh: u32) {
+            let old = placement_of(layer, dw, dh);
             layer.offset_x += dx;
             layer.offset_y += dy;
+            if let (Some(old), Some(new)) = (old, placement_of(layer, dw, dh)) {
+                carry_mask_placement(layer, old, new);
+            }
             for child in &mut layer.children {
-                shift(child, dx, dy);
+                shift(child, dx, dy, dw, dh);
             }
         }
-        shift(self.document.find_layer_mut(id).unwrap(), dx, dy);
-        self.commit(before);
-        true
+        let (dw, dh) = (self.document.width, self.document.height);
+        shift(self.document.find_layer_mut(id).unwrap(), dx, dy, dw, dh);
+        self.commit(before)
     }
     /// Erase mask coverage at canvas coordinates, keeping editable mask RGB intact.
     pub fn erase_mask(&mut self, id: &str, x: f32, y: f32, radius: f32, opacity: f32) -> bool {
@@ -3977,10 +4048,7 @@ impl Editor {
             changed |= next != pixel[3];
             pixel[3] = next;
         }
-        if changed {
-            self.commit(before);
-        }
-        changed
+        if changed { self.commit(before) } else { false }
     }
     /// Resize each layer over its full transformed extent, preserving off-canvas
     /// pixels. Cached live objects become raster layers, as in the source editor.
@@ -4024,8 +4092,11 @@ impl Editor {
                 self.document.metadata = serde_json::json!({});
             }
             self.document.metadata["resolution"] = serde_json::json!(resolution);
-            self.commit(before);
-            return true;
+            return self.commit(before);
+        }
+        if crate::auto_layout::has_layout(&self.document.layers) {
+            self.layout_error = Some("Release auto-layout rules before destructive Image Size resampling; use Create resize to retain and scale the rules".into());
+            return false;
         }
         fn locked(layers: &[Layer]) -> bool {
             layers.iter().any(|l| l.locked || locked(&l.children))
@@ -4293,8 +4364,7 @@ impl Editor {
             self.document.metadata["guides"]=serde_json::Value::Array(guides.iter().map(|g|serde_json::json!({"id":g.id,"axis":if g.axis==GuideAxis::Vertical{"vertical"}else{"horizontal"},"position":g.position})).collect());
         }
         self.selection = None;
-        self.commit(before);
-        true
+        self.commit(before)
     }
     pub fn select_rect(&mut self, x: i32, y: i32, width: u32, height: u32) {
         self.select_rectangle(x as f32, y as f32, width as f32, height as f32);
@@ -4381,8 +4451,7 @@ impl Editor {
         metadata_bool(layer, "maskLinked", true);
         remove_metadata(layer, "maskPlacement");
         remove_metadata(layer, "maskOutsideCoverage");
-        self.commit(before);
-        Ok(true)
+        self.commit_checked(before)
     }
     pub fn add_mask(&mut self, id: &str, reveal: bool) -> bool {
         self.finish_stroke();
@@ -4426,8 +4495,7 @@ impl Editor {
         remove_metadata(layer, "maskPlacement");
         layer.metadata["maskOutsideCoverage"] = serde_json::json!(outside);
         normalize_canvas_mask_extent(layer, w, h);
-        self.commit(before);
-        true
+        self.commit(before)
     }
 
     /// Replace a layer mask from a mask aligned to the document canvas.
@@ -4578,8 +4646,7 @@ impl Editor {
         remove_metadata(layer, "maskSourceID");
         remove_metadata(layer, "maskOutsideCoverage");
         normalize_canvas_mask_extent(layer, target_width, target_height);
-        self.commit(before);
-        Ok(true)
+        self.commit_checked(before)
     }
 
     pub fn invert_mask(&mut self, id: &str) -> bool {
@@ -4671,8 +4738,7 @@ impl Editor {
         if let Some(outside) = work_layer.metadata.get("maskOutsideCoverage") {
             layer.metadata["maskOutsideCoverage"] = outside.clone();
         }
-        self.commit(before);
-        true
+        self.commit(before)
     }
     pub fn fill_mask_selection(&mut self, id: &str, value: u8) -> anyhow::Result<bool> {
         let before = self.snapshot();
@@ -5019,8 +5085,7 @@ impl Editor {
         }
         replace(&mut self.document.layers, &above.id, merged);
         self.active_layer = id;
-        self.commit(before);
-        true
+        self.commit(before)
     }
     /// Explicitly flatten visible artwork and background into one raster layer.
     pub fn flatten(&mut self) -> bool {
@@ -5041,8 +5106,7 @@ impl Editor {
         self.active_layer = layer.id.clone();
         self.document.layers = vec![layer];
         self.document.background = [0; 4];
-        self.commit(before);
-        true
+        self.commit(before)
     }
     /// One-dab convenience API; continuous pointer drawing uses the clone stroke methods.
     pub fn clone_stamp(
@@ -5344,11 +5408,28 @@ impl Editor {
                 }
                 layer.mask = Some(grown.into());
             }
+            let merged_t = Transform::of(layer, width, height);
             remove_layer(&mut self.document.layers, &state.floating_id);
             self.active_layer = state.source_id.clone();
+            // Growth can move a Hug member or rescale a Fixed/Fill member.
+            // Settle those rules before retaining its canvas selection, then
+            // carry that selection through the same source-placement change.
+            // The final history commit reflows the already-settled document.
+            let selection_t = if crate::auto_layout::has_layout(&self.document.layers) {
+                crate::auto_layout::reflow(
+                    &mut self.document,
+                    &std::sync::atomic::AtomicBool::new(false),
+                )?;
+                let final_t = Transform::for_layer(&self.document, &state.source_id)
+                    .ok_or_else(|| anyhow::anyhow!("Floating source disappeared after layout"))?;
+                remap_selection_transform(floating_t, merged_t, final_t)
+                    .ok_or_else(|| anyhow::anyhow!("Invalid selection mapping after layout"))?
+            } else {
+                floating_t
+            };
             self.selection = Some(selection_from_floating(
                 &state.selection_mask,
-                floating_t,
+                selection_t,
                 self.document.width,
                 self.document.height,
             ));
@@ -5360,8 +5441,7 @@ impl Editor {
             self.selection = state.before_selection;
             return Err(error);
         }
-        self.commit(state.before);
-        Ok(true)
+        self.commit_checked(state.before)
     }
     /// A rendered pixel clipboard must contain the source content that Cut will
     /// remove. Masks, live appearances and resampling can make that untrue.
@@ -5537,6 +5617,22 @@ impl Editor {
         {
             return false;
         }
+        if (x != 0 || y != 0) && crate::auto_layout::has_layout(&self.document.layers) {
+            fn locked_frame(layers: &[Layer], managed: bool, parent_locked: bool) -> bool {
+                layers.iter().any(|layer| {
+                    let managed =
+                        managed || layer.metadata.get(crate::auto_layout::FRAME_KEY).is_some();
+                    let locked = parent_locked || layer.locked;
+                    (managed && locked) || locked_frame(&layer.children, managed, locked)
+                })
+            }
+            if locked_frame(&self.document.layers, false, false) {
+                self.layout_error = Some(
+                    "Unlock the layout frame and its members before shifting canvas bounds".into(),
+                );
+                return false;
+            }
+        }
         let (old_width, old_height) = (self.document.width, self.document.height);
         let extension = fill.filter(|_| width > old_width || height > old_height);
         if extension.is_some() {
@@ -5617,8 +5713,7 @@ impl Editor {
             self.document.layers.insert(0, layer);
         }
         self.selection = None;
-        self.commit(before);
-        true
+        self.commit(before)
     }
     /// Change canvas bounds while preserving layer pixels and transforms.
     pub fn resize_canvas(&mut self, width: u32, height: u32) -> bool {
@@ -5680,6 +5775,42 @@ fn alpha_over(source: [u8; 4], destination: [u8; 4]) -> [u8; 4] {
     }
     output[3] = (oa * 255.).round() as u8;
     output
+}
+// Carry a mask's canvas transform through a source layer's placement change.
+// Compute to * inverse(from) * mask without a second mask allocation or
+// subtracting large affine translations after matrix multiplication.
+fn remap_selection_transform(mask: Transform, from: Transform, to: Transform) -> Option<Transform> {
+    if from.a == to.a
+        && from.b == to.b
+        && from.c == to.c
+        && from.d == to.d
+        && from.tx == to.tx
+        && from.ty == to.ty
+    {
+        return Some(mask);
+    }
+    let det = from.a * from.d - from.b * from.c;
+    if !det.is_finite() || det.abs() < 1e-8 {
+        return None;
+    }
+    let a = (to.a * from.d - to.c * from.b) / det;
+    let b = (to.b * from.d - to.d * from.b) / det;
+    let c = (to.c * from.a - to.a * from.c) / det;
+    let d = (to.d * from.a - to.b * from.c) / det;
+    let dx = mask.tx - from.tx;
+    let dy = mask.ty - from.ty;
+    let result = Transform {
+        a: a * mask.a + c * mask.b,
+        b: b * mask.a + d * mask.b,
+        c: a * mask.c + c * mask.d,
+        d: b * mask.c + d * mask.d,
+        tx: to.tx + a * dx + c * dy,
+        ty: to.ty + b * dx + d * dy,
+    };
+    [result.a, result.b, result.c, result.d, result.tx, result.ty]
+        .iter()
+        .all(|v| v.is_finite())
+        .then_some(result)
 }
 fn selection_from_floating(
     mask: &image::GrayImage,
@@ -6131,12 +6262,23 @@ fn placement_of(
     document_width: u32,
     document_height: u32,
 ) -> Option<LayerPlacement> {
-    let (width, height) = source_size(layer, document_width, document_height);
+    // Retained frames own a fractional canvas extent, unlike ordinary
+    // image-less folders. Never round it through the integer source grid or
+    // silently substitute the document size for missing frame metadata.
+    let (width, height) = if layer.metadata.get(crate::auto_layout::FRAME_KEY).is_some() {
+        if !layer.is_group() || layer.image.is_some() {
+            return None;
+        }
+        crate::auto_layout::extent(layer)?
+    } else {
+        let (width, height) = source_size(layer, document_width, document_height);
+        (width as f32, height as f32)
+    };
     let value = LayerPlacement {
         x: layer.offset_x,
         y: layer.offset_y,
-        width: width as f32 * layer.scale_x.abs(),
-        height: height as f32 * layer.scale_y.abs(),
+        width: width * layer.scale_x.abs(),
+        height: height * layer.scale_y.abs(),
         rotation: layer.rotation,
         flip_x: layer.scale_x < 0.0,
         flip_y: layer.scale_y < 0.0,
@@ -6240,7 +6382,7 @@ fn placement_following(
         flip_y,
     }
 }
-fn carry_mask_placement(layer: &mut Layer, old: LayerPlacement, new: LayerPlacement) {
+pub(crate) fn carry_mask_placement(layer: &mut Layer, old: LayerPlacement, new: LayerPlacement) {
     let Some(mask) = &layer.mask else {
         return;
     };

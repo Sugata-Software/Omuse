@@ -18,6 +18,10 @@ targeted page revisions. See [release qualification](../release-0100-qualificati
 and [installation options](../install.md) for exact availability and limits.
 Earlier [retouch and canvas controls](retouch-and-controls.md) remain documented.
 
+Working from the development branch after 0.10.0? See
+[canvas actions, retained layout frames and AI comparisons](canvas-workflows.md).
+That chapter marks unreleased features and their compatibility limits separately.
+
 Prefer a quick overview? [Watch the two-minute 0.7.0 studio film](../media/omuse-0.7.0-studio-film.md),
 then follow the illustrated workflows below.
 

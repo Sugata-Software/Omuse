@@ -773,4 +773,67 @@ mod tests {
         assert_eq!(selection.ids, vec!["a"]);
         assert_eq!(selection.primary.as_deref(), Some("a"));
     }
+    #[test]
+    fn retained_frame_bounds_and_drag_keep_fractional_extent_and_one_undo() {
+        use omuse::auto_layout::{self, FrameRule, FrameSize};
+        use omuse::model::{Document, Layer};
+        use std::sync::atomic::AtomicBool;
+        let mut doc = Document::new(400, 300);
+        doc.layers = vec![Layer::paint("Photo", 40, 22), Layer::paint("Text", 32, 24)];
+        for layer in &mut doc.layers {
+            layer.offset_x = 7.5;
+            layer.offset_y = 9.25;
+        }
+        let ids = doc.layers.iter().map(|l| l.id.clone()).collect::<Vec<_>>();
+        let mut editor = Editor::new(doc);
+        let frame = editor
+            .create_layout_frame(
+                &ids,
+                FrameRule {
+                    width: FrameSize::Fixed(140.5),
+                    height: FrameSize::Fixed(60.25),
+                    padding: [4.25; 4],
+                    gap: 9.5,
+                    ..Default::default()
+                },
+                &AtomicBool::new(false),
+            )
+            .unwrap();
+        let selected = vec![frame.clone()];
+        let original = selection_bounds(&editor, &selected).unwrap();
+        assert_eq!(
+            (original.x, original.y, original.width, original.height),
+            (7.5, 9.25, 140.5, 60.25)
+        );
+        let geometry = TransformGeometry::new(original, 24.).unwrap();
+        assert_eq!(geometry.handles[4], CanvasPoint { x: 148., y: 69.5 });
+        assert_eq!(
+            geometry.hit_test(CanvasPoint { x: 300., y: 250. }, 2.),
+            None,
+            "Document-sized fallback must not capture points outside the frame"
+        );
+        let before = editor.layer_placement(&ids[0]).unwrap();
+        let depth = editor.undo_depth();
+        let draft = LayerPlacement {
+            x: original.x + 12.5,
+            y: original.y + 3.25,
+            ..original
+        };
+        assert!(commit_drag(&mut editor, &selected, original, draft));
+        assert_eq!(selection_bounds(&editor, &selected), Some(draft));
+        assert_eq!(editor.undo_depth(), depth + 1);
+        let moved = editor.layer_placement(&ids[0]).unwrap();
+        assert_eq!((moved.x, moved.y), (before.x + 12.5, before.y + 3.25));
+        auto_layout::validate_settled(&editor.document).unwrap();
+        assert!(editor.undo());
+        assert_eq!(selection_bounds(&editor, &selected), Some(original));
+        assert_eq!(editor.layer_placement(&ids[0]), Some(before));
+        let resize = LayerPlacement {
+            width: original.width + 10.,
+            ..original
+        };
+        assert!(!commit_drag(&mut editor, &selected, original, resize));
+        assert_eq!(selection_bounds(&editor, &selected), Some(original));
+        assert_eq!(editor.undo_depth(), depth);
+    }
 }

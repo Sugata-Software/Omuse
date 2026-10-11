@@ -51,8 +51,7 @@ impl Editor {
         let before = self.snapshot();
         self.document = candidate;
         self.active_layer = after;
-        self.commit(before);
-        Ok(true)
+        self.commit_checked(before)
     }
     pub fn revision(&self) -> u64 {
         self.revision
@@ -228,8 +227,7 @@ impl Editor {
         );
         let before = self.snapshot();
         self.document = candidate;
-        self.commit(before);
-        Ok(true)
+        self.commit_checked(before)
     }
 
     pub fn insert_prepared_layers(&mut self, layers: Vec<Layer>) -> Result<bool> {
@@ -278,8 +276,7 @@ impl Editor {
         let before = self.snapshot();
         self.document = candidate;
         self.active_layer = last.unwrap();
-        self.commit(before);
-        Ok(true)
+        self.commit_checked(before)
     }
 
     pub fn set_brush_dynamics(

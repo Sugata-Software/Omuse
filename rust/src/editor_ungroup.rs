@@ -47,8 +47,15 @@ impl Editor {
         }) {
             return Some("Cannot ungroup a folder with effects");
         }
-        if folder.offset_x != 0.0
-            || folder.offset_y != 0.0
+        let retained_frame = match crate::auto_layout::frame_rule(folder) {
+            Ok(Some(_)) if crate::auto_layout::extent(folder).is_some() => true,
+            Ok(None) => false,
+            _ => return Some("Repair or release invalid auto-layout rules before ungrouping"),
+        };
+        // A retained frame's origin positions its rules; its children already
+        // use absolute canvas coordinates. Ordinary transformed folders keep
+        // their existing refusal policy.
+        if (!retained_frame && (folder.offset_x != 0.0 || folder.offset_y != 0.0))
             || folder.rotation != 0.0
             || folder.scale_x != 1.0
             || folder.scale_y != 1.0
@@ -113,6 +120,15 @@ impl Editor {
             bail!(reason);
         }
         self.finish_stroke();
+        if self
+            .document
+            .find_layer(id)
+            .is_some_and(|folder| folder.metadata.get(crate::auto_layout::FRAME_KEY).is_some())
+        {
+            // Validate derived placement once on execution, not on every
+            // toolbar/menu availability query. Refuse stale rules atomically.
+            crate::auto_layout::validate_settled(&self.document)?;
+        }
         let (parent, index) = folder_position(&self.document.layers, id)
             .ok_or_else(|| anyhow::anyhow!("Folder disappeared while ungrouping"))?;
         let before = self.snapshot();
@@ -129,7 +145,7 @@ impl Editor {
             siblings.insert(index + offset, child);
         }
         self.active_layer = child_ids[0].clone();
-        self.commit(before);
+        self.commit_checked(before)?;
         Ok(child_ids)
     }
 }

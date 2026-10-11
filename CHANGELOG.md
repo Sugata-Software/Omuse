@@ -4,6 +4,29 @@ User-facing changes are grouped by release. Version numbers belong to Omuse;
 they do not follow Compositor or OmaPhoto. See the [release policy](docs/releases/README.md)
 for numbering, qualification and publication.
 
+## Unreleased
+
+- Add contextual actions on the shared canvas for photos, editable text and
+  artwork, pixel selections, layer groups, vector drafts and floating pixels.
+  The dock wraps within the viewport, yields during gestures and painting,
+  and uses existing commands and Undo. Hide/restore it with **Canvas actions**
+  in shortcut search; the preference is saved.
+- Add retained auto-layout frames for direct photo, text and vector layers:
+  horizontal/vertical flow, padding, gaps, alignment, hug/fixed/fill sizing and
+  bounded wrapping. Reflow joins the original edit's Undo transaction. Rules
+  preserve editable sources; layout projects require native format 15. Nested
+  frames, rotated children, general constraints and clipping relationships
+  remain unsupported. See the [development guide](docs/user-guide/canvas-workflows.md).
+- Compare AI proposals side by side, inspect individual previews, highlight
+  visible preview differences and pin one retained variation for comparison.
+  Comparing is local and preserves existing Keep/stale-result checks. Differences
+  are explicitly measured at preview resolution; mismatched framing and missing
+  original previews do not produce misleading pixel comparisons.
+  Completed reviews have a compact footer so previews get more space; expand
+  the composer to refine, with draft text, references and active Stop controls
+  preserved. Review thumbnails preserve image proportions instead of stretching
+  rectangular artwork into a square.
+
 ## [0.10.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.10.0) — 2026-10-11
 
 **Shape your next idea · Linux / Omarchy source pre-release · unsigned experimental Windows**

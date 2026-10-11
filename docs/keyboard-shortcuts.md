@@ -1,6 +1,6 @@
 # Omuse keyboard shortcuts
 
-This reference is generated from Omuse's command catalog. Press **Ctrl+K** in the editor to search and run any of the 213 commands. 107 commands have a default shortcut; every unbound command remains searchable and executable.
+This reference is generated from Omuse's command catalog. Press **Ctrl+K** in the editor to search and run any of the 215 commands. 107 commands have a default shortcut; every unbound command remains searchable and executable.
 
 Open **Keyboard shortcuts** with **Ctrl+Alt+K** to assign, clear, or reset a binding. Custom bindings are stored per user. Omuse reserves **Super** for Omarchy and other Linux desktop shortcuts, and rejects Linux virtual-terminal chords such as Ctrl+Alt+F3.
 
@@ -85,6 +85,7 @@ Legacy default changes: Export moved from Ctrl+E to **Ctrl+Alt+Shift+S**, Create
 | Duplicate selected layers | Ctrl+J | Duplicate the selected layer roots. |
 | Delete selected layers | Unbound | Delete the selected layer roots. |
 | Group selected layers | Ctrl+G | Put the selected layers in a group. |
+| Auto layout | Unbound | Create or edit a retained layout frame for sibling photo, text and vector layers, with row/column flow, spacing and sizing. |
 | Ungroup folder | Unbound | Release an ordinary folder while preserving child order and placement. |
 | Merge down | Ctrl+E | Merge the active layer into the layer below. |
 | Flatten image | Unbound | Flatten the document's visible artwork. |
@@ -204,6 +205,7 @@ Legacy default changes: Export moved from Ctrl+E to **Ctrl+Alt+Shift+S**, Create
 
 | Command | Default | What it does |
 |---|---:|---|
+| Canvas actions | Unbound | Show or hide contextual actions at the bottom of the canvas. The choice is saved for this user. |
 | Zoom in | Ctrl+= | Use the next zoom stop while keeping the viewport centre fixed on the artwork. |
 | Zoom in (+) | Ctrl++ | Increase canvas magnification with the Plus key. |
 | Zoom out | Ctrl+- | Decrease canvas magnification. |

@@ -165,6 +165,8 @@ jobs:
           name: omuse-create-renders
           path: |
             ${{ runner.temp }}/omuse-tests.*/journey/results.json
+            ${{ runner.temp }}/omuse-tests.*/auto-layout/results.json
+            ${{ runner.temp }}/omuse-tests.*/auto-layout/*.png
             ${{ runner.temp }}/omuse-tests.*/template-catalog/*.png
             ${{ runner.temp }}/omuse-tests.*/template-catalog/results.json
             ${{ runner.temp }}/omuse-tests.*/create-journey/social-export
@@ -286,7 +288,7 @@ jobs:
           --jobs $env:CARGO_BUILD_JOBS
           -- --self-test "$env:RUNNER_TEMP/omuse-tests/journey"
 
-      - name: Run the Create, template catalog and motion journeys
+      - name: Run the Create, template catalog, auto-layout and motion journeys
         env:
           XDG_DATA_HOME: ${{ runner.temp }}/omuse-tests/data
           XDG_CONFIG_HOME: ${{ runner.temp }}/omuse-tests/config
@@ -296,6 +298,8 @@ jobs:
           cargo run --manifest-path rust/Cargo.toml --release --locked --jobs $env:CARGO_BUILD_JOBS --example create_acceptance -- "$env:RUNNER_TEMP/omuse-tests/create-journey" --motion
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo run --manifest-path rust/Cargo.toml --release --locked --jobs $env:CARGO_BUILD_JOBS --example catalog_acceptance -- "$env:RUNNER_TEMP/omuse-tests/template-catalog"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo run --manifest-path rust/Cargo.toml --release --locked --jobs $env:CARGO_BUILD_JOBS --example auto_layout_workflow -- "$env:RUNNER_TEMP/omuse-tests/auto-layout"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo run --manifest-path rust/Cargo.toml --release --locked --jobs $env:CARGO_BUILD_JOBS --example media_acceptance -- "$env:RUNNER_TEMP/omuse-tests/media"
 

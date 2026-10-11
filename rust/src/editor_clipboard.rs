@@ -143,7 +143,7 @@ impl Editor {
         let insertion = root_insertion(self);
         self.document.layers.splice(insertion..insertion, copies);
         self.active_layer = copied_ids.last().expect("nonempty copied forest").clone();
-        self.commit(before);
+        self.commit_checked(before)?;
         Ok(copied_ids)
     }
 }

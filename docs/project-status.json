@@ -40,6 +40,12 @@
       "status": "locally-tested"
     },
     {
+      "label": "Canvas workflows — unreleased development",
+      "value": "Context actions, retained frames and AI comparisons",
+      "detail": "Unreleased development on feature/canvas-workflows after 0.10.0: 1,599 tests passed, 5 manual benchmarks ignored; editing, retained-layout, six-page Create/motion and 80 template-variant journeys passed. Native XWayland passed 24 scripted checks plus Cua inspection of layout, keyboard Undo and local AI comparisons/draft preservation. The installed 0.10.0 reader safely refuses retained-layout format 15 and renders released rules with exact pixels. No new live-provider, Windows or performance qualification. Omastrator is the fifth monitored upstream; source and website beta remain separate.",
+      "status": "locally-tested"
+    },
+    {
       "label": "Photo and vector expansion — historical development checks",
       "value": "1,554 local passes; native editing and exchange checked",
       "detail": "Frozen 642-path source passed 1,554 reported Linux tests, zero failures and five ignored; two optional external PSD cases were unconfigured. Editing, Create/motion, mixed composition exchange and 80 variants of 20 templates passed. Final XWayland checks covered Builder history, PSD export/report, Texture Preview/Apply/Undo and composition opening. Independent readers checked synthetic PSD/SVG/PDF outputs. Texture remains experimental with mixed photo results. These results predate the version bump. Final 0.10 installation and Linux/Windows CI are recorded above; native in-flight cancellation and broader quality remain open. See docs/photo-vector-qualification.md.",
@@ -1181,6 +1187,23 @@
       "summary": "Create is implemented as a native content-production workspace for editable assets and export, without scheduling or social account management.",
       "items": [
         {
+          "id": "retained-auto-layout",
+          "name": "Retained auto-layout frames",
+          "status": "locally-tested",
+          "current": "Direct mixed photo/text/vector layers support horizontal/vertical frames, four-side padding, gap, alignment, hug/fixed/fill sizing and bounded wrapping. Rules reflow at ordinary editor transaction boundaries and persist with native format 15.",
+          "boundary": "Unreleased. Direct unrotated leaves only; no nested frames, clipping relationships or general constraints. Fixed/Fill scale source rectangles rather than wrapping text. Eighteen engine tests, four layout UI tests, synthetic save/reopen and installed-reader compatibility passed. No performance claim at resource limits.",
+          "evidence": [
+            "docs/user-guide/canvas-workflows.md",
+            "docs/canvas-workflows-qualification.md"
+          ],
+          "modules": [
+            "rust/src/auto_layout.rs",
+            "rust/src/editor_auto_layout.rs",
+            "rust/src/auto_layout_ui.rs",
+            "rust/tests/auto_layout.rs"
+          ]
+        },
+        {
           "id": "create-collections",
           "name": "Pages, artboards and carousels",
           "status": "locally-tested",
@@ -1305,6 +1328,22 @@
       "icon": "sparkles",
       "summary": "Task-based creation with per-task subscription choices, optional bounded follow-on steps and one reviewed editable result. Provider capability and live quality remain operation-specific.",
       "items": [
+        {
+          "id": "ai-visual-comparison",
+          "name": "Side-by-side proposals and retained variations",
+          "status": "locally-tested",
+          "current": "Before/After pairs, individual previews, a bounded visible-difference map and one pinned variation support local comparison. Source-framing checks prevent misleading aligned differences. Plan/response summaries expand for details. Completed reviews collapse the composer while preserving drafts; proportional previews are bounded to a 640-pixel longest edge. Native Cua verified comparisons, Changes, original-source reset, refinement and draft retention.",
+          "boundary": "Unreleased. Reduced-preview measurement is not a full-resolution audit or quality score. Existing Keep/stale-source/provider rules remain authoritative. Local synthetic native checks and regression tests do not add live provider or account qualification.",
+          "evidence": [
+            "docs/user-guide/canvas-workflows.md",
+            "docs/canvas-workflows-qualification.md"
+          ],
+          "modules": [
+            "rust/src/ai_review.rs",
+            "rust/src/ai_review_ui.rs",
+            "rust/src/ai_ui.rs"
+          ]
+        },
         {
           "id": "ai-framework",
           "name": "Ask Omuse job, review and history model",
@@ -1772,6 +1811,22 @@
       "icon": "monitor",
       "summary": "The current product is a native GPUI/Omarchy application with strong local journeys and unresolved physical-device and portability gates.",
       "items": [
+        {
+          "id": "canvas-context-actions",
+          "name": "Contextual canvas actions",
+          "status": "locally-tested",
+          "current": "A stable bottom dock adapts existing commands to photo/text/artwork, selected pixels, groups, vector drafts and floating selections. User visibility is persisted and searchable; painting, busy work and gestures hide the surface.",
+          "boundary": "Unreleased. Ten GPUI context tests passed, including pointer activation, prerequisites, focus and narrow viewport behavior. Native Cua confirmed frame Ungroup followed by keyboard Undo and layout dialog focus. The dock is not draggable or selection-following.",
+          "evidence": [
+            "docs/user-guide/canvas-workflows.md",
+            "docs/canvas-workflows-qualification.md",
+            "docs/omastrator-adoption.md"
+          ],
+          "modules": [
+            "rust/src/canvas_context_ui.rs",
+            "rust/src/canvas_context_ui_tests.rs"
+          ]
+        },
         {
           "id": "linux-native-ui",
           "name": "Native GPUI/Omarchy interface",

@@ -280,6 +280,21 @@ impl EditorView {
             .is_some_and(|s| !s.running && s.display.is_some())
     }
 
+    /// A toolbar command must never finish or interrupt a live node/object drag.
+    pub(in crate::ui) fn vector_context_ready(&self) -> bool {
+        self.vector_scene_current()
+            && self.vector_canvas_ready()
+            && self.vector_draft.as_ref().is_some_and(|draft| {
+                draft.drag.is_none()
+                    && draft.scene.as_ref().is_some_and(|scene| {
+                        scene.drag_origin.is_none()
+                            && scene.marquee.is_none()
+                            && scene.builder.is_none()
+                            && !scene.selected_objects.is_empty()
+                    })
+            })
+    }
+
     pub(in crate::ui) fn vector_canvas_display(
         &self,
     ) -> Option<&crate::display_surface::DisplaySurface> {
@@ -904,7 +919,7 @@ impl EditorView {
                 true
             }
             "zoom-in" | "zoom-in-plus" | "zoom-out" | "fit" | "actual" | "toggle-panels"
-            | "rulers" | "command-search" | "shortcuts" => false,
+            | "rulers" | "command-search" | "shortcuts" | "context-toolbar" => false,
             "vector-scene" | "edit-object" => {
                 self.inspector_visible = true;
                 self.inspector_tab = studio_ui::InspectorTab::Layers;

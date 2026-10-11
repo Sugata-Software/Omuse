@@ -50,6 +50,7 @@ define_commands! {
     command!("ask-omuse", "Ask Omuse", "ctrl-shift-j", "Application", "assistant ai help", "Open the in-app assistant.");
     command!("create-workspace", "Create workspace", "ctrl-alt-n", "Application", "content design pages artboards", "Open the Create workspace.");
     command!("toggle-panels", "Toggle inspector panel", "f7", "Application", "hide show chrome dock inspector distraction", "Show or hide the inspector panel.");
+    command!("context-toolbar", "Canvas actions", "", "View", "context contextual toolbar hide show selection floating", "Show or hide contextual actions at the bottom of the canvas. The choice is saved for this user.");
     command!("quit", "Close", "ctrl-q", "Application", "quit exit close window", "Close Omuse, prompting when work is unsaved.");
 
     command!("new", "New canvas", "ctrl-n", "File", "document project create", "Create a new canvas.");
@@ -92,6 +93,7 @@ define_commands! {
     command!("duplicate", "Duplicate selected layers", "ctrl-j", "Layer", "copy layer", "Duplicate the selected layer roots.");
     command!("delete", "Delete selected layers", "", "Layer", "remove layer", "Delete the selected layer roots.");
     command!("group", "Group selected layers", "ctrl-g", "Layer", "folder collect", "Put the selected layers in a group.");
+    command!("auto-layout", "Auto layout", "", "Layer", "frame flow row column padding gap wrap hug fill retained layout", "Create or edit a retained layout frame for sibling photo, text and vector layers, with row/column flow, spacing and sizing.");
     command!("ungroup", "Ungroup folder", "", "Layer", "folder release", "Release an ordinary folder while preserving child order and placement.");
     command!("merge", "Merge down", "ctrl-e", "Layer", "combine layer below", "Merge the active layer into the layer below.");
     command!("flatten", "Flatten image", "", "Layer", "composite merge all visible", "Flatten the document's visible artwork.");

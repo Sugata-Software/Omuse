@@ -28,6 +28,10 @@ use ai_experience::AiTask;
 use omuse::ai::routing::{
     ProviderChoice, ResolvedRoute, RoutingPreferences, TaskKind, resolve_route,
 };
+#[path = "ai_review.rs"]
+mod ai_review;
+#[path = "ai_review_ui.rs"]
+mod ai_review_ui;
 #[cfg(all(test, feature = "ui-test"))]
 #[path = "ai_routing_tests.rs"]
 mod ai_routing_tests;
@@ -35,6 +39,7 @@ mod ai_routing_tests;
 mod ai_routing_ui;
 #[path = "ai_workflow_ui.rs"]
 mod ai_workflow_ui;
+use ai_review_ui::{AiReviewState, PreparedReview};
 
 const MAX_PROVIDER_INPUT_IMAGES: usize = 8;
 const MAX_REFERENCE_INPUT_BYTES: u64 = 32 * 1024 * 1024;
@@ -88,7 +93,8 @@ pub(super) struct AiState {
     task: AiTask,
     share_canvas: bool,
     history_visible: bool,
-    show_before: bool,
+    review: AiReviewState,
+    review_footer_focus: FocusHandle,
     request_started: Option<std::time::Instant>,
     references: Vec<PathBuf>,
     reference_workspaces: Vec<Arc<PrivateAiWorkspace>>,
@@ -325,7 +331,8 @@ impl AiState {
             task: AiTask::Design,
             share_canvas: true,
             history_visible: false,
-            show_before: false,
+            review: AiReviewState::default(),
+            review_footer_focus: cx.focus_handle(),
             request_started: None,
             references: vec![],
             reference_workspaces: vec![],
@@ -470,9 +477,11 @@ fn connection_state_for_job_failure(failure: &ai::JobFailure) -> Option<Connecti
 
 impl EditorView {
     pub(super) fn focus_ai_prompt(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.ai.review.composer_expanded.set(true);
         self.ai
             .prompt
             .update(cx, |prompt, cx| prompt.focus(window, cx));
+        cx.notify();
     }
 
     fn ai_busy(&self) -> bool {
@@ -783,13 +792,15 @@ impl EditorView {
             return self.ai_panel_shell(body, window, cx);
         }
         let comparison_entries = self.ai.result.as_ref().map(|proposal| {
-            self.ai
+            let mut entries = self
+                .ai
                 .history
                 .iter()
                 .filter(|entry| {
                     entry.group_id == proposal.group_id
                         && entry.variation_total > 1
                         && proposal.variation_total > 1
+                        && entry.source == proposal.source
                 })
                 .map(|entry| {
                     (
@@ -799,7 +810,9 @@ impl EditorView {
                         entry.summary.clone(),
                     )
                 })
-                .collect::<Vec<_>>()
+                .collect::<Vec<_>>();
+            entries.sort_by(|left, right| (left.1, &left.0).cmp(&(right.1, &right.0)));
+            entries
         });
         if let Some(proposal) = &self.ai.result {
             let stale = !self.ai_proposal_source_matches(proposal);
@@ -828,7 +841,41 @@ impl EditorView {
                             "Review your result".into()
                         }),
                 )
-                .child(label(proposal.summary.clone(), cx));
+                .child(label(
+                    if stale {
+                        "Review only · the source canvas has changed"
+                    } else {
+                        "Your artwork stays unchanged until you Keep"
+                    },
+                    cx,
+                ))
+                .child(label(
+                    if self.ai.review.show_full_response {
+                        proposal.summary.clone()
+                    } else {
+                        ai_review::concise(&proposal.summary, 220)
+                    },
+                    cx,
+                ))
+                .child(self.ai_review_visuals(proposal, ai_busy, cx));
+            if proposal.summary.chars().count() > 220 {
+                card = card.child(
+                    button(
+                        "ai-review-response",
+                        if self.ai.review.show_full_response {
+                            "Short response"
+                        } else {
+                            "Read full response"
+                        },
+                        ButtonVariant::Secondary,
+                        cx,
+                    )
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.ai.review.show_full_response = !this.ai.review.show_full_response;
+                        cx.notify();
+                    })),
+                );
+            }
             let plan_changes = proposal
                 .plan_json
                 .as_deref()
@@ -848,9 +895,40 @@ impl EditorView {
                     .flex_col()
                     .gap_1()
                     .child(label("Changes to keep", cx));
-                for change in plan_changes {
-                    changes = changes.child(label(change, cx));
+                let change_count = plan_changes.len();
+                for change in plan_changes
+                    .into_iter()
+                    .take(if self.ai.review.show_all_changes {
+                        usize::MAX
+                    } else {
+                        3
+                    })
+                {
+                    changes = changes.child(label(
+                        if self.ai.review.show_all_changes {
+                            change
+                        } else {
+                            ai_review::concise(&change, 180)
+                        },
+                        cx,
+                    ));
                 }
+                changes = changes.child(
+                    button(
+                        "ai-review-details",
+                        if self.ai.review.show_all_changes {
+                            "Less detail".to_owned()
+                        } else {
+                            format!("Inspect all changes · {change_count}")
+                        },
+                        ButtonVariant::Secondary,
+                        cx,
+                    )
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.ai.review.show_all_changes = !this.ai.review.show_all_changes;
+                        cx.notify();
+                    })),
+                );
                 card = card.child(changes);
             }
             if let Some((caption, alt_text)) =
@@ -893,51 +971,6 @@ impl EditorView {
                         ),
                 );
             }
-            if proposal.before_preview.is_some() && proposal.preview.is_some() {
-                card = card.child(
-                    div()
-                        .flex()
-                        .gap_1()
-                        .child(
-                            button("ai-preview-before", "Before", ButtonVariant::Secondary, cx)
-                                .selected(self.ai.show_before)
-                                .on_click(cx.listener(|this, _, _, cx| {
-                                    this.ai.show_before = true;
-                                    cx.notify();
-                                })),
-                        )
-                        .child(
-                            button("ai-preview-after", "After", ButtonVariant::Secondary, cx)
-                                .selected(!self.ai.show_before)
-                                .on_click(cx.listener(|this, _, _, cx| {
-                                    this.ai.show_before = false;
-                                    cx.notify();
-                                })),
-                        ),
-                );
-            }
-            let shown_preview = if self.ai.show_before {
-                proposal
-                    .before_preview
-                    .as_ref()
-                    .or(proposal.preview.as_ref())
-            } else {
-                proposal.preview.as_ref()
-            };
-            if let Some(preview) = shown_preview {
-                card = card.child(
-                    div()
-                        .w_full()
-                        .h(px(220.))
-                        .flex_shrink_0()
-                        .overflow_hidden()
-                        .child(
-                            gpui_kit::img(preview.clone())
-                                .size_full()
-                                .object_fit(gpui_kit::ObjectFit::Contain),
-                        ),
-                );
-            }
             if let Some(error) = &proposal.error {
                 card = card.child(label(error.clone(), cx));
             }
@@ -949,16 +982,16 @@ impl EditorView {
                     .flex()
                     .flex_col()
                     .gap_1()
-                    .child(label("Compare retained variations", cx));
-                for (entry_id, index, total, summary) in entries {
+                    .child(label("Retained variations · choose to inspect", cx));
+                for (entry_id, index, total, _summary) in entries {
                     let selected = entry_id == &proposal.id;
                     let entry_id = entry_id.clone();
                     tray = tray.child(
                         button(
                             SharedString::from(format!("ai-compare-{entry_id}")),
                             SharedString::from(format!(
-                                "Variation {index}/{total} · {}",
-                                summary.chars().take(80).collect::<String>()
+                                "{}Variation {index}/{total}",
+                                if selected { "Reviewing · " } else { "" }
                             )),
                             ButtonVariant::Secondary,
                             cx,
@@ -1421,7 +1454,7 @@ impl EditorView {
                 },
             )
             .when(!connections, |panel| {
-                panel.child(self.ai_composer(window, cx))
+                panel.child(self.ai_review_composer(window, cx))
             })
             .into_any_element()
     }
@@ -2367,9 +2400,11 @@ impl EditorView {
         // result between transport completion and review publication.
         self.ai.preparing_image = true;
         self.ai.activity = "Preparing a reviewable result…".into();
-        let task = cx
-            .background_executor()
-            .spawn(async move { prepare_completed_ai_job(job, result, history_root) });
+        let task = cx.background_executor().spawn(async move {
+            let mut prepared = prepare_completed_ai_job(job, result, history_root)?;
+            ai_review_ui::prepare(&mut prepared, None);
+            anyhow::Ok(prepared)
+        });
         cx.spawn(async move |view, cx| {
             let prepared = task.await;
             let _ = view.update(cx, |this, cx| {
@@ -2412,12 +2447,7 @@ impl EditorView {
                             prepared.proposal.document = None;
                             prepared.proposal.project = None;
                         }
-                        if let Some(pixels) = prepared.preview_pixels.take() {
-                            prepared.proposal.preview = Some(render_image(&pixels));
-                        }
-                        if let Some(pixels) = prepared.before_preview_pixels.take() {
-                            prepared.proposal.before_preview = Some(render_image(&pixels));
-                        }
+                        this.publish_ai_review(&mut prepared, cx);
                         this.ai.transcript.push((
                             prepared.proposal.prompt.clone(),
                             prepared.proposal.summary.clone(),
@@ -2446,7 +2476,6 @@ impl EditorView {
                         } else {
                             "Saved result is ready to review, but its source canvas changed before preparation completed.".into()
                         };
-                        this.ai.show_before = false;
                         let continued = this.continue_ai_workflow(&mut prepared.proposal, can_continue_sequence, cx);
                         this.ai.result = Some(prepared.proposal);
                         if continued { cx.notify(); return; }
@@ -3204,20 +3233,23 @@ impl EditorView {
             let source_project = self.content_snapshot()?;
             let selection = self.editor.selection.clone();
             let source_is_current = self.ai_stored_source_matches(&entry);
+            let comparison_pin = self.ai.review.pin.clone();
             self.clear_ai_result(cx);
             let preparation_generation = self.ai.preparation_generation;
             let history_root = self.ai.history_root.clone();
             self.ai.preparing_image = true;
             self.ai.activity = "Loading saved AI result…".into();
             let task = cx.background_executor().spawn(async move {
-                prepare_saved_ai_proposal(
+                let mut prepared = prepare_saved_ai_proposal(
                     entry,
                     history_root,
                     source_document,
                     source_project,
                     selection,
                     source_is_current,
-                )
+                )?;
+                ai_review_ui::prepare(&mut prepared, comparison_pin);
+                anyhow::Ok(prepared)
             });
             cx.spawn(async move |view, cx| {
                 let prepared = task.await;
@@ -3232,12 +3264,7 @@ impl EditorView {
                                 prepared.proposal.document = None;
                                 prepared.proposal.project = None;
                             }
-                            if let Some(pixels) = prepared.preview_pixels.take() {
-                                prepared.proposal.preview = Some(render_image(&pixels));
-                            }
-                            if let Some(pixels) = prepared.before_preview_pixels.take() {
-                                prepared.proposal.before_preview = Some(render_image(&pixels));
-                            }
+                            this.publish_ai_review(&mut prepared, cx);
                             this.ai.activity = if let Some(error) = prepared.proposal.error.as_ref() {
                                 format!("{error}. Your canvas is unchanged.")
                             } else if source_is_current {
@@ -3245,7 +3272,6 @@ impl EditorView {
                             } else {
                                 "Saved result is ready to review. Its original canvas is no longer active, so it cannot be applied as an edit.".into()
                             };
-                            this.ai.show_before = false;
                         this.ai.result = Some(prepared.proposal);
                         }
                         Err(error) => this.ai.activity = format!("Could not load saved AI result: {error:#}"),
@@ -3265,6 +3291,7 @@ impl EditorView {
 
 struct PreparedAiProposal {
     proposal: AiProposal,
+    review: Option<PreparedReview>,
     before_preview_pixels: Option<image::RgbaImage>,
     preview_pixels: Option<image::RgbaImage>,
     stored: Option<StoredProposal>,
@@ -4213,11 +4240,7 @@ fn load_result_rgba(asset: &ai::ResultAsset) -> anyhow::Result<image::RgbaImage>
 }
 
 fn source_preview_pixels(source: &Document) -> anyhow::Result<image::RgbaImage> {
-    Ok(image::imageops::thumbnail(
-        &raster::composite(source),
-        640,
-        640,
-    ))
+    Ok(ai_review::fit_preview(&raster::composite(source)))
 }
 
 fn prepare_completed_ai_job(
@@ -4453,6 +4476,7 @@ fn prepare_completed_ai_job(
     }
     Ok(PreparedAiProposal {
         proposal,
+        review: None,
         before_preview_pixels,
         preview_pixels,
         stored,
@@ -4595,6 +4619,7 @@ fn prepare_saved_ai_proposal(
     let preview_pixels = proposal_preview_pixels(&proposal)?;
     Ok(PreparedAiProposal {
         proposal,
+        review: None,
         before_preview_pixels,
         preview_pixels,
         stored: None,
@@ -4607,18 +4632,10 @@ fn proposal_preview_pixels(proposal: &AiProposal) -> anyhow::Result<Option<image
     if let Some(project) = &proposal.project {
         let mut project = project.clone();
         let document = project.active_document()?.clone();
-        return Ok(Some(image::imageops::thumbnail(
-            &raster::composite(&document),
-            640,
-            640,
-        )));
+        return Ok(Some(ai_review::fit_preview(&raster::composite(&document))));
     }
     if let Some(document) = &proposal.document {
-        return Ok(Some(image::imageops::thumbnail(
-            &raster::composite(document),
-            640,
-            640,
-        )));
+        return Ok(Some(ai_review::fit_preview(&raster::composite(document))));
     }
     let preview_index = proposal
         .provenance
@@ -4630,11 +4647,7 @@ fn proposal_preview_pixels(proposal: &AiProposal) -> anyhow::Result<Option<image
         let document = document::open(&asset.path).map_err(|error| {
             anyhow::anyhow!("Image preview {}: {error:#}", asset.path.display())
         })?;
-        return Ok(Some(image::imageops::thumbnail(
-            &raster::composite(&document),
-            640,
-            640,
-        )));
+        return Ok(Some(ai_review::fit_preview(&raster::composite(&document))));
     }
     Ok(None)
 }
@@ -5088,7 +5101,7 @@ mod tests {
         assert!(context.contains("Caption"));
     }
 
-    fn assistant_proposal(view: &EditorView, document: Document) -> AiProposal {
+    pub(super) fn assistant_proposal(view: &EditorView, document: Document) -> AiProposal {
         AiProposal {
             workspace: None,
             id: "test-result".into(),
@@ -5874,9 +5887,12 @@ mod tests {
         cx.update(|window, cx| window.draw(cx).clear(cx));
         let title = cx.debug_bounds("ai-review-title").expect("review title");
         let inspector = cx.debug_bounds("ai-inspector").unwrap();
-        let prompt = cx.debug_bounds("ai-prompt").unwrap();
+        let footer = cx
+            .debug_bounds("ai-review-footer")
+            .expect("compact idle review footer");
+        assert!(cx.debug_bounds("ai-prompt").is_none());
         assert!(title.origin.y >= inspector.origin.y);
-        assert!(title.bottom_right().y < prompt.origin.y);
+        assert!(title.bottom_right().y < footer.origin.y);
         assert!(cx.debug_bounds("ai-starter-0").is_none());
 
         let refine = reveal_ai_control(cx, "ai-refine-result");
@@ -6954,6 +6970,7 @@ impl EditorView {
     }
 
     fn clear_ai_result(&mut self, cx: &mut Context<Self>) {
+        self.clear_ai_comparison(cx);
         // Promoted reference paths can outlive their original review. Keep
         // only workspaces still backing selected reference files; pending
         // requests separately own guards until their copies are staged.
