@@ -3,7 +3,7 @@
   "snapshotDate": "2026-10-11",
   "project": "Omuse",
   "releaseScope": "Native Rust/GPUI application for Arch/Omarchy Linux x86_64",
-  "releaseState": "Omuse 0.10.0 exact tested Linux package installed as normal Omuse; previous complete installations preserved. Linux/Windows CI and packages passed. Public source and download publication are in progress.",
+  "releaseState": "Omuse 0.10.0 published with verified Linux and experimental Windows downloads and installed as normal Omuse. Previous complete local installations and published 0.9 remain preserved.",
   "visualizationMirror": "omuse-project-guide.html",
   "statusDefinitions": [
     {
@@ -34,9 +34,9 @@
   ],
   "releaseSnapshot": [
     {
-      "label": "Omuse 0.10 release",
-      "value": "Source and packages qualified; publication in progress",
-      "detail": "Public runtime 920ae0fddb9a58ba69526b7e7976b5d770435fd9 passed Linux validation (1,554 reported passes) and Windows validation (1,536), zero failures and five ignored each. Exact packages passed integrity, notices and native runner smoke. Omarchy native Shape Builder history and complete 0.9/0.10 cross-version checks passed. Installed as normal Omuse with both older generations preserved. README and illustrated manual updated; final anonymous public download verification remains.",
+      "label": "Current release",
+      "value": "0.10.0 — Shape your next idea",
+      "detail": "Public runtime 920ae0fddb9a58ba69526b7e7976b5d770435fd9 passed Linux validation (1,554 reported passes) and Windows validation (1,536), zero failures and five ignored each. Both exact archives passed integrity, notices and native runner smoke. Omarchy native Shape Builder history and complete 0.9/0.10 cross-version checks passed: four editing self-tests, 43 pixel-equal exports and four safe old-reader refusals. Source publisher 38099819987 and download publisher 38099884639 succeeded; all four permanent assets matched anonymous size/hash checks. Installed as normal Omuse with both older generations preserved. README, illustrated manual, installer and release documentation updated. Windows remains unsigned experimental and Texture removal opt-in experimental.",
       "status": "locally-tested"
     },
     {
@@ -108,7 +108,7 @@
     {
       "label": "Public-release blockers",
       "value": "Open gates",
-      "detail": "0.10 exact-source and package qualification passed; final source/download publication and anonymous readback are in progress. Clean-machine, broad hardware/accessibility, interactive Windows, live Windows AI and stable/signed-release acceptance remain open.",
+      "detail": "0.10 source/package qualification, public publication and anonymous verification of all four assets are complete. Normal installation is verified with both previous complete local generations preserved. Clean-machine, broad hardware/accessibility, interactive Windows, live Windows AI and stable/signed-release acceptance remain open.",
       "status": "blocked-deferred"
     },
     {
@@ -646,7 +646,7 @@
           "name": "Photocraft-inspired photo expansion",
           "status": "locally-tested",
           "current": "Omuse 0.10 includes opt-in Texture removal, original 16-bit donor copying, converted 8-bit layered PSD export, and ICC-managed 16-bit PSD/PSB merged-composite import. Real-photo removal checks show useful car repair and mixed portrait/foliage results.",
-          "boundary": "Final Linux integration and native Preview/Apply/Undo passed; independent readers verified PSD transparency fixes. Texture remains experimental with visible seams and mixed photographic results. Native in-flight cancellation and Photoshop/Affinity qualification remain open. PSD exchange converts content. The final source passed Linux/Windows CI and is installed as normal Omuse; public publication is in progress; no live-provider, measured-renderer or universal-quality claim.",
+          "boundary": "Final Linux integration and native Preview/Apply/Undo passed; independent readers verified PSD transparency fixes. Texture remains experimental with visible seams and mixed photographic results. Native in-flight cancellation and Photoshop/Affinity qualification remain open. PSD exchange converts content. The final source passed Linux/Windows CI and is installed as normal Omuse; both reviewed archives are published and anonymously verified; no live-provider, measured-renderer or universal-quality claim.",
           "evidence": [
             "docs/release-0100-qualification.md",
             "docs/photo-vector-qualification.md",
@@ -1154,7 +1154,7 @@
           "name": "Vectorcraft-inspired vector expansion",
           "status": "locally-tested",
           "current": "Omuse 0.10 includes curve-preserving booleans, Simplify/Offset/Outline, split/join, one-gesture Shape Builder, editable grid/radial copies, node/handle snapping to anchors and visible guides/grid, typed assistant vector operations, and reported SVG text/stroke conversion.",
-          "boundary": "Final Linux tests, native Builder history and synthetic exchange checks passed. Approximate geometry and work budgets remain; Builder requires opaque fills. Repeats are independent copies; snapping covers main-canvas node/handle drags. Persistent patterns/blends, richer typography and broader exchange remain planned. The final source passed Linux/Windows CI and is installed as normal Omuse; public publication is in progress. Interactive Windows and live-provider qualification remain separate.",
+          "boundary": "Final Linux tests, native Builder history and synthetic exchange checks passed. Approximate geometry and work budgets remain; Builder requires opaque fills. Repeats are independent copies; snapping covers main-canvas node/handle drags. Persistent patterns/blends, richer typography and broader exchange remain planned. The final source passed Linux/Windows CI and is installed as normal Omuse; both reviewed archives are published and anonymously verified. Interactive Windows and live-provider qualification remain separate.",
           "evidence": [
             "docs/release-0100-qualification.md",
             "docs/photo-vector-qualification.md",

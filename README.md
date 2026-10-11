@@ -21,11 +21,9 @@ responsive editing; Texture removal remains experimental.
 [Explore what’s new](#new-in-0100) ·
 [Follow the illustrated guide](docs/user-guide/photo-vector-development.md).
 
-**Release publication is in progress.** The 0.10 source and packages have
-completed their recorded qualification; download links below become usable
-when assets are attached to the [release page](https://github.com/Sugata-Software/Omuse/releases/tag/v0.10.0).
-Public asset verification is still pending. The prior
-[0.9 release](https://github.com/Sugata-Software/Omuse/releases/tag/v0.9.0) remains available.
+**Linux and Windows downloads are available** on the
+[0.10 release page](https://github.com/Sugata-Software/Omuse/releases/tag/v0.10.0),
+with reviewed checksums. Windows remains unsigned experimental.
 
 The curl installer builds the tested source revision.
 [Qualification and limits](docs/release-0100-qualification.md) record the supported scope.
@@ -98,7 +96,7 @@ script itself is downloaded from `main`.
 and about 12 GB of free disk space. Later installs reuse the build cache.
 The [reviewed Linux archive](https://github.com/Sugata-Software/Omuse/releases/download/v0.10.0/omuse-0.10.0-linux-x86_64.tar.gz)
 and [checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.10.0/omuse-0.10.0-SHA256SUMS)
-are release upload targets; availability awaits public verification. See the
+are available now. See the
 [archive installation guide](docs/downloadable-releases.md).
 The curl command remains the source installer.
 You can [inspect it](install.sh) before running it.
@@ -117,8 +115,6 @@ not change your Omarchy theme or shell configuration. See the
 and troubleshooting.
 
 ### Windows (experimental)
-
-Release upload targets are listed below; public availability is awaiting verification.
 
 **[Download the Windows x64 ZIP](https://github.com/Sugata-Software/Omuse/releases/download/v0.10.0/omuse-0.10.0-windows-x86_64.zip)** ·
 [Checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.10.0/omuse-0.10.0-SHA256SUMS) ·

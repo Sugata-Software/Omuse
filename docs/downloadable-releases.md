@@ -14,15 +14,18 @@ generally portable release.
 ## Current 0.10.0 publication
 
 The [0.10 release](https://github.com/Sugata-Software/Omuse/releases/tag/v0.10.0)
-is being published from exact source `920ae0fddb9a58ba69526b7e7976b5d770435fd9`.
+is published from exact source `920ae0fddb9a58ba69526b7e7976b5d770435fd9`.
 [Validation 38097640432](https://github.com/Sugata-Software/Omuse/actions/runs/38097640432)
 and [package build 38097640470](https://github.com/Sugata-Software/Omuse/actions/runs/38097640470)
-passed for that source. The original generated manifest and both archive
-receipts are reviewed separately from the public upload. Public asset
-availability and anonymous download verification are **pending**; see the
-[release qualification](release-0100-qualification.md) before claiming completion.
-The prior [0.9 release](https://github.com/Sugata-Software/Omuse/releases/tag/v0.9.0)
-remains available. Older manifests, tags, notes and assets stay unchanged.
+passed for that source. [Source publication](https://github.com/Sugata-Software/Omuse/actions/runs/38099819987)
+and [download publication](https://github.com/Sugata-Software/Omuse/actions/runs/38099884639)
+completed successfully. All four permanent assets were downloaded anonymously
+and matched the reviewed sizes and SHA-256 hashes. The generated manifest bytes,
+source tag and release notes are unchanged. See the
+[release qualification](release-0100-qualification.md) for final native checks,
+cross-version evidence and remaining platform limits. The prior
+[0.9 release](https://github.com/Sugata-Software/Omuse/releases/tag/v0.9.0)
+and its tags, notes and assets remain unchanged.
 
 ## Build an exact candidate
 

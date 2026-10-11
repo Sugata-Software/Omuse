@@ -1,9 +1,10 @@
 # Omuse 0.10.0 release qualification
 
-**Qualified source and packages — 11 October 2026.** Linux and Windows
-validation, package checks and local Linux installation have passed. Public
-publication and anonymous download verification are the final remaining steps.
-Interactive Windows support and general photographic quality remain separate.
+**Published and verified — 11 October 2026.** Linux and Windows validation,
+package checks, local Linux installation and anonymous public download checks
+have passed. [Omuse 0.10.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.10.0)
+is available. Interactive Windows support and general photographic quality
+remain separate.
 
 ## Exact source
 
@@ -24,12 +25,12 @@ attributes; documentation has its own later revisions.
 | Check | Result |
 | --- | --- |
 | Exact-source Linux and Windows CI | Passed: [validation 38097640432](https://github.com/Sugata-Software/Omuse/actions/runs/38097640432), attempt 1. Linux: 1,554 reported passes; Windows: 1,536; zero failures and five ignored per platform. |
-| Versioned local Linux suite and editing journeys | 1,554 reported passes, zero failures, five ignored; editing self-test passed. Create/catalog checks running. |
+| Versioned local Linux suite and editing journeys | Passed: 1,554 reported passes, zero failures, five ignored; editing, Create/motion and all 80 template variants passed. |
 | Linux and Windows packaged archives | [Download build 38097640470](https://github.com/Sugata-Software/Omuse/actions/runs/38097640470), attempt 1, passed. Both CI archives and native runner smoke passed; local archive verification passed. Linux also passed host smoke on Omarchy. |
 | Native Linux final archive | Exact packaged binary opened the composition and passed Shape Builder merge, draft Undo/Redo, Keep and one-step document Undo through Cua. |
 | Published 0.9 → 0.10 → rollback → forward | Passed with both actual CI binaries: four editing self-tests, 43 pixel-equal exports and four expected old-reader refusals. |
 | Normal Omuse installation | Exact Linux package installed as 0.10.0; launcher, source and binary hash verified. Previous development and published 0.9 generations retain all 22 files each, byte-for-byte. |
-| Public source, notes, installer and download readback | Publication pending |
+| Public source, notes, installer and download readback | Passed: [source publisher 38099819987](https://github.com/Sugata-Software/Omuse/actions/runs/38099819987) and [download publisher 38099884639](https://github.com/Sugata-Software/Omuse/actions/runs/38099884639). All four assets downloaded anonymously and matched reviewed sizes and SHA-256 hashes. Tag, notes and installer pin verified; prior 0.9 release unchanged. |
 
 Installer, bundle, download publication, source publication, licence and
 dependency-helper harnesses passed **108 Python tests** before candidate
