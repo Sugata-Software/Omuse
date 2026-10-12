@@ -1,0 +1,83 @@
+name: Omuse Windows installer
+
+on:
+  push:
+    branches: ['installer/**']
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packaging/windows/**'
+      - 'scripts/*windows-installer*'
+      - '.github/workflows/*windows-installer*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Published portable release to wrap
+        default: '0.11.0'
+        required: true
+        type: string
+      previous_version:
+        description: Older published release used for upgrade qualification
+        default: '0.10.0'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    name: Test installer contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - run: python3 scripts/test-windows-installer.py
+      - run: python3 scripts/test-release-downloads.py
+
+  build:
+    name: Build and test Windows installer
+    needs: contracts
+    runs-on: windows-2025
+    timeout-minutes: 20
+    env:
+      OMUSE_VERSION: ${{ inputs.version || '0.11.0' }}
+      OMUSE_PREVIOUS: ${{ inputs.previous_version || '0.10.0' }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Build installers from immutable reviewed portable releases
+        run: |
+          ./scripts/package-windows-installer.ps1 -Version $env:OMUSE_PREVIOUS -Output baseline
+          ./scripts/package-windows-installer.ps1 -Version $env:OMUSE_VERSION -Output candidate
+      - name: Exercise installation, upgrade, repair and uninstall on Windows
+        run: >-
+          python scripts/test-windows-installer-native.py
+          --candidate candidate --baseline baseline --version "$env:OMUSE_VERSION"
+          --previous-version "$env:OMUSE_PREVIOUS" --output "$env:RUNNER_TEMP/omuse-installer-smoke"
+      - name: Bind the installer to its payload, compiler and native test receipt
+        run: python scripts/windows-installer.py attest --version "$env:OMUSE_VERSION" --output candidate --smoke candidate/smoke.json
+      - name: Retain installer and immutable publication evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: omuse-windows-installer-attempt-${{ github.run_attempt }}
+          path: |
+            candidate/*-setup.exe
+            candidate/*-setup.exe.sha256
+            candidate/*-windows-installer.json
+            candidate/smoke.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Retain native installer diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: omuse-windows-installer-diagnostics-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/omuse-installer-smoke/*.log
+            ${{ runner.temp }}/omuse-installer-smoke/editing-journey/results.json
+          if-no-files-found: warn
+          retention-days: 30

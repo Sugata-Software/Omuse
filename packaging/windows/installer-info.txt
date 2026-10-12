@@ -1,0 +1,19 @@
+Welcome to Omuse
+
+Create, edit and combine photographs, vector artwork and social content.
+
+Setup installs Omuse for your Windows account, with a Start menu shortcut and
+an optional desktop shortcut. No Rust toolchain or Visual Studio is required.
+
+Before updating, save your work and close Omuse. Setup does not force the app
+to close. Uninstall removes the application but keeps your projects, settings
+and recovery data.
+
+Photo editing, Camera RAW and the local subject-selection model are included.
+Local subject selection also needs Microsoft's Visual C++ Redistributable (x64).
+Video/GIF export needs FFmpeg. AI features use your separately connected provider.
+The setup guide explains these optional requirements. Setup does not download
+or install other software, change your PATH, or connect any accounts.
+
+This Windows release is experimental and unsigned. Windows may display an
+unknown-publisher warning. Download only from Sugata-Software/Omuse on GitHub.

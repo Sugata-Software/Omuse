@@ -1,0 +1,45 @@
+name: Publish reviewed Windows installer
+
+on:
+  push:
+    branches: ['publish-windows-installer/v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Reviewed installer declaration version
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: omuse-versioned-download-publication
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish immutable Windows installer
+    if: github.repository == 'Sugata-Software/Omuse'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Verify installer and publication contracts
+        run: |
+          python3 scripts/test-windows-installer.py
+          python3 scripts/test-release-downloads.py
+      - name: Verify reviewed main, exact Windows build, payload and assets before upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OMUSE_VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == push ]]; then
+            OMUSE_VERSION="${GITHUB_REF#refs/heads/publish-windows-installer/v}"
+          fi
+          python3 scripts/windows-installer.py publish --version "$OMUSE_VERSION"
