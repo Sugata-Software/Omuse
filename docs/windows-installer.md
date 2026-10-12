@@ -1,6 +1,7 @@
 # Install Omuse on Windows
 
-The Windows setup wizard is being qualified for Omuse 0.11.0. Until a verified
+The Windows setup wizard for Omuse 0.11.0 passed native lifecycle checks on
+12 October 2026 and is awaiting publication. Until a verified
 installer download is linked here, use the [published portable ZIP](https://github.com/Sugata-Software/Omuse/releases/download/v0.11.0/omuse-0.11.0-windows-x86_64.zip).
 
 ## Setup experience
@@ -60,6 +61,11 @@ uninstall and preservation of project/profile sentinels. The candidate receipt
 binds the compiler, installer, portable archive and native smoke hashes to the
 exact packaging commit and CI run. Windows Server CI does not establish
 interactive Windows 10/11, clean standard-user, SmartScreen or live AI behavior.
+
+The [native Windows run](https://github.com/Sugata-Software/Omuse/actions/runs/38193823269)
+passed all 14 lifecycle checks, including fresh installs of both versions and
+0.10 to 0.11 upgrade. The [reviewed receipt](releases/installers/v0.11.0.json)
+records the 19,563,421-byte installer and exact compiler, payload and test hashes.
 
 Publication is a separate, explicit step after reviewing the generated receipt
 under `docs/releases/installers/vX.Y.Z.json`. It adds the installer, its receipt

@@ -1,0 +1,44 @@
+{
+  "binarySha256": "9306cb2a1158cdea1640b70c3296555eeea14813152b384bf2de9e225d059080",
+  "buildAttempt": 1,
+  "buildRun": 38193823269,
+  "checks": [
+    "desktop-shortcut",
+    "downgrade-refusal",
+    "editing-journey",
+    "fresh-install",
+    "installed-payload",
+    "native-version",
+    "previous-release-upgrade",
+    "profile-and-project-preservation",
+    "repair",
+    "runtime-library-load",
+    "shortcuts-removed",
+    "start-menu-shortcut",
+    "uninstall",
+    "uninstall-registration"
+  ],
+  "compiler": {
+    "sha256": "1a6ff68241e7f3b18543bb875283788913abbdd7b9d7403ac094598d044def7a",
+    "version": "6.7.1"
+  },
+  "installer": {
+    "fileName": "omuse-0.11.0-windows-x86_64-setup.exe",
+    "sha256": "cb41925419a97c611fa9a14fdc606484c300ee41d685613f35672d36fa61f9f5",
+    "size": 19563421
+  },
+  "limitations": [
+    "Unsigned experimental Windows x64 installer; SmartScreen may warn.",
+    "Native automated checks run on Windows Server 2025; interactive Windows 10/11 and standard-user clean-machine acceptance remain separate.",
+    "The Visual C++ x64 Redistributable, FFmpeg and AI command-line tools are optional external prerequisites, not installed by this package."
+  ],
+  "packagingRevision": "7a1c2fa7b6c86462709f116496f41e11b6e00ca7",
+  "portableSha256": "8a6def93a54d1b9052d686d5a9bbaae2107430f9a83718b1fffd7d825a7bdaac",
+  "qualification": "automated-preview",
+  "schemaVersion": 1,
+  "signed": false,
+  "smokeSha256": "ad1872b6a3e7a08a986d8911bbf3f8eb8820766c3e34208dade44355b16d5cd2",
+  "sourceRevision": "e72bccdcef066cb6ab60a99faa9d7609de86c2e4",
+  "upgradeFrom": "0.10.0",
+  "version": "0.11.0"
+}
