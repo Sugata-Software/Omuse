@@ -12,8 +12,12 @@ $repo = Split-Path -Parent $PSScriptRoot
 $Output = [IO.Path]::GetFullPath($Output)
 $compiler = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
 if (-not (Test-Path -LiteralPath $compiler -PathType Leaf)) { throw 'Inno Setup 6 is required on the packaging machine.' }
-$compilerVersion = (Get-Item -LiteralPath $compiler).VersionInfo.FileVersion
-if ($compilerVersion -notmatch '^6\.') { throw 'Only the reviewed Inno Setup 6 compiler family is supported.' }
+$compilerHelp = (& $compiler '/?' | Out-String)
+if ($compilerHelp -notmatch 'Compiler engine version:\s*(?:Inno Setup\s*)?(6\.[0-9]+\.[0-9]+)') {
+    throw "Cannot identify the required Inno Setup 6 engine: $compilerHelp"
+}
+$compilerVersion = $Matches[1]
+Write-Output "Packaging with Inno Setup $compilerVersion"
 $arguments = @((Join-Path $PSScriptRoot 'windows-installer.py'), 'stage', '--version', $Version, '--output', $Output)
 if ($Archive) { $arguments += @('--archive', [IO.Path]::GetFullPath($Archive)) }
 & python @arguments

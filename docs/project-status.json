@@ -35,14 +35,14 @@
   "releaseSnapshot": [
     {
       "label": "Current release",
-      "value": "0.11.0 \u2014 A clearer canvas",
+      "value": "0.11.0 — A clearer canvas",
       "detail": "Exact e72bccdc validation 38130013300 passed: 1,599 Linux reported application passes (563 library, 454 GPUI, 582 integration) and 1,581 Windows (548, 452, 581), zero failures and five ignored per platform. Three external RAW and two external PSD cases return early without their optional fixtures, separate from ignored benchmarks. Editing, retained layout, Create/motion, 80 template variants, media/recovery and dependency notices passed. Twenty dependency-helper Rust cases per platform are separate from core totals. Reviewed build 38130013292 attempt 1 binds both archives to e72bccdc. Both passed integrity and native runner smoke; inventories contain 621 Linux and 423 Windows dependencies with zero notice findings. Linux host smoke and 24 scripted checks on each Wayland/XWayland passed. Cua checked layout actions, immediate Undo, settings/Escape and local AI comparisons/draft preservation; no provider requests. Normal Omuse is 0.11.0 source e72bccdcef066cb6ab60a99faa9d7609de86c2e4, binary SHA-256 8ae84dd9e2f6b940fe4e77d8599a251f0fdbb5788455ed2b289470046ccf1af2. All 35 installed files match the reviewed generation. Previous 35-file and older 22-file generations, four config files and 620 data files remain unchanged. Installed Wayland passed 24 native checks in an isolated profile. Source publisher 38132530557 and download publisher 38132594953 succeeded. All four permanent 0.11 assets passed anonymous size and SHA-256 checks, with exact manifest/checksum bytes. Public tag, notes, latest declaration and curl installer pin match the reviewed source; prior 0.10 release, tag, notes and asset identities are unchanged.",
       "status": "locally-tested"
     },
     {
-      "label": "Windows setup wizard \u2014 candidate",
+      "label": "Windows setup wizard — candidate",
       "value": "Implemented; native installer qualification pending",
-      "detail": "A per-user Inno Setup wizard wraps the exact reviewed Windows ZIP, with Start menu and optional desktop shortcuts, upgrade/repair and downgrade refusal. Nine offline installer provenance tests and the 31 existing download/publication tests pass locally. Actual Windows install, previous-release upgrade, repair, shortcuts, uninstall and project/profile preservation are required before publication. No new runtime, code-signing, clean-machine or Windows live-AI claim. See docs/windows-installer.md.",
+      "detail": "A per-user Inno Setup wizard wraps the exact reviewed Windows ZIP, with Start menu and optional desktop shortcuts, upgrade/repair and downgrade refusal. Thirteen offline installer provenance and publication tests and the 31 existing download/publication tests pass locally. Actual Windows install, previous-release upgrade, repair, shortcuts, uninstall and project/profile preservation are required before publication. No new runtime, code-signing, clean-machine or Windows live-AI claim. See docs/windows-installer.md.",
       "status": "implemented-needs-qualification"
     },
     {
@@ -52,38 +52,38 @@
       "status": "locally-tested"
     },
     {
-      "label": "Canvas workflows \u2014 0.11 qualification",
+      "label": "Canvas workflows — 0.11 qualification",
       "value": "Context actions, retained frames and AI comparisons",
-      "detail": "Context actions, retained frames and AI comparison/composer controls passed exact-source and packaged native checks. Actual 0.10 \u2192 0.11 \u2192 rollback \u2192 forward passed four installed editing journeys, 62 exact pixel comparisons across 17 synthetic projects and six safe format-15 refusals. Complete generations, profile bytes and project inputs stayed exact. A separately rules-released format-14 layout exports exactly like its retained Fill master. No new live-provider, Windows desktop or performance qualification. Omastrator is the fifth monitored upstream; source and website beta remain separate.",
+      "detail": "Context actions, retained frames and AI comparison/composer controls passed exact-source and packaged native checks. Actual 0.10 → 0.11 → rollback → forward passed four installed editing journeys, 62 exact pixel comparisons across 17 synthetic projects and six safe format-15 refusals. Complete generations, profile bytes and project inputs stayed exact. A separately rules-released format-14 layout exports exactly like its retained Fill master. No new live-provider, Windows desktop or performance qualification. Omastrator is the fifth monitored upstream; source and website beta remain separate.",
       "status": "locally-tested"
     },
     {
-      "label": "Previous published release \u2014 0.10 historical",
-      "value": "0.10.0 \u2014 Shape your next idea",
+      "label": "Previous published release — 0.10 historical",
+      "value": "0.10.0 — Shape your next idea",
       "detail": "Public runtime 920ae0fddb9a58ba69526b7e7976b5d770435fd9 passed Linux validation (1,554 reported passes) and Windows validation (1,536), zero failures and five ignored each. Both exact archives passed integrity, notices and native runner smoke. Omarchy native Shape Builder history and complete 0.9/0.10 cross-version checks passed: four editing self-tests, 43 pixel-equal exports and four safe old-reader refusals. Source publisher 38099819987 and download publisher 38099884639 succeeded; all four permanent assets matched anonymous size/hash checks. Installed as normal Omuse with both older generations preserved. README, illustrated manual, installer and release documentation updated. Windows remains unsigned experimental and Texture removal opt-in experimental.",
       "status": "locally-tested"
     },
     {
-      "label": "Photo and vector expansion \u2014 historical development checks",
+      "label": "Photo and vector expansion — historical development checks",
       "value": "1,554 local passes; native editing and exchange checked",
       "detail": "Frozen 642-path source passed 1,554 reported Linux tests, zero failures and five ignored; two optional external PSD cases were unconfigured. Editing, Create/motion, mixed composition exchange and 80 variants of 20 templates passed. Final XWayland checks covered Builder history, PSD export/report, Texture Preview/Apply/Undo and composition opening. Independent readers checked synthetic PSD/SVG/PDF outputs. Texture remains experimental with mixed photo results. These results predate the version bump. Final 0.10 installation and Linux/Windows CI are recorded above; native in-flight cancellation and broader quality remain open. See docs/photo-vector-qualification.md.",
       "status": "locally-tested"
     },
     {
-      "label": "10 October photo development \u2014 historical installation",
+      "label": "10 October photo development — historical installation",
       "value": "Progressive previews and versioned tone correction",
-      "detail": "Development source manifest e55035b709f7b49f5fefb928941335e38271f970bb47dc6aee6c49736deaaf79 passed full local Linux validation: 1449 libtest passes, zero failures, five ignored benchmarks; one optional PSD fixture case returned early, leaving 1448 exercised test bodies. Editing and Create journeys plus 80 template variants passed. Native XWayland preview/refinement, Apply, immediate Undo/Redo and visible Cancel were checked. CPU sample-plus-grade median 536 ms versus 6166 ms full grading is a bounded stage measurement, not display or settling latency. New Camera Raw edits use SmoothV1; fifteen Legacy recipes retain exact output. The exact tested executable was installed as normal Omuse on 10 October; its embedded version still reads 0.9.0. Bundle checksums, isolated installer self-test and all existing profile files passed verification; both older complete generations remain byte-identical. Bundled LibRaw passed a real Nikon exposure test, and an isolated XWayland installed-app check opened and redeveloped the NEF, saved its exact original RAW and exposure recipe, and exported 4310 \u00d7 2868 pixels through the installed CLI. Native Wayland process identity was confirmed, but the driver could not capture that window. This historical build is preserved as the immediate rollback generation after installation of 0.10.0; published 0.9 remains retained too.",
+      "detail": "Development source manifest e55035b709f7b49f5fefb928941335e38271f970bb47dc6aee6c49736deaaf79 passed full local Linux validation: 1449 libtest passes, zero failures, five ignored benchmarks; one optional PSD fixture case returned early, leaving 1448 exercised test bodies. Editing and Create journeys plus 80 template variants passed. Native XWayland preview/refinement, Apply, immediate Undo/Redo and visible Cancel were checked. CPU sample-plus-grade median 536 ms versus 6166 ms full grading is a bounded stage measurement, not display or settling latency. New Camera Raw edits use SmoothV1; fifteen Legacy recipes retain exact output. The exact tested executable was installed as normal Omuse on 10 October; its embedded version still reads 0.9.0. Bundle checksums, isolated installer self-test and all existing profile files passed verification; both older complete generations remain byte-identical. Bundled LibRaw passed a real Nikon exposure test, and an isolated XWayland installed-app check opened and redeveloped the NEF, saved its exact original RAW and exposure recipe, and exported 4310 × 2868 pixels through the installed CLI. Native Wayland process identity was confirmed, but the driver could not capture that window. This historical build is preserved as the immediate rollback generation after installation of 0.10.0; published 0.9 remains retained too.",
       "status": "locally-tested"
     },
     {
-      "label": "Previous published release \u2014 0.9 historical",
-      "value": "0.9.0 \u2014 Photo detail, precise control",
+      "label": "Previous published release — 0.9 historical",
+      "value": "0.9.0 — Photo detail, precise control",
       "detail": "Public runtime 65c95cc165f9d730a9f0bcea51c51a84cf4adb7e passed complete Linux/Windows validation and download workflows. Linux: 1,405 application tests; Windows: 1,387; four ignored per platform. Final compact native and installed-launcher journeys each passed 24 checks. The exact Linux archive passed four cross-version journeys and 35 identical exports across nine projects. The unchanged photo library passed 16 cases / 128 operations; residual removal texture mismatch remains documented. Source publisher 37209968347 and download publisher 37210058961 succeeded; all four permanent assets matched anonymous size/hash checks. At publication, normal 0.9 installation and complete 0.8 rollback were verified. The later local development installation is reported separately above.",
       "status": "locally-tested"
     },
     {
-      "label": "Previous published release \u2014 historical",
-      "value": "Omuse 0.8.0 \u2014 Linux and Windows downloads published",
+      "label": "Previous published release — historical",
+      "value": "Omuse 0.8.0 — Linux and Windows downloads published",
       "detail": "Photo fidelity, reference palette matching, hue masks, multiselection/groups, gradient and stroke styling, retained curved text, vector PDF and downloadable archives. Candidate source eb558dc updates only dependency-helper checks and workflow wiring over the b47/d2 Rust tree. Local 1,352-case acceptance, final photo/recovery evidence, b47 cross-version installation and Linux/Windows app suites passed. The repaired helper passed 20 Rust and 4 Python checks plus Windows metadata; exact-source validation run 37161936414 and download run 37161936378 completed successfully. Source publication is complete. At publication the installed version was 0.8.0 with 0.7.0 preserved. The later final 0.9 candidate is now installed on this host with all 22 files of its 0.8 rollback generation preserved; 0.9 is now published with separate receipts; the 0.8 evidence remains historical. Update 4 October: publication run 37200321434 passed. All four permanent assets downloaded anonymously and matched reviewed sizes and SHA-256 hashes. The tag and release notes are unchanged. The public Linux archive passed isolated install, replacement and rollback checks; Windows archive integrity is verified with CI execution evidence only.",
       "status": "locally-tested"
     },
@@ -95,24 +95,24 @@
     },
     {
       "label": "Photo/vector source release",
-      "value": "Omuse 0.7.0 \u2014 qualified source pre-release",
+      "value": "Omuse 0.7.0 — qualified source pre-release",
       "detail": "Runtime 5b3daefbb5258afff4a74a2ff3db5247b074972d includes the shared main canvas, precise Pen/Nodes gestures, local image tracing, editable single-path SVG, target-colour uniformity, high-quality sampling and shared 3-pixel control geometry. Local 1,206-case acceptance, exact-source CI, production/native journeys, installation and rollback passed. No public binary is attached.",
       "status": "locally-tested"
     },
     {
       "label": "One project extension",
       "value": ".omuse for every project",
-      "detail": ".omuse for canvases, collections, pages/components and recovery. Ordinary canvases use format 10, flat vector scenes 11, grouped scenes 12, styled scenes 13 and editable curved text 14. Omuse 0.7.0 cannot open formats 12\u201314 or the reference-colour operation. Use Save As to preserve an older original; it does not downgrade new semantics. The reviewed compatibility matrix is in user-guide/README.md. New 0.9 ContextualV1 removal recipes add an algorithm choice within the existing formats: 0.8 can show the cached result, but editing/resaving there can lose the choice. Keep the 0.9 original and use a separate rasterized copy for backward editing. New 0.10 SmoothV1 and TextureV2 recipes are safely refused by older readers. Rasterize a separate copy in 0.10 for backward editing; rolling back the application does not downgrade projects. Omuse 0.11 retained layout requires format 15, including photo-only frames. Older readers refuse it; keep the retained master and Release rules in a separate copy for backward use.",
+      "detail": ".omuse for canvases, collections, pages/components and recovery. Ordinary canvases use format 10, flat vector scenes 11, grouped scenes 12, styled scenes 13 and editable curved text 14. Omuse 0.7.0 cannot open formats 12–14 or the reference-colour operation. Use Save As to preserve an older original; it does not downgrade new semantics. The reviewed compatibility matrix is in user-guide/README.md. New 0.9 ContextualV1 removal recipes add an algorithm choice within the existing formats: 0.8 can show the cached result, but editing/resaving there can lose the choice. Keep the 0.9 original and use a separate rasterized copy for backward editing. New 0.10 SmoothV1 and TextureV2 recipes are safely refused by older readers. Rasterize a separate copy in 0.10 for backward editing; rolling back the application does not downgrade projects. Omuse 0.11 retained layout requires format 15, including photo-only frames. Older readers refuse it; keep the retained master and Release rules in a separate copy for backward use.",
       "status": "locally-tested"
     },
     {
       "label": "AI creation workflows",
       "value": "Choose providers and finish a shared brief",
-      "detail": "Omuse 0.4.0 adds saved per-task provider choices, desktop subscription discovery fixes and optional image/edit \u2192 layout \u2192 caption sequences with one final reviewed Keep/Undo. Claude is text/layout only; Codex supports the visual/image paths. Grok and separately billed API routes remain unavailable.",
+      "detail": "Omuse 0.4.0 adds saved per-task provider choices, desktop subscription discovery fixes and optional image/edit → layout → caption sequences with one final reviewed Keep/Undo. Claude is text/layout only; Codex supports the visual/image paths. Grok and separately billed API routes remain unavailable.",
       "status": "locally-tested"
     },
     {
-      "label": "Published source and downloads \u2014 0.9 historical",
+      "label": "Published source and downloads — 0.9 historical",
       "value": "Omuse 0.9.0",
       "detail": "Runtime 65c95cc165f9d730a9f0bcea51c51a84cf4adb7e, validated in run 37207585304 and built in 37207585335, is published with four reviewed assets. Source publisher 37209968347 and download publisher 37210058961 succeeded; anonymous bytes matched the declared sizes and hashes. The previous 0.8 release and immutable 0.9 notes/tag were unchanged.",
       "status": "locally-tested"
@@ -126,7 +126,7 @@
     {
       "label": "Large-photo Create editing",
       "value": "35.9% less refresh time at 48 MP",
-      "detail": "Three paired desktop repetitions: paint core 85.69 \u2192 0.32 ms; headless frame/refresh 257.88 \u2192 165.38 ms. Recovery idle before each stroke; exact undo/redo/recovery, unchanged peak memory. Physical input latency remains unmeasured.",
+      "detail": "Three paired desktop repetitions: paint core 85.69 → 0.32 ms; headless frame/refresh 257.88 → 165.38 ms. Recovery idle before each stroke; exact undo/redo/recovery, unchanged peak memory. Physical input latency remains unmeasured.",
       "status": "locally-tested"
     },
     {
@@ -142,7 +142,7 @@
       "status": "locally-tested"
     },
     {
-      "label": "Upstream monitor \u2014 10 October",
+      "label": "Upstream monitor — 10 October",
       "value": "OmaPhoto public access unavailable",
       "detail": "Fresh repository-page and GitHub API requests returned 404 at 02:11 UTC; the owner public-repository list was empty. Cause unconfirmed. No current repository/release comparison was possible; reviewed v1.4.5 / 4c7d98b and the 5 October successful metadata check are preserved. Monitoring remains active in the current checkout. This is not evidence of no upstream changes.",
       "status": "blocked-deferred"
@@ -211,7 +211,7 @@
           "id": "photo-contextual-removal",
           "name": "Versioned controlled removal with boundary context",
           "status": "locally-tested",
-          "current": "The final 0.9 runtime uses ContextualV1 boundary-guided controlled removal; its photo library source is unchanged from tested 8f72ce5c. Thirty focused tests passed, including ten new regressions. The portrait check preserved all 256,052 protected pixels, single-step Undo/Redo, atomic cancellation, retained source/16-bit samples and saved recipe re-evaluation. The final archive reopened/exported the cache exactly through 0.8 \u2192 0.9 \u2192 rollback \u2192 forward.",
+          "current": "The final 0.9 runtime uses ContextualV1 boundary-guided controlled removal; its photo library source is unchanged from tested 8f72ce5c. Thirty focused tests passed, including ten new regressions. The portrait check preserved all 256,052 protected pixels, single-step Undo/Redo, atomic cancellation, retained source/16-bit samples and saved recipe re-evaluation. The final archive reopened/exported the cache exactly through 0.8 → 0.9 → rollback → forward.",
           "boundary": "Sources are limited to 4,000,000 pixels and additional work limits. Some seam/texture mismatch remains: preview, choose clean nearby donors, refine selection/feather and use Clone/AI when needed. Numeric correctness is not universal quality. Omuse 0.8 can display the cache but editing/resaving can discard ContextualV1; keep the 0.9 original and rasterize a separate copy before backward editing.",
           "evidence": [
             "docs/user-guide/retouch-and-controls.md",
@@ -301,7 +301,7 @@
           "id": "photo-tiled-history",
           "name": "Region/tile-based large-photo history",
           "status": "locally-tested",
-          "current": "Large unselected Brush, Pencil and Eraser strokes retain reversible 256\u00d7256 tiles. Current differential regressions pass. Historical a69a5f6 measurements retained 100 undo steps at 48 MP using about 30.96 MiB of final history, compared with one step before.",
+          "current": "Large unselected Brush, Pencil and Eraser strokes retain reversible 256×256 tiles. Current differential regressions pass. Historical a69a5f6 measurements retained 100 undo steps at 48 MP using about 30.96 MiB of final history, compared with one step before.",
           "boundary": "Masks, selected strokes, clone/heal and other transactions keep snapshots. Persistent Create raster owners are now removed, but recovery, collection checkpoints and saves can still force copies. The earlier 12/24 MP first strokes were slower; neither workload qualifies whole-app input latency.",
           "evidence": [
             "docs/desktop-history-qualification.md",
@@ -320,7 +320,7 @@
           "id": "photo-desktop-ownership",
           "name": "Large-photo desktop page ownership",
           "status": "locally-tested",
-          "current": "Editors own active and cached page pixels; complete save/export/recovery snapshots remain frozen. All 18 paired cases passed. At 48 MP, paint core measured 85.69 \u2192 0.32 ms and headless frame/refresh 257.88 \u2192 165.38 ms. Editing during a same-path save can recover, export and save again.",
+          "current": "Editors own active and cached page pixels; complete save/export/recovery snapshots remain frozen. All 18 paired cases passed. At 48 MP, paint core measured 85.69 → 0.32 ms and headless frame/refresh 257.88 → 165.38 ms. Editing during a same-path save can recover, export and save again.",
           "boundary": "Twelve localized strokes after a warmup, three repetitions per strategy/size; recovery idle before each measured stroke. Peak RSS was essentially unchanged. In-flight snapshots can still force full copies, and end-of-stroke refresh has large outliers. These are not physical input timings.",
           "evidence": [
             "docs/desktop-history-qualification.md"
@@ -506,7 +506,7 @@
         },
         {
           "id": "photo-target-colour-uniformity",
-          "name": "Target colour uniformity \u2014 0.7.0",
+          "name": "Target colour uniformity — 0.7.0",
           "status": "locally-tested",
           "current": "Omuse 0.7.0 runtime 5b3daefbb5258afff4a74a2ff3db5247b074972d provides an editable Filter stack node with a reference colour, circular hue range/falloff and independent hue/saturation/lightness strengths. Native 16-bit evaluation, alpha, node opacity and selection masks are retained.",
           "boundary": "Encoded-sRGB HSL, not semantic skin selection or reference-look matching. Selected P3 colours use bounded sRGB semantics. Unaffected native samples are preserved. A project containing this new node requires the 0.7.0 reader; retain a 0.6-compatible copy with Save As. See docs/release-070-qualification.md.",
@@ -558,7 +558,7 @@
           "id": "photo-native-resolution-retouch",
           "name": "Retouch at native layer resolution",
           "status": "locally-tested",
-          "current": "The 0.9.0 candidate applies Blur, Smudge and Liquify directly to native layer or mask pixels, including scaled, rotated, anisotropic and flipped placement. Soft selections constrain final writes while neighbouring source colours remain sampleable. Blur has a separate 0.25\u2013128 canvas-pixel Radius control; source alpha, pixel dimensions, mask extent and stored outside coverage are retained.",
+          "current": "The 0.9.0 candidate applies Blur, Smudge and Liquify directly to native layer or mask pixels, including scaled, rotated, anisotropic and flipped placement. Soft selections constrain final writes while neighbouring source colours remain sampleable. Blur has a separate 0.25–128 canvas-pixel Radius control; source alpha, pixel dimensions, mask extent and stored outside coverage are retained.",
           "boundary": "Requires an 8-bit raster layer or existing mask up to 16 MP, with a 256 MiB working-buffer budget and bounded work. Shear/excessive footprints are refused; released strokes have no interactive Escape cancellation. The unchanged photo library passed 16 cases / 128 operations on working copies at most 1,024 pixels wide, including transformed soft selections and mask Liquify. Final Linux/Windows regressions passed; this does not qualify every large-photo workload or physical input device.",
           "evidence": [
             "docs/omaphoto-comparison.md",
@@ -580,7 +580,7 @@
           "id": "photo-background-retouch",
           "name": "Cancellable background retouch",
           "status": "locally-tested",
-          "current": "Omuse 0.10: Blur, Smudge and Liquify calculate raster and mask strokes on a background worker. Escape or Cancel \u00b7 Esc discards pending work; successful results publish as one Undo step. Captured editor/page, selection and target identity reject stale results.",
+          "current": "Omuse 0.10: Blur, Smudge and Liquify calculate raster and mask strokes on a background worker. Escape or Cancel · Esc discards pending work; successful results publish as one Undo step. Captured editor/page, selection and target identity reject stale results.",
           "boundary": "Historical development Linux suite: 1,422 passed, four ignored, including ten retouch UI cases; final native XWayland Smudge/Undo/Redo smoke passed. Editing/Create/motion journeys and all 80 template variants passed. One image worker per editor window remains admitted until completion, including after cancellation. Existing 16 MP / 256 MiB bounds remain; selection capture and final canvas refresh still run on the UI thread. Final Linux/Windows automated CI passed; no new speed, interactive Windows or photographic quality claim.",
           "evidence": [
             "docs/release-0100-qualification.md",
@@ -964,7 +964,7 @@
           "id": "design-warp",
           "name": "Mesh and pin deformation",
           "status": "locally-tested",
-          "current": "A retained 2\u00d72 corner mesh and bounded pin warp can be previewed, applied, reopened and adjusted.",
+          "current": "A retained 2×2 corner mesh and bounded pin warp can be previewed, applied, reopened and adjusted.",
           "boundary": "The UI is not a general mesh-grid editor; evaluation is CPU-based and capped at 16 MP.",
           "evidence": [
             "docs/rust-advanced-workflows.md"
@@ -1026,7 +1026,7 @@
           "id": "design-vector-styling",
           "name": "Editable gradients, caps, joins and dashes",
           "status": "implemented-needs-qualification",
-          "current": "Linear/radial gradients with 2\u201316 alpha stops, geometry, Pad/Repeat/Reflect, stroke caps/joins and dash controls are implemented on the shared canvas. Zoom previews retain paint placement and use a bounded settled fallback.",
+          "current": "Linear/radial gradients with 2–16 alpha stops, geometry, Pad/Repeat/Reflect, stroke caps/joins and dash controls are implemented on the shared canvas. Zoom previews retain paint placement and use a bounded settled fallback.",
           "boundary": "Style scenes use project format 13. Variable width, stroke expansion, offsets, mesh/pattern fills and symbols remain planned.",
           "evidence": [
             "docs/photo-vector-roadmap.md",
@@ -1071,7 +1071,7 @@
         },
         {
           "id": "design-path-draft-tools",
-          "name": "Compound-path and node controls \u2014 0.7.0",
+          "name": "Compound-path and node controls — 0.7.0",
           "status": "locally-tested",
           "current": "Omuse 0.7.0 runtime 5b3daefbb5258afff4a74a2ff3db5247b074972d provides corner/smooth nodes, exact curve midpoint insertion, reverse/new subpaths, open/close and even-odd/non-zero fills. Preview compound holes correctly; Apply is one Undo step.",
           "boundary": "Legacy retained-path/mask dialogs remain available for compatibility. Modern scene paths use the main canvas. Split/join, snapping, booleans and variable-width strokes remain on the roadmap.",
@@ -1087,7 +1087,7 @@
         },
         {
           "id": "design-vector-scene",
-          "name": "Multiple editable objects in one artwork layer \u2014 0.7.0",
+          "name": "Multiple editable objects in one artwork layer — 0.7.0",
           "status": "locally-tested",
           "current": "The procedural engine checkpoint at source 4e1da33 passed optimized regressions, both native backends, 4K save/reopen/export and old-reader refusal. Several objects share one retained geometry scene and derived RGBA8 cache. The new unified canvas interaction layer is tracked separately below.",
           "boundary": "Format 11 requires the 0.7.0 reader; ordinary canvases stay format 10. Geometry/cache digests and cumulative expansion budgets are enforced. Pixel edits require explicit Rasterize. Persistent visible-tile caches, multi-object SVG and 16-bit procedural rendering remain open. Historical storage accounting is not process RSS or rendering speed. See docs/release-070-qualification.md.",
@@ -1107,7 +1107,7 @@
         },
         {
           "id": "design-vector-canvas",
-          "name": "Photo and vector editing on one canvas \u2014 0.7.0",
+          "name": "Photo and vector editing on one canvas — 0.7.0",
           "status": "locally-tested",
           "current": "Omuse 0.7.0 runtime 5b3daefbb5258afff4a74a2ff3db5247b074972d provides the shared main canvas, compact Layers inspector, on-canvas object picking, transformed node/handle dragging, P/A/V tools, double-click node editing in Move mode, live styles, bounded local Undo/Redo, and one document transaction when finished. Tool/layer/save changes retain valid edits automatically. Space, middle-drag, scroll zoom, command search and shortcut help stay integrated.",
           "boundary": "Previews use a coalesced full-document compositor; instant full-resolution recomposition and broad hardware/latency claims remain unqualified. Format-11 requirements remain; 0.6 cannot read vector scenes. Release evidence is recorded in docs/release-070-qualification.md.",
@@ -1130,7 +1130,7 @@
         },
         {
           "id": "design-image-trace",
-          "name": "Image tracing and precise curve gestures \u2014 0.7.0",
+          "name": "Image tracing and precise curve gestures — 0.7.0",
           "status": "locally-tested",
           "current": "Omuse 0.7.0 runtime 5b3daefbb5258afff4a74a2ff3db5247b074972d provides local bitmap-to-vector tracing in the main canvas/inspector with Logo, Illustration and Photo presets, Colour/Gray/B&W, detail/smoothing/corners/noise/resolution/point budgets, Source/Trace comparison, retained bitmap, saved settings/retrace and one Undo transaction. Pen click-drag creates smooth curves; A moves points/handles; Alt frees handles, Shift constrains angles, and segment insertion preserves the curve.",
           "boundary": "Four independently sampled synthetic tracing fixtures passed; one logo fixture reduced 476 linear anchors to 20 curved anchors (95.8%). This is not an arbitrary-photo guarantee. 16 MP source, 4 MP working and explicit work/geometry budgets. RGBA8 solid-colour approximation with a source-resolution display cache. Complete SVG export, broad photo fidelity, pathological topology, large-document latency and Illustrator parity remain unqualified. See docs/release-070-qualification.md.",
@@ -1605,7 +1605,7 @@
           "id": "formats-canvas",
           "name": "`.omuse` canvases and legacy import",
           "status": "locally-tested",
-          "current": "Single canvases and collections use .omuse. Canvases read formats 1\u201310 and write format 10; Unicode colour runs are validated. Legacy .comp opens without rewriting and first Save offers an .omuse copy. Existing destinations require confirmation.",
+          "current": "Single canvases and collections use .omuse. Canvases read formats 1–10 and write format 10; Unicode colour runs are validated. Legacy .comp opens without rewriting and first Save offers an .omuse copy. Existing destinations require confirmation.",
           "boundary": "Omuse 0.5 and earlier cannot read new format 10 saves. Previous production format 9 artwork rendered identically and its 7 source files were unchanged. Save As preserves older copies; app rollback does not downgrade files.",
           "evidence": [
             "docs/release-060-qualification.md",
@@ -1736,7 +1736,7 @@
           "id": "formats-project-v10",
           "name": "OmaPhoto / Compositor format-10 import",
           "status": "locally-tested",
-          "current": "Reads formats 1\u201310 and maps upstream UTF-16 colour runs to validated native UTF-8 rich text without rerendering cached artwork. New saves are .omuse canvas format 10.",
+          "current": "Reads formats 1–10 and maps upstream UTF-16 colour runs to validated native UTF-8 rich text without rerendering cached artwork. New saves are .omuse canvas format 10.",
           "boundary": "Format-10 conversion, malformed range/version rejection, encoding ambiguity and mask-coverage regressions passed within the recorded 0.6.0 suite. Older readers reject new saves; use Save As to retain an older copy. These checks do not establish complete independently authored cross-app interchange.",
           "evidence": [
             "docs/release-060-qualification.md",
@@ -1793,7 +1793,7 @@
         },
         {
           "id": "formats-editable-svg-path",
-          "name": "Editable SVG path exchange \u2014 0.7.0",
+          "name": "Editable SVG path exchange — 0.7.0",
           "status": "locally-tested",
           "current": "Omuse 0.7.0 runtime 5b3daefbb5258afff4a74a2ff3db5247b074972d explicitly imports one styled path/basic shape, fits its viewport into a layer, edits its curves and exports editable SVG to a new file. Compound holes, fill/stroke opacity and supported transforms are retained.",
           "boundary": "4 MiB and 100,000 anchors; single painted object only. Round uniform strokes; no text, photos, gradients, effects, resources or multiple objects. Export uses source coordinates, excluding composition effects and layer placement.",
@@ -1813,10 +1813,10 @@
         },
         {
           "id": "formats-precision-sampling",
-          "name": "High-quality 16-bit sampling \u2014 0.7.0",
+          "name": "High-quality 16-bit sampling — 0.7.0",
           "status": "locally-tested",
           "current": "Omuse 0.7.0 runtime 5b3daefbb5258afff4a74a2ff3db5247b074972d provides scale-aware premultiplied Lanczos for transformed retained 16-bit sources, with local/folder masks integrated in source taps. Identity samples remain exact, Smooth and Nearest stay explicit, and source promotion, conversion and sampling check cancellation.",
-          "boundary": "A 66\u00d766 footprint and 3/32 scale floor bound extreme reductions. Non-aligned nested masks can be expensive. The 8-bit canvas filters masks independently and may differ on reduced masked detail. No speed or complete colour-management claim.",
+          "boundary": "A 66×66 footprint and 3/32 scale floor bound extreme reductions. Non-aligned nested masks can be expensive. The 8-bit canvas filters masks independently and may differ on reduced masked detail. No speed or complete colour-management claim.",
           "evidence": [
             "docs/photo-vector-foundations-qualification.md",
             "rust/tests/raster16_export.rs"
@@ -1855,7 +1855,7 @@
           "id": "linux-native-ui",
           "name": "Native GPUI/Omarchy interface",
           "status": "locally-tested",
-          "current": "Omuse 0.4.0 uses native Rust/GPUI for the studio, tool dock, editing, Create and AI panels, dialogs and canvas. Exact runtime 3f5ece3 passed 24 checks each on production Wayland, production XWayland and installed Wayland at 800\u00d7600 with reduced motion.",
+          "current": "Omuse 0.4.0 uses native Rust/GPUI for the studio, tool dock, editing, Create and AI panels, dialogs and canvas. Exact runtime 3f5ece3 passed 24 checks each on production Wayland, production XWayland and installed Wayland at 800×600 with reduced motion.",
           "boundary": "This is the active native app; historical Swift/Qt parity reports are separate. Broader physical input, DPI and accessibility acceptance remain open.",
           "evidence": [
             "docs/release-040-qualification.md",
@@ -1875,7 +1875,7 @@
           "id": "inspector-layout-refinement",
           "name": "Right-hand panel layout and control refinement",
           "status": "locally-tested",
-          "current": "A shared Omarchy-themed panel system gives editing, Create and AI consistent adaptive widths, grouped sections, clear primary and secondary actions, aligned input fields and controls that remain full-size while scrolling. Create uses equal 3\u00d72 navigation and AI uses a two-column task grid with a compact composer in short windows. Connections has its own full-height view, preserves the brief and result, and keeps cancellation visible. Editing actions show contextual availability; mask and clipping controls display their state.",
+          "current": "A shared Omarchy-themed panel system gives editing, Create and AI consistent adaptive widths, grouped sections, clear primary and secondary actions, aligned input fields and controls that remain full-size while scrolling. Create uses equal 3×2 navigation and AI uses a two-column task grid with a compact composer in short windows. Connections has its own full-height view, preserves the brief and result, and keeps cancellation visible. Editing actions show contextual availability; mask and clipping controls display their state.",
           "boundary": "The combined 0.4.0 source passed all 267 UI cases, including minimum-window scrolling, contextual controls, retained drafts and visible cancellation. Production Wayland/XWayland and installed Wayland each passed 24 checks. Earlier panel inspections retain their 521f9f1 identity; broader display-scale and accessibility acceptance remains open.",
           "evidence": [
             "docs/release-040-qualification.md",
@@ -1891,7 +1891,7 @@
         },
         {
           "id": "inspector-colour-swatch-polish",
-          "name": "Colour swatches and vector inspector polish \u2014 0.7.0",
+          "name": "Colour swatches and vector inspector polish — 0.7.0",
           "status": "locally-tested",
           "current": "Source 466f7ab: live swatches beside vector Fill/Stroke, Brand Paper/Ink/Accent, finishing colours and Target colour uniformity. Transparency checkerboards, no-stroke marks, invalid-hex feedback, consistent field sizing and contextual path controls. Swatches remain inside native inputs and follow the Omarchy theme.",
           "boundary": "Source 466f7ab's 351 UI regressions and 27-check native journeys remain historical source evidence. The 0.7.0 release passed 351 UI cases and the recorded gallery/native inspections; swatch clicks focus the hex field and do not open a colour picker. See docs/release-070-qualification.md and docs/releases/v0.7.0-gallery.md.",
@@ -1909,7 +1909,7 @@
         },
         {
           "id": "shared-control-geometry",
-          "name": "Consistent control corners across the application \u2014 0.7.0",
+          "name": "Consistent control corners across the application — 0.7.0",
           "status": "locally-tested",
           "current": "Source e525124: one shared 3-logical-pixel radius for toolbar, inspector, Create, AI, dialogs, command-search and colour-picker buttons and text controls. Reviewed custom rows and removed local overrides. Compact toolbar names and long command/provider labels no longer clip into neighbouring controls. Colours, fonts, focus and disabled states remain Omarchy-driven.",
           "boundary": "Source e525124's 351 UI regressions and eight native journeys remain historical source evidence. The 0.7.0 release passed 13 native/gallery journeys and all captures were visually inspected. This remains representative visual validation, not every possible state, physical accessibility or live AI qualification. See docs/release-070-qualification.md and docs/releases/v0.7.0-gallery.md.",
@@ -1964,7 +1964,7 @@
           "id": "linux-wayland-xwayland",
           "name": "Wayland and XWayland journeys",
           "status": "locally-tested",
-          "current": "Omuse 0.6 production passed 24 native checks on Wayland and 24 on XWayland; the installed normal launcher passed 24 on Wayland. All used 800\u00d7600 logical minimum size and reduced motion. Dark/light finishing captures were inspected; earlier Cua evidence keeps its own identity.",
+          "current": "Omuse 0.6 production passed 24 native checks on Wayland and 24 on XWayland; the installed normal launcher passed 24 on Wayland. All used 800×600 logical minimum size and reduced motion. Dark/light finishing captures were inspected; earlier Cua evidence keeps its own identity.",
           "boundary": "Native checks dispatch GPUI events in process; the separate Cua journey supplies bounded compositor input evidence. Broader XWayland, hardware and accessibility coverage remains open.",
           "evidence": [
             "docs/release-060-qualification.md",
@@ -2629,7 +2629,7 @@
           "id": "release-090-interim-compatibility",
           "name": "0.8 / 0.9 upgrade and rollback checks",
           "status": "locally-tested",
-          "current": "The exact final 65c95cc1 Linux archive passed 0.8 \u2192 0.9 \u2192 rollback \u2192 forward in an isolated prefix. Four installed-launcher editing journeys, both exact 22-file generations and 35 identical decoded exports across nine projects passed. Formats 10/12/13/14, curved text and cached ContextualV1 output were covered. Profile, workspace and project bytes stayed exact.",
+          "current": "The exact final 65c95cc1 Linux archive passed 0.8 → 0.9 → rollback → forward in an isolated prefix. Four installed-launcher editing journeys, both exact 22-file generations and 35 identical decoded exports across nine projects passed. Formats 10/12/13/14, curved text and cached ContextualV1 output were covered. Profile, workspace and project bytes stayed exact.",
           "boundary": "Native settings loading/writing and cross-version editing/resaving the same external project were not exercised. Cached exports do not establish preservation of a new recipe during older-version editing. This is development-host Linux evidence, not Windows/clean-machine acceptance.",
           "evidence": [
             "docs/public-release-readiness.md",

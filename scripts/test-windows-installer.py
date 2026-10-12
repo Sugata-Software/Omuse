@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Offline installer provenance and publication regressions; no Windows execution."""
 import copy
+import hashlib
 import importlib.util
 import json
 import os
@@ -111,6 +112,90 @@ class InstallerTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'repository workflow'):
                 installer.publish(fixtures.VERSION)
             api.assert_not_called()
+
+    def publication_fixture(self):
+        value = copy.deepcopy(self.value)
+        executable = b'qualified installer fixture'
+        smoke = installer.downloads.canonical({'status': 'passed', 'checks': sorted(installer.CHECKS)})
+        value['smokeSha256'] = hashlib.sha256(smoke).hexdigest()
+        value['installer'].update(size=len(executable), sha256=hashlib.sha256(executable).hexdigest())
+        base = installer.downloads.expected_assets(self.manifest)
+        expected = installer.expected_assets(value)
+        record = {'id': 999, 'draft': False, 'prerelease': True, 'tag_name': self.manifest['tag'],
+                  'target_commitish': fixtures.SOURCE, 'body': 'Keep original release notes.',
+                  'assets': [dict(id=i, name=n, state='uploaded', size=a['size'], digest='sha256:' + a['sha256']) for i, (n, a) in enumerate(base.items(), 1)]}
+        api = mock.Mock()
+        api.request.side_effect = lambda path: {'object': {'sha': fixtures.MAIN}} if path.endswith('/git/ref/heads/main') else copy.deepcopy(record)
+        calls = []
+
+        def gh(command, env):
+            calls.append(command)
+            if command[:2] == ['run', 'download']:
+                folder = Path(command[-1])
+                for name, asset in expected.items():
+                    (folder / name).write_bytes(asset.get('content', executable))
+                (folder / 'smoke.json').write_bytes(smoke)
+            else:
+                self.assertEqual(command[:2], ['release', 'upload'])
+                self.assertNotIn('--clobber', command)
+                name = Path(command[3]).name
+                asset = expected[name]
+                record['assets'].append(dict(id=len(record['assets']) + 1, name=name, state='uploaded', size=asset['size'], digest='sha256:' + asset['sha256']))
+
+        env = {'GITHUB_ACTIONS': 'true', 'GITHUB_REPOSITORY': installer.notes.REPOSITORY,
+               'GH_TOKEN': 'test-fixture-not-a-credential', 'GITHUB_EVENT_NAME': 'workflow_dispatch',
+               'GITHUB_REF': 'refs/heads/main', 'GITHUB_SHA': fixtures.MAIN, 'GITHUB_WORKFLOW_SHA': fixtures.MAIN,
+               'GITHUB_WORKFLOW_REF': f'{installer.notes.REPOSITORY}/.github/workflows/publish-windows-installer.yml@refs/heads/main'}
+        patches = [mock.patch.object(installer, 'read_declaration', return_value=value),
+                   mock.patch.object(installer.notes, 'GitHub', return_value=api),
+                   mock.patch.object(installer.notes, 'remote_file', return_value=installer.downloads.canonical(value).decode()),
+                   mock.patch.object(installer.notes, 'tag_target', return_value=fixtures.SOURCE),
+                   mock.patch.object(installer.downloads, 'check_run'),
+                   mock.patch.object(installer.downloads, 'gh', side_effect=gh),
+                   mock.patch.dict(os.environ, env, clear=True)]
+        for patch in patches:
+            patch.start()
+            self.addCleanup(patch.stop)
+        return record, calls, expected, value
+
+    def test_publication_adds_three_assets_without_replacing_originals(self):
+        record, calls, expected, value = self.publication_fixture()
+        originals = copy.deepcopy(record['assets'])
+        installer.publish(fixtures.VERSION)
+        self.assertEqual(record['assets'][:len(originals)], originals)
+        uploads = [c for c in calls if c[:2] == ['release', 'upload']]
+        self.assertEqual(len(uploads), 3)
+        self.assertEqual(Path(uploads[-1][3]).name, installer.receipt_name(fixtures.VERSION))
+        installer.downloads.check_run.assert_called_once_with(mock.ANY, value['buildRun'], value['packagingRevision'], installer.BUILD_WORKFLOW,
+            installer.BUILD_NAME, {'Test installer contracts', 'Build and test Windows installer'}, attempt=value['buildAttempt'])
+
+    def test_publication_retry_preserves_already_uploaded_installer(self):
+        record, calls, expected, value = self.publication_fixture()
+        name = value['installer']['fileName']; asset = expected[name]
+        record['assets'].append(dict(id=5, name=name, state='uploaded', size=asset['size'], digest='sha256:' + asset['sha256']))
+        installer.publish(fixtures.VERSION)
+        self.assertEqual(len([c for c in calls if c[:2] == ['release', 'upload']]), 2)
+        self.assertEqual(record['assets'][4]['id'], 5)
+
+    def test_publication_rejects_tampered_existing_asset_before_download(self):
+        record, calls, expected, value = self.publication_fixture()
+        record['assets'][0]['digest'] = 'sha256:' + 'f' * 64
+        with self.assertRaisesRegex(ValueError, 'refusing replacement'):
+            installer.publish(fixtures.VERSION)
+        self.assertEqual(calls, [])
+
+    def test_archive_publisher_accepts_only_declared_companion_hashes(self):
+        record, calls, expected, value = self.publication_fixture()
+        path = self.root / installer.declaration_path(fixtures.VERSION)
+        path.parent.mkdir(parents=True)
+        path.write_bytes(installer.downloads.canonical(value))
+        supplemental = [dict(name=n, state='uploaded', size=a['size'], digest='sha256:' + a['sha256']) for n, a in expected.items()]
+        with mock.patch.object(installer.downloads.bundle, 'ROOT', self.root):
+            checked = installer.downloads.check_remote_assets(record['assets'] + supplemental, self.manifest, complete=True)
+            self.assertEqual(checked, set(installer.downloads.expected_assets(self.manifest)))
+            supplemental[0]['digest'] = 'sha256:' + 'f' * 64
+            with self.assertRaises(ValueError):
+                installer.downloads.check_remote_assets(record['assets'] + supplemental, self.manifest, complete=True)
 
 
 if __name__ == '__main__':
