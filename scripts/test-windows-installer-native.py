@@ -117,6 +117,15 @@ def main():
     run([root / 'unins000.exe', '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', f'/LOG={evidence / "uninstall.log"}'], 'uninstall')
     require(not (root / 'omuse.exe').exists() and registry() is None, 'Uninstaller left executable or registration')
     require(all(not path.exists() for path in shortcuts), 'Uninstaller left shortcuts')
+    # Also qualify the current release from scratch, without a predecessor's
+    # uninstall record or files making a broken fresh install look successful.
+    root = evidence / 'Fresh current Omuse - café'
+    setup(new_exe, 'fresh-current-install')
+    payload_matches(candidate)
+    require(registry()['DisplayVersion'] == args.version and all(path.is_file() for path in shortcuts), 'Fresh current installation failed')
+    require(run([root / 'omuse.exe', '--version'], 'fresh-current-version', app=True) == f'Omuse {args.version}', 'Fresh current executable failed')
+    run([root / 'unins000.exe', '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', f'/LOG={evidence / "fresh-current-uninstall.log"}'], 'fresh-current-uninstall')
+    require(not (root / 'omuse.exe').exists() and registry() is None and all(not path.exists() for path in shortcuts), 'Fresh current uninstall failed')
     require(all(path.is_file() and digest(path) == h for path, h in sentinels), 'User data changed during installer lifecycle')
     result = {'schemaVersion': 1, 'status': 'passed', 'checks': sorted(installer.CHECKS),
               'installerSha256': digest(new_exe), 'binarySha256': digest(candidate / 'payload/omuse.exe'),
