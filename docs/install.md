@@ -1,6 +1,9 @@
 # Install Omuse
 
-The Omuse installer supports **Omarchy / Arch Linux on x86_64**.
+**On Windows?** Use the [Windows setup wizard](windows-installer.md) for a
+normal installation with Start menu shortcuts and uninstall support.
+
+The Linux installer supports **Omarchy / Arch Linux on x86_64**.
 Run this in a terminal as your regular desktop user:
 
 ```sh

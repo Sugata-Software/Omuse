@@ -1,8 +1,11 @@
 # Install Omuse on Windows
 
-The Windows setup wizard for Omuse 0.11.0 passed native lifecycle checks on
-12 October 2026 and is awaiting publication. Until a verified
-installer download is linked here, use the [published portable ZIP](https://github.com/Sugata-Software/Omuse/releases/download/v0.11.0/omuse-0.11.0-windows-x86_64.zip).
+**[Download Omuse 0.11.0 Setup](https://github.com/Sugata-Software/Omuse/releases/download/v0.11.0/omuse-0.11.0-windows-x86_64-setup.exe)**
+— 19.6 MB, Windows x64, unsigned experimental.
+[Checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.11.0/omuse-0.11.0-windows-x86_64-setup.exe.sha256) ·
+[Portable ZIP](https://github.com/Sugata-Software/Omuse/releases/download/v0.11.0/omuse-0.11.0-windows-x86_64.zip)
+
+The setup wizard passed native Windows lifecycle checks on 12 October 2026.
 
 ## Setup experience
 
@@ -29,7 +32,7 @@ version again repairs missing packaged files. Setup does not force-close the
 editor; save and close it first. An older installer refuses to overwrite a
 newer registered version.
 
-Use **Settings → Apps → Installed apps → Omuse → Uninstall** to remove the app
+Use **Settings → Apps → Omuse → Uninstall** (under Installed apps or Apps & features) to remove the app
 and its shortcuts. Projects, `%APPDATA%\omuse` settings and
 `%LOCALAPPDATA%\omuse` recovery/data remain. Uninstall does not downgrade project
 formats. If you need an older app, retain separate compatible project copies.
@@ -66,6 +69,10 @@ The [native Windows run](https://github.com/Sugata-Software/Omuse/actions/runs/3
 passed all 14 lifecycle checks, including fresh installs of both versions and
 0.10 to 0.11 upgrade. The [reviewed receipt](releases/installers/v0.11.0.json)
 records the 19,563,421-byte installer and exact compiler, payload and test hashes.
+[Publication run 38196166372](https://github.com/Sugata-Software/Omuse/actions/runs/38196166372)
+succeeded. Anonymous downloads of the installer, receipt and checksum file
+matched the reviewed bytes exactly. The original release assets retain their
+IDs, sizes and hashes, and the release notes and runtime tag are unchanged.
 
 Publication is a separate, explicit step after reviewing the generated receipt
 under `docs/releases/installers/vX.Y.Z.json`. It adds the installer, its receipt

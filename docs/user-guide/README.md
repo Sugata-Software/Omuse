@@ -6,7 +6,7 @@ Photoshop exchange, retained layout, Create and optional AI workflows. Windows p
 unsigned experimental with separate desktop and live AI limits. Start with a
 photo, keep an editable project, and export a copy when it is ready.
 
-[Install Omuse](../install.md) · [Remove objects](remove-objects.md) ·
+[Install on Linux](../install.md) · [Windows setup](../windows-installer.md) · [Remove objects](remove-objects.md) ·
 [Edit a photo](photo-editing.md) · [Create social content](create-content.md) ·
 [Ask Omuse](../ai-experience.md) · [All shortcuts](../keyboard-shortcuts.md)
 

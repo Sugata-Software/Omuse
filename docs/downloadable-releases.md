@@ -40,6 +40,25 @@ installation is verified at 0.11.0 with complete prior generations preserved.
 See the [qualification record](release-0110-qualification.md) for scope and the
 [installation guide](install.md) for the source-build curl path.
 
+### Windows setup wizard — 12 October 2026
+
+The [Windows installer](https://github.com/Sugata-Software/Omuse/releases/download/v0.11.0/omuse-0.11.0-windows-x86_64-setup.exe)
+packages the exact existing Windows ZIP, with Start menu/optional desktop
+shortcuts, upgrade, repair and uninstall. Its [separate reviewed receipt](releases/installers/v0.11.0.json)
+and [installer checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.11.0/omuse-0.11.0-windows-x86_64-setup.exe.sha256)
+identify the additive package; the original four assets and their checksums,
+release tag and numbered notes remain unchanged. The runtime stays at 0.11.0.
+[Publication 38196166372](https://github.com/Sugata-Software/Omuse/actions/runs/38196166372)
+succeeded; all three new public downloads matched the reviewed bytes exactly.
+
+[Windows build 38193823269](https://github.com/Sugata-Software/Omuse/actions/runs/38193823269)
+passed all 14 lifecycle checks, including fresh installs, a real 0.10 → 0.11
+upgrade, repair, downgrade refusal, shortcut targets, installed editing,
+DLL loading and uninstall preserving project/profile sentinels. See the
+[setup guide](windows-installer.md) for requirements, use and qualification limits.
+Windows remains unsigned experimental; clean standard-user and interactive
+Windows 10/11 acceptance are separate from Windows Server CI.
+
 ## Published 0.10.0 — historical
 
 The [0.10 release](https://github.com/Sugata-Software/Omuse/releases/tag/v0.10.0)

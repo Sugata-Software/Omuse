@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "snapshotDate": "2026-10-11",
+  "snapshotDate": "2026-10-12",
   "project": "Omuse",
   "releaseScope": "Native Rust/GPUI application for Arch/Omarchy Linux x86_64",
   "releaseState": "Omuse 0.11.0 published and installed as normal Omuse. Exact Linux/Windows CI, reviewed packages, native Linux interaction and cross-version rollback passed. Public source, curl installer and all four permanent downloads passed anonymous readback; previous releases and complete local generations are preserved. A subsequent live Codex generation and selected-object removal passed in the installed app, with exact protected pixels, Undo/Redo and saved-project reopening.",
@@ -40,10 +40,10 @@
       "status": "locally-tested"
     },
     {
-      "label": "Windows setup wizard — qualified candidate",
-      "value": "Windows lifecycle passed; publication pending",
-      "detail": "A per-user Inno Setup wizard wraps the exact reviewed Windows ZIP, with Start menu and optional desktop shortcuts, upgrade/repair and downgrade refusal. Thirteen offline installer provenance/publication tests, 31 existing download tests and 28 release-note tests pass locally. Windows run 38193823269 passed fresh installs, 0.10 to 0.11 upgrade, same-version repair, downgrade refusal, shortcut targets, uninstall registration, installed editing journey, DLL loading, uninstall and project/profile preservation. The 19,563,421-byte installer is bound to the unchanged reviewed 0.11 ZIP and runtime e72bccdc. The exact candidate receipt is docs/releases/installers/v0.11.0.json; publication remains pending. No new runtime, code-signing, clean-machine or Windows live-AI claim. See docs/windows-installer.md.",
-      "status": "implemented-needs-qualification"
+      "label": "Windows setup wizard — 12 October 2026",
+      "value": "Installer published; Windows lifecycle passed",
+      "detail": "A per-user Inno Setup wizard wraps the exact reviewed Windows ZIP, with Start menu and optional desktop shortcuts, upgrade/repair and downgrade refusal. Thirteen offline installer provenance/publication tests, 31 existing download tests and 28 release-note tests pass locally. Windows run 38193823269 passed fresh installs, 0.10 to 0.11 upgrade, same-version repair, downgrade refusal, shortcut targets, uninstall registration, installed editing journey, DLL loading, uninstall and project/profile preservation. The 19,563,421-byte installer is bound to the unchanged reviewed 0.11 ZIP and runtime e72bccdc. Publisher 38196166372 succeeded. Anonymous downloads of the installer, receipt and checksum file match the reviewed bytes and hashes exactly. The original four release assets retain their IDs, sizes and hashes; numbered notes and the runtime tag are unchanged. The exact receipt is docs/releases/installers/v0.11.0.json. No new runtime, code-signing, clean-machine or Windows live-AI claim. See docs/windows-installer.md.",
+      "status": "experimental"
     },
     {
       "label": "Connected AI \u2014 11 October live demonstration",
@@ -2160,11 +2160,30 @@
           "modules": []
         },
         {
-          "id": "windows-development-build",
-          "name": "Windows development build",
+          "id": "windows-setup-installer",
+          "name": "Windows setup wizard",
           "status": "experimental",
-          "current": "The editor opens, edits, saves and reopens canvases and Create collections on Windows 11 x86_64 with MSVC, develops Camera RAW through LibRaw (including lossy and deflate-compressed DNG), selects subjects with local ONNX Runtime inference and exports MP4/GIF motion through FFmpeg on PATH. Settings use %APPDATA%\\omuse; data, recovery and state use %LOCALAPPDATA%\\omuse unless XDG variables are set. omuse.exe is a GUI-subsystem program with a static C runtime. scripts/prepare-rust-assets.ps1 fetches the pinned model and ONNX Runtime and builds LibRaw; scripts/package-rust.ps1 creates a zip with runtime assets, notices and a Windows dependency inventory. The windows CI job runs the test suite and the editing, Create, template catalog and motion journeys, then keeps the unsigned zip as a 14-day workflow artifact. omuse.exe carries the Omuse icon and version information, follows the Windows light or dark app mode, starts save dialogs in the Pictures or Videos known folder (including OneDrive redirection) and accepts long paths; package moves retry for up to 10 seconds while a sync client or scanner holds a file. Ask Omuse finds codex.exe or claude.exe on PATH, recognises npm's Codex launcher and runs its native binary, gives job, sign-in and probe workspaces an access list for the current user only, hard-links Codex credentials into its isolated home and passes Windows' essential environment to providers.",
-          "boundary": "Not a release target and not qualified. On Windows 11 Pro the full suite passed with --test-threads=1 including real u2netp inference; the self-test, Create acceptance with motion, media acceptance, all 80 template variants and a Nikon D90 NEF photo journey (also from a Unicode path) passed, and the packaged build selected a subject in the native window. A native click-through on Windows 11 covered the Save As dialog, saving and overwriting a project, reopening, recent projects, copying a PNG to and pasting a bitmap from the Windows clipboard, dropping a file onto the canvas margin and the second monitor; an Adobe lossy DNG opened only with the new LibRaw build. OneDrive itself was not written to; a held-file test simulates a sync client. Windows has no atomic directory exchange: replacing a project moves the previous package to a hidden sibling between two renames. Subject selection needs the Visual C++ 2015-2022 Redistributable for Microsoft's onnxruntime.dll; FFmpeg is not bundled. The zip is unsigned; the 0.8 candidate replaces the unresolved notice dependencies and its Windows target inventory has zero findings; actual native package checks are running. Ask Omuse discovery on Windows 11 verified the npm-installed Codex CLI (run as its native codex.exe) as signed in with its allowance, and found the native Claude Code CLI not signed in; no AI request was sent, so no Windows capability is qualified yet. Tablet pressure and Omarchy theme following are not available on Windows. Light-mode switching, non-US keyboards (AltGr), mixed-DPI displays, physical tablets and a clean machine were not checked. Linux behaviour and project formats are unchanged.",
+          "current": "A 19.6 MB per-user setup wizard wraps the exact reviewed 0.11.0 portable Windows ZIP. Start menu and optional desktop shortcuts, in-place upgrades, repair and downgrade refusal are implemented. Windows run 38193823269 passed all 14 installer lifecycle checks, including fresh current/previous installs, 0.10 to 0.11 upgrade, installed editing and DLL loading, and uninstall preserving project/profile sentinels. Published on the 0.11.0 release by run 38196166372. All three new assets passed anonymous byte/hash readback; the original release assets, tag and notes remain unchanged.",
+          "boundary": "Unsigned experimental Windows x64. Native CI runs on Windows Server 2025; interactive Windows 10/11, clean standard-user acceptance and live Windows AI are separate. Visual C++ Redistributable, FFmpeg and AI CLIs remain optional external prerequisites. Setup does not force-close the editor or delete personal files.",
+          "evidence": [
+            "docs/windows-installer.md",
+            "docs/releases/installers/v0.11.0.json"
+          ],
+          "modules": [
+            "packaging/windows/omuse.iss",
+            "scripts/package-windows-installer.ps1",
+            "scripts/windows-installer.py",
+            "scripts/test-windows-installer-native.py",
+            ".github/workflows/windows-installer.yml",
+            ".github/workflows/publish-windows-installer.yml"
+          ]
+        },
+        {
+          "id": "windows-development-build",
+          "name": "Windows application",
+          "status": "experimental",
+          "current": "The editor opens, edits, saves and reopens canvases and Create collections on Windows 11 x86_64 with MSVC, develops Camera RAW through LibRaw (including lossy and deflate-compressed DNG), selects subjects with local ONNX Runtime inference and exports MP4/GIF motion through FFmpeg on PATH. Settings use %APPDATA%\\omuse; data, recovery and state use %LOCALAPPDATA%\\omuse unless XDG variables are set. omuse.exe is a GUI-subsystem program with a static C runtime. scripts/prepare-rust-assets.ps1 fetches the pinned model and ONNX Runtime and builds LibRaw; scripts/package-rust.ps1 creates a zip with runtime assets, notices and a Windows dependency inventory. The windows CI job runs the test suite and the editing, Create, template catalog and motion journeys, then keeps the unsigned ZIP as a workflow artifact; reviewed versioned downloads are published separately. omuse.exe carries the Omuse icon and version information, follows the Windows light or dark app mode, starts save dialogs in the Pictures or Videos known folder (including OneDrive redirection) and accepts long paths; package moves retry for up to 10 seconds while a sync client or scanner holds a file. Ask Omuse finds codex.exe or claude.exe on PATH, recognises npm's Codex launcher and runs its native binary, gives job, sign-in and probe workspaces an access list for the current user only, hard-links Codex credentials into its isolated home and passes Windows' essential environment to providers.",
+          "boundary": "Unsigned experimental release. The following Windows 11 checks are historical development evidence; current 0.11 installer qualification is recorded separately in docs/windows-installer.md. On Windows 11 Pro the full suite passed with --test-threads=1 including real u2netp inference; the self-test, Create acceptance with motion, media acceptance, all 80 template variants and a Nikon D90 NEF photo journey (also from a Unicode path) passed, and the packaged build selected a subject in the native window. A native click-through on Windows 11 covered the Save As dialog, saving and overwriting a project, reopening, recent projects, copying a PNG to and pasting a bitmap from the Windows clipboard, dropping a file onto the canvas margin and the second monitor; an Adobe lossy DNG opened only with the new LibRaw build. OneDrive itself was not written to; a held-file test simulates a sync client. Windows has no atomic directory exchange: replacing a project moves the previous package to a hidden sibling between two renames. Subject selection needs the Visual C++ 2015-2022 Redistributable for Microsoft's onnxruntime.dll; FFmpeg is not bundled. The zip is unsigned; the 0.8 candidate replaces the unresolved notice dependencies and its Windows target inventory has zero findings; actual native package checks are running. Ask Omuse discovery on Windows 11 verified the npm-installed Codex CLI (run as its native codex.exe) as signed in with its allowance, and found the native Claude Code CLI not signed in; no AI request was sent, so no Windows capability is qualified yet. Tablet pressure and Omarchy theme following are not available on Windows. Light-mode switching, non-US keyboards (AltGr), mixed-DPI displays, physical tablets and a clean machine were not checked. Linux behaviour and project formats are unchanged.",
           "evidence": [
             "rust/README.md",
             "rust/vendor/README.md",
@@ -2537,7 +2556,7 @@
           "id": "release-versioned-downloads",
           "name": "Permanent Linux and Windows preview downloads",
           "status": "locally-tested",
-          "current": "Both 0.11 archives and the canonical generated manifest passed review. Source publisher 38132530557 and download publisher 38132594953 succeeded. All four permanent 0.11 assets passed anonymous size and SHA-256 checks, with exact manifest/checksum bytes. Public tag, notes, latest declaration and curl installer pin match the reviewed source; prior 0.10 release, tag, notes and asset identities are unchanged.",
+          "current": "Both 0.11 archives and the canonical generated manifest passed review. Source publisher 38132530557 and download publisher 38132594953 succeeded. All four permanent 0.11 assets passed anonymous size and SHA-256 checks, with exact manifest/checksum bytes. Public tag, notes, latest declaration and curl installer pin match the reviewed source; prior 0.10 release, tag, notes and asset identities are unchanged. On 12 October, the Windows setup wizard, installer receipt and installer checksum file were added by publisher 38196166372 and anonymously verified byte for byte. The four original assets and numbered notes remain unchanged.",
           "boundary": "Unsigned experimental packages; Windows desktop, mixed-DPI and live-provider qualification remain separate.",
           "evidence": [
             "docs/downloadable-releases.md",
@@ -2548,11 +2567,14 @@
             "docs/release-090-receipts.json",
             "docs/releases/downloads/v0.9.0.json",
             "docs/release-0110-qualification.md",
-            "docs/releases/downloads/v0.11.0.json"
+            "docs/releases/downloads/v0.11.0.json",
+            "docs/windows-installer.md",
+            "docs/releases/installers/v0.11.0.json"
           ],
           "modules": [
             "scripts/release-downloads.py",
-            "scripts/verify-release-bundle.py"
+            "scripts/verify-release-bundle.py",
+            "scripts/windows-installer.py"
           ]
         },
         {

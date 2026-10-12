@@ -10,8 +10,8 @@
 
 **Built for Omarchy and Arch Linux, with an experimental Windows build.**
 The Linux installer builds the tested source release and adds **Omuse** to your
-application launcher. Reviewed Linux bundles and a portable Windows x64 ZIP
-are also available; Windows remains unsigned experimental.
+application launcher. Windows has a setup wizard and a portable x64 ZIP;
+reviewed Linux bundles are also available. Windows remains unsigned experimental.
 
 **[Install on Linux](#linux)** · **[Download for Windows](#windows-experimental)**
 
@@ -117,23 +117,27 @@ and troubleshooting.
 
 ### Windows (experimental)
 
-**[Download the Windows x64 ZIP](https://github.com/Sugata-Software/Omuse/releases/download/v0.11.0/omuse-0.11.0-windows-x86_64.zip)** ·
-[Checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.11.0/omuse-0.11.0-SHA256SUMS) ·
-[Release notes](docs/releases/v0.11.0.md)
+**[Download the Windows installer](https://github.com/Sugata-Software/Omuse/releases/download/v0.11.0/omuse-0.11.0-windows-x86_64-setup.exe)** ·
+[Installer checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.11.0/omuse-0.11.0-windows-x86_64-setup.exe.sha256) ·
+[Setup guide](docs/windows-installer.md)
 
-The portable **Windows x64** application needs neither Rust nor Visual Studio.
-The 0.11.0 package passed automated Windows checks; interactive
-Windows 10/11 qualification is still separate. Its permanent download and
-checksum have been [verified](docs/release-0110-qualification.md).
+For **Windows 10/11 on Intel/AMD x64**. No Rust or Visual Studio required.
 
-1. Download [omuse-0.11.0-windows-x86_64.zip](https://github.com/Sugata-Software/Omuse/releases/download/v0.11.0/omuse-0.11.0-windows-x86_64.zip)
-   and verify it against the [checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.11.0/omuse-0.11.0-SHA256SUMS).
-2. Extract the complete ZIP into a new folder.
-3. Run **omuse.exe**, keeping **lib**, **models** and **licenses** alongside it.
+1. Download and run **omuse-0.11.0-windows-x86_64-setup.exe** (19.6 MB).
+2. Follow the setup wizard; add a desktop shortcut if you want one.
+3. Open **Omuse** from the Start menu.
 
-To update, keep the old complete folder, close the old app and launch the new
-folder’s executable. The [reviewed manifest](docs/releases/downloads/v0.11.0.json)
-records the source, native checks and archive hashes.
+Setup installs for your account without requesting administrator rights. To
+update, save your work, close Omuse and run the newer installer. Uninstall through
+Windows **Settings → Apps**; projects, settings and recovery files are preserved.
+Fresh install, 0.10 → 0.11 upgrade, repair and uninstall passed
+[native Windows checks](docs/windows-installer.md#build-and-verification).
+
+Prefer portable? [Download the complete ZIP](https://github.com/Sugata-Software/Omuse/releases/download/v0.11.0/omuse-0.11.0-windows-x86_64.zip)
+([ZIP checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.11.0/omuse-0.11.0-SHA256SUMS)),
+extract it into a new folder and run **omuse.exe** with **lib**, **models** and
+**licenses** beside it. Keep the previous complete folder when updating.
+The installer and ZIP contain the same reviewed application.
 
 Photo editing and Camera RAW are included. These features have extra requirements:
 
@@ -143,7 +147,7 @@ Photo editing and Camera RAW are included. These features have extra requirement
 | MP4 / GIF export | Install FFmpeg, for example `winget install Gyan.FFmpeg`, and make sure `ffmpeg.exe` and `ffprobe.exe` are on `PATH` |
 | Ask Omuse | Install the official Codex CLI or the native Claude Code CLI, then open **Ask Omuse → Connections** to connect your account |
 
-The Windows ZIP is **experimental and unsigned**, so SmartScreen may show a
+The Windows installer and ZIP are **experimental and unsigned**, so SmartScreen may show a
 warning. Live Windows AI generation/editing and clean-machine acceptance remain
 unqualified; detecting a signed-in CLI does not establish that an AI task works.
 The 0.11.0 package includes reviewed dependency notices. See the
@@ -364,7 +368,7 @@ rust/target/release/omuse
 ```
 
 The [development guide](rust/README.md) covers Linux build prerequisites,
-tests and the source map. Windows users can [download the portable build](#windows-experimental)
+tests and the source map. Windows users can [download the installer or portable build](#windows-experimental)
 or compile it from source; see
 [Build on Windows](rust/README.md#build-on-windows-in-development) for its
 current limits. Start with [CONTRIBUTING.md](CONTRIBUTING.md) for a

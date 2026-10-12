@@ -6,11 +6,17 @@ for numbering, qualification and publication.
 
 ## Unreleased
 
-- Add a per-user Windows setup wizard around the reviewed portable release,
-  with Start menu/optional desktop shortcuts, upgrade and repair support,
-  downgrade refusal and an uninstaller that preserves user data. Installer
-  publication remains gated on the native Windows lifecycle checks and a
-  separately reviewed receipt. See the [setup guide](docs/windows-installer.md).
+No application changes announced after 0.11.0.
+
+## Windows installer for 0.11.0 — 2026-10-12
+
+- Add a per-user setup wizard with Start menu/optional desktop shortcuts,
+  upgrade and repair support, downgrade refusal and an uninstaller that
+  preserves projects and settings. Fresh installs and the 0.10 → 0.11
+  upgrade passed native Windows lifecycle tests. The installer wraps the
+  unchanged reviewed portable release and remains unsigned experimental.
+  See the [setup guide](docs/windows-installer.md) and
+  [installer receipt](docs/releases/installers/v0.11.0.json).
 
 ## [0.11.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.11.0) — 2026-10-11
 
