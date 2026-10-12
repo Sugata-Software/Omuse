@@ -237,6 +237,12 @@
       "status": "locally-tested"
     },
     {
+      "label": "Windows setup wizard — qualified candidate",
+      "value": "Windows lifecycle passed; publication pending",
+      "detail": "A per-user Inno Setup wizard wraps the exact reviewed Windows ZIP, with Start menu and optional desktop shortcuts, upgrade/repair and downgrade refusal. Thirteen offline installer provenance/publication tests, 31 existing download tests and 28 release-note tests pass locally. Windows run 38193823269 passed fresh installs, 0.10 to 0.11 upgrade, same-version repair, downgrade refusal, shortcut targets, uninstall registration, installed editing journey, DLL loading, uninstall and project/profile preservation. The 19,563,421-byte installer is bound to the unchanged reviewed 0.11 ZIP and runtime e72bccdc. The exact candidate receipt is docs/releases/installers/v0.11.0.json; publication remains pending. No new runtime, code-signing, clean-machine or Windows live-AI claim. See docs/windows-installer.md.",
+      "status": "implemented-needs-qualification"
+    },
+    {
       "label": "Connected AI — 11 October live demonstration",
       "value": "Real photograph generation and selected-object removal passed",
       "detail": "Installed Omuse 0.11.0, runtime e72bccdc, used the existing ChatGPT subscription through Codex CLI 0.158.0 for two real requests in an isolated demonstration profile. A 1448 × 1086 product photograph was placed on a 1024 × 768 canvas; the selected orange sphere was removed after review. All 759,888 pixels outside the mask remain exact. GUI Undo, Redo and reopening produced byte-identical original/edited packages and matching decoded pixels. Source images, masks and provenance remain retained. Both image capabilities now show Tested in the demonstration profile. Public before/after exports, native captures and receipts are in docs/ai-live-0110-qualification.md. No new Claude, Windows AI or broad provider-quality claim.",

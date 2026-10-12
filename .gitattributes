@@ -8,3 +8,6 @@ rust/vendor/photocraft-psd/** -text
 rust/vendor/omuse-pathops/** -text
 # Colour regression cases and reviewed references have exact byte digests.
 rust/tests/reference/photo-color/** -text
+# Release declarations are canonical JSON, also when read by Windows packaging.
+docs/releases/downloads/*.json -text
+docs/releases/installers/*.json -text

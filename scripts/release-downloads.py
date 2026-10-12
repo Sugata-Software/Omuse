@@ -118,18 +118,27 @@ def expected_assets(manifest):
 
 def check_remote_assets(assets, manifest, complete=False):
     expected = expected_assets(manifest)
+    # Installers are additive artifacts with their own reviewed native-lifecycle
+    # receipt. Keep the original archive manifest/checksums immutable, and only
+    # admit exact companion hashes explicitly declared in this checkout.
+    installer_path = bundle.ROOT / f"docs/releases/installers/v{manifest['version']}.json"
+    supplemental = {}
+    if installer_path.exists():
+        installer = sibling("windows-installer")
+        supplemental = installer.expected_assets(installer.read_declaration(installer_path, manifest))
+    allowed = {**expected, **supplemental}
     require(isinstance(assets, list), "Invalid GitHub asset listing")
     seen = set()
     for asset in assets:
         name = asset.get("name")
-        require(name in expected and name not in seen, "Release contains an unlisted or duplicate asset")
+        require(name in allowed and name not in seen, "Release contains an unlisted or duplicate asset")
         seen.add(name)
-        require(asset.get("state") == "uploaded" and asset.get("size") == expected[name]["size"]
-                and asset.get("digest") == "sha256:" + expected[name]["sha256"],
+        require(asset.get("state") == "uploaded" and asset.get("size") == allowed[name]["size"]
+                and asset.get("digest") == "sha256:" + allowed[name]["sha256"],
                 f"Existing release asset differs: {name}; it will never be replaced")
     if complete:
-        require(seen == set(expected), "Release download publication is incomplete")
-    return seen
+        require(set(expected) <= seen, "Release download publication is incomplete")
+    return seen & expected.keys()
 
 
 def check_artifacts(directory, manifest):
