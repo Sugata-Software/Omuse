@@ -193,6 +193,23 @@ fn clipping_target_actions_and_marquee_keep_full_contents_editable(cx: &mut Test
             [0].into_iter().collect()
         )
     });
+    // A plain press on an already direct-selected content keeps that target.
+    // Clear first to return to ordinary whole-relationship picking.
+    cx.simulate_click(inside, Modifiers::default());
+    view.update(cx, |view, _| {
+        assert_eq!(
+            view.vector_draft
+                .as_ref()
+                .unwrap()
+                .scene
+                .as_ref()
+                .unwrap()
+                .selected_objects,
+            [0].into_iter().collect()
+        );
+    });
+    let outside = canvas_point(&view, cx, 1., 1.);
+    cx.simulate_click(outside, Modifiers::default());
     cx.simulate_click(inside, Modifiers::default());
     view.update(cx, |view, _| {
         assert_eq!(
@@ -449,4 +466,168 @@ fn clipping_commands_mask_row_node_edit_delete_guard_and_project_roundtrip(
     let reopened = omuse::document::open(&path).unwrap();
     assert_eq!(reopened.layers[1].vector_scene.as_deref(), Some(&edited));
     assert_eq!(reopened.layers[1].image, document.layers[1].image);
+}
+
+#[gpui_kit::test]
+fn edit_contents_pointer_drag_preserves_mask_and_exact_targets_through_history_and_save(
+    cx: &mut TestAppContext,
+) {
+    let (view, cx) = open_clipped(cx);
+    let fixture = VectorScene {
+        version: 1,
+        width: 40,
+        height: 30,
+        objects: vec![
+            VectorObject::rectangle(
+                "Full artwork",
+                0.,
+                0.,
+                40.,
+                30.,
+                Some([220, 50, 30, 255]),
+                None,
+            )
+            .unwrap(),
+            VectorObject::rectangle("Accent", 12., 11., 6., 4., Some([30, 190, 80, 255]), None)
+                .unwrap(),
+            VectorObject::ellipse("Mask", 6., 6., 22., 16., Some([40, 80, 220, 255]), None)
+                .unwrap(),
+        ],
+    };
+    let clipped = omuse::vector_clip::make(&fixture, &[0, 1, 2]).unwrap().0;
+    cx.update(|window, cx| {
+        view.update(cx, |view, cx| {
+            view.replace_scene_artwork(clipped, [0, 1, 2].into_iter().collect(), window, cx)
+                .unwrap()
+        })
+    });
+    cx.run_until_parked();
+    draw(cx);
+    click_inspector_id(cx, "vector-clip-edit-mask");
+    click_inspector_id(cx, "vector-clip-edit-contents");
+    let before = snapshot(&view, cx);
+    view.update(cx, |view, _| {
+        let draft = view.vector_draft.as_ref().unwrap();
+        assert_eq!(
+            draft.scene.as_ref().unwrap().selected_objects,
+            [0, 1].into_iter().collect()
+        );
+    });
+    let from = canvas_point(&view, cx, 16., 14.);
+    let to = canvas_point(&view, cx, 19., 16.);
+    // Use real canvas hit testing, pointer-down, movement and pointer-up. This
+    // failed at pointer-down before the fix by widening to mask+all contents.
+    cx.simulate_event(MouseDownEvent {
+        position: from,
+        button: MouseButton::Left,
+        modifiers: Modifiers::default(),
+        click_count: 1,
+        first_mouse: false,
+    });
+    view.update(cx, |view, _| {
+        assert_eq!(
+            view.vector_draft
+                .as_ref()
+                .unwrap()
+                .scene
+                .as_ref()
+                .unwrap()
+                .selected_objects,
+            [0, 1].into_iter().collect()
+        )
+    });
+    cx.simulate_mouse_move(to, Some(MouseButton::Left), Modifiers::default());
+    cx.simulate_event(MouseUpEvent {
+        position: to,
+        button: MouseButton::Left,
+        modifiers: Modifiers::default(),
+        click_count: 1,
+    });
+    draw(cx);
+    let moved = snapshot(&view, cx);
+    let mut expected = omuse::vector_scene_ops::translate(&before, &[0, 1], 3., 2.).unwrap();
+    super::super::scene::bake_transforms(&mut expected).unwrap();
+    assert_eq!(moved, expected);
+    assert_eq!(
+        moved.objects[2], before.objects[2],
+        "the retained silhouette must not move or change paint/visibility"
+    );
+    let old_pixels = before
+        .render(&std::sync::atomic::AtomicBool::new(false))
+        .unwrap();
+    let new_pixels = moved
+        .render(&std::sync::atomic::AtomicBool::new(false))
+        .unwrap();
+    assert_ne!(old_pixels, new_pixels, "the accent must actually move");
+    assert_eq!(
+        old_pixels.pixels().map(|p| p[3]).collect::<Vec<_>>(),
+        new_pixels.pixels().map(|p| p[3]).collect::<Vec<_>>(),
+        "only contents move within the stationary ellipse"
+    );
+    cx.simulate_keystrokes("ctrl-z");
+    assert_eq!(snapshot(&view, cx), before);
+    cx.simulate_keystrokes("ctrl-shift-z");
+    assert_eq!(snapshot(&view, cx), moved);
+    // Cancel just a later contents drag; pointer release must not move the mask
+    // or resurrect its cancelled transform.
+    let from = canvas_point(&view, cx, 17., 15.);
+    let to = canvas_point(&view, cx, 20., 17.);
+    cx.simulate_event(MouseDownEvent {
+        position: from,
+        button: MouseButton::Left,
+        modifiers: Modifiers::default(),
+        click_count: 1,
+        first_mouse: false,
+    });
+    cx.simulate_mouse_move(to, Some(MouseButton::Left), Modifiers::default());
+    assert_ne!(snapshot(&view, cx), moved);
+    cx.simulate_keystrokes("escape");
+    assert_eq!(snapshot(&view, cx), moved);
+    cx.simulate_event(MouseUpEvent {
+        position: to,
+        button: MouseButton::Left,
+        modifiers: Modifiers::default(),
+        click_count: 1,
+    });
+    assert_eq!(snapshot(&view, cx), moved);
+    click_id(cx, "scene-done");
+    cx.run_until_parked();
+    let (document, layer) = view.update(cx, |view, _| {
+        assert!(!view.vector_scene_active(), "{}", view.status);
+        assert!(!view.busy);
+        assert_eq!(view.editor.document.layers.len(), 2);
+        assert_eq!(
+            view.editor.undo_depth(),
+            1,
+            "Done keeps the artwork in one document transaction"
+        );
+        (
+            view.editor.document.clone(),
+            view.editor.active_layer.clone(),
+        )
+    });
+    assert_eq!(
+        document
+            .find_layer(&layer)
+            .unwrap()
+            .vector_scene
+            .as_ref()
+            .unwrap()
+            .objects,
+        moved.objects
+    );
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join("contents.omuse");
+    document::save(&document, &path).unwrap();
+    let reopened = document::open(&path).unwrap();
+    assert_eq!(
+        reopened
+            .find_layer(&layer)
+            .unwrap()
+            .vector_scene
+            .as_ref()
+            .unwrap()
+            .objects,
+        moved.objects
+    );
 }

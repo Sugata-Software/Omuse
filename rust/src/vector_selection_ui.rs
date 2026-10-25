@@ -790,17 +790,20 @@ impl EditorView {
         let Some(scene) = self.vector_draft.as_ref().and_then(|d| d.scene.as_ref()) else {
             return;
         };
-        let members = if individual {
+        // Pressing a member of an existing direct selection starts a drag of
+        // that exact selection. Expanding it again here silently reselected a
+        // clipping mask after Edit contents (or Ctrl-click selected one object).
+        let preserve_selection = preserve && !individual && scene.selected_objects.contains(&index);
+        let members = if individual || preserve_selection {
             [index].into_iter().collect()
         } else {
             scoped_selection_members(scene, index)
         };
-        let mut selected =
-            if additive || (preserve && !individual && scene.selected_objects.contains(&index)) {
-                scene.selected_objects.clone()
-            } else {
-                BTreeSet::new()
-            };
+        let mut selected = if additive || preserve_selection {
+            scene.selected_objects.clone()
+        } else {
+            BTreeSet::new()
+        };
         if additive && members.iter().all(|i| selected.contains(i)) {
             for i in members {
                 selected.remove(&i);

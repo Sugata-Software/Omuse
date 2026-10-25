@@ -6,6 +6,8 @@ for numbering, qualification and publication.
 
 ## Unreleased
 
+- Keep explicit clipped-content and direct object selections during canvas dragging, so Edit contents moves artwork without moving its mask.
+
 Development changes are documented in [direct vector controls](docs/user-guide/vector-controls.md)
 and the [editor-quality guide](docs/user-guide/editor-quality.md).
 
