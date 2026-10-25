@@ -3,7 +3,7 @@
 **Release qualification — 25 October 2026.** Exact-source Linux and Windows CI
 passed. Source and all four archive/checksum/manifest downloads are published and
 passed anonymous exact readback. The normal installed upgrade is verified. Windows
-setup remains a separately pending qualification. The Linux candidate has passed host package, native backend and actual
+setup passed its separate qualification, publication and anonymous readback. The Linux package passed host package, native backend and actual
 0.11 → 0.12 → 0.11 → 0.12 generation checks. Earlier release notes, tags and
 assets remain unchanged. Final publication and installed-app readback are separate gates.
 
@@ -31,7 +31,7 @@ commit does not change the tested runtime or justify moving an existing tag.
 | Exact-source Windows tests | Passed: 1,838 application cases (622 library, 545 UI, 671 integration), zero failures, eight ignored across 90 targets. Editing/Create/catalog/layout/motion, default build, package and notice gates passed. Twenty dependency-helper cases are additional. Optional external RAW/PSD fixture returns remain separate. |
 | Installer/publisher/download tests | Local: 25 installer, 28 release-note, 31 download and 13 Windows-setup contract tests pass. Exact CI installer/reference job passed. |
 | Native Linux package | Exact default-feature package: 24/24 scripted native checks on Wayland and 24/24 on XWayland, 800×600 logical viewport. Covers painting, Undo/Redo, guarded close/save/reopen, themes, text, effects, masks, retained precision, photo edits and command focus. Live AI excluded. |
-| Windows archive/setup lifecycle | [Setup run 40163791906](https://github.com/Sugata-Software/Omuse/actions/runs/40163791906) passed all 14 native lifecycle checks, including actual 0.11→0.12 upgrade, repair, downgrade refusal, shortcuts, installed editing/DLL loading, uninstall and project/profile preservation. [Reviewed receipt](releases/installers/v0.12.0.json); public setup publication/readback pending. Unsigned experimental; Windows Server 2025 CI is not interactive desktop qualification. |
+| Windows archive/setup lifecycle | [Setup run 40163791906](https://github.com/Sugata-Software/Omuse/actions/runs/40163791906) passed all 14 native lifecycle checks, including actual 0.11→0.12 upgrade, repair, downgrade refusal, shortcuts, installed editing/DLL loading, uninstall and project/profile preservation. [Reviewed receipt](releases/installers/v0.12.0.json); [Publisher 40163989927](https://github.com/Sugata-Software/Omuse/actions/runs/40163989927) and all seven public downloads passed exact readback. Unsigned experimental; Windows Server 2025 CI is not interactive desktop qualification. |
 | Package contents | Both generated archive/smoke hashes, binaries and inventories match the unaltered final manifest. Linux: 621 dependencies; Windows: 423; zero notice findings. Optional EfficientSAM-Ti weights are not bundled. |
 | Save/access policy | Automated fault/recovery, destination identity and Linux visible-policy checks in final suite; native application checks confirm path Enter, replacement review and saved clipping contents. Final CI counts are recorded above. No physical power-loss claim. |
 | Cross-version artwork | 37 owned fixtures across old/new/rollback/forward readers: 134 exact exports and 14 safe old-reader refusals. Bound to the final generated manifest. |
@@ -88,7 +88,7 @@ Populate from reviewed final files and independent public readback:
 | --- | --- |
 | Linux x86_64 archive and executable | 38,857,203 bytes; archive `9ad09f00a1110277b50c814e0684cffec6a56b799d7304827d7738578595f824`; executable `f9ff04fb73dff9ae0674b6a2c88d434fcf9a36583489621ff059c7af45159d83`. Public size/hash readback passed. |
 | Windows x86_64 archive and executable | 27,094,634 bytes; archive `c0ea2b218ab80962e219dbfdfe912bd373ccb025f562d3e3a5b41c7c4825884b`; executable `a550a1ae06596413a37db4cfd190117f20adf7d4e4cbccee3cfdf3c2fdb408f3`. Archive and Windows runner smoke passed; bound to generated manifest; public size/hash readback passed. |
-| Windows setup installer | 20,057,949 bytes; SHA-256 `1e88601c148b0fd94fc7a832e7bbb62a91e7c16e6796c7efc3dc7b2c1112e990`; native lifecycle passed, public readback pending. |
+| Windows setup installer | 20,057,949 bytes; SHA-256 `1e88601c148b0fd94fc7a832e7bbb62a91e7c16e6796c7efc3dc7b2c1112e990`; native lifecycle and exact public readback passed. |
 | Checksums and download manifest | Reviewed unaltered build manifest, exact archive/smoke/inventory binding passed. Public size/hash readback passed. |
 | Source-installer runtime pin | `9c684cae4a4ccdb763d036b65adc440cc61419c2`; exact public bytes and shell syntax verified |
 
@@ -122,7 +122,16 @@ Populate from reviewed final files and independent public readback:
 
 ## Final publication
 
-Complete public runtime/CI/asset links, checksums, platform labels and installer
-pins before marking this record published. Verify the tag, release notes and
-every attached download independently. Update release/index/guide declarations
-consistently; preserve earlier releases and retain separate masters for rollback.
+Source publisher [40163681631](https://github.com/Sugata-Software/Omuse/actions/runs/40163681631),
+archive publisher [40163728420](https://github.com/Sugata-Software/Omuse/actions/runs/40163728420)
+and setup publisher [40163989927](https://github.com/Sugata-Software/Omuse/actions/runs/40163989927)
+completed successfully. Anonymous readback verified all seven attached files,
+exact notes, source tag, latest declaration and public curl installer bytes/pin.
+The previous 0.11 release, tag, notes and all seven asset IDs/sizes/digests are
+unchanged. Normal installation and isolated generation rollback are separately
+verified above. Numbered notes and the tested runtime remain immutable.
+
+Broader Windows desktop/hardware, live providers, photographic reconstruction,
+matting, physical power loss and broad print/editor interchange remain outside
+these bounded checks. A successful automated or host-specific test does not
+remove those limits.

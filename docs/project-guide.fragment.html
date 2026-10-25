@@ -200,13 +200,13 @@
   "snapshotDate": "2026-10-25",
   "project": "Omuse",
   "releaseScope": "Concise public product overview: native Rust/GPUI photo, vector and Create workflows with gpui-omarchy themes. The complete manual is docs/user-guide/README.md.",
-  "releaseState": "Omuse 0.12 source, Linux archive and Windows portable ZIP are published and anonymously verified. The public curl pin and normal Omarchy installed app select exact runtime 9c684cae. Native installed checks and prior-generation/profile preservation pass. Windows setup is undergoing its separate qualification; broader desktop/hardware/image quality remains bounded.",
+  "releaseState": "Omuse 0.12.0 is published, installed and available through the updated curl installer. Exact runtime 9c684cae passed Linux/Windows CI. Both archives, Windows Setup, receipts and checksums passed anonymous exact readback. Normal native launch and prior-generation/profile preservation pass. Windows remains unsigned experimental; broader qualification is bounded.",
   "visualizationMirror": "docs/project-guide.fragment.html",
   "statusDefinitions": [
     {
       "id": "implemented-needs-qualification",
-      "label": "Implemented in candidate",
-      "meaning": "The source/UI capability exists in the candidate. This label does not establish completed public release or platform qualification."
+      "label": "Implemented in 0.12",
+      "meaning": "Included in the tested release source. Individual workflow boundaries still apply; this label does not establish broad hardware, interchange or photographic quality."
     },
     {
       "id": "experimental",
@@ -222,14 +222,14 @@
   "releaseSnapshot": [
     {
       "label": "Release state",
-      "value": "0.12.0 — published; installed and curl updated",
-      "detail": "Public source, archive/checksum/manifest bytes and pin verified. Linux/Windows CI passes 1,881/1,838 application cases, zero failures and 8 ignored each. The normal installed app and 36 payload files match the reviewed Linux package; previous generations and existing data remain intact. Normal launcher passes24 native Wayland checks. Windows setup is a separate pending gate.",
+      "value": "0.12.0 — published and installed",
+      "detail": "All seven public downloads, exact source/tag/notes/latest and curl pin are verified. Linux/Windows CI passed 1,881/1,838 application cases with zero failures and eight ignored each. The normal Linux launcher passes 24 native Wayland checks; complete prior generations and existing data are preserved.",
       "status": "implemented-needs-qualification"
     },
     {
-      "label": "Public source candidate",
+      "label": "Tested public source",
       "value": "9c684cae",
-      "detail": "Final runtime 9c684cae includes guarded file-path Enter and direct clipped-content dragging. Editing/Create/catalog/layout/motion and package gates passed. Omuse 0.12 is a pre-release; broader hardware, Windows desktop and image-quality qualification remain bounded.",
+      "detail": "Exact runtime includes guarded path Enter and clipped-content selection preservation. Both packages pass native-runner smoke; Linux package passes Wayland/XWayland checks. Windows Setup passes 14 lifecycle checks including actual 0.11→0.12 upgrade; desktop Windows acceptance remains separate.",
       "status": "implemented-needs-qualification"
     },
     {

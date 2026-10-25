@@ -126,14 +126,31 @@ and troubleshooting.
 
 ### Windows (experimental)
 
-**[Download Omuse 0.12.0 for Windows (portable ZIP)](https://github.com/Sugata-Software/Omuse/releases/download/v0.12.0/omuse-0.12.0-windows-x86_64.zip)** ·
-[Checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.12.0/omuse-0.12.0-SHA256SUMS)
+**[Download the Windows installer](https://github.com/Sugata-Software/Omuse/releases/download/v0.12.0/omuse-0.12.0-windows-x86_64-setup.exe)** ·
+[Installer checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.12.0/omuse-0.12.0-windows-x86_64-setup.exe.sha256) ·
+[Setup guide](docs/windows-installer.md)
 
 For **Windows 10/11 on Intel/AMD x64**. No Rust or Visual Studio required.
-Extract the complete ZIP into a new folder and run **omuse.exe**, keeping
-**lib**, **models** and **licenses** beside it. Keep the previous complete folder
-when updating. The 0.12 setup wizard is undergoing its separate native lifecycle
-qualification; the current ZIP is already published and verified.
+
+1. Download and run **omuse-0.12.0-windows-x86_64-setup.exe** (**20.1 MB**).
+2. Follow the setup wizard; add a desktop shortcut if you want one.
+3. Open **Omuse** from the Start menu.
+
+Setup installs for your account without requesting administrator rights. To
+update, save your work, close Omuse and run the newer installer. Uninstall through
+Windows **Settings → Apps**; projects, settings and recovery files are preserved.
+The [0.12 setup workflow](https://github.com/Sugata-Software/Omuse/actions/runs/40163791906)
+passed all 14 native lifecycle checks, including fresh install, an actual
+0.11 → 0.12 upgrade, repair, downgrade refusal and uninstall with project/settings
+preservation. [Published installer verification](docs/windows-installer.md#build-and-verification)
+records its exact payload, checksums and anonymous download readback.
+
+Prefer portable? [Download the complete ZIP](https://github.com/Sugata-Software/Omuse/releases/download/v0.12.0/omuse-0.12.0-windows-x86_64.zip)
+([ZIP checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.12.0/omuse-0.12.0-SHA256SUMS)),
+extract it into a new folder and run **omuse.exe** with **lib**, **models** and
+**licenses** beside it. Keep the previous complete folder when updating.
+The installer wraps the same reviewed portable application. Both downloads and
+their checksums passed exact public readback.
 
 Photo editing and Camera RAW are included. These features have extra requirements:
 
@@ -147,9 +164,8 @@ Photo editing and Camera RAW are included. These features have extra requirement
 The Windows installer and ZIP are **experimental and unsigned**, so SmartScreen may show a
 warning. Live Windows AI generation/editing and clean-machine acceptance remain
 unqualified; detecting a signed-in CLI does not establish that an AI task works.
-The final 0.12.0 package must include its reviewed dependency notices;
-the current ZIP passed exact package and native-runner verification. Setup remains
-a separate qualification step.
+Both 0.12.0 packages include their reviewed dependency notices. Optional
+EfficientSAM-Ti weights remain a separate explicit download.
 
 See the [Windows build notes](rust/README.md#build-on-windows-in-development) for
 connection requirements and known limits.

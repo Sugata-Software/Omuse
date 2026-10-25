@@ -32,9 +32,13 @@ generations remain available. The package also passed 24 checks each on Wayland
 and XWayland. A separate actual 0.11→0.12→rollback→forward isolated generation
 journey passed 134 exact exports and 14 safe old-reader refusals. See the
 [qualification record](release-0120-qualification.md) for scope and compatibility.
-Windows 0.12 setup is still undergoing separate qualification; use the current
-portable ZIP until its reviewed installer is published. Historical 0.11 assets
-below remain unchanged.
+The [20.1 MB Windows setup wizard](https://github.com/Sugata-Software/Omuse/releases/download/v0.12.0/omuse-0.12.0-windows-x86_64-setup.exe)
+passed all 14 native lifecycle checks, including a real 0.11 → 0.12 upgrade,
+repair and uninstall with project/profile preservation. Its [reviewed receipt](releases/installers/v0.12.0.json)
+and [checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.12.0/omuse-0.12.0-windows-x86_64-setup.exe.sha256)
+were published by [40163989927](https://github.com/Sugata-Software/Omuse/actions/runs/40163989927).
+All seven public files passed anonymous exact readback; the numbered notes, tag
+and original archive assets are unchanged. Historical 0.11 assets below remain unchanged.
 
 ## Published 0.11.0
 
