@@ -15,18 +15,20 @@ reviewed Linux bundles are also available. Windows remains unsigned experimental
 
 **[Install on Linux](#linux)** · **[Download for Windows](#windows-experimental)**
 
-**Current source pre-release: [0.11.0 — A clearer canvas](https://github.com/Sugata-Software/Omuse/releases/tag/v0.11.0)**
-— contextual canvas controls, retained layout frames and clearer AI comparisons.
-Exact-source Linux and Windows validation, reviewed archives and the normal
-Omarchy installation have passed qualification.
-[Explore what’s new](#new-in-0110) ·
-[Follow the illustrated guide](docs/user-guide/canvas-workflows.md).
+**0.12.0: [Precision, kept editable](https://github.com/Sugata-Software/Omuse/releases/tag/v0.12.0)**
+— retained Native16 photo development, portable colour looks, clearer save/removal
+review and direct vector controls, with experimental guided local masks.
+[Explore what’s new](#new-in-0120) ·
+[Follow the illustrated guide](docs/user-guide/editor-quality.md) ·
+[Browse the product overview](docs/project-guide.md).
 
-**Linux and Windows downloads are published and verified** on the
-[0.11 release page](https://github.com/Sugata-Software/Omuse/releases/tag/v0.11.0).
-Windows remains unsigned experimental.
-[Qualification and limits](docs/release-0110-qualification.md) record exact
-source, checksums, installation and public-download verification.
+> **Tested source, reviewed packages.** Exact public runtime
+> [`9c684cae4a4ccdb763d036b65adc440cc61419c2`](https://github.com/Sugata-Software/Omuse/commit/9c684cae4a4ccdb763d036b65adc440cc61419c2)
+> passed [Linux and Windows validation](https://github.com/Sugata-Software/Omuse/actions/runs/40161067985):
+> 1,881 Linux and 1,838 Windows application cases, zero failures and eight ignored
+> on each platform. Package, native desktop, installation and public download
+> checks have separate receipts in the [0.12 release record](docs/release-0120-qualification.md).
+> Linux remains a pre-release; Windows is unsigned experimental.
 
 **[Read the user manual](docs/user-guide/README.md)** ·
 [Edit a photo](docs/user-guide/photo-editing.md) ·
@@ -85,20 +87,27 @@ curl -fsSL https://raw.githubusercontent.com/Sugata-Software/Omuse/main/install.
 Then open **Omuse** from your application launcher.
 
 The installer sets up dependencies, builds Omuse, verifies the editor and
-installs it for your user. Camera RAW and local subject-selection assets are
-included. It asks for your password only if system packages need installing.
+installs it for your user. Camera RAW and automatic local subject-selection
+assets are included. The experimental Guided subject mask model is a separate,
+explicit download; it is not bundled. The installer asks for your password only
+if system packages need installing.
 Run the command as your normal desktop user; do not prefix it with `sudo`.
-The installer pins the [tested 0.11.0 application revision](docs/install.md#tested-source-channel);
-application changes on `main` are built only after that pin advances. The installer
-script itself is downloaded from `main`.
+The installer selects a pinned [tested source revision](docs/install.md#tested-source-channel),
+rather than automatically building every application change on `main`.
+The published installer selects the qualified **0.12.0** runtime. The normal
+Omarchy installation passed payload, prior-generation and profile-preservation
+checks; see the [release record](docs/release-0120-qualification.md).
+
+The installer script itself is downloaded from `main`.
 
 **The current installer builds from source.** Allow time for the first build
 and about 12 GB of free disk space. Later installs reuse the build cache.
 For an already-built application, use the
-[reviewed Linux archive](https://github.com/Sugata-Software/Omuse/releases/download/v0.11.0/omuse-0.11.0-linux-x86_64.tar.gz)
-and [checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.11.0/omuse-0.11.0-SHA256SUMS)
+[reviewed Linux archive](https://github.com/Sugata-Software/Omuse/releases/download/v0.12.0/omuse-0.12.0-linux-x86_64.tar.gz)
+and [checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.12.0/omuse-0.12.0-SHA256SUMS)
 with the [archive installation guide](docs/downloadable-releases.md).
-Its public download matches the reviewed size and SHA-256 checksum.
+The **38.9 MB** archive and its published checksums are verified against the
+reviewed build. Camera RAW, subject selection and dependency notices stay together.
 The curl command uses the source-build path; you can
 [inspect it](install.sh) before running it.
 
@@ -117,46 +126,78 @@ and troubleshooting.
 
 ### Windows (experimental)
 
-**[Download the Windows installer](https://github.com/Sugata-Software/Omuse/releases/download/v0.11.0/omuse-0.11.0-windows-x86_64-setup.exe)** ·
-[Installer checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.11.0/omuse-0.11.0-windows-x86_64-setup.exe.sha256) ·
-[Setup guide](docs/windows-installer.md)
+**[Download Omuse 0.12.0 for Windows (portable ZIP)](https://github.com/Sugata-Software/Omuse/releases/download/v0.12.0/omuse-0.12.0-windows-x86_64.zip)** ·
+[Checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.12.0/omuse-0.12.0-SHA256SUMS)
 
 For **Windows 10/11 on Intel/AMD x64**. No Rust or Visual Studio required.
-
-1. Download and run **omuse-0.11.0-windows-x86_64-setup.exe** (19.6 MB).
-2. Follow the setup wizard; add a desktop shortcut if you want one.
-3. Open **Omuse** from the Start menu.
-
-Setup installs for your account without requesting administrator rights. To
-update, save your work, close Omuse and run the newer installer. Uninstall through
-Windows **Settings → Apps**; projects, settings and recovery files are preserved.
-Fresh install, 0.10 → 0.11 upgrade, repair and uninstall passed
-[native Windows checks](docs/windows-installer.md#build-and-verification).
-
-Prefer portable? [Download the complete ZIP](https://github.com/Sugata-Software/Omuse/releases/download/v0.11.0/omuse-0.11.0-windows-x86_64.zip)
-([ZIP checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.11.0/omuse-0.11.0-SHA256SUMS)),
-extract it into a new folder and run **omuse.exe** with **lib**, **models** and
-**licenses** beside it. Keep the previous complete folder when updating.
-The installer and ZIP contain the same reviewed application.
+Extract the complete ZIP into a new folder and run **omuse.exe**, keeping
+**lib**, **models** and **licenses** beside it. Keep the previous complete folder
+when updating. The 0.12 setup wizard is undergoing its separate native lifecycle
+qualification; the current ZIP is already published and verified.
 
 Photo editing and Camera RAW are included. These features have extra requirements:
 
 | Feature | Setup |
 | --- | --- |
-| Local subject selection | Install Microsoft's [Visual C++ Redistributable (x64)](https://aka.ms/vs/17/release/vc_redist.x64.exe) |
+| Automatic local subject selection | Install Microsoft's [Visual C++ Redistributable (x64)](https://aka.ms/vs/17/release/vc_redist.x64.exe) |
+| Guided subject mask · experimental | Explicit optional model download of about 40 MB and an available ONNX Runtime; review/refine results manually. [Guide](docs/user-guide/editor-quality.md#guide-an-optional-local-subject-mask) |
 | MP4 / GIF export | Install FFmpeg, for example `winget install Gyan.FFmpeg`, and make sure `ffmpeg.exe` and `ffprobe.exe` are on `PATH` |
 | Ask Omuse | Install the official Codex CLI or the native Claude Code CLI, then open **Ask Omuse → Connections** to connect your account |
 
 The Windows installer and ZIP are **experimental and unsigned**, so SmartScreen may show a
 warning. Live Windows AI generation/editing and clean-machine acceptance remain
 unqualified; detecting a signed-in CLI does not establish that an AI task works.
-The 0.11.0 package includes reviewed dependency notices. See the
-[Windows build notes](rust/README.md#build-on-windows-in-development) for
+The final 0.12.0 package must include its reviewed dependency notices;
+the current ZIP passed exact package and native-runner verification. Setup remains
+a separate qualification step.
+
+See the [Windows build notes](rust/README.md#build-on-windows-in-development) for
 connection requirements and known limits.
 
 ## Highlights
 
-### New in 0.11.0
+### New in 0.12.0
+
+Develop photos and refine artwork while retaining the source, editable controls
+and a clear review-before-Keep workflow. These features share the native canvas,
+layers, Omarchy theme and Undo history. The guides explain the controls and
+limits, including experimental image-quality routes.
+
+| Workflow | What changes |
+| --- | --- |
+| **Develop retained photo precision** | Native16 Camera Raw operates on retained developed-RGB words with supported basic, curve, colour, detail, optics and geometry stages. Guarded background previews, native sampling and conservative admission preserve the source. Not sensor-linear RAW, HDR, Adobe rendering parity or calibrated profiles. [Native photo guide](docs/user-guide/editor-quality.md#develop-a-retained-photo-without-reducing-its-word-precision). |
+| **Keep a portable colour look** | Import bounded 1D, 3D or declared shaper-plus-3D `.cube` tables, set Amount 0–200% and retain the validated values inside `.omuse`. Encoded-sRGB lookup/output clipping is explicit; this is a creative look, not a display/camera profile. [Colour looks](docs/user-guide/editor-quality.md#import-an-embedded-colour-look). |
+| **Review preset intent** | Import a bounded XMP subset into native Camera Raw, inspect supported approximations and unsupported fields, then use the normal Preview/Apply transaction. The accepted mapping report stays with the recipe; proprietary profiles and local adjustments are not imported. [XMP review](docs/user-guide/editor-quality.md#review-an-xmp-preset-as-editing-intent). |
+| **Inspect a repair at actual pixels** | Controlled removal offers paired Fit/100% layer views with pinned arrows, Center and Refresh. Source/result images scroll on smaller windows; changed settings cannot be kept as an old review. Inspect seams and donor texture before Apply. [Removal review](docs/user-guide/editor-quality.md#inspect-object-removal-at-actual-pixels). |
+| **Know what a save confirmed** | If publication completes but final storage/identity verification is unconfirmed, keep recovery, dirty state and pending-close protection. Retry or save a separate copy; unknown saved identity never authorizes blind overwrite. Linux replacement preserves bounded visible access policy. [Saving](docs/user-guide/editor-quality.md#saving-when-storage-needs-attention). |
+| **Work directly on vectors** | Move gradient geometry/stops on canvas, isolate groups, repeat transforms and editable copies, and create configurable stars/polygons. Edit clipping masks or their contents; Escape cancels an active gesture while retaining earlier edits. [Direct vector controls](docs/user-guide/vector-controls.md). |
+| **Refine gradient appearance** | Keep Classic, or opt into perceptual OKLab interpolation and deterministic fill Dither. Original stops remain editable. SVG/PDF conversion reports distinguish expanded stops and rasterized dithered objects. [Gradient quality](docs/user-guide/editor-quality.md#finish-gradients-and-simplify-paths). |
+| **Guide a local mask · experimental** | Mark a subject or draw one box, compare up to three options and refine coverage with Brush add/remove. Keep an editable mask or use it as a selection. The optional local CPU model downloads only on request; it can select the wrong part or leave holes. Review every result. [Guided masks](docs/user-guide/editor-quality.md#guide-an-optional-local-subject-mask). |
+| **Finish paths without losing the original** | Simplify from retained original paths with corner preservation, original overlay and Reset. Enable optional tangent/perpendicular contacts for supported straight Pen segments; ordinary anchors keep priority. [Path finishing](docs/user-guide/editor-quality.md#finish-gradients-and-simplify-paths) · [Pen contacts](docs/user-guide/editor-quality.md#build-precise-contacts-with-the-pen). |
+| **Compare fonts and resolve shortcut ownership** | Compare up to three installed fonts on actual text with Unicode/fallback information, then Keep or Cancel. Shortcut recording identifies an existing owner before an atomic draft reassignment. [Fonts and shortcuts](docs/user-guide/editor-quality.md#compare-fonts-and-resolve-shortcut-conflicts). |
+| **Understand exchange conversions** | Review structured SVG/PDF compatibility reports and retain supported import notes and inert SVG leaf-object metadata. Unsupported scripts/resources remain refused. Reports do not promise full Illustrator/Photoshop interchange. [Vector reports](docs/user-guide/vector-controls.md#check-a-compatibility-report) · [Metadata limits](docs/user-guide/editor-quality.md#svg-metadata-scope). |
+
+**Keep a separate editable master.** New retained clips require document 16,
+embedded looks 17, extended gradient/SVG metadata 18 and Native16 recipes 19.
+Older readers cannot open unsupported feature versions; rolling back the
+application does not downgrade projects. Ordinary retained 16-bit sources alone
+still use format 10. [Saving and compatibility](#projects-and-user-data).
+
+Guided local masks remain experimental, with positive/box prompts only, at most
+six point tokens (a box uses two), manual coverage correction and uncalibrated
+model rankings. EfficientSAM-Ti weights are not bundled. Controlled removal also
+needs useful donor context and can refuse difficult targets. Neither workflow
+promises universal reconstruction or matting quality. See the
+[illustrated editor-quality guide](docs/user-guide/editor-quality.md) and
+[full user manual](docs/user-guide/README.md).
+
+<a id="new-in-0110"></a>
+
+### Earlier in 0.11.0 — historical examples
+
+> The following 0.11.0 captures, connected-AI demonstration and release results
+> retain their original scope. They are not 0.12.0 validation or a new provider guarantee.
+
 
 Keep the next action close to your artwork, keep spacing consistent as content
 changes, and compare proposals before committing them. These controls share the
@@ -206,17 +247,6 @@ release checks are separate from the live Codex demonstration above and do not
 establish a performance guarantee; the earlier
 [development checkpoint](docs/canvas-workflows-qualification.md) keeps its own
 source identity.
-
-### In development: direct vector controls
-
-Canvas gradient handles, group isolation, repeated transforms, editable clipping
-and clearer exchange reports are being qualified in the development checkout.
-See the [direct vector workflow guide](docs/user-guide/vector-controls.md).
-[Editor-quality development guide](docs/user-guide/editor-quality.md) covers the
-save/removal/clipping improvements, embedded looks, native photo grades and
-experimental reviewed XMP/local masking work. Each workflow states its current
-limits. The published downloads above remain Omuse
-0.11.0.
 
 ### New in 0.10.0
 
@@ -320,8 +350,9 @@ format, font, image-size and editing limits.
   [Photoshop exchange and limits](docs/psd-exchange.md).
 - SVG/SVGZ raster import with selectable dimensions, up to 25 MP;
   self-contained artwork becomes one pixel layer, with the original preserved.
-- Camera RAW development and local subject selection; Camera Raw sampling and
-  targeted curve/mixer adjustments on 8-bit raster layers up to 16 MP.
+- Camera RAW development and local subject selection; supported byte-compatible or
+  retained Native16 photo development, with explicit precision and work limits.
+  [Photo development guide](docs/user-guide/editor-quality.md).
 - Omarchy-aware controls, colours, theme watching and native Linux file dialogs.
 - Refined editing, Create and AI panels with grouped controls and compact layouts.
 - Searchable recent projects, draggable numeric values and layer actions that
@@ -416,8 +447,26 @@ Omuse **0.10** adds versioned Texture removal and smoother Camera Raw
 tone recipes. Older editors can reject projects containing those recipes;
 rolling back the app does not convert a project. Keep the editable original
 and rasterize a separate copy in the newer build before backward editing.
-Ordinary Camera Raw Apply produces raster pixels. See
+That earlier byte-compatible Camera Raw Apply produces raster pixels; the new
+retained Native16 path has its own recipe semantics. See
 [recipe compatibility](docs/user-guide/photo-vector-development.md#keep-a-compatible-original).
+
+Retained layout introduced in **0.11** requires document format 15.
+**0.12** adds selective retained-feature requirements:
+
+| Retained content | Minimum document format |
+| --- | --- |
+| Editable vector clips / scene 5 | 16 |
+| Embedded `.cube` colour looks | 17 |
+| Perceptual/dithered paints or inert SVG application metadata / scene 6 | 18 |
+| Native16 Camera Raw recipe nodes, including disabled/zero-opacity nodes | 19 |
+
+The writer chooses the highest required version across the document. Ordinary
+retained 16-bit source images alone keep format 10; older byte-compatible recipes
+retain their previous interpretation. Save a separate master before backward
+editing. An exported image or converted copy does not replace the editable
+master. See the [0.12 guide](docs/user-guide/editor-quality.md) and
+[project-format contract](docs/project-format.md).
 
 New collection saves use schema version 2 with nested `.omuse` pages and
 components. Version 1 collections still open, but saving upgrades them to

@@ -1,7 +1,9 @@
 # Omuse 0.12.0 release qualification
 
 **Release qualification — 25 October 2026.** Exact-source Linux and Windows CI
-passed. Public publication and normal installed upgrade are pending. The Linux candidate has passed host package, native backend and actual
+passed. Source and all four archive/checksum/manifest downloads are published and
+passed anonymous exact readback. The normal installed upgrade is verified. Windows
+setup remains a separately pending qualification. The Linux candidate has passed host package, native backend and actual
 0.11 → 0.12 → 0.11 → 0.12 generation checks. Earlier release notes, tags and
 assets remain unchanged. Final publication and installed-app readback are separate gates.
 
@@ -12,10 +14,10 @@ assets remain unchanged. Final publication and installed-app readback are separa
 | Cargo package / lockfile version | 0.12.0 / 0.12.0 |
 | Public runtime commit and tree | [`9c684cae4a4ccdb763d036b65adc440cc61419c2`](https://github.com/Sugata-Software/Omuse/commit/9c684cae4a4ccdb763d036b65adc440cc61419c2), tree `834184e996c0099342f06ee7a9506061efb21386` |
 | Public history | Based on main `17f3d3811b633e6b916005f37eb679336f52e24f`; no private history published |
-| Tag `v0.12.0` target | Pending exact tested runtime |
+| Tag `v0.12.0` target | Exact runtime 9c684cae; source publisher [40163681631](https://github.com/Sugata-Software/Omuse/actions/runs/40163681631) passed |
 | Rust validation run and attempt | [40161067985](https://github.com/Sugata-Software/Omuse/actions/runs/40161067985), attempt 1 — passed |
 | Package run / reviewed manifests | [40161068022](https://github.com/Sugata-Software/Omuse/actions/runs/40161068022), attempt 1 — passed; [unaltered generated manifest](releases/downloads/v0.12.0.json) |
-| Notes / latest declaration / installer pins | Pending consistency and readback |
+| Notes / latest declaration / installer pins | Exact anonymous readback passed; public curl pin selects runtime 9c684cae |
 
 Application version, page-document formats 16–19, vector scene versions and
 Create collection version 2 are separate identities. A later documentation
@@ -29,13 +31,13 @@ commit does not change the tested runtime or justify moving an existing tag.
 | Exact-source Windows tests | Passed: 1,838 application cases (622 library, 545 UI, 671 integration), zero failures, eight ignored across 90 targets. Editing/Create/catalog/layout/motion, default build, package and notice gates passed. Twenty dependency-helper cases are additional. Optional external RAW/PSD fixture returns remain separate. |
 | Installer/publisher/download tests | Local: 25 installer, 28 release-note, 31 download and 13 Windows-setup contract tests pass. Exact CI installer/reference job passed. |
 | Native Linux package | Exact default-feature package: 24/24 scripted native checks on Wayland and 24/24 on XWayland, 800×600 logical viewport. Covers painting, Undo/Redo, guarded close/save/reopen, themes, text, effects, masks, retained precision, photo edits and command focus. Live AI excluded. |
-| Windows archive/setup lifecycle | Unsigned/experimental status, fresh install, upgrade, repair, rollback and uninstall/project preservation; pending current artifacts |
+| Windows archive/setup lifecycle | [Setup run 40163791906](https://github.com/Sugata-Software/Omuse/actions/runs/40163791906) passed all 14 native lifecycle checks, including actual 0.11→0.12 upgrade, repair, downgrade refusal, shortcuts, installed editing/DLL loading, uninstall and project/profile preservation. [Reviewed receipt](releases/installers/v0.12.0.json); public setup publication/readback pending. Unsigned experimental; Windows Server 2025 CI is not interactive desktop qualification. |
 | Package contents | Both generated archive/smoke hashes, binaries and inventories match the unaltered final manifest. Linux: 621 dependencies; Windows: 423; zero notice findings. Optional EfficientSAM-Ti weights are not bundled. |
-| Save/access policy | Automated fault/recovery, destination identity and Linux visible-policy checks in final suite; native application checks confirm path Enter, replacement review and saved clipping contents. CI counts pending. No physical power-loss claim. |
+| Save/access policy | Automated fault/recovery, destination identity and Linux visible-policy checks in final suite; native application checks confirm path Enter, replacement review and saved clipping contents. Final CI counts are recorded above. No physical power-loss claim. |
 | Cross-version artwork | 37 owned fixtures across old/new/rollback/forward readers: 134 exact exports and 14 safe old-reader refusals. Bound to the final generated manifest. |
 | Optional local model | Two real CPU model tests passed on final application code: point/box/cache and runtime cancellation/reuse. UI transactions covered by source tests/native review; mask quality remains experimental. No provider calls or bundled EfficientSAM-Ti weights. |
-| Installation and rollback | Command/desktop resolution, installed identities and retained previous version; pending |
-| Public download readback | Tag/notes/pins/manifests and anonymous size+SHA256 verification of every asset; pending publication |
+| Installation and rollback | Normal Omarchy app upgraded from reviewed public archive; version/source/executable and all 36 payload files match. Complete previous generations and pre-existing config/data retained byte-for-byte with mode/ownership. Normal launcher passed 24 scripted Wayland checks in an isolated profile. Isolated old/new rollback qualification is separate. |
+| Public download readback | [Publisher 40163728420](https://github.com/Sugata-Software/Omuse/actions/runs/40163728420) passed; all four public files match exact sizes/hashes; manifest/checksum bytes, notes, tag, latest and curl pin match. Previous 0.11 release/tag/seven asset identities unchanged. |
 
 ## Automated coverage
 
@@ -84,11 +86,11 @@ Populate from reviewed final files and independent public readback:
 
 | Artifact | SHA-256 / bytes / public receipt |
 | --- | --- |
-| Linux x86_64 archive and executable | 38,857,203 bytes; archive `9ad09f00a1110277b50c814e0684cffec6a56b799d7304827d7738578595f824`; executable `f9ff04fb73dff9ae0674b6a2c88d434fcf9a36583489621ff059c7af45159d83`. Public readback pending. |
-| Windows x86_64 archive and executable | 27,094,634 bytes; archive `c0ea2b218ab80962e219dbfdfe912bd373ccb025f562d3e3a5b41c7c4825884b`; executable `a550a1ae06596413a37db4cfd190117f20adf7d4e4cbccee3cfdf3c2fdb408f3`. Archive and Windows runner smoke passed; bound to generated manifest; public readback pending. |
-| Windows setup installer, if published | Pending |
-| Checksums and download manifest | Reviewed unaltered build manifest, exact archive/smoke/inventory binding passed. Public readback pending. |
-| Source-installer runtime pin | Pending |
+| Linux x86_64 archive and executable | 38,857,203 bytes; archive `9ad09f00a1110277b50c814e0684cffec6a56b799d7304827d7738578595f824`; executable `f9ff04fb73dff9ae0674b6a2c88d434fcf9a36583489621ff059c7af45159d83`. Public size/hash readback passed. |
+| Windows x86_64 archive and executable | 27,094,634 bytes; archive `c0ea2b218ab80962e219dbfdfe912bd373ccb025f562d3e3a5b41c7c4825884b`; executable `a550a1ae06596413a37db4cfd190117f20adf7d4e4cbccee3cfdf3c2fdb408f3`. Archive and Windows runner smoke passed; bound to generated manifest; public size/hash readback passed. |
+| Windows setup installer | 20,057,949 bytes; SHA-256 `1e88601c148b0fd94fc7a832e7bbb62a91e7c16e6796c7efc3dc7b2c1112e990`; native lifecycle passed, public readback pending. |
+| Checksums and download manifest | Reviewed unaltered build manifest, exact archive/smoke/inventory binding passed. Public size/hash readback passed. |
+| Source-installer runtime pin | `9c684cae4a4ccdb763d036b65adc440cc61419c2`; exact public bytes and shell syntax verified |
 
 ## Compatibility and limits
 

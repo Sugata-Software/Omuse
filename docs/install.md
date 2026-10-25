@@ -52,8 +52,9 @@ pinned source, rather than every ongoing change on main.
 Both exact archives pass their package/native-runner checks. The Linux archive
 also passes 24 scripted native checks on each of Wayland and XWayland. Actual
 0.11 → 0.12 → rollback → forward isolated generations pass four editing
-journeys, 134 exact exports and 14 safe old-reader refusals. Public archive
-publication and the normal installed upgrade are separate gates recorded in the
+journeys, 134 exact exports and 14 safe old-reader refusals. Public archives passed anonymous exact readback. The normal installed upgrade
+preserved existing profiles and complete prior generations and passed 24 scripted
+native Wayland checks. These are separate gates recorded in the
 [0.12 qualification](release-0120-qualification.md). Windows remains unsigned
 experimental. New retained features can require project formats 16–19; rolling
 back the app does not convert projects. Keep a separate master and exchange copy.

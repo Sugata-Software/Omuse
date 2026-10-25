@@ -11,22 +11,30 @@ prerequisites for making clearly labeled automated previews downloadable. A
 preview passing these checks must not be described as a stable, signed, or
 generally portable release.
 
-## 0.12.0 candidate — publication pending
+## Published 0.12.0
 
-The current 0.12.0 package candidate is tied to exact public source
-[`9c684cae4a4ccdb763d036b65adc440cc61419c2`](https://github.com/Sugata-Software/Omuse/commit/9c684cae4a4ccdb763d036b65adc440cc61419c2),
-[validation run 40161067985](https://github.com/Sugata-Software/Omuse/actions/runs/40161067985)
-and [package run 40161068022](https://github.com/Sugata-Software/Omuse/actions/runs/40161068022).
-Final run receipts and the reviewed download manifest are still pending, as are
-source publication, download publication and anonymous verification of every
-permanent asset. These identifiers describe the candidate under review; they do
-not make an Actions artifact a permanent public download.
+[Omuse 0.12](https://github.com/Sugata-Software/Omuse/releases/tag/v0.12.0) uses
+exact runtime [`9c684cae4a4ccdb763d036b65adc440cc61419c2`](https://github.com/Sugata-Software/Omuse/commit/9c684cae4a4ccdb763d036b65adc440cc61419c2).
+[Validation 40161067985](https://github.com/Sugata-Software/Omuse/actions/runs/40161067985)
+and [build 40161068022](https://github.com/Sugata-Software/Omuse/actions/runs/40161068022)
+passed. [Source publication 40163681631](https://github.com/Sugata-Software/Omuse/actions/runs/40163681631)
+and [download publication 40163728420](https://github.com/Sugata-Software/Omuse/actions/runs/40163728420)
+succeeded. All four permanent downloads passed anonymous exact size/hash readback:
 
-There are no announced 0.12.0 download links in this guide yet. Continue to use
-the published 0.11.0 assets below until the 0.12 tag, notes, checksums, manifest,
-installer pin and attached files pass final readback. The
-[0.12 qualification record](release-0120-qualification.md) retains the open
-gates and platform limits.
+- [Linux x86_64 bundle — 38.9 MB](https://github.com/Sugata-Software/Omuse/releases/download/v0.12.0/omuse-0.12.0-linux-x86_64.tar.gz)
+- [Windows x64 ZIP — 27.1 MB, unsigned experimental](https://github.com/Sugata-Software/Omuse/releases/download/v0.12.0/omuse-0.12.0-windows-x86_64.zip)
+- [SHA-256 checksums](https://github.com/Sugata-Software/Omuse/releases/download/v0.12.0/omuse-0.12.0-SHA256SUMS)
+- [Unaltered generated manifest](https://github.com/Sugata-Software/Omuse/releases/download/v0.12.0/omuse-0.12.0-downloads.json)
+
+The source installer pin selects the same runtime. The normal Omarchy installation
+passed payload/preservation checks and 24 native Wayland checks; complete older
+generations remain available. The package also passed 24 checks each on Wayland
+and XWayland. A separate actual 0.11→0.12→rollback→forward isolated generation
+journey passed 134 exact exports and 14 safe old-reader refusals. See the
+[qualification record](release-0120-qualification.md) for scope and compatibility.
+Windows 0.12 setup is still undergoing separate qualification; use the current
+portable ZIP until its reviewed installer is published. Historical 0.11 assets
+below remain unchanged.
 
 ## Published 0.11.0
 
