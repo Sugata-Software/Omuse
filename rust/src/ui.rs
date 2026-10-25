@@ -836,12 +836,31 @@ impl EditorView {
         let initial_layer = editor.active_layer.clone();
         let preferences = crate::preferences::Preferences::current();
         let path_input = cx.new(|cx| InputState::new(window, cx).placeholder("File path"));
-        cx.subscribe(&path_input, |this, _, event: &InputEvent, cx| {
-            if matches!(event, InputEvent::Change) {
-                this.invalidate_jpeg_preview();
-                cx.notify();
-            }
-        })
+        cx.subscribe_in(
+            &path_input,
+            window,
+            |this, _, event: &InputEvent, window, cx| match event {
+                InputEvent::Change => {
+                    this.invalidate_jpeg_preview();
+                    cx.notify();
+                }
+                InputEvent::PressEnter {
+                    secondary: false,
+                    shift: false,
+                } if matches!(
+                    this.dialog,
+                    Dialog::Open | Dialog::Import | Dialog::Save | Dialog::Export
+                ) =>
+                {
+                    // Use the button's existing guarded route: Save still
+                    // requires replacement review and async admission.
+                    // Reused search/text inputs and secondary Enter never
+                    // become an implicit confirmation action.
+                    this.confirm_dialog(window, cx);
+                }
+                _ => {}
+            },
+        )
         .detach();
         let width_input = cx.new(|cx| InputState::new(window, cx).default_value("1024"));
         let height_input = cx.new(|cx| InputState::new(window, cx).default_value("768"));
@@ -12123,6 +12142,168 @@ mod parity_interaction_tests {
         cx.run_until_parked();
         assert!(temp.path().join("Keys.omuse/manifest.json").exists());
         cx.update(|_, cx| assert!(!view.read(cx).editor.is_dirty()));
+    }
+
+    #[gpui_kit::test]
+    fn plain_path_enter_saves_and_retains_two_step_replacement_review(cx: &mut TestAppContext) {
+        use gpui_kit::Focusable;
+        cx.update(crate::init_test_theme);
+        cx.update(bind_keys);
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("Keyboard.omuse");
+        let other = temp.path().join("Existing.omuse");
+        let mut previous = Document::new(7, 5);
+        previous.name = "Existing destination".into();
+        document::save(&previous, &other).unwrap();
+        let manifest = std::fs::read(other.join("manifest.json")).unwrap();
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            let mut view = EditorView::new(None, window, cx);
+            view.dialog = Dialog::None;
+            view.editor = Editor::new(Document::new(12, 10));
+            view.editor.add_layer("Keyboard revision");
+            view.refresh(cx);
+            view.focus.focus(window, cx);
+            view
+        });
+        cx.simulate_resize(size(px(1000.), px(700.)));
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.simulate_keystrokes("ctrl-shift-s");
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        view.update_in(cx, |view, window, cx| {
+            assert_eq!(view.dialog, Dialog::Save);
+            assert!(view.path_input.read(cx).focus_handle(cx).is_focused(window));
+        });
+        cx.simulate_keystrokes("ctrl-a");
+        cx.simulate_input(path.to_str().unwrap());
+        cx.simulate_keystrokes("shift-enter");
+        cx.simulate_keystrokes("ctrl-enter");
+        cx.run_until_parked();
+        assert!(!path.exists(), "secondary/shift Enter must not save");
+        cx.simulate_keystrokes("enter");
+        cx.run_until_parked();
+        assert!(
+            path.join("manifest.json").is_file(),
+            "plain Return in path must submit the existing Save action"
+        );
+        view.update(cx, |view, _| {
+            assert_eq!(view.dialog, Dialog::None);
+            assert!(!view.create.saving);
+            assert!(!view.editor.is_dirty());
+            assert_eq!(view.path.as_ref(), Some(&path));
+        });
+        assert!(
+            document::open(&path)
+                .unwrap()
+                .layers
+                .iter()
+                .any(|layer| layer.name == "Keyboard revision")
+        );
+        view.update_in(cx, |view, _, cx| {
+            view.editor.add_layer("New replacement");
+            view.changed(cx);
+        });
+        cx.simulate_keystrokes("ctrl-shift-s");
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.simulate_keystrokes("ctrl-a");
+        cx.simulate_input(other.to_str().unwrap());
+        cx.simulate_keystrokes("enter");
+        cx.run_until_parked();
+        assert_eq!(
+            std::fs::read(other.join("manifest.json")).unwrap(),
+            manifest,
+            "first Return must not overwrite an existing project"
+        );
+        view.update(cx, |view, cx| {
+            assert_eq!(view.dialog, Dialog::Save);
+            assert!(view.save_confirmation.is_some());
+            assert!(view.confirming_project_replacement(cx));
+            assert!(!view.create.saving);
+            assert!(view.editor.is_dirty());
+        });
+        cx.simulate_keystrokes("enter");
+        cx.run_until_parked();
+        assert!(
+            document::open(&other)
+                .unwrap()
+                .layers
+                .iter()
+                .any(|layer| layer.name == "New replacement")
+        );
+        view.update(cx, |view, _| {
+            assert_eq!(view.dialog, Dialog::None);
+            assert!(!view.editor.is_dirty());
+        });
+    }
+
+    #[gpui_kit::test]
+    fn plain_path_enter_opens_imports_and_exports_but_not_unsaved_prompt(cx: &mut TestAppContext) {
+        cx.update(crate::init_test_theme);
+        cx.update(bind_keys);
+        let temp = tempfile::tempdir().unwrap();
+        let source = temp.path().join("source.png");
+        let output = temp.path().join("output.png");
+        image::RgbaImage::from_pixel(8, 6, image::Rgba([30, 80, 140, 255]))
+            .save(&source)
+            .unwrap();
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            let mut view = EditorView::new(None, window, cx);
+            view.dialog = Dialog::None;
+            view.editor = Editor::new(Document::new(12, 10));
+            view.refresh(cx);
+            view.focus.focus(window, cx);
+            view
+        });
+        cx.simulate_resize(size(px(1000.), px(700.)));
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.simulate_keystrokes("ctrl-o");
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.simulate_input(source.to_str().unwrap());
+        cx.simulate_keystrokes("enter");
+        cx.run_until_parked();
+        view.update(cx, |view, _| {
+            assert_eq!(view.dialog, Dialog::None);
+            assert_eq!(
+                (view.editor.document.width, view.editor.document.height),
+                (8, 6)
+            );
+            assert!(view.photo_io.is_none());
+        });
+        view.update_in(cx, |view, window, cx| view.open_dialog(true, window, cx));
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.simulate_input(source.to_str().unwrap());
+        cx.simulate_keystrokes("enter");
+        cx.run_until_parked();
+        view.update(cx, |view, _| {
+            assert_eq!(view.dialog, Dialog::None);
+            assert_eq!(view.editor.document.layers.len(), 2);
+            assert!(view.photo_io.is_none());
+        });
+        cx.simulate_keystrokes("ctrl-o");
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        view.update(cx, |view, _| assert_eq!(view.dialog, Dialog::Unsaved));
+        cx.simulate_keystrokes("enter");
+        cx.run_until_parked();
+        view.update(cx, |view, _| {
+            assert_eq!(view.dialog, Dialog::Unsaved);
+            assert!(view.pending.is_some());
+            assert!(view.editor.is_dirty());
+        });
+        cx.simulate_keystrokes("escape");
+        view.update_in(cx, |view, window, cx| view.save_dialog(true, window, cx));
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.simulate_keystrokes("ctrl-a");
+        cx.simulate_input(output.to_str().unwrap());
+        cx.simulate_keystrokes("enter");
+        cx.run_until_parked();
+        assert_eq!(
+            image::open(&output).unwrap().to_rgba8().dimensions(),
+            (8, 6)
+        );
+        view.update(cx, |view, _| {
+            assert_eq!(view.dialog, Dialog::None);
+            assert!(view.photo_io.is_none());
+            assert!(view.editor.is_dirty(), "export is not a project save");
+        });
     }
 
     #[gpui_kit::test]
