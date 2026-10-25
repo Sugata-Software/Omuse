@@ -11,7 +11,7 @@ use omuse::{
     model::{Document, Layer},
     objects::{self, LiveTextStyle, ObjectPoint, ObjectSize},
     raster,
-    vector_scene::{VECTOR_SCENE_VERSION, VectorObject, VectorScene},
+    vector_scene::{VECTOR_SCENE_TEXT_VERSION, VectorObject, VectorScene},
 };
 use serde_json::json;
 use std::{
@@ -136,7 +136,11 @@ fn main() -> Result<()> {
         25.,
     )?;
     let scene = VectorScene {
-        version: VECTOR_SCENE_VERSION,
+        // This acceptance journey intentionally proves layout15 -> static14
+        // compatibility. Its classic ellipses need no clipping/quality features;
+        // pin the prior text-path scene generation so header normalization and
+        // unrelated newer-format requirements cannot obscure source equality.
+        version: VECTOR_SCENE_TEXT_VERSION,
         width: 220,
         height: 260,
         objects: vec![
