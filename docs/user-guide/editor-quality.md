@@ -2,14 +2,18 @@
 
 [User manual](README.md) · [Project compatibility](../project-format.md)
 
-**Development candidate.** These controls are being qualified in the shared
-Rust/GPUI editor. They are not part of the installed or published 0.11.0 release.
-The qualification record distinguishes automated checks, native inspection and
-remaining photographic/platform work.
+**Omuse 0.12.0.** These controls share the native photo/vector canvas and Undo.
+Guided local masks and Texture removal remain experimental; inspect and refine
+results before keeping them. See the [release qualification](../release-0120-qualification.md)
+for tested scope and remaining platform/photo-quality limits.
 
 ## Saving when storage needs attention
 
-Save with **Ctrl+S**. Omuse stages a complete package before publishing it.
+Save with **Ctrl+S**, or **Ctrl+Shift+S** for a separate copy. Press **Enter**
+in Open, Import, Save and Export path fields to confirm. An existing-project
+replacement still needs its separate review; Enter never discards an unsaved-work prompt.
+
+Omuse stages a complete package before publishing it.
 If publication succeeds but the final storage flush or saved identity cannot be
 confirmed, the editor explains that the project was written, keeps recovery data
 and keeps the document unsaved. A pending close waits for your decision.
@@ -39,7 +43,7 @@ until you have a confirmed save. These protections do not replace backups.
 
 ![Native removal detail controls](images/editor-quality-20261025/removal-detail.png)
 
-*Actual Linux development candidate `e245efa34be1`. The synthetic marked-object
+*Historical capture from Linux development candidate `e245efa34be1`. The synthetic marked-object
 fixture demonstrates the controls and source/result review; it is not a
 photographic reconstruction-quality example.*
 
@@ -89,7 +93,7 @@ or GPU acceleration. New native camera recipes require project format 19.
 
 Older byte-compatible recipes retain their old behavior. Ordinary paint-layer
 Camera Raw still uses that compatibility path; it is not silently upgraded.
-Keep the original project when trying this development candidate.
+Keep an original project before using the new retained editing features.
 
 ## Review an XMP preset as editing intent
 
@@ -122,8 +126,8 @@ and neighbouring objects at useful zoom before keeping anything.
 **Keep mask** adds an editable layer mask with one artwork Undo; **Use as
 selection** changes the pixel selection instead. **Cancel / Escape** leaves the
 source unchanged. The currently displayed candidate must finish preparation
-before it can be kept. This development workflow still needs photographic/native
-qualification; a model confidence score is not a guarantee of a good cutout.
+before it can be kept. This workflow remains experimental and needs careful visual refinement;
+a model score is not a guarantee of a good cutout.
 
 ![A local model selecting the clicked suit collar](images/editor-quality-20261025/guided-local-part.png)
 

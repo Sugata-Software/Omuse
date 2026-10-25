@@ -25,7 +25,7 @@ Local masking and LibRaw development provide native Linux photo workflows. A fun
 
 The real RAW smoke fixture is `syoyo/raw-images`'s `images/colorchart-iphone7plus-cloudy.dng`, whose repository declares its photographs CC BY 4.0. The local test records its SHA-256 as `5a4db5cbda08620494aa299e27a771e19b439a00f6143f65edb43139b9ba7392`; it is not included in the source tree. Credit: Syoyo Fujita, https://github.com/syoyo/raw-images.
 
-## Development guided-mask pack
+## Optional guided-mask pack — 0.12 experimental
 
 The experimental **Guided subject mask** workflow uses the same trusted ONNX
 Runtime with an additional explicitly downloaded EfficientSAM-Ti encoder/decoder

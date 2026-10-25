@@ -6,11 +6,17 @@ for numbering, qualification and publication.
 
 ## Unreleased
 
+No additional user-visible changes recorded.
+
+## [0.12.0](https://github.com/Sugata-Software/Omuse/releases/tag/v0.12.0) — 2026-10-25
+
+**Precision, kept editable · Linux / Omarchy pre-release · unsigned experimental Windows**
+
 - Confirm Open, Import, Save and Export directly with Enter in the path field, preserving replacement review and unsaved-work guards.
 
 - Keep explicit clipped-content and direct object selections during canvas dragging, so Edit contents moves artwork without moving its mask.
 
-Development changes are documented in [direct vector controls](docs/user-guide/vector-controls.md)
+These changes are documented in [direct vector controls](docs/user-guide/vector-controls.md)
 and the [editor-quality guide](docs/user-guide/editor-quality.md).
 
 - Develop retained 16-bit photo recipes through the versioned Native16 Camera
@@ -21,7 +27,7 @@ and the [editor-quality guide](docs/user-guide/editor-quality.md).
   supported/approximate/unsupported fields and retained mapping provenance.
 - Add experimental optional local click/box mask review with pinned model
   verification/repair, manual coverage correction and reversible mask/selection
-  actions. Photographic and native qualification remains pending.
+  actions. Mask quality remains experimental and requires manual review.
 - Preserve frozen pixels during byte-warp operations and render dithered
   vector objects in PDF instead of silently omitting their image content.
 - Preserve Linux project permissions and bounded visible ownership/ACL/xattr

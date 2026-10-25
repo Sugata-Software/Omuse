@@ -39,6 +39,27 @@ from source**. Reviewed application archives have a separate
 
 ## Tested source channel
 
+### Current source channel — 0.12.0
+
+The curl installer selects exact tested public runtime
+[`9c684cae4a4ccdb763d036b65adc440cc61419c2`](https://github.com/Sugata-Software/Omuse/commit/9c684cae4a4ccdb763d036b65adc440cc61419c2).
+[Validation 40161067985](https://github.com/Sugata-Software/Omuse/actions/runs/40161067985)
+passed 1,881 Linux and 1,838 Windows application cases, zero failures and eight
+ignored on each platform. Optional external-file early returns and 20 dependency
+helper tests per platform are counted separately. The usual command builds this
+pinned source, rather than every ongoing change on main.
+
+Both exact archives pass their package/native-runner checks. The Linux archive
+also passes 24 scripted native checks on each of Wayland and XWayland. Actual
+0.11 → 0.12 → rollback → forward isolated generations pass four editing
+journeys, 134 exact exports and 14 safe old-reader refusals. Public archive
+publication and the normal installed upgrade are separate gates recorded in the
+[0.12 qualification](release-0120-qualification.md). Windows remains unsigned
+experimental. New retained features can require project formats 16–19; rolling
+back the app does not convert projects. Keep a separate master and exchange copy.
+
+### Historical 0.11.0 source and installed qualification
+
 The source declaration for this release is [Omuse 0.11.0](releases/v0.11.0.md).
 Its Git tag identifies the tested runtime; the normal curl command follows the
 current tested channel and may advance to later qualified releases. Publication

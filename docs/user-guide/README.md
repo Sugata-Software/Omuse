@@ -1,7 +1,7 @@
 # Omuse user manual
 
 **Make, retouch and finish images on Linux.** This manual describes Omuse
-0.11.0 for Arch/Omarchy x86_64: photo editing, editable vectors, Shape Builder,
+0.12.0 for Arch/Omarchy x86_64: photo editing, editable vectors, Shape Builder,
 Photoshop exchange, retained layout, Create and optional AI workflows. Windows packages remain
 unsigned experimental with separate desktop and live AI limits. Start with a
 photo, keep an editable project, and export a copy when it is ready.
@@ -14,11 +14,11 @@ Start with the [illustrated 0.10 photo and vector guide](photo-vector-developmen
 for Shape Builder, curve finishing, precise snapping, editable repeats and PSD
 exchange. The [photo chapter](photo-editing.md) covers background retouch, quick
 previews and optional Texture removal; [Create](create-content.md) covers
-targeted page revisions. See [release qualification](../release-0110-qualification.md)
+targeted page revisions. See [release qualification](../release-0120-qualification.md)
 and [installation options](../install.md) for exact availability and limits.
 Earlier [retouch and canvas controls](retouch-and-controls.md) remain documented.
 
-New in 0.11: [canvas actions, retained layout frames and AI comparisons](canvas-workflows.md).
+Introduced in 0.11: [canvas actions, retained layout frames and AI comparisons](canvas-workflows.md).
 The illustrated chapter explains the controls and compatibility limits. Projects
 with retained layout require format 15 and cannot open in 0.10 or older. Keep the
 retained master; Release rules and Save As a separate copy for backward use.
@@ -88,12 +88,13 @@ For a visual tour, see [drawing and tracing](photo-vector.md),
 | Try Shape Builder, path finishing, repeats and precise snapping | [0.10 workflows](photo-vector-development.md) |
 | Exchange layered PSD or retain a 16-bit Photoshop composite | [Photoshop exchange](../psd-exchange.md) |
 
-[Development: direct vector controls](vector-controls.md) covers canvas gradients,
+[Direct vector controls in 0.12](vector-controls.md) covers canvas gradients,
 isolated groups, repeated transforms, editable clipping and compatibility reports.
-The [editor-quality development guide](editor-quality.md) documents saving,
+The [editor-quality guide](editor-quality.md) documents saving,
 removal detail review, clipping targets, embedded looks, native photo grades and
-experimental XMP/guided masks, with qualification limits. These additions are
-separate from the current published 0.11.0 release.
+bounded XMP intent and experimental guided masks, with qualification limits.
+These workflows are included in 0.12. New retained features can require formats
+16–19; keep an original master and use separate rasterized copies for older readers.
 
 ## Save projects; export deliverables
 

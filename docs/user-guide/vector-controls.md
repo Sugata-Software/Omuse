@@ -1,6 +1,6 @@
 # Direct vector controls
 
-These workflows are in development after Omuse 0.11.0. They use the normal
+These workflows are included in Omuse 0.12.0. They use the normal
 canvas and Layers inspector. Open **Vector artwork** with **Shift+P** and find
 any named action with **Ctrl+K**. **Enter / Done** keeps the artwork session as
 one document edit. **Ctrl+Z / Ctrl+Shift+Z** step through draft edits.
@@ -32,7 +32,7 @@ Use Move, Nodes or Pen to leave gradient manipulation.
 
 ![On-canvas gradient handles on a clipped object](images/direct-vector-20261018/gradient.png)
 
-Native Linux development build: the gradient remains editable inside a retained clip.
+Historical native Linux development capture: the gradient remains editable inside a retained clip.
 
 ## Work inside a group
 
@@ -116,7 +116,7 @@ available in command search.
 
 ![A repeated transformed star beside its source](images/direct-vector-20261018/repeat-copy.png)
 
-Native development build: X swapped the star to a stroke; Shift+Right moved
+Historical native development capture: X swapped the star to a stroke; Shift+Right moved
 it, and Ctrl+Shift+D made the next transformed copy.
 
 ## Check a compatibility report

@@ -4,7 +4,7 @@ set -Eeuo pipefail
 
 # Advance only to a public runtime commit with completed release validation.
 # Documentation and ongoing work on main do not change the installed editor.
-readonly omuse_release_revision=e72bccdcef066cb6ab60a99faa9d7609de86c2e4
+readonly omuse_release_revision=9c684cae4a4ccdb763d036b65adc440cc61419c2
 
 usage() {
     cat <<'EOF'

@@ -4,7 +4,7 @@
 Use **P** to draw, **A** to refine points and **V** to move objects. Trace a bitmap
 when you want a simpler graphic, or use the colour tools to refine a photo.
 
-[Direct vector controls — development](vector-controls.md) ·
+[Direct vector controls — 0.12](vector-controls.md) ·
 [User manual](README.md) · [Photo editing](photo-editing.md) ·
 [Create content](create-content.md) · [0.8 interface gallery](../releases/v0.8.0-gallery.md)
 

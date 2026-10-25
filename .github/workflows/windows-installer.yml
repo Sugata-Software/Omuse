@@ -13,12 +13,12 @@ on:
     inputs:
       version:
         description: Published portable release to wrap
-        default: '0.11.0'
+        default: '0.12.0'
         required: true
         type: string
       previous_version:
         description: Older published release used for upgrade qualification
-        default: '0.10.0'
+        default: '0.11.0'
         required: true
         type: string
 
@@ -43,8 +43,8 @@ jobs:
     runs-on: windows-2025
     timeout-minutes: 20
     env:
-      OMUSE_VERSION: ${{ inputs.version || '0.11.0' }}
-      OMUSE_PREVIOUS: ${{ inputs.previous_version || '0.10.0' }}
+      OMUSE_VERSION: ${{ inputs.version || '0.12.0' }}
+      OMUSE_PREVIOUS: ${{ inputs.previous_version || '0.11.0' }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:

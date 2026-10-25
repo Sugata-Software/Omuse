@@ -5,6 +5,7 @@ Start with the [changelog](../../CHANGELOG.md) or
 
 | Version | Date | Scope | Notes |
 | --- | --- | --- | --- |
+| 0.12.0 | 25 October 2026 | Reliable saves, precise removal review, direct vector finishing, retained photo precision and experimental local guided masks | [Release notes](v0.12.0.md) |
 | 0.11.0 | 11 October 2026 | Contextual canvas actions, retained editable layout frames, AI Before/After and Changes, compact review composer | [Release notes](v0.11.0.md) |
 | 0.10.0 | 11 October 2026 | Shape Builder, curve finishing, independent repeats, precise snapping, Photoshop exchange, responsive retouch/photo previews and targeted page revisions | [Release notes](v0.10.0.md) |
 | 0.9.0 | 4 October 2026 | Native-resolution retouch, context-guided removal, grid and mask controls, selected-letter font preview and reliable numeric entry | [Release notes](v0.9.0.md) |
@@ -21,9 +22,9 @@ Start with the [changelog](../../CHANGELOG.md) or
 ## Version numbers
 
 Omuse has its own sequence, beginning at **0.1.0**. Each release matches its
-Rust package version; the current release declaration is **0.11.0**. It does not
+Rust package version; the current release declaration is **0.12.0**. It does not
 inherit another editor's release numbers. This is a qualified source pre-release;
-the broader stable-release gates remain open. The [0.11 qualification](../release-0110-qualification.md)
+the broader stable-release gates remain open. The [0.12 qualification](../release-0120-qualification.md)
 records exact-source CI, reviewed packages and publication status; a release
 index entry alone does not establish that assets are publicly downloadable.
 
