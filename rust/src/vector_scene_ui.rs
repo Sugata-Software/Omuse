@@ -32,6 +32,13 @@ pub(super) struct SceneDraft {
     pub(super) requested: u64,
     pub(super) running: bool,
     pub(super) builder: Option<super::vector_builder_ui::BuilderDraft>,
+    pub(super) last_transform: Option<super::vector_quick_ui::TransformStep>,
+    pub(super) isolation: Vec<String>,
+    pub(super) gradient_edit: bool,
+    pub(super) gradient_drag: Option<super::vector_gradient_ui::GradientDrag>,
+    pub(super) gesture: Option<super::vector_canvas::SceneGesture>,
+    pub(super) simplify: super::vector_geometry_ui::SimplifyUi,
+    pub(super) contacts: super::vector_snap_ui::ContactSnapUi,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -41,10 +48,13 @@ pub(super) enum SceneMode {
     Pen,
 }
 
+#[derive(Clone)]
 pub(super) struct SceneEdit {
     pub(super) artwork: VectorScene,
+    pub(super) import_compatibility: Option<omuse::compatibility_report::CompatibilityReport>,
     pub(super) active: usize,
     pub(super) selected: Option<(usize, usize)>,
+    pub(super) isolation: Vec<String>,
     pub(super) mode: SceneMode,
     pub(super) selected_objects: std::collections::BTreeSet<usize>,
 }
@@ -120,6 +130,9 @@ pub(super) fn new_object(name: &str, path: VectorPath, color: [u8; 4]) -> Vector
         opacity: 1.,
         visible: true,
         groups: Vec::new(),
+        clip_to: None,
+        is_clip: false,
+        svg_metadata: Vec::new(),
     }
 }
 
@@ -312,6 +325,7 @@ impl EditorView {
             cancel: Arc::new(AtomicBool::new(false)),
             window: window.window_handle(),
             state: None,
+            import_compatibility: None,
             dimensions: (artwork.width, artwork.height),
             path: object.path.clone(),
             as_mask: false,
@@ -355,6 +369,13 @@ impl EditorView {
                 requested: 0,
                 running: false,
                 builder: None,
+                last_transform: None,
+                isolation: Vec::new(),
+                gradient_edit: false,
+                gradient_drag: None,
+                gesture: None,
+                simplify: Default::default(),
+                contacts: Default::default(),
             }),
         });
         self.load_scene_style(window, cx);
@@ -369,6 +390,8 @@ impl EditorView {
             (24, "6"),
             (25, "60"),
             (28, "rotate"),
+            (29, "5"),
+            (30, "50"),
         ] {
             self.detail_inputs[index].update(cx, |input, cx| input.set_value(value, window, cx));
         }
@@ -432,6 +455,14 @@ impl EditorView {
             return;
         };
         scene.builder = None;
+        if scene
+            .simplify
+            .session
+            .as_ref()
+            .is_some_and(|s| s.expected != scene.artwork || s.selected != scene.selected_objects)
+        {
+            scene.simplify.session = None;
+        }
         if let Some(cancel) = &scene.preview_cancel {
             cancel.store(true, Ordering::Relaxed);
         }
@@ -452,7 +483,7 @@ impl EditorView {
         if scene.running || !self.vector_scene_current() {
             return;
         }
-        let artwork = match draft.scene_snapshot() {
+        let mut artwork = match draft.scene_snapshot() {
             Ok(scene) => scene,
             Err(error) => {
                 self.status = error.to_string();
@@ -460,6 +491,14 @@ impl EditorView {
                 return;
             }
         };
+        // Isolation dims only the disposable preview; exports and saved paint stay exact.
+        if !scene.isolation.is_empty() {
+            for object in &mut artwork.objects {
+                if !super::vector_isolation_ui::in_scope(&scene.isolation, object) {
+                    object.opacity *= 0.18;
+                }
+            }
+        }
         let requested = scene.requested;
         let preview_scale = scene.preview_scale;
         let identity = (draft.identity, draft.revision);
@@ -562,8 +601,27 @@ impl EditorView {
         };
         let count = scene.artwork.objects.len();
         match action {
-            "previous" => scene.active = scene.active.saturating_sub(1),
-            "next" => scene.active = (scene.active + 1).min(count - 1),
+            "previous" => {
+                scene.active = (0..scene.active)
+                    .rev()
+                    .find(|index| {
+                        super::vector_isolation_ui::in_scope(
+                            &scene.isolation,
+                            &scene.artwork.objects[*index],
+                        )
+                    })
+                    .unwrap_or(scene.active)
+            }
+            "next" => {
+                scene.active = (scene.active + 1..count)
+                    .find(|index| {
+                        super::vector_isolation_ui::in_scope(
+                            &scene.isolation,
+                            &scene.artwork.objects[*index],
+                        )
+                    })
+                    .unwrap_or(scene.active)
+            }
             "backward" if scene.active > 0 => {
                 scene.artwork.objects.swap(scene.active, scene.active - 1);
                 scene.active -= 1;
@@ -600,10 +658,16 @@ impl EditorView {
                         .subpaths
                         .iter()
                         .all(|s| s.anchors.is_empty());
-                let object = if action == "duplicate" {
+                let mut object = if action == "duplicate" {
                     let mut object = scene.artwork.objects[scene.active].clone();
                     object.id = uuid::Uuid::new_v4().to_string();
                     object.name = format!("{} copy", object.name);
+                    omuse::vector_clip::repair_clones(
+                        &scene.artwork,
+                        &[scene.active],
+                        std::slice::from_mut(&mut object),
+                    )
+                    .expect("Active scene object exists");
                     object
                 } else {
                     let name = match action {
@@ -617,8 +681,29 @@ impl EditorView {
                         draft.fill,
                     )
                 };
+                if action != "duplicate" {
+                    object.stroke = draft.stroke;
+                    object.stroke_options =
+                        scene.artwork.objects[scene.active].stroke_options.clone();
+                    object.groups = scene.artwork.objects[scene.active]
+                        .groups
+                        .iter()
+                        .take(scene.isolation.len())
+                        .cloned()
+                        .collect();
+                }
                 let at = if reuse_empty {
                     0
+                } else if !scene.isolation.is_empty() {
+                    scene
+                        .artwork
+                        .objects
+                        .iter()
+                        .rposition(|object| {
+                            super::vector_isolation_ui::in_scope(&scene.isolation, object)
+                        })
+                        .unwrap_or(scene.active)
+                        + 1
                 } else {
                     super::vector_selection::group_members(&scene.artwork, scene.active)
                         .last()
@@ -782,6 +867,7 @@ impl EditorView {
         let window = draft.window;
         let cancel = draft.cancel.clone();
         let token = cancel.clone();
+        let compatibility = draft.import_compatibility.clone();
         self.busy = true;
         self.status = "Rendering vector artwork…".into();
         let task = cx.background_executor().spawn(async move {
@@ -810,11 +896,23 @@ impl EditorView {
                 let applied = result.and_then(|(artwork, pixels)| {
                     if is_new {
                         this.editor
-                            .insert_vector_scene("Vector artwork", revision, artwork, pixels)
+                            .insert_vector_scene_with_report(
+                                "Vector artwork",
+                                revision,
+                                artwork,
+                                pixels,
+                                compatibility.as_ref(),
+                            )
                             .map(|id| Some(id))
                     } else {
                         this.editor
-                            .replace_vector_scene(&layer, revision, artwork, pixels)
+                            .replace_vector_scene_with_report(
+                                &layer,
+                                revision,
+                                artwork,
+                                pixels,
+                                compatibility.as_ref(),
+                            )
                             .map(|_| None)
                     }
                 });

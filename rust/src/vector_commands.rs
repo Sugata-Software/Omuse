@@ -85,6 +85,34 @@ pub fn apply(
     command: &VectorCommand,
     cancel: &AtomicBool,
 ) -> Result<VectorResult> {
+    apply_with_corner_policy(source, ids, command, true, cancel)
+}
+
+/// Native interactive Simplify shares all admission and scene validation with
+/// typed commands, without changing the saved/wire shape of legacy commands.
+pub fn apply_simplify(
+    source: &VectorScene,
+    ids: &[String],
+    tolerance: f32,
+    preserve_corners: bool,
+    cancel: &AtomicBool,
+) -> Result<VectorResult> {
+    apply_with_corner_policy(
+        source,
+        ids,
+        &VectorCommand::Simplify { tolerance },
+        preserve_corners,
+        cancel,
+    )
+}
+
+fn apply_with_corner_policy(
+    source: &VectorScene,
+    ids: &[String],
+    command: &VectorCommand,
+    preserve_corners: bool,
+    cancel: &AtomicBool,
+) -> Result<VectorResult> {
     source.validate()?;
     command.validate()?;
     ensure!(!cancel.load(Ordering::Relaxed), "Vector command cancelled");
@@ -167,7 +195,12 @@ pub fn apply(
             }
             let mut result = match command {
                 VectorCommand::Simplify { tolerance } => {
-                    vec![geometry::simplify(object, *tolerance, cancel)?]
+                    vec![geometry::simplify_with_corners(
+                        object,
+                        *tolerance,
+                        preserve_corners,
+                        cancel,
+                    )?]
                 }
                 VectorCommand::Offset { distance } => {
                     geometry::offset_path(object, *distance, cancel)?

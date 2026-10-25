@@ -12,7 +12,8 @@ pub use text::{TextOnPath, TextPathAlignment};
 #[path = "vector_scene_hit.rs"]
 mod vector_scene_hit;
 pub use style::{
-    GradientFill, GradientKind, GradientSpread, GradientStop, StrokeCap, StrokeJoin, StrokeOptions,
+    GradientFill, GradientKind, GradientMethod, GradientSpread, GradientStop, StrokeCap,
+    StrokeJoin, StrokeOptions,
 };
 
 use crate::{
@@ -23,13 +24,16 @@ use anyhow::{Context, Result, ensure};
 use image::RgbaImage;
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     mem::size_of,
+    sync::Arc,
     sync::atomic::{AtomicBool, Ordering},
 };
 
 /// Current scene format. Flat scenes may continue using the legacy v1 form.
-pub const VECTOR_SCENE_VERSION: u32 = 4;
+pub const VECTOR_SCENE_VERSION: u32 = 6;
+pub const VECTOR_SCENE_QUALITY_VERSION: u32 = 6;
+pub const VECTOR_SCENE_CLIP_VERSION: u32 = 5;
 pub const VECTOR_SCENE_TEXT_VERSION: u32 = 4;
 pub const VECTOR_SCENE_STYLE_VERSION: u32 = 3;
 pub const VECTOR_SCENE_LEGACY_VERSION: u32 = 1;
@@ -80,6 +84,15 @@ pub struct VectorObject {
     pub visible: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub groups: Vec<VectorGroup>,
+    /// Retained scene object supplying the filled clipping silhouette.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub clip_to: Option<String>,
+    /// Mask geometry remains editable but does not paint as ordinary artwork.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub is_clip: bool,
+    /// Inert SVG leaf metadata; never interpreted as resources or paint.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub svg_metadata: Vec<crate::svg_metadata::SvgAttribute>,
 }
 
 /// A group path entry. Objects sharing the same entry belong to that group;
@@ -110,6 +123,21 @@ impl VectorScene {
         Ok(scene)
     }
 
+    pub fn has_extended_paints(&self) -> bool {
+        self.objects.iter().any(|object| {
+            object
+                .fill_gradient
+                .as_ref()
+                .is_some_and(GradientFill::requires_extended_format)
+        })
+    }
+
+    pub fn has_extended_metadata(&self) -> bool {
+        self.objects
+            .iter()
+            .any(|object| !object.svg_metadata.is_empty())
+    }
+
     pub fn validate(&self) -> Result<()> {
         ensure!(
             (VECTOR_SCENE_LEGACY_VERSION..=VECTOR_SCENE_VERSION).contains(&self.version),
@@ -125,14 +153,29 @@ impl VectorScene {
             "vector scene has too many objects"
         );
         let mut ids = HashSet::with_capacity(self.objects.len());
+        ensure!(
+            self.version >= VECTOR_SCENE_QUALITY_VERSION || !self.has_extended_paints(),
+            "Perceptual or dithered gradients require vector scene version 6"
+        );
         let mut groups: std::collections::HashMap<
             uuid::Uuid,
             (&str, Vec<uuid::Uuid>, usize, usize),
         > = std::collections::HashMap::new();
         let mut anchors = 0usize;
         let mut subpaths = 0usize;
+        let mut metadata_bytes = 0usize;
         for (object_index, object) in self.objects.iter().enumerate() {
             object.validate()?;
+            ensure!(
+                self.version >= VECTOR_SCENE_QUALITY_VERSION || object.svg_metadata.is_empty(),
+                "Retained SVG metadata requires vector scene version 6"
+            );
+            metadata_bytes = metadata_bytes
+                .saturating_add(crate::svg_metadata::logical_bytes(&object.svg_metadata));
+            ensure!(
+                metadata_bytes <= crate::svg_metadata::MAX_SCENE_BYTES,
+                "SVG scene metadata exceeds 64 KiB"
+            );
             ensure!(
                 self.version >= VECTOR_SCENE_TEXT_VERSION || object.text_path.is_none(),
                 "Retained text on a path requires scene version 4"
@@ -210,6 +253,7 @@ impl VectorScene {
                 "vector scene has too many anchors"
             );
         }
+        crate::vector_clip::validate(self)?;
         Ok(())
     }
 
@@ -226,6 +270,8 @@ impl VectorScene {
                     total
                         .saturating_add(object.id.capacity())
                         .saturating_add(object.name.capacity())
+                        .saturating_add(crate::svg_metadata::retained_bytes(&object.svg_metadata))
+                        .saturating_add(object.clip_to.as_ref().map_or(0, String::capacity))
                         .saturating_add(
                             object
                                 .text_path
@@ -341,11 +387,12 @@ impl VectorScene {
             "vector render output exceeds 16 megapixels"
         );
         let mut prepared = Vec::with_capacity(self.objects.len());
+        let mut clip_paths: HashMap<&str, Arc<VectorPath>> = HashMap::new();
         let mut work = 0u64;
         for object in self
             .objects
             .iter()
-            .filter(|object| object.visible && object.opacity > 0.)
+            .filter(|object| object.visible && object.opacity > 0. && !object.is_clip)
         {
             check_cancel(cancel)?;
             let path = transform_path(&object.path, object.transform, region, scale)?;
@@ -459,11 +506,48 @@ impl VectorScene {
                 work <= MAX_SCENE_RENDER_WORK,
                 "vector scene render exceeds work limit"
             );
+            let clip = object
+                .clip_to
+                .as_ref()
+                .map(|id| {
+                    let source = self
+                        .objects
+                        .iter()
+                        .find(|source| &source.id == id)
+                        .expect("validated clip source");
+                    if let Some(path) = clip_paths.get(id.as_str()) {
+                        return Ok::<_, anyhow::Error>(path.clone());
+                    }
+                    let path = Arc::new(transform_path(
+                        &source.path,
+                        source.transform,
+                        region,
+                        scale,
+                    )?);
+                    clip_paths.insert(id.as_str(), path.clone());
+                    Ok(path)
+                })
+                .transpose()?;
+            if let Some(path) = &clip {
+                let flat = path.flatten(0.25, || cancel.load(Ordering::Relaxed))?;
+                let segments = flat.iter().map(|s| s.points.len() as u64).sum::<u64>();
+                work = work.saturating_add(area.saturating_mul(16)).saturating_add(
+                    segments
+                        .saturating_mul(u64::from(bounds.height))
+                        .saturating_mul(4)
+                        .saturating_mul(tile_columns),
+                );
+                ensure!(
+                    work <= MAX_SCENE_RENDER_WORK,
+                    "vector clip render exceeds work limit"
+                );
+            }
             prepared.push(PreparedObject {
                 object,
                 path,
                 stroke,
                 bounds,
+                clip,
             });
         }
 
@@ -520,11 +604,30 @@ impl VectorScene {
                     .with_context(|| {
                         format!("Cannot render vector object {}", prepared.object.name)
                     })?;
+                    let clip_tile = prepared
+                        .clip
+                        .as_ref()
+                        .map(|clip| {
+                            let clip = translated_path(clip, -(tile_x as f32), -(tile_y as f32));
+                            rasterize_rgba(
+                                &clip,
+                                tile_width,
+                                tile_height,
+                                Some([255; 4]),
+                                None,
+                                0.25,
+                                || cancel.load(Ordering::Relaxed),
+                            )
+                        })
+                        .transpose()?;
                     for y in 0..tile_height {
                         check_cancel(cancel)?;
                         for x in 0..tile_width {
                             let mut source = tile.get_pixel(x, y).0;
-                            source[3] = (f32::from(source[3]) * prepared.object.opacity)
+                            let coverage = clip_tile
+                                .as_ref()
+                                .map_or(1., |clip| f32::from(clip.get_pixel(x, y)[3]) / 255.);
+                            source[3] = (f32::from(source[3]) * prepared.object.opacity * coverage)
                                 .round()
                                 .clamp(0., 255.) as u8;
                             if source[3] == 0 {
@@ -562,6 +665,9 @@ impl VectorObject {
             opacity: 1.,
             visible: true,
             groups: Vec::new(),
+            clip_to: None,
+            is_clip: false,
+            svg_metadata: Vec::new(),
         }
     }
 
@@ -667,6 +773,7 @@ impl VectorObject {
     }
 
     fn validate(&self) -> Result<()> {
+        crate::svg_metadata::validate(&self.svg_metadata)?;
         ensure!(
             !self.id.is_empty() && self.id.len() <= MAX_OBJECT_ID_BYTES,
             "invalid vector object identity"
@@ -746,6 +853,7 @@ struct PreparedObject<'a> {
     path: VectorPath,
     stroke: Option<StrokeStyle>,
     bounds: PixelRect,
+    clip: Option<Arc<VectorPath>>,
 }
 
 fn check_cancel(cancel: &AtomicBool) -> Result<()> {

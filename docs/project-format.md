@@ -4,16 +4,52 @@ Every new editable project uses **`.omuse`**, including single canvases and
 multi-page Create collections. Both are directory packages: copy or back up the
 whole directory. Readers identify the contents, not just the filename suffix.
 
-| Package | Manifest | Current write version |
+| Package | Manifest | Published 0.11.0 write version |
 | --- | --- | --- |
 | Single canvas | `manifest.json`, `com.compositor.project` | 10–15, according to retained features |
 | Create collection | `project.json`, `com.omuse.create-project` | 2 |
+
+Development builds add the selective versions below. They are not a claim that
+published 0.11.0 can read those projects. Keep an original before using an
+unreleased feature; `.omuse` remains the editable master.
+
+| Development document version | Required retained content |
+| --- | --- |
+| 16 | Editable vector clipping / scene 5 |
+| 17 | Embedded `.cube` colour-look tables |
+| 18 | Perceptual/dithered gradient semantics or inert SVG application metadata / scene 6 |
+| 19 | `Native16V1` Camera Raw recipe nodes, including disabled or zero-opacity nodes |
+
+The writer selects the highest required version across all layers. Ordinary
+retained 16-bit source images alone keep version 10; plain scene 6 artwork can
+be serialized as compatible scene 5 when it contains neither new paint semantics
+nor extended metadata. A reader rejects a lowered manifest that contains newer
+features. Missing Camera Raw `processing` retains `ByteCompatible` behavior and
+is omitted on resave; it is never silently interpreted as `Native16V1`.
+
+Look tables are embedded values with explicit encoded-sRGB/domain/clipping
+semantics. Native camera processing retains word precision in its declared RGB
+working space; it does not imply sensor-linear RAW, HDR or camera-profile parity.
+Review conversion reports before exporting to SVG/PDF, and keep `.omuse` for
+original gradient controls and editable recipes.
 
 The save dialog adds `.omuse` automatically. An entered `.comp` suffix becomes
 `.omuse`; other suffixes are preserved as part of the name (`photo.png.omuse`).
 An existing destination requires **Replace project**, except when saving the
 currently opened project. Disk changes invalidate the replacement confirmation.
 Background saves verify the destination again before publishing it.
+
+In development builds, a completed publication is distinct from confirmed
+storage/identity verification. An unconfirmed result keeps recovery, dirty state
+and pending-close protection, and offers Retry or Save a Copy. A missing saved
+identity never authorizes a blind overwrite of an existing destination.
+
+Linux exchanges complete package directories atomically. Windows uses a sequence
+of moves; it can briefly leave the destination absent. A failed restoration
+preserves complete old/new packages at explicit recovery paths. A failed final
+backup move retains the old package at its actual location so lazy pages remain
+readable. These cases have deterministic filesystem fault tests; they are not
+evidence of a power-loss experiment or new native Windows qualification.
 
 ## Existing projects and collection migration
 
@@ -158,3 +194,15 @@ round-trip coverage under `rust/tests/`. Run `scripts/test-rust.sh` for the
 current document and synthetic edit/save/reopen/export checks. The inherited
 schema sources and the earlier implementation remain available through the
 [historical source snapshot](source-provenance.md#application-lineage).
+
+### Development Linux package access rules
+
+Replacement preserves recognized generated files/directories' owner/group,
+permission bits and bounded visible extended attributes, including POSIX access
+and default ACLs. New children use the existing directory inheritance policy.
+Staging stays inside a private outer wrapper, and concurrent policy changes or
+unpreservable access metadata refuse publication with the prior package retained.
+Unconfirmed publication retains the previous private payload. This contract does
+not preserve timestamps, inode flags, hidden privileged attributes or qualify
+Windows ACLs. Disposing expired non-retained read-only staging uses Linux
+`/proc/self/fd`; retained backups keep their policy unchanged.

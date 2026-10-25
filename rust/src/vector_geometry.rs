@@ -83,6 +83,10 @@ fn validate_object(object: &VectorObject) -> Result<()> {
 pub(crate) fn validate_input(object: &VectorObject) -> Result<()> {
     validate_object(object)?;
     ensure!(
+        !object.is_clip && object.clip_to.is_none(),
+        "Release editable clipping before converting or combining this path"
+    );
+    ensure!(
         count_anchors(&object.path) <= MAX_GEOMETRY_SEGMENTS,
         "Vector geometry exceeds the 2048-segment work limit; use fewer objects or simplify a traced path first"
     );
@@ -420,6 +424,17 @@ pub fn simplify(
     tolerance: f32,
     cancel: &AtomicBool,
 ) -> Result<VectorObject> {
+    simplify_with_corners(object, tolerance, true, cancel)
+}
+
+/// Explicit native Simplify option. The existing entry point keeps its legacy
+/// corner-preserving behavior; callers may allow reduction across line corners.
+pub fn simplify_with_corners(
+    object: &VectorObject,
+    tolerance: f32,
+    preserve_corners: bool,
+    cancel: &AtomicBool,
+) -> Result<VectorObject> {
     validate_object(object)?;
     check_cancel(cancel)?;
     ensure!(
@@ -459,7 +474,13 @@ pub fn simplify(
                 lines.anchors.first_mut().unwrap().incoming = sub.anchors[0].incoming;
                 lines.anchors.last_mut().unwrap().outgoing = sub.anchors.last().unwrap().outgoing;
             }
-            let reduced = simplify_polyline(&lines, accuracy, &mut distance_tests, cancel)?;
+            let reduced = simplify_polyline(
+                &lines,
+                accuracy,
+                preserve_corners,
+                &mut distance_tests,
+                cancel,
+            )?;
             if reduced.anchors.len() < sub.anchors.len() {
                 *sub = reduced;
             }
@@ -475,14 +496,16 @@ pub fn simplify(
             fill_rule: result.path.fill_rule,
         };
         let input = to_bez(&original);
-        let fitted = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            kurbo::simplify::simplify_bezpath(
-                input.iter(),
-                accuracy,
-                &kurbo::simplify::SimplifyOptions::default(),
-            )
-        }))
-        .map_err(|_| anyhow!("This path could not be simplified safely"))?;
+        let fitted =
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                kurbo::simplify::simplify_bezpath(
+                    input.iter(),
+                    accuracy,
+                    &kurbo::simplify::SimplifyOptions::default()
+                        .angle_thresh(if preserve_corners { 1e-3 } else { 1e6 }),
+                )
+            }))
+            .map_err(|_| anyhow!("This path could not be simplified safely"))?;
         let candidate = from_bez(&fitted, original.fill_rule)?;
         if let [one] = candidate.subpaths.as_slice() {
             let same_ends = sub.closed
@@ -532,6 +555,7 @@ fn straight_subpath(sub: &Subpath) -> bool {
 fn simplify_polyline(
     sub: &Subpath,
     tolerance: f64,
+    preserve_corners: bool,
     work: &mut usize,
     cancel: &AtomicBool,
 ) -> Result<Subpath> {
@@ -554,7 +578,8 @@ fn simplify_polyline(
         let before = points[i] - points[(i + n - 1) % n];
         let after = points[(i + 1) % n] - points[i];
         let length = before.hypot() * after.hypot();
-        if length > 0. && before.dot(after) / length < 30_f64.to_radians().cos() {
+        if preserve_corners && length > 0. && before.dot(after) / length < 30_f64.to_radians().cos()
+        {
             keep[i] = true;
         }
     }

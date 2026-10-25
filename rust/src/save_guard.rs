@@ -10,6 +10,25 @@ use std::{
 };
 
 pub fn package_stamp(path: &Path) -> Option<u64> {
+    package_stamp_with_previous_root(path, None)
+}
+
+/// A directory rename updates only its root ctime on Unix. Verify a restored
+/// tree against the caller's *existing* pre-move stamp without accepting a new
+/// inode or changed child metadata. Normal package_stamp semantics are untouched.
+pub(crate) fn package_stamp_after_directory_rename(
+    path: &Path,
+    previous_root: &fs::Metadata,
+) -> Option<u64> {
+    package_stamp_with_previous_root(path, Some(previous_root))
+}
+
+fn package_stamp_with_previous_root(
+    path: &Path,
+    previous_root: Option<&fs::Metadata>,
+) -> Option<u64> {
+    #[cfg(not(unix))]
+    let _ = previous_root; // Windows' existing stamp does not include ctime.
     let mut hash = std::collections::hash_map::DefaultHasher::new();
     let mut pending = vec![path.to_owned()];
     let mut count = 0usize;
@@ -38,20 +57,56 @@ pub fn package_stamp(path: &Path) -> Option<u64> {
             use std::os::unix::fs::MetadataExt;
             metadata.dev().hash(&mut hash);
             metadata.ino().hash(&mut hash);
-            metadata.ctime().hash(&mut hash);
-            metadata.ctime_nsec().hash(&mut hash);
+            let ctime = if current == path {
+                if let Some(previous) = previous_root {
+                    if metadata.dev() != previous.dev()
+                        || metadata.ino() != previous.ino()
+                        || metadata.mode() != previous.mode()
+                        || metadata.uid() != previous.uid()
+                        || metadata.gid() != previous.gid()
+                        || metadata.nlink() != previous.nlink()
+                    {
+                        return None;
+                    }
+                    previous
+                } else {
+                    &metadata
+                }
+            } else {
+                &metadata
+            };
+            ctime.ctime().hash(&mut hash);
+            ctime.ctime_nsec().hash(&mut hash);
         }
         if metadata.is_dir() {
-            let mut children = fs::read_dir(&current)
-                .ok()?
-                .map(|entry| entry.map(|entry| entry.path()))
-                .collect::<std::io::Result<Vec<_>>>()
-                .ok()?;
+            let remaining = 100_000usize.checked_sub(count + pending.len())?;
+            let mut children = bounded_children(
+                fs::read_dir(&current)
+                    .ok()?
+                    .map(|entry| entry.map(|entry| entry.path())),
+                remaining,
+            )?;
             children.sort();
             pending.extend(children);
         }
     }
     Some(hash.finish())
+}
+
+/// Stop while enumerating, before an adversarial directory can allocate an
+/// unbounded collection that would only be rejected on later traversal.
+fn bounded_children(
+    entries: impl Iterator<Item = std::io::Result<std::path::PathBuf>>,
+    remaining: usize,
+) -> Option<Vec<std::path::PathBuf>> {
+    let mut children = Vec::new();
+    for entry in entries {
+        if children.len() >= remaining {
+            return None;
+        }
+        children.push(entry.ok()?);
+    }
+    Some(children)
 }
 
 /// Read a project package only if its on-disk tree stays unchanged throughout
@@ -186,6 +241,94 @@ impl SaveGuard {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn directory_enumeration_stops_before_exceeding_live_entry_budget() {
+        let read = std::cell::Cell::new(0usize);
+        let entries = (0usize..).map(|index| {
+            read.set(read.get() + 1);
+            Ok(std::path::PathBuf::from(index.to_string()))
+        });
+        assert!(bounded_children(entries, 3).is_none());
+        assert_eq!(
+            read.get(),
+            4,
+            "only one overflow witness is read, never an unbounded collect"
+        );
+        let entries = (0..3).map(|index| Ok(std::path::PathBuf::from(index.to_string())));
+        assert_eq!(bounded_children(entries, 3).unwrap().len(), 3);
+        assert!(bounded_children(std::iter::empty(), 0).unwrap().is_empty());
+    }
+
+    #[test]
+    fn restored_rename_stamp_matches_prior_tree_but_never_adopts_replacement_or_changed_children() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("original.omuse");
+        let aside = temp.path().join("aside");
+        fs::create_dir(&root).unwrap();
+        fs::create_dir(root.join("images")).unwrap();
+        fs::write(root.join("images/pixels"), b"original pixels").unwrap();
+        let prior = package_stamp(&root).unwrap();
+        let root_metadata = fs::symlink_metadata(&root).unwrap();
+        fs::rename(&root, &aside).unwrap();
+        fs::rename(&aside, &root).unwrap();
+        assert_eq!(
+            package_stamp_after_directory_rename(&root, &root_metadata),
+            Some(prior)
+        );
+        let ordinary = package_stamp(&root);
+        assert_eq!(
+            ordinary,
+            package_stamp(&root),
+            "normal stamp remains its actual current metadata"
+        );
+        fs::write(root.join("images/pixels"), b"modified descendant").unwrap();
+        assert_ne!(
+            package_stamp_after_directory_rename(&root, &root_metadata),
+            Some(prior)
+        );
+        fs::rename(&root, &aside).unwrap();
+        fs::create_dir(&root).unwrap();
+        fs::create_dir(root.join("images")).unwrap();
+        fs::write(root.join("images/pixels"), b"original pixels").unwrap();
+        #[cfg(unix)]
+        assert!(
+            package_stamp_after_directory_rename(&root, &root_metadata).is_none(),
+            "replacement inode/dev cannot inherit old identity"
+        );
+        #[cfg(not(unix))]
+        assert_ne!(
+            package_stamp_after_directory_rename(&root, &root_metadata),
+            Some(prior)
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn restored_rename_stamp_refuses_descendant_and_root_permission_metadata_changes() {
+        use std::os::unix::fs::PermissionsExt;
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("project");
+        fs::create_dir(&root).unwrap();
+        fs::write(root.join("asset"), b"pixels").unwrap();
+        let before = package_stamp(&root).unwrap();
+        let metadata = fs::symlink_metadata(&root).unwrap();
+        let original_permissions = fs::metadata(root.join("asset")).unwrap().permissions();
+        let changed = original_permissions.mode() ^ 0o100;
+        fs::set_permissions(root.join("asset"), fs::Permissions::from_mode(changed)).unwrap();
+        assert_ne!(
+            package_stamp_after_directory_rename(&root, &metadata),
+            Some(before)
+        );
+        fs::set_permissions(root.join("asset"), original_permissions).unwrap();
+        fs::set_permissions(
+            &root,
+            fs::Permissions::from_mode(metadata.permissions().mode() ^ 0o100),
+        )
+        .unwrap();
+        assert!(package_stamp_after_directory_rename(&root, &metadata).is_none());
+        fs::set_permissions(&root, metadata.permissions()).unwrap();
+    }
 
     #[test]
     fn consistent_read_returns_a_stamp_only_for_an_unchanged_package() {

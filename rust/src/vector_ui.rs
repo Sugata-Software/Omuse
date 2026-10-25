@@ -18,8 +18,16 @@ mod tests;
 mod vector_builder_ui;
 #[path = "vector_canvas_ui.rs"]
 mod vector_canvas;
+#[path = "vector_clip_ui.rs"]
+mod vector_clip_ui;
 #[path = "vector_geometry_ui.rs"]
 mod vector_geometry_ui;
+#[path = "vector_gradient_ui.rs"]
+mod vector_gradient_ui;
+#[path = "vector_isolation_ui.rs"]
+mod vector_isolation_ui;
+#[path = "vector_quick_ui.rs"]
+mod vector_quick_ui;
 #[path = "vector_repeat_ui.rs"]
 mod vector_repeat_ui;
 #[path = "vector_selection_ui.rs"]
@@ -56,6 +64,7 @@ pub(super) struct VectorDraft {
     cancel: Arc<AtomicBool>,
     window: gpui_kit::AnyWindowHandle,
     state: Option<LayerState>,
+    import_compatibility: Option<omuse::compatibility_report::CompatibilityReport>,
     dimensions: (u32, u32),
     scene: Option<scene::SceneDraft>,
     path: VectorPath,
@@ -342,6 +351,7 @@ impl EditorView {
             snap_indicator: None,
             dimensions: state.source.dimensions(),
             state: Some(state),
+            import_compatibility: None,
             scene: None,
         });
         self.dialog = Dialog::VectorPath;
@@ -541,6 +551,7 @@ impl EditorView {
         let generation = self.dialog_generation;
         let window = draft.window;
         let cancel = draft.cancel.clone();
+        let compatibility = draft.import_compatibility.clone();
         let Some(mut state) = draft.state.clone() else {
             return;
         };
@@ -573,7 +584,13 @@ impl EditorView {
                     cx.notify();
                     return;
                 }
-                match result.and_then(|state| this.editor.replace_vector_state(&layer, state)) {
+                match result.and_then(|state| {
+                    this.editor.replace_vector_state_with_report(
+                        &layer,
+                        state,
+                        compatibility.as_ref(),
+                    )
+                }) {
                     Ok(_) => {
                         this.clear_vector(cx);
                         this.dialog = Dialog::None;
@@ -688,7 +705,17 @@ impl EditorView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.busy || !event.dragging() {
+        if self.busy {
+            return;
+        }
+        if !event.dragging() {
+            self.preview_pen_contacts(event, cx);
+            return;
+        }
+        if let Some(scene) = self.vector_draft.as_mut().and_then(|d| d.scene.as_mut()) {
+            scene.contacts.indicator = None;
+        }
+        if self.vector_gradient_move(event, window, cx) {
             return;
         }
         let Some(point) = self.vector_point(event.position) else {
@@ -772,7 +799,12 @@ impl EditorView {
                         != Some(&drag.original)
             })
         });
-        if finish_node_drag {
+        let direct_drag = self
+            .vector_draft
+            .as_ref()
+            .and_then(|d| d.scene.as_ref())
+            .is_some_and(|s| s.gradient_drag.is_some() || s.drag_origin.is_some());
+        if finish_node_drag || direct_drag {
             // Pointer-up can carry a newer position than the last move. Keep
             // snapping/constraints identical without moving a stationary click.
             self.vector_move(
@@ -798,15 +830,63 @@ impl EditorView {
             draft.snap_cache = None;
             draft.snap_indicator = None;
             if let Some(scene) = draft.scene.as_mut() {
+                scene.contacts.indicator = None;
+                if scene.drag_origin.is_some() {
+                    if let Some(original) = scene.undo.last() {
+                        if let (Some(before), Some(after)) = (
+                            original
+                                .artwork
+                                .objects
+                                .get(scene.active)
+                                .and_then(|o| o.path.bounds()),
+                            scene
+                                .artwork
+                                .objects
+                                .get(scene.active)
+                                .and_then(|o| o.path.bounds()),
+                        ) {
+                            let dx = after.0.x - before.0.x;
+                            let dy = after.0.y - before.0.y;
+                            if dx != 0. || dy != 0. {
+                                scene.last_transform = Some(vector_quick_ui::TransformStep {
+                                    dx,
+                                    dy,
+                                    scale: 1.,
+                                    degrees: 0.,
+                                });
+                            }
+                        }
+                    }
+                }
                 scene.drag_origin = None;
+                scene.gradient_drag = None;
                 scene.marquee = None;
             }
         }
+        self.finish_scene_gesture();
         cx.notify();
     }
 
     fn vector_delete_selected(&mut self, cx: &mut Context<Self>) {
         if self.busy {
+            return;
+        }
+        let protects_mask = self.vector_draft.as_ref().is_some_and(|draft| {
+            draft
+                .scene
+                .as_ref()
+                .is_some_and(|scene| scene.artwork.objects[scene.active].is_clip)
+                && draft.selected.is_some_and(|(si, _)| {
+                    draft
+                        .path
+                        .subpaths
+                        .get(si)
+                        .is_some_and(|path| path.anchors.len() <= 3)
+                })
+        });
+        if protects_mask {
+            self.status = "A clipping mask needs at least three points per closed path. Release the clip before deleting this point.".into();
+            cx.notify();
             return;
         }
         self.scene_checkpoint();
@@ -843,6 +923,13 @@ impl EditorView {
                     .as_ref()
                     .is_none_or(|s| s.artwork.objects[s.active].text_path.is_none()),
                 "Convert text to outlines before editing its nodes"
+            );
+            anyhow::ensure!(
+                draft
+                    .scene
+                    .as_ref()
+                    .is_none_or(|scene| !scene.artwork.objects[scene.active].is_clip),
+                "Release clipping before splitting or joining its mask. Nodes and curves remain editable."
             );
             let (si, ai) = draft
                 .selected
@@ -1281,6 +1368,9 @@ impl EditorView {
                 .disabled(self.busy || !has_segment)
                 .debug_selector(|| "vector-close".into())
                 .on_click(cx.listener(|this, _, _, cx| {
+                    if this.vector_draft.as_ref().is_some_and(|draft| draft.scene.as_ref().is_some_and(|scene| scene.artwork.objects[scene.active].is_clip)) {
+                        this.status = "Release clipping before opening its mask. Nodes and curves remain editable.".into(); cx.notify(); return;
+                    }
                     if !this.busy {
                         this.scene_checkpoint();
                     }
@@ -1482,6 +1572,7 @@ impl EditorView {
                 .child(button("vector-pdf-export", "Export vector PDF", ButtonVariant::Outline, cx)
                     .disabled(self.busy).debug_selector(|| "vector-pdf-export".into())
                     .on_click(cx.listener(|this, _, window, cx| this.choose_vector_pdf_export(window, cx)))))
+            .child(self.vector_report_controls(cx))
             .child(div().text_size(px(11.)).text_color(cx.omarchy().secondary)
                 .child(if is_scene { "SVG keeps objects, groups, gradients and strokes; text becomes outlines. Save .omuse to retain text recipes." } else { "SVG exchanges the selected path. Save .omuse to keep the complete artwork." }))
             .into_any_element()

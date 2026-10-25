@@ -84,17 +84,18 @@ impl TiledRgba16 {
             bytes <= MAX_PRECISION_BYTES as u64,
             "precision image exceeds memory limit"
         );
-        let mut tiles = Vec::with_capacity(tile_count as usize);
+        let mut tiles = Vec::new();
+        tiles.try_reserve_exact(usize::try_from(tile_count)?)?;
         for ty in 0..rows {
             for tx in 0..cols {
                 let tw = (width - tx * tile_size).min(tile_size);
                 let th = (height - ty * tile_size).min(tile_size);
                 let len = usize::try_from(u64::from(tw) * u64::from(th) * 4)
                     .map_err(|_| anyhow::anyhow!("precision tile size overflow"))?;
-                tiles.push(Arc::new(Tile {
-                    width: tw,
-                    pixels: vec![0; len],
-                }));
+                let mut pixels = Vec::new();
+                pixels.try_reserve_exact(len)?;
+                pixels.resize(len, 0);
+                tiles.push(Arc::new(Tile { width: tw, pixels }));
             }
         }
         Ok(Self {
@@ -390,6 +391,9 @@ impl TiledRgba16 {
                     (rgb[2] + blue).clamp(0., 1.),
                 ]
             }),
+            crate::filters::Filter::CubeLook(settings) => {
+                self.cube_look_with_cancel(settings, &mut || false)
+            }
             crate::filters::Filter::Noise {
                 amount,
                 seed,
@@ -440,6 +444,9 @@ impl TiledRgba16 {
         crate::filters::validate(filter)?;
         let mut output = self.clone();
         match filter {
+            crate::filters::Filter::CubeLook(settings) => {
+                output.cube_look_with_cancel(settings, &mut cancelled)?;
+            }
             crate::filters::Filter::GaussianBlur { sigma } => {
                 output.blur_with_cancel(*sigma, &mut cancelled)?
             }
@@ -468,6 +475,40 @@ impl TiledRgba16 {
             _ => output.apply_filter(filter)?,
         }
         Ok(output)
+    }
+
+    fn cube_look_with_cancel(
+        &mut self,
+        settings: &crate::look_lut::Settings,
+        cancelled: &mut impl FnMut() -> bool,
+    ) -> Result<()> {
+        settings.validate()?;
+        if settings.amount == 0. {
+            return Ok(());
+        }
+        let space = self.working_space;
+        for y in 0..self.height {
+            ensure!(!cancelled(), "precision filter cancelled");
+            for x in 0..self.width {
+                let mut p = self.get_pixel(x, y);
+                if p.0[3] == 0 {
+                    continue;
+                }
+                let input = [p.0[0], p.0[1], p.0[2]];
+                let srgb = convert_rgb(
+                    input.map(|v| f32::from(v) / 65_535.),
+                    space,
+                    WorkingSpace::Srgb,
+                );
+                let rgb = convert_rgb(settings.sample(srgb), WorkingSpace::Srgb, space);
+                for c in 0..3 {
+                    p.0[c] = (rgb[c].clamp(0., 1.) * 65_535.).round() as u16;
+                }
+                self.set_pixel(x, y, p)?;
+            }
+        }
+        ensure!(!cancelled(), "precision filter cancelled");
+        Ok(())
     }
 
     pub fn exposure(&mut self, stops: f32) -> Result<()> {

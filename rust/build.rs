@@ -1,6 +1,9 @@
 // Windows: embed the application icon and version information in omuse.exe.
 // Other platforms have nothing to build.
 fn main() {
+    // Linux has no generated inputs. Without an explicit watch Cargo scans the
+    // whole package, so a test-only edit needlessly rebuilds the application.
+    println!("cargo:rerun-if-changed=build.rs");
     #[cfg(windows)]
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
         println!("cargo:rerun-if-changed=assets/windows/omuse.rc");

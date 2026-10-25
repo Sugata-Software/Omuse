@@ -7,8 +7,8 @@
 use crate::{
     vector_path::{Anchor, FillRule, Point, StrokeStyle, Subpath, VectorPath},
     vector_scene::{
-        GradientFill, GradientKind, GradientSpread, GradientStop, StrokeCap, StrokeJoin,
-        StrokeOptions, VectorGroup, VectorObject, VectorScene, style,
+        GradientFill, GradientKind, GradientMethod, GradientSpread, GradientStop, StrokeCap,
+        StrokeJoin, StrokeOptions, VectorGroup, VectorObject, VectorScene, style,
     },
     vector_svg,
 };
@@ -24,6 +24,13 @@ const MAX_INPUT_BYTES: usize = 4 * 1024 * 1024;
 const MAX_OUTPUT_BYTES: usize = MAX_INPUT_BYTES;
 const MAX_XML_DEPTH: usize = 48;
 const MAX_TEXT_CHARACTERS: usize = 4_096;
+type LeafMetadata = HashMap<String, Vec<crate::svg_metadata::SvgAttribute>>;
+type NormalizedSvg = (
+    String,
+    std::collections::HashSet<String>,
+    LeafMetadata,
+    Vec<String>,
+);
 
 /// Appearance conversions are explicit: outlined text and strokes remain
 /// editable geometry, but are no longer live text or width-controlled strokes.
@@ -54,7 +61,7 @@ pub fn decode_scene_with_report(input: &[u8]) -> Result<ImportedScene> {
     // Reject external resources and unsupported compositing before parsing.
     // Text and stroke conversion are bounded and reported to the caller.
     scene_preflight(text)?;
-    let (normalized, hidden_ids) = normalize_hidden(text)?;
+    let (normalized, hidden_ids, metadata, mut warnings) = normalize_hidden(text)?;
     let group_names = group_names(&normalized)?;
     let shape_ids = shape_ids(&normalized)?;
     let font_notices = Arc::new(Mutex::new(Vec::new()));
@@ -70,12 +77,12 @@ pub fn decode_scene_with_report(input: &[u8]) -> Result<ImportedScene> {
     let mut objects = Vec::new();
     let mut group_stack = Vec::new();
     let mut generated = 0usize;
-    let mut warnings = Vec::new();
     collect_nodes(
         tree.root(),
         &group_names,
         &shape_ids,
         &hidden_ids,
+        &metadata,
         1.0,
         false,
         true,
@@ -84,7 +91,21 @@ pub fn decode_scene_with_report(input: &[u8]) -> Result<ImportedScene> {
         &mut generated,
         tiny_skia::Transform::identity(),
         &mut warnings,
+        None,
     )?;
+    // usvg can discard invalid/empty clip references during normalization.
+    // Never reinterpret that lossy fallback as unclipped editable artwork.
+    let declared_clips = roxmltree::Document::parse(text)?
+        .descendants()
+        .filter(|node| node.is_element() && node.attribute("clip-path").is_some())
+        .count();
+    ensure!(
+        objects.iter().filter(|object| object.is_clip).count() == declared_clips,
+        "SVG clipping could not be preserved completely; simplify empty, invalid, or nested clipping before importing"
+    );
+    if objects.iter().any(|object| object.is_clip) {
+        warning(&mut warnings, "SVG clipping masks remain editable geometry. Their original fill and stroke styling is not part of the clipping silhouette; releasing an imported mask restores a plain filled shape.".into());
+    }
     for notice in font_notices.lock().unwrap().iter() {
         warning(&mut warnings, notice.clone());
     }
@@ -93,7 +114,14 @@ pub fn decode_scene_with_report(input: &[u8]) -> Result<ImportedScene> {
         "Editable SVG scene has no painted paths"
     );
     let scene = VectorScene {
-        version: if objects
+        version: if objects.iter().any(|object| !object.svg_metadata.is_empty()) {
+            crate::vector_scene::VECTOR_SCENE_VERSION
+        } else if objects
+            .iter()
+            .any(|object| object.is_clip || object.clip_to.is_some())
+        {
+            crate::vector_scene::VECTOR_SCENE_CLIP_VERSION
+        } else if objects
             .iter()
             .any(|object| object.fill_gradient.is_some() || object.stroke_options.is_some())
         {
@@ -159,6 +187,18 @@ fn text_options(notices: Arc<Mutex<Vec<String>>>) -> usvg::Options<'static> {
 
 pub fn encode_scene(scene: &VectorScene) -> Result<String> {
     scene.validate()?;
+    let raster_count = scene
+        .objects
+        .iter()
+        .filter(|o| !o.is_clip && o.fill_gradient.as_ref().is_some_and(|g| g.dither))
+        .count() as u64;
+    if raster_count > 0 {
+        let pixels = u64::from(scene.width) * u64::from(scene.height);
+        ensure!(
+            pixels <= 4_194_304 && pixels.saturating_mul(raster_count) <= 16_777_216,
+            "Dithered SVG/PDF object conversion exceeds the 4-megapixel per-object or 16-megapixel total export budget; disable Dither or export a smaller raster copy"
+        );
+    }
     let mut output = String::new();
     push(&mut output, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")?;
     push(
@@ -169,13 +209,46 @@ pub fn encode_scene(scene: &VectorScene) -> Result<String> {
         ),
     )?;
     for object in &scene.objects {
-        if let Some(gradient) = &object.fill_gradient {
+        if let Some(gradient) = object.fill_gradient.as_ref().filter(|g| !g.dither) {
             write_gradient(&mut output, &object.id, gradient)?;
         }
     }
+    for object in scene.objects.iter().filter(|object| object.is_clip) {
+        push(
+            &mut output,
+            &format!(
+                "<defs><clipPath id=\"clip-{}\" clipPathUnits=\"userSpaceOnUse\"><path d=\"",
+                xml(&object.id)
+            ),
+        )?;
+        write_path(&mut output, &object.path)?;
+        push(&mut output, "\"")?;
+        push(
+            &mut output,
+            &crate::svg_metadata::export_attributes(&object.svg_metadata)?,
+        )?;
+        let [a, b, c, d, e, f] = object.transform;
+        push(
+            &mut output,
+            &format!(
+                " transform=\"matrix({} {} {} {} {} {})\" clip-rule=\"{}\"/></clipPath></defs>\n",
+                number(a),
+                number(b),
+                number(c),
+                number(d),
+                number(e),
+                number(f),
+                if object.path.fill_rule == FillRule::EvenOdd {
+                    "evenodd"
+                } else {
+                    "nonzero"
+                }
+            ),
+        )?;
+    }
     let mut open = 0usize;
     let mut previous_groups: Vec<VectorGroup> = Vec::new();
-    for object in &scene.objects {
+    for object in scene.objects.iter().filter(|object| !object.is_clip) {
         let common = object
             .groups
             .iter()
@@ -199,6 +272,19 @@ pub fn encode_scene(scene: &VectorScene) -> Result<String> {
             )?;
             open += 1;
         }
+        if let Some(id) = &object.clip_to {
+            push(
+                &mut output,
+                &format!("<g clip-path=\"url(#clip-{})\">", xml(id)),
+            )?;
+        }
+        if object.fill_gradient.as_ref().is_some_and(|g| g.dither) {
+            write_dithered_object(&mut output, scene, object)?;
+            if object.clip_to.is_some() {
+                push(&mut output, "</g>\n")?;
+            }
+            continue;
+        }
         push(&mut output, "  <path")?;
         push(
             &mut output,
@@ -207,6 +293,10 @@ pub fn encode_scene(scene: &VectorScene) -> Result<String> {
                 xml(&object.id),
                 xml(&object.name)
             ),
+        )?;
+        push(
+            &mut output,
+            &crate::svg_metadata::export_attributes(&object.svg_metadata)?,
         )?;
         if object.transform != [1., 0., 0., 1., 0., 0.] {
             let [a, b, c, d, e, f] = object.transform;
@@ -237,6 +327,9 @@ pub fn encode_scene(scene: &VectorScene) -> Result<String> {
             push(&mut output, " visibility=\"hidden\"")?;
         }
         push(&mut output, "/>\n")?;
+        if object.clip_to.is_some() {
+            push(&mut output, "</g>\n")?;
+        }
     }
     while open > 0 {
         push(&mut output, "</g>\n")?;
@@ -259,6 +352,7 @@ fn collect_nodes(
     group_names: &HashMap<String, String>,
     shape_ids: &std::collections::HashSet<String>,
     hidden_ids: &std::collections::HashSet<String>,
+    metadata: &HashMap<String, Vec<crate::svg_metadata::SvgAttribute>>,
     inherited_opacity: f32,
     hidden_ancestor: bool,
     is_root: bool,
@@ -267,14 +361,14 @@ fn collect_nodes(
     generated: &mut usize,
     extra_transform: tiny_skia::Transform,
     warnings: &mut Vec<String>,
+    inherited_clip: Option<&str>,
 ) -> Result<()> {
     ensure!(
         group.blend_mode() == usvg::BlendMode::Normal
             && !group.isolate()
-            && group.clip_path().is_none()
             && group.mask().is_none()
             && group.filters().is_empty(),
-        "SVG group compositing and clipping are unsupported"
+        "SVG group compositing is unsupported"
     );
     let shape_wrapper = group.children().len() == 1
         && matches!(&group.children()[0], usvg::Node::Path(path) if
@@ -308,6 +402,41 @@ fn collect_nodes(
         });
         Some(())
     };
+    let mask = group
+        .clip_path()
+        .map(|clip| {
+            ensure!(
+                inherited_clip.is_none() && clip.clip_path().is_none(),
+                "Nested SVG clipping is unsupported; simplify the clipping hierarchy first"
+            );
+            let path = single_clip_path(clip.root())?;
+            ensure!(
+                path.is_visible() && !hidden_ids.contains(path.id()),
+                "Hidden SVG clip silhouettes cannot be retained as visible editable masks"
+            );
+            let transform = extra_transform
+                .pre_concat(group.abs_transform())
+                .pre_concat(clip.transform())
+                .pre_concat(path.abs_transform());
+            let mut geometry = convert_path(path.data(), transform)?;
+            geometry.fill_rule = path
+                .fill()
+                .map_or(FillRule::NonZero, |fill| match fill.rule() {
+                    usvg::FillRule::EvenOdd => FillRule::EvenOdd,
+                    _ => FillRule::NonZero,
+                });
+            let mut object =
+                VectorObject::new("Clipping mask", geometry, Some([0, 0, 0, 255]), None);
+            object.groups = ancestry.clone();
+            object.is_clip = true;
+            object.svg_metadata = metadata.get(path.id()).cloned().unwrap_or_default();
+            Ok::<_, anyhow::Error>(object)
+        })
+        .transpose()?;
+    let clip_id = mask
+        .as_ref()
+        .map(|mask| mask.id.as_str())
+        .or(inherited_clip);
     for node in group.children() {
         match node {
             usvg::Node::Group(child) => collect_nodes(
@@ -315,6 +444,7 @@ fn collect_nodes(
                 group_names,
                 shape_ids,
                 hidden_ids,
+                metadata,
                 object_opacity,
                 group_hidden,
                 false,
@@ -323,8 +453,15 @@ fn collect_nodes(
                 generated,
                 extra_transform,
                 warnings,
+                clip_id,
             )?,
             usvg::Node::Path(path) => {
+                let metadata_id = if path.id().is_empty() && shape_wrapper {
+                    group.id()
+                } else {
+                    path.id()
+                };
+                let retained_metadata = metadata.get(metadata_id).cloned().unwrap_or_default();
                 let transform = extra_transform.pre_concat(path.abs_transform());
                 ensure!(
                     path.paint_order() == usvg::PaintOrder::FillAndStroke,
@@ -401,11 +538,16 @@ fn collect_nodes(
                         opacity: object_opacity,
                         visible,
                         groups: ancestry.clone(),
+                        clip_to: clip_id.map(str::to_owned),
+                        is_clip: false,
+                        svg_metadata: retained_metadata.clone(),
                     });
                 }
                 if expand_stroke {
-                    let outline =
+                    let mut outline =
                         expanded_stroke(path, transform, name, object_opacity, visible, ancestry)?;
+                    outline.clip_to = clip_id.map(str::to_owned);
+                    outline.svg_metadata = retained_metadata;
                     *generated += outline
                         .path
                         .subpaths
@@ -448,6 +590,7 @@ fn collect_nodes(
                     group_names,
                     shape_ids,
                     hidden_ids,
+                    metadata,
                     object_opacity,
                     group_hidden || hidden_ids.contains(text.id()),
                     false,
@@ -456,8 +599,10 @@ fn collect_nodes(
                     generated,
                     extra_transform.pre_concat(text.abs_transform()),
                     warnings,
+                    clip_id,
                 )?;
                 for object in &mut output[first..] {
+                    object.svg_metadata = metadata.get(text.id()).cloned().unwrap_or_default();
                     object.name = format!(
                         "{} · outlines",
                         group_names.get(text.id()).map_or(text.id(), String::as_str)
@@ -467,10 +612,39 @@ fn collect_nodes(
             }
         }
     }
+    if let Some(mask) = mask {
+        let has_contents = output
+            .iter()
+            .any(|object| object.clip_to.as_deref() == Some(mask.id.as_str()));
+        if has_contents {
+            output.push(mask);
+        }
+    }
     if pushed.is_some() {
         ancestry.pop();
     }
     Ok(())
+}
+
+/// usvg preserves a transformed clip child in structural single-child groups.
+/// Traverse only those wrappers; actual multi-shape or compositing masks remain
+/// unsupported and are refused before any appearance can be lost.
+fn single_clip_path(group: &usvg::Group) -> Result<&usvg::Path> {
+    ensure!(
+        group.children().len() == 1
+            && group.clip_path().is_none()
+            && group.mask().is_none()
+            && group.filters().is_empty()
+            && group.blend_mode() == usvg::BlendMode::Normal
+            && !group.isolate()
+            && group.opacity().get() == 1.,
+        "Editable SVG clipping requires one compound path without nested clipping or compositing"
+    );
+    match &group.children()[0] {
+        usvg::Node::Path(path) => Ok(path),
+        usvg::Node::Group(child) => single_clip_path(child),
+        _ => bail!("Editable SVG clipping requires one compound path per mask"),
+    }
 }
 
 fn painted_paths(group: &usvg::Group) -> usize {
@@ -584,6 +758,9 @@ fn expanded_stroke(
         opacity,
         visible,
         groups: groups.to_vec(),
+        clip_to: None,
+        is_clip: false,
+        svg_metadata: Vec::new(),
     })
 }
 
@@ -618,6 +795,7 @@ fn scene_preflight(text: &str) -> Result<()> {
             <= 128,
         "Editable SVG exceeds 128 text elements"
     );
+    let mut metadata_bytes = 0usize;
     for node in doc.descendants().filter(|node| node.is_element()) {
         ensure!(
             node.ancestors().count() <= MAX_XML_DEPTH,
@@ -648,6 +826,7 @@ fn scene_preflight(text: &str) -> Result<()> {
                     | "desc"
                     | "metadata"
                     | "defs"
+                    | "clipPath"
                     | "linearGradient"
                     | "radialGradient"
                     | "stop"
@@ -656,8 +835,25 @@ fn scene_preflight(text: &str) -> Result<()> {
             ),
             "Unsupported SVG element <{tag}>"
         );
+        let mut inert = Vec::new();
         for attribute in node.attributes() {
             let name = attribute.name();
+            ensure!(
+                !name.to_ascii_lowercase().starts_with("on"),
+                "SVG event handlers are unsupported"
+            );
+            let prefix = attribute
+                .namespace()
+                .and_then(|namespace| node.lookup_prefix(namespace));
+            if let Some(attribute) = crate::svg_metadata::from_xml(
+                attribute.namespace(),
+                prefix,
+                name,
+                attribute.value(),
+            )? {
+                inert.push(attribute);
+                continue;
+            }
             let value = attribute.value().to_ascii_lowercase();
             ensure!(
                 (attribute.namespace().is_none()
@@ -668,10 +864,7 @@ fn scene_preflight(text: &str) -> Result<()> {
                 "SVG resource references are unsupported"
             );
             ensure!(
-                !matches!(
-                    name,
-                    "mix-blend-mode" | "isolation" | "clip-path" | "mask" | "filter"
-                ),
+                !matches!(name, "mix-blend-mode" | "isolation" | "mask" | "filter"),
                 "SVG compositing and clipping are unsupported"
             );
             ensure!(
@@ -680,7 +873,7 @@ fn scene_preflight(text: &str) -> Result<()> {
             );
             if value.contains("url(") {
                 ensure!(
-                    matches!(name, "fill" | "stroke" | "style"),
+                    matches!(name, "fill" | "stroke" | "style" | "clip-path"),
                     "Only local fill or stroke gradient references are supported"
                 );
                 for reference in attribute.value().split("url(").skip(1) {
@@ -697,16 +890,32 @@ fn scene_preflight(text: &str) -> Result<()> {
                             && doc
                                 .descendants()
                                 .any(|target| target.attribute("id") == Some(id)
-                                    && matches!(
-                                        target.tag_name().name(),
-                                        "linearGradient" | "radialGradient"
-                                    )),
+                                    && if name == "clip-path" {
+                                        target.has_tag_name("clipPath")
+                                    } else {
+                                        matches!(
+                                            target.tag_name().name(),
+                                            "linearGradient" | "radialGradient"
+                                        )
+                                    }),
                         "Gradient reference must name a local linear or radial gradient"
                     );
                 }
                 ensure!(
                     !value.contains("url (") && attribute.value().contains("url("),
                     "Invalid gradient reference syntax"
+                );
+            }
+            if name == "clipPathUnits" {
+                ensure!(
+                    value == "userspaceonuse",
+                    "Object-bounding-box SVG clips are unsupported; convert to user-space coordinates"
+                );
+            }
+            if name == "clip-path" {
+                ensure!(
+                    attribute.value().starts_with("url(#") && attribute.value().ends_with(')'),
+                    "Only local SVG clipping references are supported"
                 );
             }
             if name == "color-interpolation" {
@@ -784,6 +993,11 @@ fn scene_preflight(text: &str) -> Result<()> {
                 }
             }
         }
+        metadata_bytes = metadata_bytes.saturating_add(crate::svg_metadata::validate(&inert)?);
+        ensure!(
+            metadata_bytes <= crate::svg_metadata::MAX_SCENE_BYTES,
+            "SVG metadata exceeds the 64 KiB document budget"
+        );
     }
     Ok(())
 }
@@ -850,7 +1064,7 @@ fn shape_ids(text: &str) -> Result<std::collections::HashSet<String>> {
 /// in the temporary tree, and assign stable IDs to otherwise anonymous paint
 /// nodes.  This uses roxmltree's parsed attributes rather than textual replaces,
 /// so quoting and whitespace in the source are immaterial.
-fn normalize_hidden(text: &str) -> Result<(String, std::collections::HashSet<String>)> {
+fn normalize_hidden(text: &str) -> Result<NormalizedSvg> {
     let doc = roxmltree::Document::parse_with_options(
         text,
         roxmltree::ParsingOptions {
@@ -863,6 +1077,8 @@ fn normalize_hidden(text: &str) -> Result<(String, std::collections::HashSet<Str
     let mut hidden_ids = std::collections::HashSet::new();
     let mut generated = 0usize;
     let mut used_ids = std::collections::HashSet::new();
+    let mut metadata = LeafMetadata::new();
+    let mut notices = Vec::new();
     for node in doc.descendants().filter(|node| node.is_element()) {
         if let Some(id) = node.attribute("id") {
             ensure!(used_ids.insert(id.to_owned()), "SVG contains duplicate IDs");
@@ -874,6 +1090,8 @@ fn normalize_hidden(text: &str) -> Result<(String, std::collections::HashSet<Str
         &mut hidden_ids,
         &mut generated,
         &mut used_ids,
+        &mut metadata,
+        &mut notices,
         false,
         false,
     )?;
@@ -881,7 +1099,7 @@ fn normalize_hidden(text: &str) -> Result<(String, std::collections::HashSet<Str
         normalized.len() <= MAX_INPUT_BYTES,
         "Editable SVG input exceeds 4 MiB"
     );
-    Ok((normalized, hidden_ids))
+    Ok((normalized, hidden_ids, metadata, notices))
 }
 
 fn serialize_svg_node(
@@ -890,6 +1108,8 @@ fn serialize_svg_node(
     hidden_ids: &mut std::collections::HashSet<String>,
     generated: &mut usize,
     used_ids: &mut std::collections::HashSet<String>,
+    metadata: &mut LeafMetadata,
+    notices: &mut Vec<String>,
     display_hidden_ancestor: bool,
     visibility_hidden_ancestor: bool,
 ) -> Result<()> {
@@ -924,8 +1144,19 @@ fn serialize_svg_node(
     out.push_str(tag);
     let mut has_svg_namespace = false;
     let mut wrote_visible_style = false;
+    let mut retained_metadata = Vec::new();
     for attribute in node.attributes() {
         let name = attribute.name();
+        let prefix = attribute
+            .namespace()
+            .and_then(|namespace| node.lookup_prefix(namespace));
+        if let Some(attribute) =
+            crate::svg_metadata::from_xml(attribute.namespace(), prefix, name, attribute.value())?
+        {
+            retained_metadata.push(attribute);
+            // Never delegate inert, foreign attributes to the SVG interpreter.
+            continue;
+        }
         if name == "xmlns" {
             has_svg_namespace = true;
         }
@@ -952,6 +1183,20 @@ fn serialize_svg_node(
         out.push_str("=\"");
         out.push_str(&xml(attribute.value()));
         out.push('"');
+    }
+    if !retained_metadata.is_empty() {
+        if matches!(
+            tag,
+            "path" | "rect" | "circle" | "ellipse" | "line" | "polyline" | "polygon" | "text"
+        ) {
+            metadata.insert(
+                id.clone()
+                    .context("SVG metadata requires a retained leaf identity")?,
+                retained_metadata,
+            );
+        } else {
+            warning(notices, "Inert SVG metadata on root, groups, definitions or text spans was not retained; only metadata on supported leaf artwork is preserved.".into());
+        }
     }
     if tag == "svg" && !has_svg_namespace {
         out.push_str(" xmlns=\"http://www.w3.org/2000/svg\"");
@@ -986,6 +1231,8 @@ fn serialize_svg_node(
                 hidden_ids,
                 generated,
                 used_ids,
+                metadata,
+                notices,
                 display_hidden_ancestor || display_hidden,
                 effective_visibility_hidden,
             )?;
@@ -1411,6 +1658,8 @@ fn gradient_paint(
             usvg::SpreadMethod::Reflect => GradientSpread::Reflect,
         },
         transform: style::matrix(transform.pre_concat(base.transform())),
+        method: Default::default(),
+        dither: false,
     };
     gradient.validate()?;
     Ok(Some(gradient))
@@ -1491,16 +1740,101 @@ fn write_gradient(out: &mut String, id: &str, gradient: &GradientFill) -> Result
             xml(id)
         ),
     )?;
-    for stop in &gradient.stops {
-        let [r, g, b, a] = stop.color;
-        push(
-            out,
-            &format!(
-                "<stop offset=\"{}\" stop-color=\"#{r:02X}{g:02X}{b:02X}\" stop-opacity=\"{}\"/>",
-                number(stop.offset),
-                alpha(a)
-            ),
-        )?;
+    if gradient.method == GradientMethod::Perceptual {
+        for (offset, color) in gradient.expanded_stops()? {
+            push(
+                out,
+                &format!(
+                    "<stop offset=\"{}\" stop-color=\"rgb({}%,{}%,{}%)\" stop-opacity=\"{}\"/>",
+                    number(offset),
+                    number(color[0] * 100.),
+                    number(color[1] * 100.),
+                    number(color[2] * 100.),
+                    number(color[3])
+                ),
+            )?;
+        }
+    } else {
+        for stop in &gradient.stops {
+            let [r, g, b, a] = stop.color;
+            push(
+                out,
+                &format!(
+                    "<stop offset=\"{}\" stop-color=\"#{r:02X}{g:02X}{b:02X}\" stop-opacity=\"{}\"/>",
+                    number(stop.offset),
+                    alpha(a)
+                ),
+            )?;
+        }
     }
     push(out, &format!("</{tag}></defs>\n"))
+}
+
+fn write_dithered_object(
+    out: &mut String,
+    scene: &VectorScene,
+    object: &VectorObject,
+) -> Result<()> {
+    let mut standalone = object.clone();
+    standalone.clip_to = None;
+    standalone.groups.clear();
+    standalone.visible = true;
+    let image = VectorScene {
+        version: scene.version,
+        width: scene.width,
+        height: scene.height,
+        objects: vec![standalone],
+    }
+    .render(&std::sync::atomic::AtomicBool::new(false))?;
+    let mut bytes = Vec::new();
+    {
+        let mut encoder = png::Encoder::new(&mut bytes, image.width(), image.height());
+        encoder.set_color(png::ColorType::Rgba);
+        encoder.set_depth(png::BitDepth::Eight);
+        encoder.set_compression(png::Compression::Fast);
+        let mut writer = encoder.write_header()?;
+        writer.write_image_data(image.as_raw())?;
+    }
+    ensure!(
+        bytes.len().div_ceil(3).saturating_mul(4) <= MAX_OUTPUT_BYTES.saturating_sub(out.len()),
+        "Dithered SVG/PDF embedded image exceeds the 4 MiB export budget"
+    );
+    push(
+        out,
+        &format!(
+            "<image id=\"{}\" data-name=\"{}\"{} x=\"0\" y=\"0\" width=\"{}\" height=\"{}\"{} href=\"data:image/png;base64,",
+            xml(&object.id),
+            xml(&object.name),
+            crate::svg_metadata::export_attributes(&object.svg_metadata)?,
+            scene.width,
+            scene.height,
+            if object.visible {
+                ""
+            } else {
+                " visibility=\"hidden\""
+            }
+        ),
+    )?;
+    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    for chunk in bytes.chunks(3) {
+        let bits = (u32::from(chunk[0]) << 16)
+            | (u32::from(*chunk.get(1).unwrap_or(&0)) << 8)
+            | u32::from(*chunk.get(2).unwrap_or(&0));
+        let encoded = [
+            ALPHABET[((bits >> 18) & 63) as usize],
+            ALPHABET[((bits >> 12) & 63) as usize],
+            if chunk.len() > 1 {
+                ALPHABET[((bits >> 6) & 63) as usize]
+            } else {
+                b'='
+            },
+            if chunk.len() > 2 {
+                ALPHABET[(bits & 63) as usize]
+            } else {
+                b'='
+            },
+        ];
+        push(out, std::str::from_utf8(&encoded).unwrap())?;
+    }
+    push(out, "\"/>\n")
 }

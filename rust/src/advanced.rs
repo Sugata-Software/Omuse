@@ -223,6 +223,68 @@ impl LayerState {
         Ok(())
     }
 
+    /// Prepare one native Camera Raw node from the current retained result.
+    /// Evaluation and stage sampling share the same kernel run. The caller must
+    /// guard editor/selection identity before committing this immutable value.
+    pub fn with_native_camera_raw(
+        &self,
+        settings: crate::camera_raw::Settings,
+        mask: Option<crate::advanced_ops::SoftMask>,
+        cancel: &AtomicBool,
+        stage: Option<crate::camera_raw::SampleStage>,
+    ) -> Result<(Self, Option<TiledImage16>)> {
+        self.validate()?;
+        ensure!(
+            self.recipe.vector.is_none() && matches!(self.recipe.component, Component::Image),
+            "Native Camera Raw requires an image component"
+        );
+        ensure!(
+            self.result.working_space() == self.recipe.working_space
+                && self.source.working_space() == self.recipe.working_space,
+            "Retained source and recipe working spaces differ"
+        );
+        ensure!(
+            settings.processing == crate::camera_raw::Processing::Native16V1,
+            "Native Camera Raw requires Native16V1 processing"
+        );
+        ensure!(
+            self.recipe.nodes.len() < 128,
+            "At most 128 editable filters per layer"
+        );
+        let node = FilterNode {
+            id: uuid::Uuid::new_v4().to_string(),
+            name: "Camera Raw".into(),
+            enabled: true,
+            opacity: 1.,
+            operation: AdvancedOperation::CameraRaw(settings.clone()),
+            soft_mask: mask,
+        };
+        crate::advanced_ops::validate_stack_dimensions(
+            self.result.width(),
+            self.result.height(),
+            std::slice::from_ref(&node),
+        )?;
+        let (computed, sample) = if let Some(stage) = stage {
+            let (result, sample) = crate::camera_raw::native::apply_with_sample(
+                &self.result,
+                &settings,
+                cancel,
+                stage,
+            )?;
+            (result, Some(sample))
+        } else {
+            (
+                crate::camera_raw::native::apply(&self.result, &settings, cancel)?,
+                None,
+            )
+        };
+        let mut next = self.clone();
+        next.result = Arc::new(blend_native_camera(&self.result, &computed, &node, cancel)?);
+        next.recipe.nodes.push(node);
+        next.validate()?;
+        Ok((next, sample))
+    }
+
     pub fn evaluate(&self, cancel: &AtomicBool) -> Result<Self> {
         self.validate()?;
         ensure!(!cancel.load(Ordering::Relaxed), "Edit cancelled");
@@ -251,6 +313,15 @@ impl LayerState {
                 continue;
             }
             let computed = match &node.operation {
+                AdvancedOperation::CameraRaw(settings)
+                    if settings.processing == crate::camera_raw::Processing::Native16V1 =>
+                {
+                    ensure!(
+                        result.working_space() == self.recipe.working_space,
+                        "Retained source and recipe working spaces differ"
+                    );
+                    crate::camera_raw::native::apply(&result, settings, cancel)?
+                }
                 AdvancedOperation::Filter(filter) => {
                     result.filtered_with_cancel(filter, || cancel.load(Ordering::Relaxed))?
                 }
@@ -274,6 +345,11 @@ impl LayerState {
                     }
                 }
             };
+            if matches!(&node.operation,AdvancedOperation::CameraRaw(settings) if settings.processing==crate::camera_raw::Processing::Native16V1)
+            {
+                result = blend_native_camera(&result, &computed, node, cancel)?;
+                continue;
+            }
             let mut blended = result.to_rgba16();
             let filtered = computed.to_rgba16();
             for (index, (dst, src)) in blended.pixels_mut().zip(filtered.pixels()).enumerate() {
@@ -523,6 +599,71 @@ fn blended_width(dimensions: (u32, u32)) -> usize {
 /// Bound committed editable assets, including operation masks and embedded RAW.
 /// Shared source tiles are conservatively charged per layer; this also keeps
 /// a saved package within the same budget after sharing is reconstructed.
+/// The native node has equal-alpha point edits or coverage-changing geometry.
+/// Equal-alpha colour blending preserves hidden words exactly and agrees with
+/// the existing compositor; differing coverage blends associated colour.
+fn blend_native_camera(
+    source: &TiledImage16,
+    computed: &TiledImage16,
+    node: &FilterNode,
+    cancel: &AtomicBool,
+) -> Result<TiledImage16> {
+    ensure!(
+        source.dimensions() == computed.dimensions()
+            && source.working_space() == computed.working_space(),
+        "Native Camera Raw result space/dimensions differ"
+    );
+    if node.opacity == 1. && node.soft_mask.is_none() {
+        return Ok(computed.clone());
+    }
+    let mut output = TiledImage16::new(source.width(), source.height(), source.working_space())?;
+    for y in 0..source.height() {
+        ensure!(!cancel.load(Ordering::Relaxed), "Edit cancelled");
+        for x in 0..source.width() {
+            let i = y as usize * source.width() as usize + x as usize;
+            let mut dst = source.get_pixel(x, y).0;
+            let src = computed.get_pixel(x, y).0;
+            let t = f64::from(
+                node.opacity
+                    * node
+                        .soft_mask
+                        .as_ref()
+                        .map_or(1., |m| m.data[i] as f32 / 255.),
+            );
+            if t == 0. {
+                output.set_pixel(x, y, crate::precision::Rgba16(dst))?;
+                continue;
+            }
+            if dst[3] == src[3] {
+                for ch in 0..3 {
+                    dst[ch] = (f64::from(dst[ch]) * (1. - t) + f64::from(src[ch]) * t)
+                        .round()
+                        .clamp(0., 65535.) as u16;
+                }
+            } else {
+                let a0 = f64::from(dst[3]) / 65535.;
+                let a1 = f64::from(src[3]) / 65535.;
+                let alpha = a0 * (1. - t) + a1 * t;
+                for ch in 0..3 {
+                    dst[ch] = if alpha > 0. {
+                        ((f64::from(dst[ch]) * a0 * (1. - t) + f64::from(src[ch]) * a1 * t) / alpha)
+                            .round()
+                            .clamp(0., 65535.) as u16
+                    } else {
+                        (f64::from(dst[ch]) * (1. - t) + f64::from(src[ch]) * t)
+                            .round()
+                            .clamp(0., 65535.) as u16
+                    };
+                }
+                dst[3] = (alpha * 65535.).round() as u16;
+            }
+            output.set_pixel(x, y, crate::precision::Rgba16(dst))?;
+        }
+    }
+    ensure!(!cancel.load(Ordering::Relaxed), "Edit cancelled");
+    Ok(output)
+}
+
 pub fn validate_document_budget(document: &crate::model::Document) -> Result<()> {
     fn visit(layers: &[crate::model::Layer], total: &mut usize) -> Result<()> {
         for layer in layers {

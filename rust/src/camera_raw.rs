@@ -4,6 +4,8 @@ use image::RgbaImage;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 
+#[path = "camera_raw16.rs"]
+pub mod native;
 #[path = "camera_preview.rs"]
 pub mod preview;
 
@@ -322,9 +324,25 @@ impl ToneMapping {
     }
 }
 
+/// Missing processing metadata preserves every existing byte recipe. Precision
+/// is independent of ToneMapping; unknown versions fail deserialization.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Processing {
+    #[default]
+    ByteCompatible,
+    Native16V1,
+}
+impl Processing {
+    fn is_byte(&self) -> bool {
+        *self == Self::ByteCompatible
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields, rename_all = "camelCase")]
 pub struct Settings {
+    #[serde(default, skip_serializing_if = "Processing::is_byte")]
+    pub processing: Processing,
     #[serde(default, skip_serializing_if = "ToneMapping::is_legacy")]
     pub tone_mapping: ToneMapping,
     pub white_balance: WhiteBalance,
@@ -366,6 +384,7 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
+            processing: Processing::ByteCompatible,
             tone_mapping: ToneMapping::Legacy,
             white_balance: WhiteBalance::Custom,
             temperature: 0.,
@@ -406,6 +425,12 @@ impl Default for Settings {
     }
 }
 impl Settings {
+    pub fn for_native_edit() -> Self {
+        Self {
+            processing: Processing::Native16V1,
+            ..Self::for_new_edit()
+        }
+    }
     /// For a newly initiated edit. `Default` remains the stored legacy contract.
     pub fn for_new_edit() -> Self {
         Self {
@@ -1897,6 +1922,10 @@ fn develop(
     capture: Option<SampleStage>,
 ) -> Result<(RgbaImage, Option<RgbaImage>)> {
     check_cancel(cancel)?;
+    ensure!(
+        s.processing == Processing::ByteCompatible,
+        "Native16V1 requires a retained Camera Raw source"
+    );
     ensure!(
         crate::model::valid_dimensions(i.width(), i.height())
             && u64::from(i.width()) * u64::from(i.height()) <= 16_777_216,

@@ -1,5 +1,6 @@
-//! Vector-only PDF export from Omuse's bounded scene/path representation.
-//! No arbitrary PDF, external SVG resources, raster effects or fonts are read.
+//! PDF export from Omuse's bounded scene/path representation. Dithered fills
+//! may embed explicitly reported, bounded object rasterizations; other objects
+//! retain vector geometry. No arbitrary PDF, SVG resource or font is read.
 use crate::{
     vector_scene::VectorScene,
     vector_svg::{self, PreparedExport, SvgArtwork},
@@ -9,7 +10,36 @@ use anyhow::{Context, Result, ensure};
 use std::path::Path;
 
 pub fn encode_scene(scene: &VectorScene, dpi: f32) -> Result<Vec<u8>> {
-    encode_svg(&vector_svg_scene::encode_scene(scene)?, dpi)
+    let svg = vector_svg_scene::encode_scene(scene)?;
+    if scene.objects.iter().any(|object| object.is_clip) {
+        // Normalizers may discard a degenerate clip. Reject conversion rather
+        // than risk publishing contents outside their retained silhouette.
+        // Paint conversion is deliberately richer than editable SVG import:
+        // dither embeds bounded pixels; perceptual interpolation expands stops.
+        // Validate only the unchanged clipping geometry using solid fills on a
+        // companion scene. Import still refuses arbitrary images/resources and
+        // excessive editable stops. Actual PDF paints never use this companion.
+        let validation_svg;
+        let validation_input = if scene
+            .objects
+            .iter()
+            .any(|object| object.fill_gradient.is_some())
+        {
+            let mut geometry = scene.clone();
+            for object in &mut geometry.objects {
+                if object.fill_gradient.take().is_some() {
+                    object.fill = Some([0, 0, 0, 255]);
+                }
+            }
+            validation_svg = vector_svg_scene::encode_scene(&geometry)?;
+            validation_svg.as_str()
+        } else {
+            svg.as_str()
+        };
+        vector_svg_scene::decode_scene(validation_input.as_bytes())
+            .context("Cannot preserve this clipping silhouette in vector PDF")?;
+    }
+    encode_svg(&svg, dpi)
 }
 
 pub fn encode_path(artwork: &SvgArtwork, dpi: f32) -> Result<Vec<u8>> {

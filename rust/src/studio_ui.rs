@@ -185,6 +185,8 @@ impl EditorView {
             || self.inline_text.is_some()
             || self.vector_scene_active()
             || self.image_trace_active()
+            || self.guided_mask_active()
+            || self.guided_mask_has_work()
     }
 
     pub(super) fn studio_action_disabled(&self, id: &str) -> bool {
@@ -631,7 +633,11 @@ impl EditorView {
             for pair in group.chunks(2) {
                 let mut row = div().flex().gap(px(4.));
                 for &tool in pair {
-                    let selected = self.tool == tool;
+                    let selected = if self.vector_gradient_active() {
+                        tool == Tool::Gradient
+                    } else {
+                        self.tool == tool
+                    };
                     let key = match tool {
                         Tool::Text => "text",
                         _ => tool.studio_id(),
@@ -657,7 +663,7 @@ impl EditorView {
                             .child(glyph(tool.studio_icon()))
                             .disabled(self.busy || self.inline_text.is_some() || (self.image_trace_active() && tool != Tool::Hand))
                             .on_click(cx.listener(move |this, _, window, cx| {
-                                if tool != Tool::Hand && this.guard_image_trace(cx) { return; }
+                                if tool != Tool::Hand && (this.guard_guided_mask(cx) || this.guard_image_trace(cx)) { return; }
                                 if this.vector_before_tool(tool, window, cx) { return; }
                                 if this.editor.floating_selection_layer().is_some() {
                                     this.status = "Commit Selection or Cancel Selection before changing tools".into();
@@ -898,6 +904,9 @@ impl EditorView {
         }
         if !self.inspector_visible {
             return div().into_any_element();
+        }
+        if self.guided_mask_active() {
+            return self.guided_mask_inspector(window, cx);
         }
         if self.image_trace_active() {
             return self.image_trace_inspector(window, cx);

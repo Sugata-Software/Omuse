@@ -3,6 +3,7 @@
 //! Recovery packages are never user save targets. UUID names avoid PID reuse and
 //! same-process window collisions. A worker holds its lock until every accepted
 //! write/clear finishes; discovery returns only unlocked packages and retains them.
+use anyhow::Context as _;
 use omuse::{document, model::Document};
 use std::{
     fs::{self, File, OpenOptions},
@@ -410,10 +411,12 @@ fn save_snapshot_at(
     }
 }
 
-struct RecoveryStage(PathBuf);
+struct RecoveryStage(PathBuf, bool);
 impl Drop for RecoveryStage {
     fn drop(&mut self) {
-        let _ = fs::remove_dir_all(&self.0);
+        if !self.1 {
+            let _ = fs::remove_dir_all(&self.0);
+        }
     }
 }
 
@@ -439,31 +442,72 @@ fn save_snapshot(snapshot: RecoverySnapshot, shared: &Shared, path: &Path) -> an
         .parent()
         .ok_or_else(|| anyhow::anyhow!("Recovery directory is unavailable"))?;
     let stage_path = parent.join(format!(".omuse-recovery-stage-{}", uuid::Uuid::new_v4()));
-    fs::create_dir(&stage_path)?;
-    let stage = RecoveryStage(stage_path);
+    omuse::durable_fs::create_private_directory(&stage_path)?;
+    let mut stage = RecoveryStage(stage_path, false);
     let prepared = stage.0.join("snapshot.omuse");
     save_snapshot_at(snapshot, shared, &prepared)?;
+    let metadata_guard = omuse::durable_fs::PackageMetadataGuard::capture(path)?;
+    metadata_guard.finalize(&prepared, &[])?;
+    omuse::durable_fs::sync_directory(&stage.0)?;
     #[cfg(test)]
     {
         let pause = shared.lock().pause_before_format_exchange.take();
         if let Some(pause) = pause {
             let _ = pause.staged.send(());
-            // Dropping the test's sender also releases the worker, so a failed
+            // The package is fully finalized and synced before this exact
+            // pre-exchange pause. Dropping the sender releases the worker; a failed
             // assertion cannot leave Recovery::drop waiting on this hook.
             let _ = pause.resume.recv();
         }
     }
     recovery_publish_is_current(shared)?;
-    exchange_recovery(&prepared, path)?;
-    // Publication has succeeded; match the package writers' best-effort
-    // parent sync rather than reporting a completed exchange as an old save.
-    let _ = omuse::durable_fs::sync_path(parent);
+    metadata_guard.verify()?;
+    let previous = match exchange_recovery(&prepared, path) {
+        Ok(previous) => previous,
+        Err(error) => {
+            if error
+                .downcast_ref::<omuse::durable_fs::ExchangeError>()
+                .is_some_and(|error| {
+                    matches!(
+                        error,
+                        omuse::durable_fs::ExchangeError::RollbackFailed { .. }
+                    )
+                })
+            {
+                stage.1 = true;
+            }
+            return Err(error);
+        }
+    };
+    // Keep the previous complete recovery until the new package is observed
+    // and its publication flush confirmed. This owns only worker-created paths.
+    stage.1 = true;
+    anyhow::ensure!(
+        omuse::save_guard::package_stamp(path).is_some(),
+        "Recovery was written, but its saved identity could not be verified. Previous recovery is preserved at {}",
+        previous.display()
+    );
+    if let Some(warning) =
+        omuse::durable_fs::confirm_package_publication(path, parent, &stage.0).warning()
+    {
+        anyhow::bail!(
+            "{warning} Previous recovery is preserved at {}",
+            previous.display()
+        );
+    }
+    fs::remove_dir_all(&previous).with_context(|| format!(
+        "Recovery was written, but the previous worker-owned package could not be cleaned up at {}", previous.display()))?;
+    stage.1 = false;
     Ok(())
 }
 
 #[cfg(target_os = "linux")]
-fn exchange_recovery(from: &Path, to: &Path) -> anyhow::Result<()> {
+fn exchange_recovery(from: &Path, to: &Path) -> anyhow::Result<PathBuf> {
     use anyhow::Context;
+    #[cfg(feature = "ui-test")]
+    if let Some(result) = omuse::durable_fs::emulated_exchange(from, to) {
+        return result.map_err(Into::into);
+    }
     use std::{ffi::CString, os::unix::ffi::OsStrExt};
     unsafe extern "C" {
         fn renameat2(
@@ -474,6 +518,7 @@ fn exchange_recovery(from: &Path, to: &Path) -> anyhow::Result<()> {
             flags: u32,
         ) -> i32;
     }
+    let previous = from.to_owned();
     let from = CString::new(from.as_os_str().as_bytes())?;
     let to = CString::new(to.as_os_str().as_bytes())?;
     // SAFETY: owned NUL-terminated paths live through the call; RENAME_EXCHANGE
@@ -482,14 +527,17 @@ fn exchange_recovery(from: &Path, to: &Path) -> anyhow::Result<()> {
         return Err(std::io::Error::last_os_error())
             .context("Recovery format conversion failed; previous recovery retained");
     }
-    Ok(())
+    Ok(previous)
 }
 
 #[cfg(not(target_os = "linux"))]
-fn exchange_recovery(from: &Path, to: &Path) -> anyhow::Result<()> {
+fn exchange_recovery(from: &Path, to: &Path) -> anyhow::Result<PathBuf> {
     use anyhow::Context;
-    omuse::durable_fs::exchange_dirs(from, to)
-        .context("Recovery format conversion failed; previous recovery retained")
+    #[cfg(feature = "ui-test")]
+    if let Some(result) = omuse::durable_fs::emulated_exchange(from, to) {
+        return result.map_err(Into::into);
+    }
+    omuse::durable_fs::exchange_dirs(from, to).context("Recovery format conversion failed")
 }
 
 fn writer(shared: &Shared, path: &Path) {
@@ -958,6 +1006,116 @@ mod create_recovery_tests {
         }
     }
 
+    #[cfg(feature = "ui-test")]
+    #[test]
+    fn emulated_recovery_third_move_failure_uses_actual_previous_path_and_confirms_new_package() {
+        let temp = tempfile::tempdir().unwrap();
+        let recovery = Recovery::at(temp.path().to_owned());
+        recovery.schedule(&Document::new(8, 8), true);
+        let path = recovery.wait_idle_for_test(Duration::from_secs(5)).unwrap();
+        let fault = omuse::durable_fs::inject_emulated_exchange_failure(&path, &[3]);
+        let project = omuse::create_project::Project::new("New collection", Document::new(8, 8));
+        recovery.schedule_project(&project, true);
+        recovery.wait_idle_for_test(Duration::from_secs(5)).unwrap();
+        assert_eq!(
+            omuse::create_project::Project::open(&path).unwrap().title,
+            "New collection"
+        );
+        assert!(recovery.error().is_none());
+        assert!(!fs::read_dir(temp.path()).unwrap().any(|entry| {
+            entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .contains(".previous-")
+        }));
+        drop(fault);
+    }
+
+    #[cfg(feature = "ui-test")]
+    #[test]
+    fn unconfirmed_format_exchange_keeps_previous_recovery_and_never_marks_clear() {
+        let temp = tempfile::tempdir().unwrap();
+        let recovery = Recovery::at(temp.path().to_owned());
+        let photo = Document::new(8, 8);
+        recovery.schedule(&photo, true);
+        let path = recovery.wait_idle_for_test(Duration::from_secs(5)).unwrap();
+        let move_fault = omuse::durable_fs::inject_emulated_exchange_failure(&path, &[3]);
+        let sync_fault = omuse::durable_fs::inject_publication_failure(&path, io::ErrorKind::Other);
+        let project = omuse::create_project::Project::new("Written collection", photo);
+        recovery.schedule_project(&project, true);
+        assert!(recovery.wait_idle_for_test(Duration::from_secs(5)).is_err());
+        assert_eq!(
+            omuse::create_project::Project::open(&path).unwrap().title,
+            "Written collection"
+        );
+        let previous = fs::read_dir(temp.path())
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .find(|path| {
+                path.file_name()
+                    .unwrap()
+                    .to_string_lossy()
+                    .contains(".previous-")
+            })
+            .unwrap();
+        assert_eq!(document::open(&previous).unwrap().width, 8);
+        assert!(recovery.error().unwrap().contains("was written"));
+        assert!(
+            recovery.shared.lock().scheduled,
+            "unconfirmed write cannot acknowledge discarded recovery"
+        );
+        drop(sync_fault);
+        drop(move_fault);
+        drop(recovery);
+        assert!(previous.is_dir());
+    }
+
+    #[cfg(feature = "ui-test")]
+    #[test]
+    fn failed_recovery_publication_and_rollback_preserve_both_complete_snapshots() {
+        let temp = tempfile::tempdir().unwrap();
+        let recovery = Recovery::at(temp.path().to_owned());
+        recovery.schedule(&Document::new(8, 8), true);
+        let path = recovery.wait_idle_for_test(Duration::from_secs(5)).unwrap();
+        let fault = omuse::durable_fs::inject_emulated_exchange_failure(&path, &[2, 3]);
+        let mut project =
+            omuse::create_project::Project::new("Staged collection", Document::new(8, 8));
+        let inactive = project.add_blank_page("Inactive", 11, 7).unwrap();
+        recovery.schedule_project(&project, true);
+        assert!(recovery.wait_idle_for_test(Duration::from_secs(5)).is_err());
+        assert!(!path.exists());
+        let previous = fs::read_dir(temp.path())
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .find(|path| {
+                path.file_name()
+                    .unwrap()
+                    .to_string_lossy()
+                    .contains(".previous-")
+            })
+            .unwrap();
+        let staged = staged_snapshot(temp.path());
+        assert_eq!(document::open(&previous).unwrap().width, 8);
+        assert_eq!(
+            omuse::create_project::Project::open(&staged)
+                .unwrap()
+                .page_document(&inactive)
+                .unwrap()
+                .width,
+            11
+        );
+        let error = recovery.error().unwrap();
+        assert!(
+            error.contains("not published") && error.contains("may be absent"),
+            "{error}"
+        );
+        assert!(recovery.shared.lock().scheduled);
+        drop(fault);
+        drop(recovery);
+        assert!(previous.is_dir() && staged.is_dir());
+    }
+
     #[test]
     fn converting_an_edited_photo_to_a_collection_replaces_its_recovery() {
         let temp = tempfile::tempdir().unwrap();
@@ -1140,12 +1298,16 @@ mod create_recovery_tests {
         drop(resume);
 
         assert!(recovery.wait_idle_for_test(Duration::from_secs(5)).is_err());
-        assert!(
-            recovery
-                .error()
-                .unwrap()
-                .contains("format conversion failed; previous recovery retained")
-        );
+        // This fixture reaches the real platform exchange after metadata
+        // finalization. Keep its precise exchange context portable; the strong
+        // original identity/pixel/cleanup/retry assertions below remain shared.
+        let exchange_context = if cfg!(target_os = "linux") {
+            "format conversion failed; previous recovery retained"
+        } else {
+            "Recovery format conversion failed"
+        };
+        let error = recovery.error().unwrap();
+        assert!(error.contains(exchange_context), "{error}");
         assert_eq!(omuse::save_guard::package_stamp(&path), Some(previous));
         assert_recovered_artwork(&document::open(&path).unwrap(), &photo);
         assert!(fs::read_dir(temp.path()).unwrap().all(|entry| {

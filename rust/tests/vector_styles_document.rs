@@ -30,6 +30,8 @@ fn styled_scene_roundtrips_as_format13_and_cannot_be_read_as_format12() {
         ],
         spread: GradientSpread::Pad,
         transform: [1., 0., 0., 1., 0., 0.],
+        method: Default::default(),
+        dither: false,
     });
     let scene = VectorScene {
         version: 3,

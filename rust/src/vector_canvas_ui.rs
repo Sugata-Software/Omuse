@@ -23,6 +23,18 @@ struct CubicPiece {
     depth: u8,
 }
 
+/// One bounded pre-gesture snapshot; the redo branch is moved, never cloned.
+pub(super) struct SceneGesture {
+    before: SceneEdit,
+    undo_len: usize,
+    previous_last: Option<SceneEdit>,
+    redo: Vec<SceneEdit>,
+    pending_checkpoint: bool,
+    last_transform: Option<super::vector_quick_ui::TransformStep>,
+    gradient_edit: bool,
+    gradient_stop: usize,
+}
+
 fn screen_line_distance(p: VectorPoint, a: VectorPoint, b: VectorPoint) -> (f32, f32) {
     let dx = b.x - a.x;
     let dy = b.y - a.y;
@@ -66,10 +78,14 @@ fn split_cubic(piece: CubicPiece) -> (CubicPiece, CubicPiece) {
 
 pub(in crate::ui) struct CanvasVectorOverlay {
     path: VectorPath,
+    original_path: Option<VectorPath>,
+    contact: Option<omuse::vector_snap::ContactResult>,
     selected: Option<(usize, usize)>,
     dimensions: (u32, u32),
     show_nodes: bool,
     snap_indicator: Option<VectorPoint>,
+    gradient_handles: Vec<(super::vector_gradient_ui::Handle, VectorPoint, [u8; 4])>,
+    gradient_selected: usize,
 }
 
 impl CanvasVectorOverlay {
@@ -80,6 +96,22 @@ impl CanvasVectorOverlay {
         window: &mut Window,
     ) {
         window.with_content_mask(Some(gpui_kit::ContentMask { bounds: viewport }), |window| {
+            if let Some(original) = &self.original_path {
+                let mut outline = PathBuilder::stroke(px(1.));
+                for subpath in &original.subpaths {
+                    let Some(first) = subpath.anchors.first() else { continue };
+                    outline.move_to(screen_point(first.position, rect, self.dimensions));
+                    for i in 0..if subpath.closed { subpath.anchors.len() } else { subpath.anchors.len().saturating_sub(1) } {
+                        let a = &subpath.anchors[i];
+                        let b = &subpath.anchors[(i + 1) % subpath.anchors.len()];
+                        outline.cubic_bezier_to(screen_point(b.position, rect, self.dimensions),
+                            screen_point(a.outgoing.unwrap_or(a.position), rect, self.dimensions),
+                            screen_point(b.incoming.unwrap_or(b.position), rect, self.dimensions));
+                    }
+                    if subpath.closed { outline.close(); }
+                }
+                if let Ok(outline) = outline.build() { window.paint_path(outline, rgba(0xf1c75baa)); }
+            }
             paint_vector_overlay(
                 window,
                 rect,
@@ -90,6 +122,35 @@ impl CanvasVectorOverlay {
                 None,
                 self.show_nodes,
             );
+            if self.gradient_handles.len() >= 2 {
+                let a = screen_point(self.gradient_handles[0].1, rect, self.dimensions);
+                let b = screen_point(self.gradient_handles[1].1, rect, self.dimensions);
+                let mut axis = PathBuilder::stroke(px(1.5));
+                axis.move_to(a);
+                axis.line_to(b);
+                if let Ok(axis) = axis.build() {
+                    window.paint_path(axis, rgb(0xeeeeee));
+                }
+                for (kind, p, color) in self.gradient_handles {
+                    let mut p = screen_point(p, rect, self.dimensions);
+                    if matches!(kind, super::vector_gradient_ui::Handle::Stop(_)) {
+                        p.y += px(15.);
+                    }
+                    let selected=matches!(kind,super::vector_gradient_ui::Handle::Stop(i) if i==self.gradient_selected);
+                    window.paint_quad(fill(
+                        Bounds::new(p - point(px(5.), px(5.)), size(px(10.), px(10.))),
+                        rgb(if selected {0xf1c75b} else {0x171717}),
+                    ));
+                    let rgba = ((color[0] as u32) << 24)
+                        | ((color[1] as u32) << 16)
+                        | ((color[2] as u32) << 8)
+                        | 0xff;
+                    window.paint_quad(fill(
+                        Bounds::new(p - point(px(3.), px(3.)), size(px(6.), px(6.))),
+                        gpui_kit::rgba(rgba),
+                    ));
+                }
+            }
             if let Some(snapped) = self.snap_indicator {
                 let p = screen_point(snapped, rect, self.dimensions);
                 let mut marker = PathBuilder::stroke(px(1.5));
@@ -101,20 +162,152 @@ impl CanvasVectorOverlay {
                     window.paint_path(marker, rgb(0xf1c75b));
                 }
             }
+            if let Some(contact) = self.contact {
+                let from = screen_point(contact.from, rect, self.dimensions);
+                let at = screen_point(contact.point, rect, self.dimensions);
+                let along = point(px(contact.direction.x * 12.), px(contact.direction.y * 12.));
+                let mut guide = PathBuilder::stroke(px(1.));
+                guide.move_to(from); guide.line_to(at);
+                guide.move_to(at - along); guide.line_to(at + along);
+                if let Ok(guide) = guide.build() { window.paint_path(guide, rgba(0x9ece6acc)); }
+                window.paint_quad(outline(Bounds::new(at - point(px(4.),px(4.)),size(px(8.),px(8.))),rgb(0x9ece6a),BorderStyle::Solid));
+            }
         });
     }
 }
 
 impl EditorView {
+    fn begin_scene_gesture(&mut self) {
+        self.finish_scene_gesture();
+        let Some(before) = self.scene_edit() else {
+            return;
+        };
+        let scene = self.vector_draft.as_mut().unwrap().scene.as_mut().unwrap();
+        if scene.gesture.is_some() {
+            return;
+        }
+        // Move a matching checkpoint aside instead of cloning large history.
+        let previous_last = if scene
+            .undo
+            .last()
+            .is_some_and(|last| last.artwork == before.artwork)
+        {
+            scene.undo.pop()
+        } else {
+            None
+        };
+        scene.gesture = Some(SceneGesture {
+            before,
+            undo_len: scene.undo.len(),
+            previous_last,
+            redo: std::mem::take(&mut scene.redo),
+            pending_checkpoint: scene.pending_checkpoint,
+            last_transform: scene.last_transform,
+            gradient_edit: scene.gradient_edit,
+            gradient_stop: scene.gradient_stop,
+        });
+    }
+
+    pub(super) fn finish_scene_gesture(&mut self) {
+        let Some(draft) = self.vector_draft.as_mut() else {
+            return;
+        };
+        let changed = draft.scene_snapshot().ok();
+        let Some(scene) = draft.scene.as_mut() else {
+            return;
+        };
+        let Some(gesture) = scene.gesture.take() else {
+            return;
+        };
+        if changed.as_ref() == Some(&gesture.before.artwork) {
+            scene.undo.truncate(gesture.undo_len);
+            if let Some(previous) = gesture.previous_last {
+                scene.undo.push(previous);
+            }
+            scene.redo = gesture.redo;
+            scene.pending_checkpoint = gesture.pending_checkpoint;
+        }
+        trim_history(scene);
+    }
+
+    /// Escape consumes just the current pointer gesture, before leaving isolation.
+    /// Clearing every pointer owner also makes the later release event inert.
+    pub(in crate::ui) fn cancel_vector_gesture(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        if self.cancel_builder_interaction(cx) {
+            self.focus.focus(window, cx);
+            return true;
+        }
+        let Some(draft) = self.vector_draft.as_mut() else {
+            return false;
+        };
+        let Some(scene) = draft.scene.as_mut() else {
+            return false;
+        };
+        let active = draft.drag.is_some()
+            || scene.drag_origin.is_some()
+            || scene.gradient_drag.is_some()
+            || scene.marquee.is_some();
+        if !active {
+            return false;
+        }
+        let Some(gesture) = scene.gesture.take() else {
+            return false;
+        };
+        let edit = gesture.before;
+        scene.undo.truncate(gesture.undo_len);
+        if let Some(previous) = gesture.previous_last {
+            scene.undo.push(previous);
+        }
+        scene.redo = gesture.redo;
+        scene.pending_checkpoint = gesture.pending_checkpoint;
+        scene.last_transform = gesture.last_transform;
+        scene.gradient_edit = gesture.gradient_edit;
+        scene.gradient_stop = gesture.gradient_stop;
+        scene.artwork = edit.artwork;
+        scene.active = edit.active;
+        scene.mode = edit.mode;
+        scene.isolation = edit.isolation;
+        scene.selected_objects = edit.selected_objects;
+        scene.drag_origin = None;
+        scene.gradient_drag = None;
+        scene.marquee = None;
+        let object = &scene.artwork.objects[scene.active];
+        draft.path = object.path.clone();
+        draft.fill = object.fill.unwrap_or([0; 4]);
+        draft.stroke = object.stroke;
+        draft.import_compatibility = edit.import_compatibility;
+        draft.selected = edit.selected;
+        draft.drag = None;
+        draft.snap_cache = None;
+        draft.snap_indicator = None;
+        // Avoid finishing a restored pending checkpoint while refreshing artwork.
+        if let Some(cancel) = &scene.preview_cancel {
+            cancel.store(true, Ordering::Relaxed);
+        }
+        scene.requested = scene.requested.wrapping_add(1);
+        self.load_scene_style(window, cx);
+        self.start_scene_preview(cx);
+        self.status = "Gesture cancelled · Earlier vector edits retained".into();
+        self.focus.focus(window, cx);
+        cx.notify();
+        true
+    }
+
     fn scene_edit(&self) -> Option<SceneEdit> {
         let draft = self.vector_draft.as_ref()?;
         let scene = draft.scene.as_ref()?;
         Some(SceneEdit {
             artwork: draft.scene_snapshot().ok()?,
+            import_compatibility: draft.import_compatibility.clone(),
             active: scene.active,
             selected: draft.selected,
             mode: scene.mode,
             selected_objects: scene.selected_objects.clone(),
+            isolation: scene.isolation.clone(),
         })
     }
 
@@ -124,14 +317,21 @@ impl EditorView {
         };
         let scene = self.vector_draft.as_mut().unwrap().scene.as_mut().unwrap();
         scene.pending_checkpoint = true;
-        if scene
+        if let Some(last) = scene
             .undo
-            .last()
-            .is_none_or(|last| last.artwork != edit.artwork)
+            .last_mut()
+            .filter(|last| last.artwork == edit.artwork)
         {
+            // Selection and isolation can change without changing geometry.
+            // Keep one geometry checkpoint, but capture the view immediately
+            // before the next edit instead of restoring a stale scope on Undo.
+            *last = edit;
+        } else {
             scene.undo.push(edit);
         }
-        trim_history(scene);
+        if scene.gesture.is_none() {
+            trim_history(scene);
+        }
     }
 
     pub(super) fn finish_scene_checkpoint(&mut self) {
@@ -162,6 +362,7 @@ impl EditorView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> bool {
+        self.stop_vector_drag();
         let Some(current) = self.scene_edit() else {
             return false;
         };
@@ -186,10 +387,17 @@ impl EditorView {
         }
         trim_history(scene);
         scene.pending_checkpoint = false;
+        scene.isolation = edit.isolation;
+        scene.gradient_drag = None;
         scene.artwork = edit.artwork;
         scene.active = edit.active;
         scene.mode = edit.mode;
         scene.selected_objects = edit.selected_objects;
+        if scene.selected_objects.len() != 1
+            || scene.artwork.objects[scene.active].fill_gradient.is_none()
+        {
+            scene.gradient_edit = false;
+        }
         scene.drag_origin = None;
         scene.marquee = None;
         let object = scene.artwork.objects[scene.active].clone();
@@ -198,6 +406,7 @@ impl EditorView {
         draft.fill = object.fill.unwrap_or([0; 4]);
         draft.stroke = object.stroke;
         draft.selected = edit.selected;
+        draft.import_compatibility = edit.import_compatibility;
         draft.drag = None;
         self.load_scene_style(window, cx);
         self.vector_scene_changed(cx);
@@ -219,13 +428,16 @@ impl EditorView {
     }
 
     pub(in crate::ui) fn stop_vector_drag(&mut self) {
+        self.clear_contact_snap_cache();
         if let Some(draft) = self.vector_draft.as_mut() {
             draft.drag = None;
             if let Some(scene) = &mut draft.scene {
                 scene.drag_origin = None;
+                scene.gradient_drag = None;
                 scene.marquee = None;
             }
         }
+        self.finish_scene_gesture();
     }
 
     pub(in crate::ui) fn vector_has_redo(&self) -> bool {
@@ -288,6 +500,7 @@ impl EditorView {
                 draft.drag.is_none()
                     && draft.scene.as_ref().is_some_and(|scene| {
                         scene.drag_origin.is_none()
+                            && scene.gradient_drag.is_none()
                             && scene.marquee.is_none()
                             && scene.builder.is_none()
                             && !scene.selected_objects.is_empty()
@@ -304,47 +517,71 @@ impl EditorView {
     pub(in crate::ui) fn vector_canvas_overlay(&self) -> Option<CanvasVectorOverlay> {
         let draft = self.vector_draft.as_ref()?;
         let scene = draft.scene.as_ref()?;
-        if scene.mode != SceneMode::Select && !scene.artwork.objects[scene.active].visible {
+        if scene.mode != SceneMode::Select
+            && !scene.artwork.objects[scene.active].visible
+            && !scene.artwork.objects[scene.active].is_clip
+        {
             return None;
         }
-        let mut path = if let Some(builder) = &scene.builder {
-            let mut path = VectorPath::default();
-            for region in &builder.regions.regions {
-                if builder.chosen.is_empty() || builder.chosen.contains(&region.id) {
-                    path.subpaths
-                        .extend(region.object.path.subpaths.iter().cloned());
+        let mut path =
+            if let Some(builder) = &scene.builder {
+                let mut path = VectorPath::default();
+                for region in &builder.regions.regions {
+                    if builder.chosen.is_empty() || builder.chosen.contains(&region.id) {
+                        path.subpaths
+                            .extend(region.object.path.subpaths.iter().cloned());
+                    }
                 }
-            }
-            path
-        } else if scene.mode == SceneMode::Select || scene.outline {
-            let mut path = VectorPath::default();
-            for (i, object) in scene.artwork.objects.iter().enumerate() {
-                if object.visible && (scene.outline || scene.selected_objects.contains(&i)) {
-                    let source = if i == scene.active {
-                        &draft.path
-                    } else {
-                        &object.path
-                    };
-                    path.subpaths.extend(source.subpaths.iter().cloned());
+                path
+            } else if scene.mode == SceneMode::Select || scene.outline {
+                let mut path = VectorPath::default();
+                for (i, object) in scene.artwork.objects.iter().enumerate() {
+                    if (object.visible || (object.is_clip && scene.selected_objects.contains(&i)))
+                        && super::vector_isolation_ui::in_scope(&scene.isolation, object)
+                        && (scene.outline || scene.selected_objects.contains(&i))
+                    {
+                        // Whole-clip selection shows the retained silhouette only.
+                        // Direct contents selection and Outline mode still expose
+                        // the complete editable paths beyond the silhouette.
+                        let whole_clip =
+                            !scene.outline
+                                && object.clip_to.as_ref().is_some_and(|id| {
+                                    scene.artwork.objects.iter().enumerate().any(
+                                        |(mask, source)| {
+                                            source.is_clip
+                                                && &source.id == id
+                                                && scene.selected_objects.contains(&mask)
+                                        },
+                                    )
+                                });
+                        if whole_clip {
+                            continue;
+                        }
+                        let source = if i == scene.active {
+                            &draft.path
+                        } else {
+                            &object.path
+                        };
+                        path.subpaths.extend(source.subpaths.iter().cloned());
+                    }
                 }
-            }
-            if let Some((a, b, _)) = &scene.marquee {
-                path.subpaths.push(Subpath {
-                    closed: true,
-                    anchors: [(a.x, a.y), (b.x, a.y), (b.x, b.y), (a.x, b.y)]
-                        .into_iter()
-                        .map(|(x, y)| Anchor {
-                            position: VectorPoint { x, y },
-                            incoming: None,
-                            outgoing: None,
-                        })
-                        .collect(),
-                });
-            }
-            path
-        } else {
-            draft.path.clone()
-        };
+                if let Some((a, b, _)) = &scene.marquee {
+                    path.subpaths.push(Subpath {
+                        closed: true,
+                        anchors: [(a.x, a.y), (b.x, a.y), (b.x, b.y), (a.x, b.y)]
+                            .into_iter()
+                            .map(|(x, y)| Anchor {
+                                position: VectorPoint { x, y },
+                                incoming: None,
+                                outgoing: None,
+                            })
+                            .collect(),
+                    });
+                }
+                path
+            } else {
+                draft.path.clone()
+            };
         if !scene.is_new {
             for sub in &mut path.subpaths {
                 for anchor in &mut sub.anchors {
@@ -362,12 +599,71 @@ impl EditorView {
                 }
             }
         }
+        let gradient_handles = if scene.gradient_edit && scene.selected_objects.len() == 1 {
+            scene.artwork.objects[scene.active]
+                .fill_gradient
+                .as_ref()
+                .map(super::vector_gradient_ui::handles)
+                .unwrap_or_default()
+                .into_iter()
+                .filter_map(|(h, mut p, c)| {
+                    if !scene.is_new {
+                        let (x, y) = self.editor.layer_to_canvas(&draft.layer, p.x, p.y)?;
+                        p = VectorPoint { x, y };
+                    }
+                    Some((h, p, c))
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+        let original_path = scene
+            .simplify
+            .current(draft)
+            .filter(|session| scene.simplify.show_original && session.before <= 16_384)
+            .and_then(|session| {
+                let mut original = VectorPath::default();
+                for index in &session.selected {
+                    let object = session.source.objects.get(*index)?;
+                    let [a, b, c, d, e, f] = object.transform;
+                    let mut path = object.path.clone();
+                    for subpath in &mut path.subpaths {
+                        for anchor in &mut subpath.anchors {
+                            for point in [
+                                Some(&mut anchor.position),
+                                anchor.incoming.as_mut(),
+                                anchor.outgoing.as_mut(),
+                            ]
+                            .into_iter()
+                            .flatten()
+                            {
+                                let (x, y) =
+                                    (a * point.x + c * point.y + e, b * point.x + d * point.y + f);
+                                let (x, y) = if scene.is_new {
+                                    (x, y)
+                                } else {
+                                    self.editor.layer_to_canvas(&draft.layer, x, y)?
+                                };
+                                *point = VectorPoint { x, y };
+                            }
+                        }
+                    }
+                    original.subpaths.extend(path.subpaths);
+                }
+                Some(original)
+            });
         Some(CanvasVectorOverlay {
             path,
+            original_path,
+            contact: (scene.mode == SceneMode::Pen)
+                .then_some(scene.contacts.indicator)
+                .flatten(),
             selected: draft.selected,
             dimensions: (self.editor.document.width, self.editor.document.height),
             show_nodes: scene.mode != SceneMode::Select && !scene.outline,
             snap_indicator: draft.snap_indicator,
+            gradient_handles,
+            gradient_selected: scene.gradient_stop,
         })
     }
 
@@ -384,7 +680,7 @@ impl EditorView {
             .then_some(VectorPoint { x, y })
     }
 
-    fn vector_screen_point(&self, p: VectorPoint) -> Option<Point<Pixels>> {
+    pub(super) fn vector_screen_point(&self, p: VectorPoint) -> Option<Point<Pixels>> {
         let draft = self.vector_draft.as_ref()?;
         let scene = draft.scene.as_ref()?;
         let (x, y) = if scene.is_new {
@@ -495,10 +791,16 @@ impl EditorView {
             cx.notify();
             return;
         }
+        self.begin_scene_gesture();
+        if self.vector_gradient_down(event, window, cx) {
+            return;
+        }
         let Some(p) = self.vector_canvas_point(event.position) else {
+            self.finish_scene_gesture();
             return;
         };
         if self.builder_pointer(p, true, event.modifiers.alt, cx) {
+            self.finish_scene_gesture();
             return;
         }
         let draft = self.vector_draft.as_ref().unwrap();
@@ -581,6 +883,17 @@ impl EditorView {
                 Err(error) => self.status = error.to_string(),
             }
         } else if mode == SceneMode::Pen && !event.modifiers.alt {
+            if draft
+                .scene
+                .as_ref()
+                .is_some_and(|scene| scene.artwork.objects[scene.active].is_clip)
+            {
+                self.status = "Use Nodes to edit the clipping mask or insert points on its edges. Release clipping before drawing a new subpath.".into();
+                cx.notify();
+                return;
+            }
+            let p =
+                self.snap_pen_construction_point(p, event.modifiers.shift || event.modifiers.alt);
             self.scene_checkpoint();
             let draft = self.vector_draft.as_mut().unwrap();
             if draft
@@ -635,10 +948,25 @@ impl EditorView {
             };
             let hit = draft
                 .scene_snapshot()
-                .and_then(|s| s.hit_test(p, tolerance))
+                .and_then(|mut s| {
+                    for o in &mut s.objects {
+                        if !super::vector_isolation_ui::in_scope(
+                            &draft.scene.as_ref().unwrap().isolation,
+                            o,
+                        ) {
+                            o.visible = false;
+                        }
+                    }
+                    s.hit_test(p, tolerance)
+                })
                 .ok()
                 .flatten();
             if let Some(index) = hit {
+                if event.click_count == 2 && self.enter_vector_isolation(index, window, cx) {
+                    self.finish_scene_gesture();
+                    cx.stop_propagation();
+                    return;
+                }
                 self.select_scene_members(
                     index,
                     event.modifiers.shift,
@@ -721,6 +1049,8 @@ impl EditorView {
                     return;
                 }
                 scene.mode = mode;
+                scene.gradient_edit = false;
+                scene.gradient_drag = None;
                 scene.builder = None;
                 scene.drag_origin = None;
                 scene.marquee = None;
@@ -893,6 +1223,67 @@ impl EditorView {
             cx.notify();
             return true;
         }
+        if self
+            .vector_draft
+            .as_ref()
+            .and_then(|d| d.scene.as_ref())
+            .is_some_and(|s| s.gradient_drag.is_some())
+        {
+            if matches!(name, "undo" | "redo") {
+                self.stop_vector_drag();
+            } else if !matches!(
+                name,
+                "zoom-in" | "zoom-in-plus" | "zoom-out" | "fit" | "actual"
+            ) {
+                self.status = "Release the gradient handle before running another action".into();
+                cx.notify();
+                return true;
+            }
+        }
+        match name {
+            "vector-clip-make" | "vector-clip-release" => {
+                self.scene_clip_action(name == "vector-clip-release", window, cx);
+                return true;
+            }
+            "vector-clip-edit-mask" | "vector-clip-edit-contents" => {
+                self.scene_clip_edit(name == "vector-clip-edit-mask", window, cx);
+                return true;
+            }
+            "vector-gradient-handles" | "tool-gradient" => {
+                self.toggle_vector_gradient(window, cx);
+                return true;
+            }
+            "vector-isolate-group" => {
+                let i = self
+                    .vector_draft
+                    .as_ref()
+                    .unwrap()
+                    .scene
+                    .as_ref()
+                    .unwrap()
+                    .active;
+                if !self.enter_vector_isolation(i, window, cx) {
+                    self.status = "Select a grouped object to isolate it".into();
+                    cx.notify();
+                }
+                return true;
+            }
+            "vector-isolation-exit" => {
+                let depth = self
+                    .vector_draft
+                    .as_ref()
+                    .unwrap()
+                    .scene
+                    .as_ref()
+                    .unwrap()
+                    .isolation
+                    .len()
+                    .saturating_sub(1);
+                self.leave_vector_isolation(depth, window, cx);
+                return true;
+            }
+            _ => {}
+        }
         if self.vector_selection_command(name, window, cx) {
             return true;
         }
@@ -906,6 +1297,7 @@ impl EditorView {
                 draft.snap_cache = None;
                 draft.snap_indicator = None;
             }
+            self.clear_contact_snap_cache();
             return false;
         }
         match name {
@@ -919,7 +1311,8 @@ impl EditorView {
                 true
             }
             "zoom-in" | "zoom-in-plus" | "zoom-out" | "fit" | "actual" | "toggle-panels"
-            | "rulers" | "command-search" | "shortcuts" | "context-toolbar" => false,
+            | "rulers" | "command-search" | "shortcuts" | "context-toolbar" | "import-report"
+            | "export-report" => false,
             "vector-scene" | "edit-object" => {
                 self.inspector_visible = true;
                 self.inspector_tab = studio_ui::InspectorTab::Layers;
@@ -1020,7 +1413,7 @@ impl EditorView {
         if !self.vector_scene_active() {
             return false;
         }
-        if matches!(tool, Tool::Move | Tool::Hand) {
+        if matches!(tool, Tool::Move | Tool::Hand | Tool::Gradient) {
             return self.vector_before_command(tool.studio_id(), window, cx);
         }
         self.finish_vector_then(AfterScene::Tool(tool), window, cx)
@@ -1117,12 +1510,46 @@ impl EditorView {
         ] {
             modes = modes.child(
                 button(id, label, ButtonVariant::Secondary, cx)
-                    .selected(mode == value && self.tool != Tool::Hand)
+                    .selected(
+                        mode == value && self.tool != Tool::Hand && !self.vector_gradient_active(),
+                    )
                     .disabled(self.busy)
                     .debug_selector(move || id.into())
                     .on_click(cx.listener(move |this, _, w, cx| this.set_scene_mode(value, w, cx))),
             );
         }
+        modes = modes.child(
+            button(
+                "vector-gradient-handles",
+                "Gradient · G",
+                ButtonVariant::Secondary,
+                cx,
+            )
+            .selected(
+                self.vector_draft
+                    .as_ref()
+                    .unwrap()
+                    .scene
+                    .as_ref()
+                    .unwrap()
+                    .gradient_edit,
+            )
+            .disabled(
+                self.busy
+                    || self
+                        .vector_draft
+                        .as_ref()
+                        .unwrap()
+                        .scene
+                        .as_ref()
+                        .is_none_or(|s| {
+                            s.selected_objects.len() != 1
+                                || s.artwork.objects[s.active].fill_gradient.is_none()
+                        }),
+            )
+            .debug_selector(|| "vector-gradient-handles".into())
+            .on_click(cx.listener(|this, _, w, cx| this.toggle_vector_gradient(w, cx))),
+        );
         modes = modes.child(
             button(
                 "scene-builder",
@@ -1181,8 +1608,18 @@ impl EditorView {
             .flex()
             .flex_col()
             .gap_1();
-        for (index, object) in scene.artwork.objects.iter().enumerate().rev() {
+        for (index, object) in scene
+            .artwork
+            .objects
+            .iter()
+            .enumerate()
+            .rev()
+            .filter(|(_, o)| super::vector_isolation_ui::in_scope(&scene.isolation, o))
+        {
             let id = format!("scene-object-{index}");
+            // The labelled mask row is an explicit editing target. Canvas
+            // selection still treats the mask and clipped contents as one unit.
+            let individual_mask = object.is_clip;
             objects = objects.child(
                 button(
                     SharedString::from(id.clone()),
@@ -1202,7 +1639,15 @@ impl EditorView {
                             )
                         },
                         object.name,
-                        if object.visible { "" } else { " · hidden" }
+                        if object.is_clip {
+                            " · Mask"
+                        } else if object.clip_to.is_some() {
+                            " · Clipped"
+                        } else if object.visible {
+                            ""
+                        } else {
+                            " · hidden"
+                        }
                     )),
                     ButtonVariant::Secondary,
                     cx,
@@ -1225,7 +1670,7 @@ impl EditorView {
                         this.select_scene_members(
                             index,
                             modifiers.shift,
-                            modifiers.control,
+                            modifiers.control || individual_mask,
                             false,
                             w,
                             cx,
@@ -1262,10 +1707,16 @@ impl EditorView {
         }
         panel_section("Vector artwork", cx)
             .debug_selector(||"vector-canvas-inspector".into())
+            .child(self.vector_isolation_controls(cx))
             .child(add)
+            .child(self.vector_quick_shape_controls(window,cx))
             .child(objects)
+            .child(self.scene_clip_edit_controls(cx))
+            .child(self.vector_contact_controls(cx))
+            .child(div().flex().gap_1().child(button("vector-clip-make","Make clipping mask",ButtonVariant::Outline,cx).disabled(self.busy).on_click(cx.listener(|this,_,w,cx|this.scene_clip_action(false,w,cx))))
+                .child(button("vector-clip-release","Release clip",ButtonVariant::Outline,cx).disabled(self.busy).on_click(cx.listener(|this,_,w,cx|this.scene_clip_action(true,w,cx)))))
             .child(self.vector_settings(window, cx))
-            .child(panel_note("Space or middle-drag pans. Tool and layer switches keep edits; Escape discards them.", cx))
+            .child(panel_note("Space or middle-drag pans. Escape cancels the current drag, then steps out of isolation; outside a gesture it discards the draft.", cx))
             .into_any_element()
     }
 }

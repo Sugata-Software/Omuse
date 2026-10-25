@@ -1126,6 +1126,9 @@ fn vector_object(index: usize, name: String, path: VectorPath, fill: [u8; 4]) ->
         opacity: 1.0,
         visible: true,
         groups: Vec::new(),
+        clip_to: None,
+        is_clip: false,
+        svg_metadata: Vec::new(),
     }
 }
 
@@ -1145,6 +1148,142 @@ mod tests {
 
     fn render(result: &TraceResult) -> RgbaImage {
         result.scene.render(&AtomicBool::new(false)).unwrap()
+    }
+
+    #[test]
+    fn lossless_region_fixture_has_no_shared_edge_or_three_way_junction_gaps() {
+        let source = RgbaImage::from_fn(80, 64, |x, y| {
+            Rgba(if x < 31 {
+                [20, 50, 100, 255]
+            } else if y < 29 {
+                [30, 190, 70, 255]
+            } else {
+                [220, 40, 70, 255]
+            })
+        });
+        let traced = trace(
+            &source,
+            &TraceOptions {
+                colors: 3,
+                detail: 0.,
+                smoothing: 0.,
+                corner_preservation: 1.,
+                speckle_area: 0,
+                omit_white: false,
+                omit_background: false,
+                ..options(TraceMode::Color)
+            },
+            &AtomicBool::new(false),
+        )
+        .unwrap();
+        assert_eq!(render(&traced), source);
+    }
+
+    #[test]
+    fn rare_single_pixel_stem_and_pale_highlight_survive_when_noise_is_disabled() {
+        let mut source = RgbaImage::from_pixel(81, 65, Rgba([20, 45, 75, 255]));
+        for y in 5..60 {
+            source.put_pixel(40, y, Rgba([245, 245, 220, 255]));
+        }
+        for y in 22..43 {
+            for x in 15..33 {
+                source.put_pixel(x, y, Rgba([200, 75, 35, 255]));
+            }
+        }
+        let result = trace(
+            &source,
+            &TraceOptions {
+                colors: 3,
+                detail: 0.,
+                smoothing: 0.,
+                corner_preservation: 1.,
+                speckle_area: 0,
+                omit_white: false,
+                omit_background: false,
+                ..options(TraceMode::Color)
+            },
+            &AtomicBool::new(false),
+        )
+        .unwrap();
+        let rendered = render(&result);
+        for y in 5..60 {
+            assert_eq!(rendered.get_pixel(40, y), source.get_pixel(40, y));
+        }
+        assert_eq!(rendered, source);
+    }
+
+    #[test]
+    fn unambiguous_noise_merges_are_rotation_and_palette_label_invariant() {
+        fn rotate(source: &[u16], width: usize, height: usize) -> Vec<u16> {
+            let mut out = vec![0; source.len()];
+            for y in 0..height {
+                for x in 0..width {
+                    out[x * height + height - 1 - y] = source[y * width + x];
+                }
+            }
+            out
+        }
+        let (width, height) = (37, 31);
+        let mut source = vec![0; width * height];
+        for y in 0..height {
+            source[y * width + 18] = TRANSPARENT;
+        }
+        for y in 9..22 {
+            for x in 23..33 {
+                source[y * width + x] = 1;
+            }
+        }
+        for y in 5..7 {
+            for x in 5..7 {
+                source[y * width + x] = 2;
+            }
+        }
+        source[16 * width + 8] = 2;
+        let rename = |label| match label {
+            0 => 17,
+            1 => 3,
+            2 => 9,
+            other => other,
+        };
+        for threshold in [2, 4, 9] {
+            let mut expected = source.clone();
+            suppress_speckles(
+                &mut expected,
+                width as u32,
+                height as u32,
+                threshold,
+                &AtomicBool::new(false),
+            )
+            .unwrap();
+            let mut rotated = rotate(&source, width, height);
+            suppress_speckles(
+                &mut rotated,
+                height as u32,
+                width as u32,
+                threshold,
+                &AtomicBool::new(false),
+            )
+            .unwrap();
+            assert_eq!(rotated, rotate(&expected, width, height));
+            let mut renamed: Vec<_> = source.iter().copied().map(rename).collect();
+            suppress_speckles(
+                &mut renamed,
+                width as u32,
+                height as u32,
+                threshold,
+                &AtomicBool::new(false),
+            )
+            .unwrap();
+            assert_eq!(
+                renamed,
+                expected.iter().copied().map(rename).collect::<Vec<_>>()
+            );
+            for y in 0..height {
+                assert_eq!(expected[y * width + 18], TRANSPARENT);
+            }
+        }
+        // Equal-boundary ties deliberately retain their historical label-order
+        // rule; these fixtures qualify unambiguous merges, not every partition.
     }
 
     #[test]

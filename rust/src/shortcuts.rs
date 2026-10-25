@@ -60,8 +60,8 @@ define_commands! {
     command!("save-as", "Save as", "ctrl-shift-s", "File", "document project copy", "Save the project to a new location.");
     command!("import", "Import", "ctrl-shift-o", "File", "place add image photo", "Import an image into the current document.");
     command!("export", "Export", "ctrl-alt-shift-s", "File", "render publish png jpeg jpg webp tiff", "Export the finished artwork.");
-    command!("import-report", "Import conversion report", "", "File", "compatibility conversion notes psd", "Show conversions made while importing the current document.");
-    command!("export-report", "Export conversion report", "", "File", "compatibility conversion notes psd last export", "Show conversions recorded for the last layered PSD exported in this session.");
+    command!("import-report", "Import conversion report", "", "File", "compatibility conversion notes psd svg vector", "Show retained document import conversions or the latest SVG import report.");
+    command!("export-report", "Export conversion report", "", "File", "compatibility conversion notes psd svg pdf vector last export", "Show what the last layered PSD, editable SVG or vector PDF export preserved, converted or excluded.");
     command!("previous-page", "Previous page", "alt-pageup", "File", "artboard earlier back", "Activate the previous page in a Create project.");
     command!("next-page", "Next page", "alt-pagedown", "File", "artboard later forward", "Activate the next page in a Create project.");
 
@@ -80,6 +80,7 @@ define_commands! {
     command!("transform-selection", "Transform selection", "", "Selection", "float move pixels", "Float selected pixels for independent transformation.");
     command!("commit-selection", "Commit floating selection", "", "Selection", "apply finish floating pixels", "Commit a floating pixel selection.");
     command!("cancel-selection", "Cancel floating selection", "", "Selection", "discard floating pixels", "Cancel a floating selection and restore its source.");
+    command!("select-guided-mask", "Guided subject mask", "", "Selection", "local click box remove foreground mask experimental", "Mark a subject or draw a box, review a local mask, then keep it or use it as a selection.");
     command!("select-subject", "Select subject", "", "Selection", "foreground person object automatic local", "Find a foreground subject locally and refine its selection.");
     command!("remove-background", "Remove background", "", "Selection", "subject foreground cutout transparency automatic", "Find a foreground subject locally and remove its background.");
     command!("luminosity-range", "Luminosity range", "", "Selection", "brightness tonal highlights shadows mask", "Create a selection from a tonal range.");
@@ -137,6 +138,19 @@ define_commands! {
     command!("vector-split-node", "Split path at selected node", "", "Vector", "scissors cut open curve anchor", "Split an interior node or open a closed contour at the selected node, preserving existing curves.");
     command!("vector-join-endpoints", "Join nearest path endpoints", "", "Vector", "connect close join anchor", "Join the selected endpoint to the nearest open endpoint in the same compound path. Coincident endpoints become one node.");
     command!("vector-ungroup", "Ungroup vector selection", "ctrl-shift-g", "Vector", "objects folder release", "Release selected outer vector groups while retaining object order and geometry.");
+    command!("vector-gradient-handles", "Edit gradient on canvas", "", "Vector", "gradient axis stops colours handles", "Select a gradient object, then drag its endpoints, focus or colour stops on the main canvas. Shift constrains the axis.");
+    command!("vector-isolate-group", "Isolate vector group", "", "Vector", "group enter focus breadcrumb", "Edit the selected group with surrounding artwork dimmed. Escape steps out; breadcrumbs return to an ancestor.");
+    command!("vector-isolation-exit", "Leave isolated group", "", "Vector", "group exit breadcrumb", "Step out of the current isolated group while retaining artwork changes.");
+    command!("vector-transform-again", "Repeat last vector transform", "ctrl-shift-t", "Vector", "again move rotate scale", "Apply the most recent vector transform to the selected objects. Undo restores their prior geometry.");
+    command!("vector-transform-copy", "Transform a vector copy", "", "Vector", "duplicate numeric move rotate scale", "Apply the inspector transform to editable copies and select the copies.");
+    command!("vector-repeat-transform-copy", "Repeat transform with a copy", "ctrl-shift-d", "Vector", "again duplicate repeat pattern", "Duplicate the selection and apply the most recent vector transform. Ctrl+D continues to clear the selection.");
+    command!("vector-swap-fill-stroke", "Swap vector fill and stroke", "", "Vector", "colour color exchange swap", "Swap solid fill and stroke on selected vector objects. X also swaps them while editing artwork.");
+    command!("vector-add-star", "Add vector star", "", "Vector", "shape points polygon badge", "Add an editable star using the inspector point count and inner radius.");
+    command!("vector-add-polygon", "Add vector polygon", "", "Vector", "shape sides triangle hexagon", "Add an editable regular polygon using the inspector side count.");
+    command!("vector-clip-make", "Make vector clipping mask", "", "Vector", "clip crop editable mask shape", "Use the topmost selected closed shape to clip the other selected objects. Both the mask and contents remain editable.");
+    command!("vector-clip-release", "Release vector clipping mask", "", "Vector", "unclip restore mask contents", "Release selected clipping relationships and restore the mask shape without flattening the artwork.");
+    command!("vector-clip-edit-mask", "Edit vector clipping mask", "", "Vector", "clip silhouette points nodes target", "Select one clipping relationship and edit its mask points on the main canvas.");
+    command!("vector-clip-edit-contents", "Edit clipped vector contents", "", "Vector", "clip artwork target contents", "Select one clipping relationship and edit its retained contents, including geometry outside the mask.");
     command!("vector-outline", "Toggle vector outline view", "ctrl-y", "Vector", "wireframe paths precision", "Inspect vector contours at the current zoom. This viewing mode does not change exports.");
     command!("vector-union", "Unite vector shapes", "", "Vector", "boolean union pathfinder combine", "Combine selected filled shapes; the bottom shape supplies the style. Undo restores the originals.");
     command!("vector-subtract", "Subtract vector shapes", "", "Vector", "boolean difference cut pathfinder", "Cut upper selected filled shapes out of the bottom selected shape.");
@@ -190,7 +204,7 @@ define_commands! {
     command!("filter-curves", "Curves", "ctrl-m", "Image", "pixel filter tonal points", "Open Curves settings; Apply changes pixels and Undo restores them.");
     command!("filter-hsl", "Hue and saturation", "ctrl-u", "Image", "pixel filter hsl color colour", "Open Hue and Saturation settings; Apply changes pixels and Undo restores them.");
     command!("filter-color-balance", "Colour balance", "ctrl-b", "Image", "pixel filter color colour shadows highlights", "Open Colour Balance settings; Apply changes pixels and Undo restores them.");
-    command!("camera-raw", "Camera Raw", "ctrl-shift-a", "Image", "develop photo exposure curves color", "Open nondestructive Camera Raw controls for a pixel layer.");
+    command!("camera-raw", "Camera Raw", "ctrl-shift-a", "Image", "develop photo exposure curves color native retained 16 bit xmp preset", "Open nondestructive Camera Raw controls for a pixel layer.");
 
     command!("zoom-in", "Zoom in", "ctrl-=", "View", "magnify closer plus", "Use the next zoom stop while keeping the viewport centre fixed on the artwork.");
     command!("zoom-in-plus", "Zoom in (+)", "ctrl-+", "View", "magnify closer plus", "Increase canvas magnification with the Plus key.");
@@ -211,7 +225,7 @@ define_commands! {
     command!("tool-pencil", "Pencil tool", "shift-b", "Tools", "paint hard pixel", "Paint hard-edged freehand strokes.");
     command!("tool-eraser", "Eraser tool", "e", "Tools", "erase brush", "Erase pixels with a brush.");
     command!("tool-fill", "Fill tool", "shift-g", "Tools", "bucket flood paint", "Fill a connected colour region.");
-    command!("tool-gradient", "Gradient tool", "g", "Tools", "blend ramp fill", "Draw a configurable colour gradient.");
+    command!("tool-gradient", "Gradient tool", "g", "Tools", "blend ramp fill", "Draw a configurable colour gradient; while editing vector artwork, manipulate the selected gradient on the canvas.");
     command!("tool-rectangle", "Rectangle selection tool", "m", "Tools", "marquee select", "Draw rectangular pixel selections.");
     command!("tool-ellipse", "Ellipse selection tool", "shift-m", "Tools", "marquee oval circle select", "Draw elliptical pixel selections.");
     command!("tool-lasso", "Lasso tool", "l", "Tools", "freehand select", "Draw freehand pixel selections.");
@@ -254,7 +268,7 @@ define_commands! {
     command!("edit-adjustment", "Edit adjustment", "", "Adjustments", "nondestructive layer settings", "Edit the selected adjustment layer.");
     command!("effects", "Layer effects", "", "Adjustments", "shadow glow stroke overlay", "Edit nondestructive effects on the active layer.");
     command!("clear-effects", "Delete layer effects", "", "Adjustments", "remove styles", "Remove every effect from the active layer.");
-    command!("filter-stack", "Editable filter stack", "", "Adjustments", "nondestructive blur sharpen nodes target colour color uniformity reference match palette", "Build a reorderable stack, including reference-photo colour matching and colour uniformity.");
+    command!("filter-stack", "Editable filter stack", "", "Adjustments", "nondestructive blur sharpen nodes target colour color uniformity reference match palette cube lut look", "Build a reorderable stack, including reference-photo colour matching and colour uniformity.");
     command!("dither", "Dither and halftone", "", "Adjustments", "retro print pixel atkinson floyd steinberg bayer dots lines diamonds patterns ascii", "Preview ten retro finishes with pixel, cell and palette controls; Apply is one undo step.");
     command!("bloom-glow", "Bloom into transparency", "", "Adjustments", "highlight glow bloom margin transparent", "Preview highlight glow that can spread into existing transparent layer margins.");
     command!("vignette-overlay", "Vignette overlay", "", "Adjustments", "vignette blank empty layer frame edge colour", "Preview a coloured edge overlay, including on an empty paint layer.");
@@ -375,9 +389,75 @@ pub struct CommandMatch {
 #[serde(default, deny_unknown_fields)]
 pub struct Shortcuts {
     pub overrides: BTreeMap<String, String>,
+    #[serde(skip)]
+    revision: u64,
+}
+
+/// A reviewable draft change, bound to the exact binding generation it saw.
+/// This state is never serialized or executed as an editor command.
+#[derive(Clone, Debug)]
+pub struct Reassignment {
+    pub target: &'static CommandDefinition,
+    pub chord: String,
+    pub owners: Vec<&'static CommandDefinition>,
+    before: BTreeMap<String, String>,
+    revision: u64,
 }
 
 impl Shortcuts {
+    pub fn prepare_reassignment(&self, id: &str, chord: &str) -> Result<Option<Reassignment>> {
+        let target = definition(id).ok_or_else(|| anyhow::anyhow!("Unknown command: {id}"))?;
+        let chord = canonical_chord(id, chord)?;
+        // Include a suppressed inherited default too. Otherwise clearing its
+        // explicit owner could revive that default while moving the chord.
+        let owners = CATALOG
+            .iter()
+            .filter(|other| {
+                other.id != id
+                    && (self.chord(other.id) == chord
+                        || (!self.overrides.contains_key(other.id) && other.default == chord))
+            })
+            .collect::<Vec<_>>();
+        Ok((!owners.is_empty()).then(|| Reassignment {
+            target,
+            chord,
+            owners,
+            before: self.overrides.clone(),
+            revision: self.revision,
+        }))
+    }
+
+    pub fn reassignment_current(&self, plan: &Reassignment) -> bool {
+        self.revision == plan.revision && self.overrides == plan.before
+    }
+
+    /// Clear every reviewed owner and assign the target as one validated edit.
+    /// Failed or stale confirmation leaves the entire previous map untouched.
+    pub fn reassign(&mut self, plan: &Reassignment) -> Result<()> {
+        ensure!(
+            self.reassignment_current(plan),
+            "Bindings changed; record this shortcut again"
+        );
+        let current = self
+            .prepare_reassignment(plan.target.id, &plan.chord)?
+            .context("The shortcut conflict changed; record it again")?;
+        ensure!(
+            current.owners == plan.owners,
+            "Shortcut owners changed; record it again"
+        );
+        let mut candidate = self.clone();
+        for owner in &plan.owners {
+            candidate.overrides.insert(owner.id.into(), String::new());
+        }
+        candidate
+            .overrides
+            .insert(plan.target.id.into(), plan.chord.clone());
+        candidate.validate()?;
+        candidate.revision = self.revision.wrapping_add(1);
+        *self = candidate;
+        Ok(())
+    }
+
     /// Return the effective chord. Explicit user choices win over newly added
     /// defaults; a colliding new default is left unbound instead of erasing an
     /// older customization.
@@ -435,6 +515,7 @@ impl Shortcuts {
         let command = definition(id).ok_or_else(|| anyhow::anyhow!("Unknown command: {id}"))?;
         if chord.trim().is_empty() {
             self.overrides.insert(id.into(), String::new());
+            self.revision = self.revision.wrapping_add(1);
             return Ok(());
         }
         let chord = canonical_chord(id, chord)?;
@@ -448,6 +529,7 @@ impl Shortcuts {
         let mut candidate = self.clone();
         candidate.overrides.insert(command.id.into(), chord);
         candidate.validate()?;
+        candidate.revision = self.revision.wrapping_add(1);
         *self = candidate;
         Ok(())
     }
@@ -463,8 +545,14 @@ impl Shortcuts {
         let mut candidate = self.clone();
         candidate.overrides.remove(id);
         candidate.validate()?;
+        candidate.revision = self.revision.wrapping_add(1);
         *self = candidate;
         Ok(())
+    }
+
+    pub fn reset_all(&mut self) {
+        self.overrides.clear();
+        self.revision = self.revision.wrapping_add(1);
     }
 
     pub fn load(path: &Path) -> Result<Self> {
@@ -873,9 +961,94 @@ mod tests {
     }
 
     #[test]
+    fn reassignment_reviews_and_releases_explicit_and_inherited_owners_atomically() {
+        let mut shortcuts = Shortcuts {
+            overrides: BTreeMap::from([("open".into(), "ctrl-k".into())]),
+            ..Default::default()
+        };
+        let before = shortcuts.overrides.clone();
+        let plan = shortcuts
+            .prepare_reassignment("save", "ctrl-k")
+            .unwrap()
+            .unwrap();
+        assert_eq!(shortcuts.overrides, before, "review/cancel has no mutation");
+        assert_eq!(
+            plan.owners
+                .iter()
+                .map(|owner| owner.id)
+                .collect::<BTreeSet<_>>(),
+            ["open", "command-search"].into_iter().collect()
+        );
+        shortcuts.reassign(&plan).unwrap();
+        assert_eq!(shortcuts.chord("save"), "ctrl-k");
+        assert_eq!(shortcuts.chord("open"), "");
+        assert_eq!(shortcuts.chord("command-search"), "");
+        assert!(
+            shortcuts.reassign(&plan).is_err(),
+            "a confirmation cannot replay"
+        );
+        shortcuts.validate().unwrap();
+    }
+
+    #[test]
+    fn reassignment_rejects_stale_reset_and_reserved_or_changed_bindings() {
+        let mut shortcuts = Shortcuts::default();
+        let plan = shortcuts
+            .prepare_reassignment("save", "ctrl-o")
+            .unwrap()
+            .unwrap();
+        shortcuts.reset("open").unwrap();
+        assert_eq!(
+            shortcuts.overrides, plan.before,
+            "even a same-value reset invalidates review"
+        );
+        assert!(shortcuts.reassign(&plan).is_err());
+        let plan = shortcuts
+            .prepare_reassignment("save", "ctrl-o")
+            .unwrap()
+            .unwrap();
+        shortcuts.reset_all();
+        assert!(shortcuts.reassign(&plan).is_err());
+        let plan = shortcuts
+            .prepare_reassignment("save", "ctrl-o")
+            .unwrap()
+            .unwrap();
+        shortcuts.assign("open", "ctrl-alt-shift-9").unwrap();
+        let before = shortcuts.overrides.clone();
+        assert!(shortcuts.reassign(&plan).is_err());
+        assert_eq!(shortcuts.overrides, before);
+        for chord in ["super-o", "ctrl-alt-f2", "escape", "enter", "space", "a"] {
+            assert!(
+                shortcuts.prepare_reassignment("save", chord).is_err(),
+                "{chord}"
+            );
+        }
+    }
+
+    #[test]
+    fn reassigned_map_persists_as_one_valid_configuration() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("keys.json");
+        let mut draft = Shortcuts::default();
+        draft.save(&path).unwrap();
+        let plan = draft
+            .prepare_reassignment("save", "ctrl-o")
+            .unwrap()
+            .unwrap();
+        draft.reassign(&plan).unwrap();
+        draft.save(&path).unwrap();
+        let reopened = Shortcuts::load(&path).unwrap();
+        assert_eq!(reopened.chord("save"), "ctrl-o");
+        assert_eq!(reopened.chord("open"), "");
+        let json = std::fs::read_to_string(path).unwrap();
+        assert!(!json.contains("revision") && !json.contains("owners"));
+    }
+
+    #[test]
     fn prior_override_wins_over_a_new_colliding_default() {
         let shortcuts = Shortcuts {
             overrides: BTreeMap::from([("open".into(), "ctrl-k".into())]),
+            ..Default::default()
         };
         shortcuts.validate().unwrap();
         assert_eq!(shortcuts.chord("open"), "ctrl-k");

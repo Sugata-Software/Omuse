@@ -11,20 +11,60 @@ pub enum Target {
     Luminance,
 }
 
-fn sampled(pixel: [u8; 4]) -> Result<[f64; 3]> {
-    ensure!(
-        pixel[3] != 0,
-        "Choose a visible pixel; transparent pixels have no colour"
-    );
-    Ok(camera_raw::stage_rgb(&image::Rgba(pixel)))
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Sample {
+    Byte([u8; 4]),
+    Native {
+        pixel: [u16; 4],
+        space: crate::precision::WorkingSpace,
+    },
+}
+impl Sample {
+    pub fn rgb(self) -> Result<[f64; 3]> {
+        match self {
+            Self::Byte(pixel) => {
+                ensure!(
+                    pixel[3] != 0,
+                    "Choose a visible pixel; transparent pixels have no colour"
+                );
+                Ok(camera_raw::stage_rgb(&image::Rgba(pixel)))
+            }
+            Self::Native { pixel, space } => {
+                ensure!(
+                    pixel[3] != 0,
+                    "Choose a visible pixel; transparent pixels have no colour"
+                );
+                let p = camera_raw::native::sample_rgb(pixel, space);
+                Ok([p[0], p[1], p[2]])
+            }
+        }
+    }
+    fn space(self) -> crate::precision::WorkingSpace {
+        match self {
+            Self::Byte(_) => crate::precision::WorkingSpace::Srgb,
+            Self::Native { space, .. } => space,
+        }
+    }
+}
+pub fn point_color_sample(pixel: Sample) -> Result<camera_raw::PointColor> {
+    let (h, s, l) = camera_raw::rgb_hsl(pixel.rgb()?);
+    Ok(camera_raw::PointColor {
+        hue: (h * 360.) as f32,
+        saturation: s as f32,
+        luminance: l as f32,
+        ..Default::default()
+    })
 }
 
 /// Solve the pipeline's linear RGB temperature/tint gains for a neutral sample.
 /// Calibration has already been applied to this WhiteBalance-stage reference.
 /// The bool reports a requested correction outside the supported control range.
 pub fn white_balance(settings: &Settings, pixel: [u8; 4]) -> Result<(Settings, bool)> {
+    white_balance_sample(settings, Sample::Byte(pixel))
+}
+pub fn white_balance_sample(settings: &Settings, pixel: Sample) -> Result<(Settings, bool)> {
     camera_raw::validate(settings)?;
-    let rgb = sampled(pixel)?;
+    let rgb = pixel.rgb()?;
     ensure!(
         rgb.iter().all(|v| (0.02..0.98).contains(v)),
         "Pick a neutral midtone away from black or clipped highlights"
@@ -40,6 +80,9 @@ pub fn white_balance(settings: &Settings, pixel: [u8; 4]) -> Result<(Settings, b
     let tint = (a * (g - b) - (g - r) * c) / determinant * 100.;
     let limited = temperature.abs() > 100. || tint.abs() > 100.;
     let mut next = settings.clone();
+    if matches!(pixel, Sample::Native { .. }) {
+        next.white_balance = camera_raw::WhiteBalance::Custom;
+    }
     next.temperature = temperature.clamp(-100., 100.) as f32;
     next.tint = tint.clamp(-100., 100.) as f32;
     camera_raw::validate(&next)?;
@@ -49,8 +92,11 @@ pub fn white_balance(settings: &Settings, pixel: [u8; 4]) -> Result<(Settings, b
 /// Pick only the green/purple hue bands supported by the defringe controls.
 /// Sample after lens/aberration correction, before defringe and vignetting.
 pub fn defringe(settings: &Settings, pixel: [u8; 4]) -> Result<Settings> {
+    defringe_sample(settings, Sample::Byte(pixel))
+}
+pub fn defringe_sample(settings: &Settings, pixel: Sample) -> Result<Settings> {
     camera_raw::validate(settings)?;
-    let rgb = sampled(pixel)?;
+    let rgb = pixel.rgb()?;
     let (h, saturation, _) = camera_raw::rgb_hsl(rgb);
     ensure!(
         saturation >= 0.08,
@@ -84,9 +130,17 @@ pub fn targeted(
     target: Target,
     delta: f32,
 ) -> Result<Settings> {
+    targeted_sample(settings, Sample::Byte(pixel), target, delta)
+}
+pub fn targeted_sample(
+    settings: &Settings,
+    pixel: Sample,
+    target: Target,
+    delta: f32,
+) -> Result<Settings> {
     camera_raw::validate(settings)?;
     ensure!(delta.is_finite(), "Drag distance must be finite");
-    let rgb = sampled(pixel)?;
+    let rgb = pixel.rgb()?;
     if delta == 0. {
         return Ok(settings.clone());
     }
@@ -96,11 +150,16 @@ pub fn targeted(
         ensure!(channel <= 3, "Choose an RGB, red, green or blue curve");
         let x = if channel == 0 {
             camera_raw::parametric(
-                0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2],
+                camera_raw::native::sample_luminance(rgb, pixel.space()),
                 &settings.curve,
             )
         } else {
-            camera_raw::apply_master_curve(rgb, settings)[channel - 1]
+            match pixel {
+                Sample::Byte(_) => camera_raw::apply_master_curve(rgb, settings)[channel - 1],
+                Sample::Native { space, .. } => {
+                    camera_raw::native::sample_master_curve(rgb, settings, space)[channel - 1]
+                }
+            }
         }
         .clamp(0., 1.) as f32;
         let points = match channel {

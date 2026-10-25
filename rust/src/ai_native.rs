@@ -1905,9 +1905,25 @@ fn disk_semantic_advanced_matches(expected: &Layer, reopened: &Layer) -> Result<
 fn disk_semantic_vector_scene_matches(expected: &Layer, reopened: &Layer) -> Result<bool> {
     match (&expected.vector_scene, &reopened.vector_scene) {
         (None, None) => Ok(true),
-        (Some(expected), Some(reopened)) => Ok(
-            serde_json::to_value(expected.as_ref())? == serde_json::to_value(reopened.as_ref())?
-        ),
+        (Some(expected), Some(reopened)) => {
+            let mut expected_json = serde_json::to_value(expected.as_ref())?;
+            let reopened_json = serde_json::to_value(reopened.as_ref())?;
+            // Plain scenes written by the current editor deliberately retain
+            // the preceding compatible format. Normalize only that declared
+            // compatibility pair; every artwork and metadata field still has
+            // to match, and extended content cannot take this path.
+            if matches!((expected.version, reopened.version), (5, 6) | (6, 5))
+                && !expected.has_extended_paints()
+                && !reopened.has_extended_paints()
+                && !expected.has_extended_metadata()
+                && !reopened.has_extended_metadata()
+            {
+                expected.validate()?;
+                reopened.validate()?;
+                expected_json["version"] = reopened_json["version"].clone();
+            }
+            Ok(expected_json == reopened_json)
+        }
         _ => Ok(false),
     }
 }
@@ -2262,6 +2278,19 @@ mod tests {
         assert!(!disk_semantic_project_matches(
             &mut expected,
             &mut geometry_loss
+        )?);
+
+        let mut incompatible_scene = reopened.clone();
+        let scene = incompatible_scene
+            .active_document_mut()?
+            .layers
+            .iter_mut()
+            .find_map(|layer| layer.vector_scene.as_mut())
+            .context("Missing vector scene after reopen")?;
+        std::sync::Arc::make_mut(scene).version = 1;
+        assert!(!disk_semantic_project_matches(
+            &mut expected,
+            &mut incompatible_scene
         )?);
 
         let mut scene_loss = reopened.clone();

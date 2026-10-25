@@ -27,7 +27,7 @@ impl VectorScene {
 
         let mut flattened_points = 0usize;
         for (index, object) in self.objects.iter().enumerate().rev() {
-            if !object.visible || object.opacity <= 0. {
+            if !object.visible || object.opacity <= 0. || object.is_clip {
                 continue;
             }
             let fill_visible = object.fill_gradient.as_ref().map_or_else(
@@ -40,6 +40,24 @@ impl VectorScene {
                 continue;
             }
 
+            if let Some(id) = &object.clip_to {
+                let mask = self
+                    .objects
+                    .iter()
+                    .find(|source| &source.id == id)
+                    .expect("validated clip source");
+                let path = transform_path_raw(&mask.path, mask.transform)?;
+                let flat = path.flatten(HIT_FLATTEN_TOLERANCE, || false)?;
+                flattened_points = flattened_points
+                    .saturating_add(flat.iter().map(|s| s.points.len()).sum::<usize>());
+                ensure!(
+                    flattened_points <= MAX_HIT_FLAT_POINTS,
+                    "Vector clip hit test exceeds work limit"
+                );
+                if !fill_matches(&flat, path.fill_rule, point, 0.) {
+                    continue;
+                }
+            }
             // Flatten after applying the object transform so the tolerance,
             // edge distance and curved geometry are all evaluated in the
             // scene-local coordinate system supplied by the caller.

@@ -378,15 +378,30 @@ mod tests {
         cx.simulate_keystrokes("ctrl-s");
         cx.update(|_, cx| {
             let view = view.read(cx);
-            assert_eq!(view.recording.as_deref(), Some("brush-smaller"));
-            assert!(view.status.contains("Already assigned"), "{}", view.status);
+            assert!(
+                view.recording.is_none(),
+                "recording transitions to conflict review"
+            );
+            let review = view
+                .pending_reassignment
+                .as_ref()
+                .expect("review current owners");
+            assert_eq!(review.target.id, "brush-smaller");
+            assert_eq!(review.chord, "ctrl-s");
+            assert!(review.owners.iter().any(|owner| owner.id == "save"));
+            assert_eq!(view.shortcut_draft.chord("save"), "ctrl-s");
             assert_eq!(view.shortcut_draft.chord("brush-smaller"), "[");
             assert_eq!(view.dialog, Dialog::Shortcuts);
         });
         cx.simulate_keystrokes("escape");
         cx.update(|_, cx| {
-            assert!(view.read(cx).recording.is_none());
-            assert_eq!(view.read(cx).dialog, Dialog::Shortcuts);
+            let view = view.read(cx);
+            assert!(view.recording.is_none());
+            assert!(view.pending_reassignment.is_none(), "Escape cancels review");
+            assert_eq!(view.shortcut_draft.chord("save"), "ctrl-s");
+            assert_eq!(view.shortcut_draft.chord("brush-smaller"), "[");
+            assert_eq!(view.shortcuts.chord("save"), "ctrl-s");
+            assert_eq!(view.dialog, Dialog::Shortcuts);
         });
         cx.simulate_keystrokes("escape");
         cx.update(|window, cx| {

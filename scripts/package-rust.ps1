@@ -30,6 +30,8 @@ $required = @(
     (Join-Path $RuntimeDir 'lib\onnxruntime.dll'),
     (Join-Path $RuntimeDir 'models\u2netp.onnx'),
     (Join-Path $repoRoot 'LICENSE'),
+    (Join-Path $repoRoot 'rust\licenses\efficientsam\LICENSE'),
+    (Join-Path $repoRoot 'rust\licenses\efficientsam\MODEL_CARD.md'),
     (Join-Path $repoRoot 'scripts\rust-license-inventory.py')
 )
 foreach ($path in $required) {
@@ -58,6 +60,9 @@ try {
     Copy-Item -LiteralPath (Join-Path $RuntimeDir 'models\u2netp.onnx') -Destination (Join-Path $root 'models')
     Copy-Item -LiteralPath (Join-Path $repoRoot 'LICENSE') -Destination (Join-Path $root 'licenses\Omuse-MIT.txt')
     foreach ($notice in $notices) { Copy-Item -LiteralPath $notice.FullName -Destination (Join-Path $root 'licenses') }
+    $guidedNotices = Join-Path $root 'licenses\efficientsam'
+    New-Item -ItemType Directory -Force $guidedNotices | Out-Null
+    foreach ($name in 'LICENSE', 'MODEL_CARD.md') { Copy-Item -LiteralPath (Join-Path $repoRoot "rust\licenses\efficientsam\$name") -Destination $guidedNotices }
     Copy-Item -LiteralPath (Join-Path $inventory 'inventory.json') -Destination (Join-Path $root 'licenses\rust-dependency-inventory.json')
     Copy-Item -LiteralPath (Join-Path $inventory 'THIRD_PARTY_NOTICES.txt') -Destination (Join-Path $root 'licenses\Rust-THIRD-PARTY-NOTICES.txt')
 

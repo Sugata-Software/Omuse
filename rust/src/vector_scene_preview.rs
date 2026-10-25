@@ -441,6 +441,8 @@ mod tests {
             ],
             spread: GradientSpread::Pad,
             transform: [1., 0., 0.2, 1., -2., 3.],
+            method: Default::default(),
+            dither: false,
         });
         object.stroke_options = Some(StrokeOptions {
             dashes: vec![6., 4.],

@@ -32,6 +32,8 @@ pub enum Filter {
         green: f32,
         blue: f32,
     },
+    /// Embedded portable creative look; encoded-sRGB inputs and clipped output.
+    CubeLook(crate::look_lut::Settings),
     GaussianBlur {
         sigma: f32,
     },
@@ -143,6 +145,7 @@ pub fn validate(filter: &Filter) -> Result<()> {
             range(*green, -1.0, 1.0, "Green")?;
             range(*blue, -1.0, 1.0, "Blue")?;
         }
+        Filter::CubeLook(settings) => settings.validate()?,
         Filter::GaussianBlur { sigma } => range(*sigma, 0.0, 128.0, "Blur sigma")?,
         Filter::UnsharpMask {
             sigma,
@@ -255,6 +258,23 @@ pub fn apply_cancellable(
 
 fn apply_in_place(image: &mut RgbaImage, filter: &Filter, cancelled: &AtomicBool) -> Result<()> {
     match filter {
+        Filter::CubeLook(settings) => {
+            if settings.amount == 0. {
+                return Ok(());
+            }
+            for (index, p) in image.pixels_mut().enumerate() {
+                if index & 4095 == 0 {
+                    ensure!(!cancelled.load(Ordering::Relaxed), "filter cancelled");
+                }
+                if p[3] == 0 {
+                    continue;
+                }
+                let color = settings.sample(rgb(p.0));
+                for c in 0..3 {
+                    p[c] = byte(color[c]);
+                }
+            }
+        }
         Filter::BloomGlow {
             sigma,
             amount,

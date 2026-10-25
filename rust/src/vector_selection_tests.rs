@@ -1,6 +1,81 @@
 use super::*;
 use omuse::vector_scene::{VectorObject, VectorScene};
 
+#[gpui_kit::test]
+fn escape_cancels_shape_builder_gesture_before_the_draft(cx: &mut TestAppContext) {
+    let (view, cx) = open(cx);
+    cx.update(|window, cx| {
+        view.update(cx, |view, cx| {
+            view.set_scene_selection([0, 1].into_iter().collect(), Some(1), window, cx);
+            view.start_scene_builder(window, cx);
+        })
+    });
+    cx.run_until_parked();
+    draw(cx);
+    let before = snapshot(&view, cx);
+    view.update(cx, |view, _| {
+        assert!(
+            view.vector_draft
+                .as_ref()
+                .unwrap()
+                .scene
+                .as_ref()
+                .unwrap()
+                .builder
+                .is_some()
+        )
+    });
+    let from = canvas_point(&view, cx, 5., 6.);
+    let to = canvas_point(&view, cx, 21., 8.);
+    cx.simulate_event(MouseDownEvent {
+        position: from,
+        button: MouseButton::Left,
+        modifiers: Modifiers::default(),
+        click_count: 1,
+        first_mouse: false,
+    });
+    cx.simulate_mouse_move(to, Some(MouseButton::Left), Modifiers::default());
+    cx.simulate_keystrokes("escape");
+    assert_eq!(snapshot(&view, cx), before);
+    view.update(cx, |view, _| {
+        assert!(
+            view.vector_draft
+                .as_ref()
+                .unwrap()
+                .scene
+                .as_ref()
+                .unwrap()
+                .builder
+                .as_ref()
+                .unwrap()
+                .chosen
+                .is_empty()
+        )
+    });
+    cx.simulate_event(MouseUpEvent {
+        position: to,
+        button: MouseButton::Left,
+        modifiers: Modifiers::default(),
+        click_count: 1,
+    });
+    cx.run_until_parked();
+    assert_eq!(snapshot(&view, cx), before);
+    cx.simulate_keystrokes("escape");
+    view.update(cx, |view, _| {
+        assert!(view.vector_scene_active());
+        assert!(
+            view.vector_draft
+                .as_ref()
+                .unwrap()
+                .scene
+                .as_ref()
+                .unwrap()
+                .builder
+                .is_none()
+        );
+    });
+}
+
 fn artwork() -> VectorScene {
     VectorScene {
         version: 1,
@@ -103,6 +178,21 @@ fn shift_selection_drag_and_keyboard_undo_move_all_objects_once(cx: &mut TestApp
     assert_eq!(
         nudged.objects[1].path.subpaths[0].anchors[0].position.x,
         moved.objects[1].path.subpaths[0].anchors[0].position.x + 1.
+    );
+    cx.simulate_keystrokes("ctrl-shift-d");
+    let copied_nudge = snapshot(&view, cx);
+    assert_eq!(copied_nudge.objects.len(), 5);
+    assert_eq!(
+        copied_nudge.objects[3].path.subpaths[0].anchors[0]
+            .position
+            .x,
+        nudged.objects[0].path.subpaths[0].anchors[0].position.x + 1.
+    );
+    assert_eq!(
+        copied_nudge.objects[4].path.subpaths[0].anchors[0]
+            .position
+            .x,
+        nudged.objects[1].path.subpaths[0].anchors[0].position.x + 1.
     );
     cx.simulate_keystrokes("escape");
     view.update(cx, |view, _| {
@@ -735,4 +825,245 @@ fn raise_can_move_a_lower_selection_when_the_active_object_is_already_on_top(
     cx.simulate_keystrokes("ctrl-z");
     cx.run_until_parked();
     assert_eq!(snapshot(&view, cx), before);
+}
+
+#[gpui_kit::test]
+fn transformed_copy_repeat_swap_and_undo_stay_on_shared_canvas(cx: &mut TestAppContext) {
+    let (view, cx) = open(cx);
+    let original = snapshot(&view, cx);
+    cx.update(|window, cx| {
+        view.update(cx, |view, cx| {
+            for (index, value) in [(4, "10"), (5, "2"), (6, "100"), (7, "0")] {
+                view.detail_inputs[index]
+                    .update(cx, |input, cx| input.set_value(value, window, cx));
+            }
+            view.scene_quick_action("transform-copy", window, cx);
+        })
+    });
+    let first = snapshot(&view, cx);
+    assert_eq!(first.objects.len(), 4);
+    assert_eq!(&first.objects[..3], &original.objects);
+    assert_eq!(chosen(&view, cx), vec![3]);
+    let point = first.objects[3].path.subpaths[0].anchors[0].position;
+    assert_eq!((point.x, point.y), (12., 5.));
+    // The numeric fields reset to identity after applying. Applying those
+    // defaults again must not erase the previous useful repeat operation.
+    cx.update(|window, cx| {
+        view.update(cx, |view, cx| {
+            view.scene_arrange_action("transform", window, cx)
+        })
+    });
+    assert_eq!(snapshot(&view, cx), first);
+    cx.simulate_keystrokes("ctrl-shift-d");
+    let second = snapshot(&view, cx);
+    assert_eq!(second.objects.len(), 5);
+    assert_eq!(chosen(&view, cx), vec![4]);
+    let point = second.objects[4].path.subpaths[0].anchors[0].position;
+    assert_eq!((point.x, point.y), (22., 7.));
+    cx.simulate_keystrokes("x");
+    let swapped = snapshot(&view, cx);
+    assert_eq!(swapped.objects[4].fill, None);
+    assert_eq!(
+        swapped.objects[4].stroke.unwrap().color,
+        original.objects[0].fill.unwrap()
+    );
+    cx.simulate_keystrokes("ctrl-z");
+    assert_eq!(snapshot(&view, cx), second);
+    cx.simulate_keystrokes("ctrl-z");
+    assert_eq!(snapshot(&view, cx), first);
+    cx.simulate_keystrokes("ctrl-z");
+    assert_eq!(snapshot(&view, cx), original);
+    view.update(cx, |view, _| assert!(view.vector_scene_active()));
+}
+
+#[gpui_kit::test]
+fn configurable_star_polygon_and_invalid_values_are_transactional(cx: &mut TestAppContext) {
+    let (view, cx) = open(cx);
+    let original = snapshot(&view, cx);
+    cx.update(|window, cx| {
+        view.update(cx, |view, cx| {
+            view.detail_inputs[29].update(cx, |input, cx| input.set_value("7", window, cx));
+            view.detail_inputs[30].update(cx, |input, cx| input.set_value("40", window, cx));
+            view.scene_add_regular_shape(true, window, cx);
+        })
+    });
+    let star = snapshot(&view, cx);
+    assert_eq!(star.objects.len(), 4);
+    assert_eq!(star.objects[3].path.subpaths[0].anchors.len(), 14);
+    assert!(star.objects[3].path.subpaths[0].closed);
+    cx.simulate_keystrokes("ctrl-z");
+    assert_eq!(snapshot(&view, cx), original);
+    cx.update(|window, cx| {
+        view.update(cx, |view, cx| {
+            view.detail_inputs[29].update(cx, |input, cx| input.set_value("65", window, cx));
+            view.scene_add_regular_shape(false, window, cx);
+            assert!(view.status.contains("3–64"), "{}", view.status);
+        })
+    });
+    assert_eq!(snapshot(&view, cx), original);
+    cx.update(|window, cx| {
+        view.update(cx, |view, cx| {
+            view.detail_inputs[29].update(cx, |input, cx| input.set_value("6", window, cx));
+            view.scene_add_regular_shape(false, window, cx);
+        })
+    });
+    assert_eq!(
+        snapshot(&view, cx).objects[3].path.subpaths[0]
+            .anchors
+            .len(),
+        6
+    );
+}
+
+#[gpui_kit::test]
+fn nested_isolation_double_click_selection_escape_and_undo_restore_scope(cx: &mut TestAppContext) {
+    use omuse::vector_scene::VectorGroup;
+    let (view, cx) = open(cx);
+    let outer = VectorGroup {
+        id: uuid::Uuid::new_v4().to_string(),
+        name: "Outer".into(),
+    };
+    let inner = VectorGroup {
+        id: uuid::Uuid::new_v4().to_string(),
+        name: "Inner".into(),
+    };
+    cx.update(|window, cx| {
+        view.update(cx, |view, cx| {
+            let mut artwork = artwork();
+            artwork.version = 2;
+            artwork.objects[0].groups = vec![outer.clone(), inner.clone()];
+            artwork.objects[1].groups = vec![outer.clone()];
+            view.replace_scene_artwork(artwork, [0].into_iter().collect(), window, cx)
+                .unwrap();
+        })
+    });
+    let original = snapshot(&view, cx);
+    let red = canvas_point(&view, cx, 5., 6.);
+    double_click(cx, red);
+    view.update(cx, |view, _| {
+        assert_eq!(
+            view.vector_draft
+                .as_ref()
+                .unwrap()
+                .scene
+                .as_ref()
+                .unwrap()
+                .isolation,
+            vec![outer.id.clone()]
+        )
+    });
+    cx.update(|window, cx| view.update(cx, |view, cx| view.scene_action("rectangle", window, cx)));
+    let with_shape = snapshot(&view, cx);
+    assert_eq!(with_shape.objects.len(), 4);
+    assert_eq!(with_shape.objects[2].groups, vec![outer.clone()]);
+    assert_eq!(chosen(&view, cx), vec![2]);
+    cx.simulate_keystrokes("ctrl-z");
+    assert_eq!(snapshot(&view, cx), original);
+    view.update(cx, |view, _| {
+        assert_eq!(
+            view.vector_draft
+                .as_ref()
+                .unwrap()
+                .scene
+                .as_ref()
+                .unwrap()
+                .isolation,
+            vec![outer.id.clone()],
+            "Undo must restore the isolation view from immediately before the edit"
+        )
+    });
+    double_click(cx, red);
+    view.update(cx, |view, _| {
+        assert_eq!(
+            view.vector_draft
+                .as_ref()
+                .unwrap()
+                .scene
+                .as_ref()
+                .unwrap()
+                .isolation,
+            vec![outer.id.clone(), inner.id.clone()]
+        )
+    });
+    cx.simulate_keystrokes("ctrl-a");
+    assert_eq!(chosen(&view, cx), vec![0]);
+    let outsider = canvas_point(&view, cx, 33., 23.);
+    cx.simulate_click(outsider, Modifiers::default());
+    assert!(!chosen(&view, cx).contains(&2));
+    assert_eq!(snapshot(&view, cx), original);
+    cx.simulate_keystrokes("escape");
+    view.update(cx, |view, _| {
+        assert_eq!(
+            view.vector_draft
+                .as_ref()
+                .unwrap()
+                .scene
+                .as_ref()
+                .unwrap()
+                .isolation,
+            vec![outer.id.clone()]
+        )
+    });
+    cx.simulate_keystrokes("ctrl-a");
+    assert_eq!(chosen(&view, cx), vec![0, 1]);
+    cx.simulate_keystrokes("ctrl-shift-g");
+    let ungrouped = snapshot(&view, cx);
+    assert_eq!(ungrouped.objects[0].groups, vec![outer.clone()]);
+    assert_eq!(ungrouped.objects[1].groups, vec![outer.clone()]);
+    view.update(cx, |view, _| {
+        assert_eq!(
+            view.vector_draft
+                .as_ref()
+                .unwrap()
+                .scene
+                .as_ref()
+                .unwrap()
+                .isolation,
+            vec![outer.id.clone()]
+        )
+    });
+    cx.simulate_keystrokes("ctrl-z");
+    assert_eq!(snapshot(&view, cx), original);
+    cx.simulate_keystrokes("backspace");
+    view.update(cx, |view, _| {
+        assert!(
+            view.vector_draft
+                .as_ref()
+                .unwrap()
+                .scene
+                .as_ref()
+                .unwrap()
+                .isolation
+                .is_empty()
+        )
+    });
+    assert_eq!(snapshot(&view, cx).objects.len(), 1);
+    cx.simulate_keystrokes("ctrl-z");
+    assert_eq!(snapshot(&view, cx), original);
+    view.update(cx, |view, _| {
+        assert_eq!(
+            view.vector_draft
+                .as_ref()
+                .unwrap()
+                .scene
+                .as_ref()
+                .unwrap()
+                .isolation,
+            vec![outer.id.clone()]
+        )
+    });
+    cx.simulate_keystrokes("escape");
+    view.update(cx, |view, _| {
+        assert!(view.vector_scene_active());
+        assert!(
+            view.vector_draft
+                .as_ref()
+                .unwrap()
+                .scene
+                .as_ref()
+                .unwrap()
+                .isolation
+                .is_empty()
+        );
+    });
 }

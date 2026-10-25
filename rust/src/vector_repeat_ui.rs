@@ -10,6 +10,7 @@ use std::collections::{BTreeSet, HashSet};
 fn repeat_scene(
     mut source: VectorScene,
     selected: &BTreeSet<usize>,
+    scope_depth: usize,
     spec: &RepeatSpec,
     namespace: &str,
     cancel: &AtomicBool,
@@ -82,7 +83,20 @@ fn repeat_scene(
             "Repeat would exceed the document's {limit}-{label} limit; use fewer instances"
         );
     }
-    let snapshot = generate(&objects, spec, namespace, cancel)?;
+    let mut snapshot = generate(&objects, spec, namespace, cancel)?;
+    let parent = &objects[0].groups;
+    ensure!(
+        scope_depth <= parent.len()
+            && objects
+                .iter()
+                .all(|object| object.groups.len() >= scope_depth
+                    && object.groups[..scope_depth] == parent[..scope_depth]),
+        "Isolation group changed; select artwork again"
+    );
+    for (index, object) in snapshot.objects.iter_mut().enumerate().skip(objects.len()) {
+        object.groups[..scope_depth]
+            .clone_from_slice(&objects[index % objects.len()].groups[..scope_depth]);
+    }
     let original_groups = source
         .objects
         .iter()
@@ -91,23 +105,36 @@ fn repeat_scene(
         .collect::<std::result::Result<HashSet<_>, _>>()?;
     for group in snapshot.objects[objects.len()..]
         .iter()
-        .flat_map(|o| &o.groups)
+        .flat_map(|o| o.groups.iter().skip(scope_depth))
     {
         ensure!(
             !original_groups.contains(&uuid::Uuid::parse_str(&group.id)?),
             "Repeat group identity collides with the document; try again"
         );
     }
-    let start = source.objects.len();
-    source
-        .objects
-        .extend(snapshot.objects.into_iter().skip(objects.len()));
+    let start = if scope_depth == 0 {
+        source.objects.len()
+    } else {
+        source
+            .objects
+            .iter()
+            .rposition(|object| {
+                object.groups.len() >= scope_depth
+                    && object.groups[..scope_depth] == parent[..scope_depth]
+            })
+            .context("Isolation group changed")?
+            + 1
+    };
+    let count = snapshot.objects.len() - objects.len();
+    source.objects.splice(
+        start..start,
+        snapshot.objects.into_iter().skip(objects.len()),
+    );
     source
         .validate()
         .context("Repeat does not fit the current artwork")?;
     ensure!(!cancel.load(Ordering::Relaxed), "Vector repeat cancelled");
-    let count = source.objects.len() - start;
-    let chosen = (start..source.objects.len()).collect();
+    let chosen = (start..start + count).collect();
     Ok((source, chosen, count))
 }
 
@@ -181,11 +208,12 @@ impl EditorView {
             Ok((
                 draft.scene_snapshot()?,
                 scene.selected_objects.clone(),
+                scene.isolation.len(),
                 draft.cancel.clone(),
                 spec,
             ))
         })();
-        let (source, selected, token, spec) = match prepared {
+        let (source, selected, scope_depth, token, spec) = match prepared {
             Ok(value) => value,
             Err(error) => {
                 self.status = error.to_string();
@@ -197,9 +225,16 @@ impl EditorView {
         let original_selection = selected.clone();
         let task_token = token.clone();
         let namespace = uuid::Uuid::new_v4().to_string();
-        let task = cx
-            .background_executor()
-            .spawn(async move { repeat_scene(source, &selected, &spec, &namespace, &task_token) });
+        let task = cx.background_executor().spawn(async move {
+            repeat_scene(
+                source,
+                &selected,
+                scope_depth,
+                &spec,
+                &namespace,
+                &task_token,
+            )
+        });
         self.busy = true;
         self.status = "Preparing editable repeats… Escape cancels".into();
         self.focus.focus(window, cx);
@@ -373,6 +408,7 @@ mod tests {
         let (result, chosen, count) = repeat_scene(
             source,
             &[0, 2].into_iter().collect(),
+            0,
             &spec(2),
             NAMESPACE,
             &AtomicBool::new(false),
@@ -386,15 +422,49 @@ mod tests {
         result.validate().unwrap();
     }
     #[test]
+    fn repeats_inside_isolation_preserve_ancestors_and_insert_before_siblings() {
+        let mut source = source();
+        let outer = VectorGroup {
+            id: uuid::Uuid::new_v4().to_string(),
+            name: "Outer".into(),
+        };
+        let inner = VectorGroup {
+            id: uuid::Uuid::new_v4().to_string(),
+            name: "Inner".into(),
+        };
+        source.version = 2;
+        source.objects[0].groups = vec![outer.clone(), inner.clone()];
+        source.objects[1].groups = vec![outer.clone()];
+        let sibling = source.objects[1].clone();
+        let outside = source.objects[2].clone();
+        let (result, chosen, count) = repeat_scene(
+            source,
+            &[0].into_iter().collect(),
+            2,
+            &spec(3),
+            NAMESPACE,
+            &AtomicBool::new(false),
+        )
+        .unwrap();
+        assert_eq!(count, 2);
+        assert_eq!(chosen, [1, 2].into_iter().collect());
+        assert_eq!(result.objects[1].groups, vec![outer.clone(), inner.clone()]);
+        assert_eq!(result.objects[2].groups, vec![outer, inner]);
+        assert_eq!(result.objects[3], sibling);
+        assert_eq!(result.objects[4], outside);
+        result.validate().unwrap();
+    }
+    #[test]
     fn repeat_rejects_stale_empty_and_noop_selections() {
         let cancel = AtomicBool::new(false);
         for selected in [BTreeSet::new(), [3].into_iter().collect()] {
-            assert!(repeat_scene(source(), &selected, &spec(2), NAMESPACE, &cancel).is_err());
+            assert!(repeat_scene(source(), &selected, 0, &spec(2), NAMESPACE, &cancel).is_err());
         }
         assert!(
             repeat_scene(
                 source(),
                 &[0].into_iter().collect(),
+                0,
                 &spec(1),
                 NAMESPACE,
                 &cancel
@@ -417,6 +487,7 @@ mod tests {
         let error = repeat_scene(
             source,
             &[0].into_iter().collect(),
+            0,
             &spec(256),
             NAMESPACE,
             &AtomicBool::new(false),
@@ -431,6 +502,7 @@ mod tests {
             repeat_scene(
                 source(),
                 &[0].into_iter().collect(),
+                0,
                 &spec(2),
                 NAMESPACE,
                 &AtomicBool::new(true)

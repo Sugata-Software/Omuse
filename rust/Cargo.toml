@@ -1,6 +1,6 @@
 [package]
 name = "omuse"
-version = "0.11.0"
+version = "0.12.0"
 edition = "2024"
 license = "MIT"
 
@@ -26,7 +26,7 @@ png = "=0.18.1"
 tiff = "=0.11.3"
 resvg = { version = "=0.46.0", default-features = false, features = ["text", "system-fonts", "raster-images"] }
 roxmltree = "=0.21.1"
-svg2pdf = { version = "=0.13.0", default-features = false }
+svg2pdf = { version = "=0.13.0", default-features = false, features = ["image"] }
 
 # Windows has no system LittleCMS; compile the crate's bundled copy statically.
 [target.'cfg(windows)'.dependencies]

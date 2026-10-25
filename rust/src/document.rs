@@ -31,7 +31,11 @@ pub const PROJECT_SCENE_VERSION: u64 = 12;
 pub const PROJECT_STYLE_VERSION: u64 = 13;
 pub const PROJECT_TEXT_VERSION: u64 = 14;
 pub const PROJECT_LAYOUT_VERSION: u64 = 15;
-pub const PROJECT_MAX_READ_VERSION: u64 = PROJECT_LAYOUT_VERSION;
+pub const PROJECT_CLIP_VERSION: u64 = 16;
+pub const PROJECT_LOOK_VERSION: u64 = 17;
+pub const PROJECT_PAINT_QUALITY_VERSION: u64 = 18;
+pub const PROJECT_NATIVE_CAMERA_VERSION: u64 = 19;
+pub const PROJECT_MAX_READ_VERSION: u64 = PROJECT_NATIVE_CAMERA_VERSION;
 const VECTOR_SCENE_FORMAT_VERSION: u32 = 1;
 const MAX_VECTOR_SCENE_COMPRESSED: u64 = 32 * 1024 * 1024;
 const MAX_VECTOR_SCENE_JSON: u64 = 64 * 1024 * 1024;
@@ -78,6 +82,19 @@ fn valid_sha256(digest: &str) -> bool {
 
 fn serialize_vector_scene(scene: &crate::vector_scene::VectorScene) -> Result<Vec<u8>> {
     scene.validate()?;
+    // Version6 adds gradient quality and inert application metadata. Keep plain
+    // scenes readable by the prior clipping release when neither is present.
+    let mut compatible;
+    let scene = if scene.version == crate::vector_scene::VECTOR_SCENE_QUALITY_VERSION
+        && !scene.has_extended_paints()
+        && !scene.has_extended_metadata()
+    {
+        compatible = scene.clone();
+        compatible.version = crate::vector_scene::VECTOR_SCENE_CLIP_VERSION;
+        &compatible
+    } else {
+        scene
+    };
     let json = serde_json::to_vec(scene)?;
     ensure!(
         json.len() as u64 <= MAX_VECTOR_SCENE_JSON,
@@ -714,7 +731,7 @@ pub fn open(path: &Path) -> Result<Document> {
         {
             ensure!(
                 (PROJECT_LEGACY_SCENE_VERSION..=PROJECT_MAX_READ_VERSION).contains(&version),
-                "Vector scenes require project format 11–14"
+                "Vector scenes require a supported project format 11 or newer"
             );
             ensure!(
                 !is_group
@@ -731,6 +748,14 @@ pub fn open(path: &Path) -> Result<Document> {
                 MAX_VECTOR_SCENE_DOCUMENT_JSON.saturating_sub(vector_scene_expanded),
             )?;
             ensure!(
+                version >= PROJECT_PAINT_QUALITY_VERSION || !scene.has_extended_paints(),
+                "Perceptual or dithered gradients require project format 18"
+            );
+            ensure!(
+                version >= PROJECT_PAINT_QUALITY_VERSION || !scene.has_extended_metadata(),
+                "Retained SVG application metadata requires project format 18"
+            );
+            ensure!(
                 version >= PROJECT_SCENE_VERSION
                     || scene.version == crate::vector_scene::VECTOR_SCENE_LEGACY_VERSION,
                 "Grouped vector scenes require project format 12"
@@ -744,6 +769,11 @@ pub fn open(path: &Path) -> Result<Document> {
                 version >= PROJECT_TEXT_VERSION
                     || scene.version < crate::vector_scene::VECTOR_SCENE_TEXT_VERSION,
                 "Editable text on curves requires project format 14"
+            );
+            ensure!(
+                version >= PROJECT_CLIP_VERSION
+                    || scene.version < crate::vector_scene::VECTOR_SCENE_CLIP_VERSION,
+                "Editable clipping requires project format 16"
             );
             vector_scene_expanded = vector_scene_expanded.saturating_add(expanded_bytes);
             vector_scene_used = vector_scene_used.saturating_add(scene.retained_bytes());
@@ -844,6 +874,14 @@ pub fn open(path: &Path) -> Result<Document> {
                             &id,
                             crate::advanced::MAX_DOCUMENT_BYTES.saturating_sub(advanced_used),
                         )?;
+                        ensure!(
+                            version >= PROJECT_LOOK_VERSION || !has_embedded_look(&state),
+                            "Embedded colour looks require project format 17"
+                        );
+                        ensure!(
+                            version >= PROJECT_NATIVE_CAMERA_VERSION || !has_native_camera(&state),
+                            "Retained Native16 Camera Raw requires project format 19"
+                        );
                         advanced_used = advanced_used.saturating_add(state.retained_bytes());
                         state
                     }))
@@ -868,9 +906,10 @@ pub fn open(path: &Path) -> Result<Document> {
         );
     }
     ensure!(
-        !(PROJECT_SCENE_VERSION..=PROJECT_TEXT_VERSION).contains(&version)
+        (!(PROJECT_SCENE_VERSION..=PROJECT_TEXT_VERSION).contains(&version)
+            && version != PROJECT_CLIP_VERSION)
             || vector_scene_count > 0,
-        "Project formats 12–14 require at least one vector scene"
+        "Project formats 12–14 and 16 require at least one vector scene"
     );
     if let Some(count) = manifest.get("rustVectorSceneCount") {
         ensure!(
@@ -1083,6 +1122,27 @@ fn flatten<'a>(
     Ok(())
 }
 
+fn has_embedded_look(state: &crate::advanced::LayerState) -> bool {
+    state.recipe.nodes.iter().any(|node| {
+        matches!(
+            node.operation,
+            crate::advanced_ops::AdvancedOperation::Filter(crate::filters::Filter::CubeLook(_))
+        )
+    })
+}
+
+fn has_native_camera(state: &crate::advanced::LayerState) -> bool {
+    // Even disabled nodes must be understood by a reader to preserve their
+    // editable recipe; visibility and opacity do not remove this requirement.
+    state.recipe.nodes.iter().any(|node| {
+        matches!(
+            &node.operation,
+            crate::advanced_ops::AdvancedOperation::CameraRaw(settings)
+                if settings.processing == crate::camera_raw::Processing::Native16V1
+        )
+    })
+}
+
 pub fn save(doc: &Document, path: &Path) -> Result<()> {
     save_checked(doc, path, || Ok(()))
 }
@@ -1093,9 +1153,46 @@ pub fn save(doc: &Document, path: &Path) -> Result<()> {
 /// has been synced, while the destination package remains untouched.  A caller
 /// that has taken a cooperative save lock can therefore reject a stale snapshot
 /// at the final safe point without replacing a newer package on disk.  On an
-/// error, the staging package is removed and the existing destination remains
-/// intact.
+/// pre-publication error, the staging package is removed and the existing
+/// destination remains intact. A final-flush error means the new package is
+/// already visible; interactive callers should use `save_checked_report`.
 pub fn save_checked<F>(doc: &Document, path: &Path, before_publish: F) -> Result<()>
+where
+    F: FnOnce() -> Result<()>,
+{
+    save_checked_report(doc, path, before_publish)?.require_confirmation()
+}
+
+/// A report distinguishes failure before publication from a complete package
+/// whose final directory flush could not be confirmed. The latter is visible
+/// on disk and must retain recovery data until an explicit confirmed save.
+pub fn save_checked_report<F>(
+    doc: &Document,
+    path: &Path,
+    before_publish: F,
+) -> Result<crate::durable_fs::SaveOutcome>
+where
+    F: FnOnce() -> Result<()>,
+{
+    save_report_with_metadata_template(doc, path, before_publish, None)
+}
+
+/// Create writes nested pages at new stage paths. An explicit recognized old
+/// counterpart supplies directory inheritance without importing unrelated files.
+pub(crate) fn save_with_metadata_template(
+    doc: &Document,
+    path: &Path,
+    template: Option<&Path>,
+) -> Result<()> {
+    save_report_with_metadata_template(doc, path, || Ok(()), template)?.require_confirmation()
+}
+
+fn save_report_with_metadata_template<F>(
+    doc: &Document,
+    path: &Path,
+    before_publish: F,
+    metadata_template: Option<&Path>,
+) -> Result<crate::durable_fs::SaveOutcome>
 where
     F: FnOnce() -> Result<()>,
 {
@@ -1131,7 +1228,33 @@ where
     let mut ids = HashSet::new();
     let mut records = vec![];
     let has_vector_scene = flat.iter().any(|(layer, _)| layer.vector_scene.is_some());
-    let write_version = if crate::auto_layout::has_layout(&doc.layers) {
+    let write_version = if flat.iter().any(|(layer, _)| {
+        layer
+            .advanced
+            .as_ref()
+            .is_some_and(|state| has_native_camera(state))
+    }) {
+        PROJECT_NATIVE_CAMERA_VERSION
+    } else if flat.iter().any(|(layer, _)| {
+        layer
+            .vector_scene
+            .as_ref()
+            .is_some_and(|scene| scene.has_extended_paints() || scene.has_extended_metadata())
+    }) {
+        PROJECT_PAINT_QUALITY_VERSION
+    } else if flat
+        .iter()
+        .any(|(layer, _)| layer.advanced.as_deref().is_some_and(has_embedded_look))
+    {
+        PROJECT_LOOK_VERSION
+    } else if flat.iter().any(|(layer, _)| {
+        layer
+            .vector_scene
+            .as_ref()
+            .is_some_and(|scene| scene.version >= crate::vector_scene::VECTOR_SCENE_CLIP_VERSION)
+    }) {
+        PROJECT_CLIP_VERSION
+    } else if crate::auto_layout::has_layout(&doc.layers) {
         PROJECT_LAYOUT_VERSION
     } else if has_vector_scene {
         if flat.iter().any(|(layer, _)| {
@@ -1357,13 +1480,15 @@ where
     validate_guides(&Value::Object(manifest.clone()), write_version)?;
     let data = serde_json::to_vec_pretty(&manifest)?;
     ensure!(data.len() as u64 <= MAX_MANIFEST, "Manifest too large");
-    write_package(path, &data, &flat, before_publish)
+    write_package(path, &data, &flat, before_publish, metadata_template)
 }
 
-struct Staging(PathBuf);
+struct Staging(PathBuf, bool, Option<PathBuf>);
 impl Drop for Staging {
     fn drop(&mut self) {
-        let _ = fs::remove_dir_all(&self.0);
+        if !self.1 {
+            crate::durable_fs::cleanup_package_stage(&self.0, self.2.as_deref());
+        }
     }
 }
 
@@ -1372,7 +1497,8 @@ fn write_package<F>(
     manifest: &[u8],
     layers: &[(&Layer, Option<&str>)],
     before_publish: F,
-) -> Result<()>
+    metadata_template: Option<&Path>,
+) -> Result<crate::durable_fs::SaveOutcome>
 where
     F: FnOnce() -> Result<()>,
 {
@@ -1407,10 +1533,16 @@ where
             "Refusing to replace a directory that is not an Omuse-compatible project"
         );
     }
-    let stage_path = parent.join(format!(".omuse-stage-{}", uuid::Uuid::new_v4()));
-    fs::create_dir(&stage_path)?;
-    let stage = Staging(stage_path);
+    let metadata_guard = crate::durable_fs::PackageMetadataGuard::capture(&destination)?;
+    let template_guard = metadata_template
+        .map(crate::durable_fs::PackageMetadataGuard::capture)
+        .transpose()?;
+    let policy = template_guard.as_ref().unwrap_or(&metadata_guard);
+    let (payload, wrapper) = crate::durable_fs::create_package_stage(parent, ".omuse-stage-")?;
+    let mut stage = Staging(payload, false, Some(wrapper.clone()));
+    policy.seed_directory(&stage.0, Path::new(""))?;
     fs::create_dir(stage.0.join("images"))?;
+    policy.seed_directory(&stage.0.join("images"), Path::new("images"))?;
     let mut vector_scene_json_used = 0u64;
     for (layer, _) in layers {
         if let Some(advanced) = &layer.advanced {
@@ -1466,18 +1598,46 @@ where
     file.sync_all()?;
     // Windows cannot move a directory while a file inside it is open.
     drop(file);
-    crate::durable_fs::sync_path(stage.0.join("images"))?;
-    crate::durable_fs::sync_path(&stage.0)?;
+    crate::durable_fs::sync_directory(stage.0.join("images"))?;
+    crate::durable_fs::sync_directory(&stage.0)?;
+    policy.finalize(&stage.0, &[])?;
+    crate::durable_fs::sync_directory(&wrapper)?;
     before_publish().context("Save was rejected before publishing the staged project")?;
+    metadata_guard.verify()?;
+    policy.verify()?;
     if destination.exists() {
-        exchange(&stage.0, &destination)?;
+        match exchange(&stage.0, &destination) {
+            Ok(previous) => stage.0 = previous,
+            Err(error) => {
+                if error
+                    .downcast_ref::<crate::durable_fs::ExchangeError>()
+                    .is_some_and(|error| {
+                        matches!(
+                            error,
+                            crate::durable_fs::ExchangeError::RollbackFailed { .. }
+                        )
+                    })
+                {
+                    stage.1 = true;
+                }
+                return Err(error);
+            }
+        }
     } else {
         rename_new(&stage.0, &destination)?;
     }
-    // A sync failure after successful exchange cannot honestly be reported as "not
-    // saved"; the complete new package is already visible. Best-effort durability.
-    let _ = crate::durable_fs::sync_path(parent);
-    Ok(())
+    let outcome = crate::durable_fs::confirm_package_publication(&destination, parent, &wrapper);
+    if let Some(warning) = outcome.warning() {
+        stage.1 = true;
+        return Ok(crate::durable_fs::SaveOutcome::DurabilityUnconfirmed(
+            format!(
+                "{warning} Previous package, if replaced, is preserved at {} (private staging container {}).",
+                stage.0.display(),
+                wrapper.display()
+            ),
+        ));
+    }
+    Ok(outcome)
 }
 
 #[cfg(target_os = "linux")]
@@ -1504,17 +1664,25 @@ fn rename_flags(from: &Path, to: &Path, flags: u32) -> Result<()> {
     Ok(())
 }
 #[cfg(target_os = "linux")]
-fn exchange(from: &Path, to: &Path) -> Result<()> {
-    rename_flags(from, to, 2)
+fn exchange(from: &Path, to: &Path) -> Result<PathBuf> {
+    #[cfg(any(test, feature = "ui-test"))]
+    if let Some(result) = crate::durable_fs::emulated_exchange(from, to) {
+        return result.map_err(Into::into);
+    }
+    rename_flags(from, to, 2)?;
+    Ok(from.to_owned())
 }
 #[cfg(target_os = "linux")]
 fn rename_new(from: &Path, to: &Path) -> Result<()> {
     rename_flags(from, to, 1)
 }
 #[cfg(not(target_os = "linux"))]
-fn exchange(from: &Path, to: &Path) -> Result<()> {
-    crate::durable_fs::exchange_dirs(from, to)
-        .context("Project replacement failed; original retained")
+fn exchange(from: &Path, to: &Path) -> Result<PathBuf> {
+    #[cfg(any(test, feature = "ui-test"))]
+    if let Some(result) = crate::durable_fs::emulated_exchange(from, to) {
+        return result.map_err(Into::into);
+    }
+    crate::durable_fs::exchange_dirs(from, to).context("Project replacement failed")
 }
 #[cfg(not(target_os = "linux"))]
 fn rename_new(from: &Path, to: &Path) -> Result<()> {
@@ -1526,6 +1694,50 @@ mod tests {
     use super::*;
     use image::{Rgba, RgbaImage};
     use tempfile::tempdir;
+
+    #[test]
+    fn published_save_keeps_complete_new_package_when_durability_is_unconfirmed() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("durability.omuse");
+        let mut original = Document::new(8, 8);
+        original.layers.push(Layer::paint("Original", 8, 8));
+        save(&original, &path).unwrap();
+        let mut edited = original.clone();
+        edited.layers.last_mut().unwrap().name = "Published new version".into();
+        let fault = crate::durable_fs::inject_publication_failure(&path, std::io::ErrorKind::Other);
+        let outcome = save_checked_report(&edited, &path, || Ok(())).unwrap();
+        assert!(outcome.warning().unwrap().contains("was written"));
+        assert_eq!(
+            open(&path).unwrap().layers.last().unwrap().name,
+            "Published new version"
+        );
+        let retained: Vec<_> = fs::read_dir(dir.path())
+            .unwrap()
+            .filter_map(|entry| {
+                let entry = entry.unwrap();
+                entry
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with(".omuse-stage-")
+                    .then_some(entry.path())
+            })
+            .collect();
+        assert_eq!(retained.len(), 1);
+        assert_eq!(
+            open(&retained[0].join("package"))
+                .unwrap()
+                .layers
+                .last()
+                .unwrap()
+                .name,
+            "Original"
+        );
+        drop(fault);
+        assert_eq!(
+            save_checked_report(&edited, &path, || Ok(())).unwrap(),
+            crate::durable_fs::SaveOutcome::Confirmed
+        );
+    }
 
     #[test]
     fn expanded_vector_geometry_is_charged_across_sidecars() {

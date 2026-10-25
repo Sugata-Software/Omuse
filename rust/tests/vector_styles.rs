@@ -24,6 +24,8 @@ fn gradient(kind: GradientKind) -> GradientFill {
         ],
         spread: GradientSpread::Pad,
         transform: [1., 0., 0., 1., 0., 0.],
+        method: Default::default(),
+        dither: false,
     }
 }
 fn scene(width: u32, height: u32) -> VectorScene {
@@ -104,7 +106,11 @@ fn radial_transform_and_alpha_keep_straight_color() {
 #[test]
 fn style_versions_and_limits_fail_closed() {
     let mut scene = scene(32, 32);
-    for version in [1, 2, 5] {
+    for version in 3..=omuse::vector_scene::VECTOR_SCENE_VERSION {
+        scene.version = version;
+        assert!(scene.validate().is_ok());
+    }
+    for version in [0, 1, 2, omuse::vector_scene::VECTOR_SCENE_VERSION + 1] {
         scene.version = version;
         assert!(scene.validate().is_err());
     }

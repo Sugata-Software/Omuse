@@ -81,6 +81,9 @@ impl EditorView {
         // A content edit invalidates a hovered font; restore style only, then
         // reconcile the current input so later typing can never disappear.
         if let Some(edit) = draft.font_edit.take() {
+            for comparison in &edit.comparisons {
+                super::inline_font_ui::release_comparison_image(comparison.image.clone(), cx);
+            }
             draft.style = edit.original;
             draft.typing_font = edit.typing;
         }
@@ -117,6 +120,7 @@ impl EditorView {
             draft.history.pop_front();
         }
         draft.style = candidate;
+        cx.notify();
         Ok(true)
     }
 

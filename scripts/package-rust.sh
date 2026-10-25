@@ -54,6 +54,8 @@ for required in \
     "$repo_root/rust/assets/omuse.png" \
     "$repo_root/rust/assets/omuse.svg" \
     "$repo_root/LICENSE" \
+    "$repo_root/rust/licenses/efficientsam/LICENSE" \
+    "$repo_root/rust/licenses/efficientsam/MODEL_CARD.md" \
     "$repo_root/scripts/install-rust-bundle.sh" \
     "$repo_root/scripts/install-app.py" \
     "$repo_root/scripts/rust-license-inventory.py"
@@ -84,6 +86,9 @@ install -m 755 "$runtime_dir/lib/libraw.so" "$root/lib/libraw.so"
 install -m 644 "$runtime_dir/models/u2netp.onnx" "$root/models/u2netp.onnx"
 install -m 644 "$repo_root/LICENSE" "$root/licenses/Omuse-MIT.txt"
 cp "$repo_root"/rust/licenses/*.txt "$root/licenses/"
+mkdir -p "$root/licenses/efficientsam"
+install -m 644 "$repo_root/rust/licenses/efficientsam/LICENSE" "$root/licenses/efficientsam/LICENSE"
+install -m 644 "$repo_root/rust/licenses/efficientsam/MODEL_CARD.md" "$root/licenses/efficientsam/MODEL_CARD.md"
 install -m 644 "$inventory/inventory.json" "$root/licenses/rust-dependency-inventory.json"
 install -m 644 "$inventory/THIRD_PARTY_NOTICES.txt" \
     "$root/licenses/Rust-THIRD-PARTY-NOTICES.txt"

@@ -98,6 +98,7 @@ pub fn fields(draft: &Value, section: usize) -> Vec<Field> {
         if let Some(map) = draft.as_object() {
             for (k, v) in map {
                 if k != "toneMapping"
+                    && k != "processing"
                     && !EFFECTS.contains(&k.as_str())
                     && !v.is_object()
                     && !v.is_array()

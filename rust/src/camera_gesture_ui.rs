@@ -214,7 +214,7 @@ struct Drag {
     guard: Guard,
     original: Settings,
     expected: Settings,
-    pixel: [u8; 4],
+    pixel: camera_gestures::Sample,
     mode: Mode,
     channel: usize,
     section: usize,
@@ -280,7 +280,8 @@ impl EditorView {
         // colour sampler remains immediately usable on the Mixer tab.
         self.camera_gestures.ready = Some(Ready {
             guard: self.camera_gesture_guard(),
-            settings: Settings::for_new_edit(),
+            settings: serde_json::from_value(self.camera_draft.clone())
+                .unwrap_or_else(|_| Settings::for_new_edit()),
             stage: SampleStage::PointColor,
         });
     }
@@ -302,6 +303,26 @@ impl EditorView {
         let _ = self
             .camera_canvas
             .update(cx, |canvas, cx| canvas.set_source(pixels, cx));
+    }
+    pub(super) fn accept_camera_native_sample(
+        &mut self,
+        settings: Settings,
+        stage: SampleStage,
+        pixels: Arc<omuse::precision::TiledImage16>,
+        cx: &mut Context<Self>,
+    ) {
+        if self.camera_sample_stage() != Some(stage) {
+            return;
+        }
+        self.camera_gestures.ready = Some(Ready {
+            guard: self.camera_gesture_guard(),
+            settings,
+            stage,
+        });
+        self.camera_preview.native_sample = Some(pixels.clone());
+        let _ = self
+            .camera_canvas
+            .update(cx, |canvas, cx| canvas.set_native_source(pixels, cx));
     }
     pub(super) fn camera_gesture_notice(&mut self) -> Option<String> {
         self.camera_gestures.notice.take()
@@ -418,7 +439,8 @@ impl EditorView {
                 self.cancel_camera_gesture(window, cx);
                 return;
             }
-            match camera_gestures::targeted(&drag.original, drag.pixel, drag.target, *delta) {
+            match camera_gestures::targeted_sample(&drag.original, drag.pixel, drag.target, *delta)
+            {
                 Ok(settings) => {
                     self.camera_gestures.drag.as_mut().unwrap().expected = settings.clone();
                     self.camera_draft = serde_json::to_value(settings).unwrap();
@@ -462,8 +484,16 @@ impl EditorView {
             return;
         }
         let mode = self.camera_canvas_mode();
+        let sample = match event {
+            Event::TargetStarted(pixel) | Event::Sampled(pixel) => {
+                Some(camera_gestures::Sample::Byte(*pixel))
+            }
+            Event::TargetStartedColour(pixel) | Event::SampledColour(pixel) => Some(*pixel),
+            _ => None,
+        };
         match event {
-            Event::TargetStarted(pixel) => {
+            Event::TargetStarted(_) | Event::TargetStartedColour(_) => {
+                let pixel = sample.expect("target sample");
                 let target = match mode {
                     Mode::TargetCurve => Target::Curve(self.camera_curve_channel),
                     Mode::TargetHue => Target::Hue,
@@ -472,7 +502,9 @@ impl EditorView {
                     _ => return,
                 };
                 // Validate the sampled tone before accepting a draft transaction.
-                if let Err(error) = camera_gestures::targeted(&settings, *pixel, target, 0.00001) {
+                if let Err(error) =
+                    camera_gestures::targeted_sample(&settings, pixel, target, 0.00001)
+                {
                     self.status = error.to_string();
                     self.camera_canvas
                         .update(cx, |canvas, cx| canvas.cancel_target(cx));
@@ -481,7 +513,7 @@ impl EditorView {
                         guard: self.camera_gesture_guard(),
                         original: settings.clone(),
                         expected: settings,
-                        pixel: *pixel,
+                        pixel,
                         mode,
                         channel: self.camera_curve_channel,
                         section: self.camera_section,
@@ -489,10 +521,11 @@ impl EditorView {
                     });
                 }
             }
-            Event::Sampled(pixel) => {
+            Event::Sampled(_) | Event::SampledColour(_) => {
+                let pixel = sample.expect("colour sample");
                 let result = match mode {
-                    Mode::WhiteBalance => {
-                        camera_gestures::white_balance(&settings, *pixel).map(|(next, limited)| {
+                    Mode::WhiteBalance => camera_gestures::white_balance_sample(&settings, pixel)
+                        .map(|(next, limited)| {
                             self.camera_gestures.notice = Some(
                                 if limited {
                                     "White balance reached the supported temperature/tint limit"
@@ -502,9 +535,8 @@ impl EditorView {
                                 .into(),
                             );
                             next
-                        })
-                    }
-                    Mode::Defringe => camera_gestures::defringe(&settings, *pixel),
+                        }),
+                    Mode::Defringe => camera_gestures::defringe_sample(&settings, pixel),
                     _ => return,
                 };
                 match result {

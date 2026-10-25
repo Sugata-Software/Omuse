@@ -196,6 +196,10 @@ pub fn generate(
             if instance != 0 {
                 object.id = derived_id(namespace, &source.id, instance, b"object")?.to_string();
                 object.transform = compose(placement, source.transform)?;
+                if let Some(id) = &source.clip_to {
+                    object.clip_to =
+                        Some(derived_id(namespace, id, instance, b"object")?.to_string());
+                }
                 for group in &mut object.groups {
                     let id = derived_id(namespace, &group.id, instance, b"group")?;
                     ensure!(

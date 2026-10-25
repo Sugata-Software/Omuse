@@ -2,10 +2,13 @@
 //!
 //! Canvas coordinates are used by all pointer and selection operations. Layers
 //! retain their transforms; editing maps the pointer into their source image.
+#[path = "editor_guided_mask.rs"]
+mod guided_helpers;
 use crate::brush_dynamics::{Dab, InputPoint};
 use crate::model::{Document, Layer, PixelRect};
 use crate::retouch_brush::RetouchMode;
 use crate::spot_heal::SpotHealingMode;
+pub use guided_helpers::{PreparedSubjectMask, PreparedSubjectSelection, SubjectMaskRequest};
 use image::{GrayImage, Rgba, RgbaImage};
 use std::collections::VecDeque;
 #[path = "editor_advanced.rs"]
@@ -30,6 +33,9 @@ mod ungroup;
 pub use editor_clipboard::LayerClipboard;
 #[path = "raster_patch.rs"]
 mod raster_patch;
+
+#[path = "editor_resident_memory.rs"]
+mod resident_memory;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum GuideAxis {
@@ -1455,6 +1461,20 @@ impl Editor {
         scene: crate::vector_scene::VectorScene,
         cache: RgbaImage,
     ) -> anyhow::Result<String> {
+        self.insert_vector_scene_with_report(name, expected_revision, scene, cache, None)
+    }
+
+    pub fn insert_vector_scene_with_report(
+        &mut self,
+        name: &str,
+        expected_revision: u64,
+        scene: crate::vector_scene::VectorScene,
+        cache: RgbaImage,
+        report: Option<&crate::compatibility_report::CompatibilityReport>,
+    ) -> anyhow::Result<String> {
+        if let Some(report) = report {
+            report.validate()?;
+        }
         anyhow::ensure!(self.stroke.is_none(), "Finish the active stroke first");
         anyhow::ensure!(
             self.revision == expected_revision,
@@ -1475,6 +1495,10 @@ impl Editor {
         );
         let mut layer = Layer::group(name);
         layer.metadata = serde_json::json!({});
+        if let Some(report) = report {
+            layer.metadata[crate::compatibility_report::METADATA_KEY] =
+                serde_json::to_value(report)?;
+        }
         layer.image = Some(cache.into());
         layer.vector_scene = Some(std::sync::Arc::new(scene));
         let id = self.insert_layer(layer);
@@ -1494,6 +1518,20 @@ impl Editor {
         scene: crate::vector_scene::VectorScene,
         cache: RgbaImage,
     ) -> anyhow::Result<bool> {
+        self.replace_vector_scene_with_report(id, expected_revision, scene, cache, None)
+    }
+
+    pub fn replace_vector_scene_with_report(
+        &mut self,
+        id: &str,
+        expected_revision: u64,
+        scene: crate::vector_scene::VectorScene,
+        cache: RgbaImage,
+        report: Option<&crate::compatibility_report::CompatibilityReport>,
+    ) -> anyhow::Result<bool> {
+        if let Some(report) = report {
+            report.validate()?;
+        }
         anyhow::ensure!(self.stroke.is_none(), "Finish the active stroke first");
         anyhow::ensure!(
             self.revision == expected_revision,
@@ -1531,13 +1569,22 @@ impl Editor {
                 .is_some_and(|image| image.dimensions() == cache.dimensions()),
             "Vector scene edits must retain the existing cache dimensions"
         );
-        if layer.vector_scene.as_deref() == Some(&scene) && layer.image.as_deref() == Some(&cache) {
+        if layer.vector_scene.as_deref() == Some(&scene)
+            && layer.image.as_deref() == Some(&cache)
+            && report.is_none_or(|report| {
+                crate::compatibility_report::from_metadata(&layer.metadata).as_ref() == Some(report)
+            })
+        {
             return Ok(false);
         }
         let mut candidate = self.document.clone();
         let candidate_layer = candidate.find_layer_mut(id).expect("validated layer");
         candidate_layer.vector_scene = Some(std::sync::Arc::new(scene));
         candidate_layer.image = Some(cache.into());
+        if let Some(report) = report {
+            candidate_layer.metadata[crate::compatibility_report::METADATA_KEY] =
+                serde_json::to_value(report)?;
+        }
         if let Some(metadata) = candidate_layer.metadata.as_object_mut() {
             metadata.remove("rustVectorScene");
         }
@@ -4376,7 +4423,34 @@ impl Editor {
         subject: &image::GrayImage,
         as_selection: bool,
     ) -> anyhow::Result<bool> {
-        self.finish_stroke();
+        self.apply_subject_mask_cancellable(
+            id,
+            subject,
+            as_selection,
+            &std::sync::atomic::AtomicBool::new(false),
+        )
+    }
+    pub fn apply_subject_mask_cancellable(
+        &mut self,
+        id: &str,
+        subject: &image::GrayImage,
+        as_selection: bool,
+        cancel: &std::sync::atomic::AtomicBool,
+    ) -> anyhow::Result<bool> {
+        self.apply_subject_mask_rows(id, subject, as_selection, cancel, |_| {})
+    }
+    fn apply_subject_mask_rows(
+        &mut self,
+        id: &str,
+        subject: &image::GrayImage,
+        as_selection: bool,
+        cancel: &std::sync::atomic::AtomicBool,
+        mut row_hook: impl FnMut(u32),
+    ) -> anyhow::Result<bool> {
+        anyhow::ensure!(
+            !cancel.load(std::sync::atomic::Ordering::Acquire),
+            "Subject mask cancelled"
+        );
         let layer = self
             .document
             .find_layer(id)
@@ -4389,6 +4463,12 @@ impl Editor {
             image.dimensions() == subject.dimensions(),
             "Subject mask dimensions changed"
         );
+        anyhow::ensure!(
+            u64::from(subject.width()) * u64::from(subject.height()) <= 16_777_216
+                && subject.width() > 0
+                && subject.height() > 0,
+            "Subject masks support source images up to 16 million pixels"
+        );
         let transform = Transform::for_layer(&self.document, id)
             .ok_or_else(|| anyhow::anyhow!("Invalid layer transform"))?;
         if as_selection {
@@ -4396,8 +4476,17 @@ impl Editor {
                 u64::from(self.document.width) * u64::from(self.document.height) <= 16_777_216,
                 "Subject selection supports canvases up to 16 million pixels"
             );
-            let mut mask = vec![0; self.document.width as usize * self.document.height as usize];
+            let count = self.document.width as usize * self.document.height as usize;
+            let mut mask = Vec::new();
+            mask.try_reserve_exact(count)
+                .map_err(|e| anyhow::anyhow!("Not enough memory for the subject selection: {e}"))?;
+            mask.resize(count, 0);
             for y in 0..self.document.height {
+                row_hook(y);
+                anyhow::ensure!(
+                    !cancel.load(std::sync::atomic::Ordering::Acquire),
+                    "Subject selection cancelled"
+                );
                 for x in 0..self.document.width {
                     if let Some((u, v)) = transform.local(x as f32 + 0.5, y as f32 + 0.5) {
                         if u >= 0.
@@ -4411,6 +4500,11 @@ impl Editor {
                     }
                 }
             }
+            anyhow::ensure!(
+                !cancel.load(std::sync::atomic::Ordering::Acquire),
+                "Subject selection cancelled"
+            );
+            self.finish_stroke();
             self.selection = Some(Selection {
                 width: self.document.width,
                 height: self.document.height,
@@ -4425,25 +4519,54 @@ impl Editor {
         let old_mask = layer
             .mask
             .as_ref()
+            .filter(|_| {
+                layer
+                    .metadata
+                    .get("maskEnabled")
+                    .and_then(serde_json::Value::as_bool)
+                    != Some(false)
+            })
             .map(|mask| crate::effects::MaskSampler::new(&layer.metadata, mask));
-        let mask = RgbaImage::from_fn(subject.width(), subject.height(), |x, y| {
-            let (wx, wy) = transform.world(x as f32 + 0.5, y as f32 + 0.5);
-            let old = old_mask
-                .as_ref()
-                .map(|mask| {
-                    mask.coverage(
-                        wx as f64,
-                        wy as f64,
-                        x as f64 + 0.5,
-                        y as f64 + 0.5,
-                        subject.width() as f64,
-                        subject.height() as f64,
-                    )
-                })
-                .unwrap_or(1.);
-            let v = (subject.get_pixel(x, y)[0] as f32 * old).round() as u8;
-            Rgba([v, v, v, 255])
-        });
+        let count = (subject.width() as usize)
+            .checked_mul(subject.height() as usize)
+            .and_then(|n| n.checked_mul(4))
+            .ok_or_else(|| anyhow::anyhow!("Subject mask byte count overflow"))?;
+        let mut bytes = Vec::new();
+        bytes
+            .try_reserve_exact(count)
+            .map_err(|e| anyhow::anyhow!("Not enough memory for the subject mask: {e}"))?;
+        for y in 0..subject.height() {
+            row_hook(y);
+            anyhow::ensure!(
+                !cancel.load(std::sync::atomic::Ordering::Acquire),
+                "Subject mask cancelled"
+            );
+            for x in 0..subject.width() {
+                let (wx, wy) = transform.world(x as f32 + 0.5, y as f32 + 0.5);
+                let old = old_mask
+                    .as_ref()
+                    .map(|mask| {
+                        mask.coverage(
+                            wx as f64,
+                            wy as f64,
+                            x as f64 + 0.5,
+                            y as f64 + 0.5,
+                            subject.width() as f64,
+                            subject.height() as f64,
+                        )
+                    })
+                    .unwrap_or(1.);
+                let v = (subject.get_pixel(x, y)[0] as f32 * old).round() as u8;
+                bytes.extend_from_slice(&[v, v, v, 255]);
+            }
+        }
+        anyhow::ensure!(
+            !cancel.load(std::sync::atomic::Ordering::Acquire),
+            "Subject mask cancelled"
+        );
+        let mask = RgbaImage::from_raw(subject.width(), subject.height(), bytes)
+            .ok_or_else(|| anyhow::anyhow!("Subject mask dimensions mismatch"))?;
+        self.finish_stroke();
         let before = self.snapshot();
         let layer = self.document.find_layer_mut(id).unwrap();
         layer.mask = Some(mask.into());

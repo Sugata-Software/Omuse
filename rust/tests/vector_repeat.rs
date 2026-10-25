@@ -201,6 +201,8 @@ fn curves_gradients_strokes_opacity_and_text_recipe_remain_editable() {
         ],
         spread: GradientSpread::Pad,
         transform: [1., 0., 0., 1., 0., 0.],
+        method: Default::default(),
+        dither: false,
     });
     let result = generate(&[source.clone()], &radial(true), NAMESPACE, &idle()).unwrap();
     for copy in &result.objects {

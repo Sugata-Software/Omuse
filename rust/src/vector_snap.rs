@@ -13,6 +13,13 @@ use anyhow::{Result, ensure};
 use std::collections::{BTreeMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering};
 
+#[path = "vector_contact_snap.rs"]
+mod contact;
+pub use contact::{
+    ContactIndex, ContactKind, ContactOptions, ContactResult, ContactSegment,
+    MAX_CONTACT_CANDIDATES, MAX_CONTACT_SEGMENTS, SegmentId,
+};
+
 pub const MAX_SNAP_ANCHORS: usize = 100_000;
 pub const MAX_SNAP_GUIDES: usize = 4_096;
 pub const MAX_QUERY_CANDIDATES: usize = 4_096;

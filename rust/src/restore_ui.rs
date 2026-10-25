@@ -24,6 +24,23 @@ pub(super) struct RestoreState {
     draft: Option<Draft>,
 }
 impl RestoreState {
+    /// A ready restoration owns a full prepared document after its worker
+    /// exits. It remains resident even if another Create tab is selected.
+    pub(super) fn resident_context_bytes(&self) -> anyhow::Result<u64> {
+        anyhow::ensure!(
+            self.pending.is_none(),
+            "Finish or cancel the active restoration and wait for its worker before starting another image job"
+        );
+        self.draft.as_ref().map_or(Ok(0), |draft| {
+            let document =
+                omuse::create_project::resident_memory::document_resident_bytes(&draft.document)?;
+            // Two bounded640x640 frames plus upload/owner headroom; this is an
+            // admission reserve, not a GPU/process RSS measurement.
+            Ok(document
+                .saturating_add(8 * 1024 * 1024)
+                .saturating_add(draft.restored_layer_id.capacity() as u64))
+        })
+    }
     pub(super) fn new(window: &mut Window, cx: &mut Context<EditorView>) -> Self {
         Self {
             denoise: cx.new(|cx| InputState::new(window, cx).default_value("0.35")),

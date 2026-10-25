@@ -226,6 +226,7 @@ impl EditorView {
                 }
                 match result {
                     Ok(((Some((doc, project, pixels, stamp)), None), path)) => {
+                        this.last_import_compatibility = None;
                         this.import_notes = omuse::import_report::conversion_notes(&doc);
                         this.install_opened_content(doc, project);
                         this.live_stamp = stamp;
@@ -246,6 +247,7 @@ impl EditorView {
                     Ok(((None, Some(layer)), _)) => {
                         let mut report = Document::new(1, 1);
                         report.layers = vec![layer.clone()];
+                        this.last_import_compatibility = None;
                         this.import_notes = omuse::import_report::conversion_notes(&report);
                         if !this.editor.import_layer(layer).is_empty() {
                             this.changed(cx);
@@ -519,6 +521,7 @@ impl EditorView {
                             this.status = format!("Import failed: {error:#}");
                         } else {
                             this.editor.active_layer = active_layer;
+                            this.last_import_compatibility = None;
                             this.import_notes = notes;
                             this.status = Self::photo_status(
                                 &format!("Added {count} image(s) — Undo removes this import"),

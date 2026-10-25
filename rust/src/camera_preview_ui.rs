@@ -4,6 +4,8 @@ use super::*;
 use anyhow::{Context as _, Result, ensure};
 use omuse::camera_raw::Settings;
 use std::sync::atomic::{AtomicBool, Ordering};
+#[path = "camera_xmp_ui.rs"]
+mod xmp;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct SourceKey {
@@ -16,6 +18,12 @@ struct SourceKey {
 }
 
 #[derive(Clone)]
+struct NativeCapture {
+    was_retained: bool,
+    state: omuse::advanced::LayerState,
+    mask: Option<omuse::advanced_ops::SoftMask>,
+}
+#[derive(Clone)]
 struct Request {
     id: u64,
     key: SourceKey,
@@ -24,6 +32,8 @@ struct Request {
     preview: bool,
     draft_size: Option<(u32, u32)>,
     source: Arc<image::RgbaImage>,
+    native: Option<NativeCapture>,
+    xmp_provenance: Option<omuse::xmp_preset::SavedProvenance>,
     selection: Option<Selection>,
     document: Document,
     clip_shadows: bool,
@@ -40,6 +50,8 @@ pub(super) struct CameraPreviewState {
     display_scale: f32,
     cache: Option<Arc<omuse::camera_raw::preview::DraftSource>>,
     draft_visible: bool,
+    xmp: xmp::XmpImportState,
+    pub(super) native_sample: Option<Arc<omuse::precision::TiledImage16>>,
 }
 impl Drop for CameraPreviewState {
     fn drop(&mut self) {
@@ -50,6 +62,15 @@ impl Drop for CameraPreviewState {
 }
 
 enum Output {
+    NativeDraft {
+        pixels: image::RgbaImage,
+    },
+    NativePreview {
+        pixels: image::RgbaImage,
+        scopes: Arc<omuse::photo_scopes::PhotoScopes>,
+        sampled: Option<omuse::precision::TiledImage16>,
+    },
+    NativeApply(omuse::advanced::LayerState),
     Draft {
         pixels: image::RgbaImage,
         cache: Arc<omuse::camera_raw::preview::DraftSource>,
@@ -106,12 +127,16 @@ impl EditorView {
             "Unlock this layer and its parents first"
         );
         ensure!(
-            layer.advanced.is_none()
+            layer
+                .advanced
+                .as_ref()
+                .is_none_or(|state| state.recipe.vector.is_none()
+                    && matches!(state.recipe.component, omuse::advanced::Component::Image))
                 && layer.vector_scene.is_none()
                 && !layer.is_group()
                 && !layer.metadata.get("text").is_some_and(|v| !v.is_null())
                 && !layer.metadata.get("shape").is_some_and(|v| !v.is_null()),
-            "Camera Raw requires an 8-bit paint layer; rasterize a copy to preserve this editable source"
+            "Camera Raw requires a photo or retained image layer; rasterize a copy of vector, text or frequency artwork first"
         );
         let image = layer
             .image
@@ -130,17 +155,35 @@ impl EditorView {
         self.dialog == Dialog::CameraRaw
             && self.camera_source_key() == request.key
             && self.editor.selection == request.selection
+            && request.native.as_ref().is_none_or(|native| {
+                let current = self
+                    .editor
+                    .document
+                    .find_layer(&request.key.layer)
+                    .and_then(|layer| layer.advanced.as_ref());
+                match (native.was_retained, current) {
+                    (false, None) => true,
+                    (true, Some(current)) => {
+                        Arc::ptr_eq(&native.state.source, &current.source)
+                            && Arc::ptr_eq(&native.state.result, &current.result)
+                            && native.state.recipe.source_id == current.recipe.source_id
+                    }
+                    _ => false,
+                }
+            })
             && self.camera_source().is_ok_and(|source| {
                 Arc::ptr_eq(&source, &request.source) || *source == *request.source
             })
     }
 
     pub(super) fn cancel_camera_raw(&mut self) {
+        self.camera_preview.xmp = Default::default();
         if let Some(request) = &self.camera_preview.active {
             request.cancel.store(true, Ordering::Relaxed);
         }
         self.camera_preview.queued = None;
         self.camera_preview.cache = None;
+        self.camera_preview.native_sample = None;
         self.camera_preview.draft_visible = false;
         self.camera_gestures = Default::default();
         self.camera_scopes_generation = self.camera_scopes_generation.wrapping_add(1);
@@ -167,7 +210,18 @@ impl EditorView {
         self.dialog = Dialog::CameraRaw;
         self.camera_preview.window = Some(window.window_handle());
         self.camera_preview.display_scale = window.scale_factor();
-        self.camera_draft = serde_json::to_value(Settings::for_new_edit()).unwrap();
+        let native = self
+            .editor
+            .document
+            .find_layer(&self.editor.active_layer)
+            .and_then(|layer| layer.advanced.as_ref())
+            .is_some();
+        self.camera_draft = serde_json::to_value(if native {
+            Settings::for_native_edit()
+        } else {
+            Settings::for_new_edit()
+        })
+        .unwrap();
         self.camera_section = 0;
         self.camera_clip_shadows = false;
         self.camera_clip_highlights = false;
@@ -175,7 +229,21 @@ impl EditorView {
             .camera_canvas
             .update(cx, |canvas, cx| canvas.set_source(source.clone(), cx));
         self.load_camera_form(window, cx);
+        self.camera_xmp_open(window, cx);
         self.init_camera_gestures();
+        if native {
+            if let Some(state) = self
+                .editor
+                .document
+                .find_layer(&self.editor.active_layer)
+                .and_then(|layer| layer.advanced.as_ref())
+            {
+                let pixels = state.result.clone();
+                self.camera_canvas.update(cx, |canvas, cx| {
+                    let _ = canvas.set_native_source(pixels, cx);
+                });
+            }
+        }
         self.start_camera_scopes(source, cx);
         self.status = "Preview changes before applying them to the selected layer".into();
         cx.notify();
@@ -215,6 +283,12 @@ impl EditorView {
         preview: bool,
         cx: &mut Context<Self>,
     ) {
+        if self.camera_preview.xmp.promotion.is_some() {
+            self.status = "Finish or cancel photo promotion before Preview or Apply".into();
+            cx.notify();
+            return;
+        }
+
         if self.dialog != Dialog::CameraRaw || (self.busy && self.camera_preview.active.is_none()) {
             return;
         }
@@ -242,10 +316,66 @@ impl EditorView {
                 return;
             }
         };
+        let native = if settings.processing == omuse::camera_raw::Processing::Native16V1 {
+            let captured = (|| -> Result<NativeCapture> {
+                omuse::camera_raw::native::ui_admission_for_editor(
+                    &self.editor,
+                    source.dimensions(),
+                    preview,
+                    settings.mixer.points.iter().any(|p| p.visualize),
+                    self.editor
+                        .selection
+                        .as_ref()
+                        .map_or(0, |s| s.mask.capacity()) as u64,
+                    // The typed gate owns active Editor accounting; this is
+                    // only inactive Create/checkpoint/restoration context.
+                    self.create_context_resident_bytes()?,
+                )?;
+                let state = self.editor.editable_state(&self.editor.active_layer)?;
+                ensure!(
+                    state.recipe.vector.is_none()
+                        && matches!(state.recipe.component, omuse::advanced::Component::Image),
+                    "Choose a retained photo layer"
+                );
+                let mask = self.editor.selection_for_layer(&self.editor.active_layer)?;
+                let was_retained = self
+                    .editor
+                    .document
+                    .find_layer(&self.editor.active_layer)
+                    .is_some_and(|layer| layer.advanced.is_some());
+                Ok(NativeCapture {
+                    was_retained,
+                    state,
+                    mask,
+                })
+            })();
+            match captured {
+                Ok(native) => Some(native),
+                Err(error) => {
+                    self.status = error.to_string();
+                    cx.notify();
+                    return;
+                }
+            }
+        } else {
+            if self
+                .editor
+                .document
+                .find_layer(&self.editor.active_layer)
+                .is_some_and(|layer| layer.advanced.is_some())
+            {
+                self.status = "Retained photo edits require Native16V1 processing".into();
+                cx.notify();
+                return;
+            }
+            None
+        };
+        self.camera_preview.native_sample = None;
         self.camera_scopes_generation = self.camera_scopes_generation.wrapping_add(1);
         self.camera_preview.next_id = self.camera_preview.next_id.wrapping_add(1);
         let sampling = preview.then(|| self.camera_sample_stage()).flatten();
         let draft_size = (preview
+            && native.is_none()
             && omuse::camera_raw::preview::supported(
                 &self.editor.document,
                 &self.editor.active_layer,
@@ -260,6 +390,46 @@ impl EditorView {
             )
         })
         .flatten();
+        let draft_size = if let Some(native) = &native {
+            let mut plain = self.editor.document.clone();
+            let eligible = plain.layers.len() == 1
+                && native.state.recipe.nodes.is_empty()
+                && native.state.recipe.vector.is_none()
+                && native.state.recipe.blend_if.is_none();
+            if eligible {
+                plain.layers[0].advanced = None;
+            }
+            let mut byte_settings = settings.clone();
+            byte_settings.processing = omuse::camera_raw::Processing::ByteCompatible;
+            if preview
+                && eligible
+                && omuse::camera_raw::native::pointwise(&settings)
+                && omuse::camera_raw::preview::supported(
+                    &plain,
+                    &self.editor.active_layer,
+                    self.editor.selection.is_some(),
+                    &byte_settings,
+                )
+            {
+                omuse::camera_raw::preview::dimensions(
+                    source.width(),
+                    source.height(),
+                    self.zoom * self.camera_preview.display_scale,
+                )
+            } else {
+                None
+            }
+        } else {
+            draft_size
+        };
+        let xmp_provenance = match self.camera_xmp_provenance(&settings) {
+            Ok(value) => value,
+            Err(error) => {
+                self.status = error.to_string();
+                cx.notify();
+                return;
+            }
+        };
         let request = Arc::new(Request {
             id: self.camera_preview.next_id,
             key: self.camera_source_key(),
@@ -268,6 +438,8 @@ impl EditorView {
             preview,
             draft_size,
             source,
+            native,
+            xmp_provenance,
             selection: self.editor.selection.clone(),
             document: self.editor.document.clone(),
             clip_shadows: self.camera_clip_shadows,
@@ -295,6 +467,130 @@ impl EditorView {
         let worker = request.clone();
         let cached = self.camera_preview.cache.clone();
         let task = cx.background_executor().spawn(async move {
+            if let Some(native) = &worker.native {
+                if let Some(size) = worker.draft_size {
+                    let source = omuse::camera_raw::native::sampled_source(
+                        &native.state.result,
+                        size,
+                        &worker.cancel,
+                    )?;
+                    let result = omuse::camera_raw::native::apply(
+                        &source,
+                        &worker.settings,
+                        &worker.cancel,
+                    )?;
+                    let mut pixels = result.to_rgba8_in(omuse::precision::WorkingSpace::Srgb)?;
+                    if worker.clip_shadows || worker.clip_highlights {
+                        pixels = omuse::camera_raw::clipping_preview(
+                            &pixels,
+                            worker.clip_shadows,
+                            worker.clip_highlights,
+                        );
+                    }
+                    let mut document = worker.document.clone();
+                    document.width = size.0;
+                    document.height = size.1;
+                    document.layers[0].advanced = None;
+                    document.layers[0].image = Some(pixels.into());
+                    let pixels = raster::composite(&document);
+                    ensure!(
+                        !worker.cancel.load(Ordering::Relaxed),
+                        "Camera Raw cancelled"
+                    );
+                    return Ok(Output::NativeDraft { pixels });
+                }
+                let visualize =
+                    worker.preview && worker.settings.mixer.points.iter().any(|p| p.visualize);
+                let sample_stage = if visualize {
+                    Some(omuse::camera_raw::SampleStage::PointColor)
+                } else {
+                    worker.sampling
+                };
+                let (state, sampled) = native.state.with_native_camera_raw(
+                    worker.settings.clone(),
+                    native.mask.clone(),
+                    &worker.cancel,
+                    sample_stage,
+                )?;
+                ensure!(
+                    !worker.cancel.load(Ordering::Relaxed),
+                    "Camera Raw cancelled"
+                );
+                if !worker.preview {
+                    return Ok(Output::NativeApply(state));
+                }
+                let preview_blend_if = state.recipe.blend_if.clone();
+                let proxy = state.proxy()?;
+                let range = if visualize {
+                    Some(
+                        omuse::camera_raw::native::range_preview(
+                            &state.result,
+                            sampled
+                                .as_ref()
+                                .context("Point-colour reference unavailable")?,
+                            &worker.settings,
+                            &worker.cancel,
+                        )?
+                        .to_rgba8_in(omuse::precision::WorkingSpace::Srgb)?,
+                    )
+                } else {
+                    None
+                };
+                let sampled = if sample_stage == worker.sampling {
+                    sampled
+                } else {
+                    None
+                };
+                let scopes = Arc::new(omuse::photo_scopes::PhotoScopes::analyze(&proxy));
+                let mut editor = Editor::new(worker.document.clone());
+                editor.active_layer = worker.key.layer.clone();
+                editor.replace_editable_states(vec![(worker.key.layer.clone(), state)])?;
+                if let Some(range) = range {
+                    editor
+                        .document
+                        .find_layer_mut(&worker.key.layer)
+                        .context("Preview layer unavailable")?
+                        .image = Some(range.into());
+                }
+                if worker.clip_shadows || worker.clip_highlights {
+                    let layer = editor
+                        .document
+                        .find_layer_mut(&worker.key.layer)
+                        .context("Preview layer is unavailable")?;
+                    layer.image = Some(
+                        omuse::camera_raw::clipping_preview(
+                            layer
+                                .image
+                                .as_deref()
+                                .context("Preview pixels unavailable")?,
+                            worker.clip_shadows,
+                            worker.clip_highlights,
+                        )
+                        .into(),
+                    );
+                }
+                if visualize || worker.clip_shadows || worker.clip_highlights {
+                    let layer = editor
+                        .document
+                        .find_layer_mut(&worker.key.layer)
+                        .context("Preview layer unavailable")?;
+                    layer.advanced = None;
+                    if let Some(blend) = preview_blend_if {
+                        layer.metadata[omuse::advanced::RASTER_BLEND_IF_KEY] =
+                            serde_json::to_value(blend)?;
+                    }
+                }
+                let pixels = raster::composite(&editor.document);
+                ensure!(
+                    !worker.cancel.load(Ordering::Relaxed),
+                    "Camera Raw cancelled"
+                );
+                return Ok(Output::NativePreview {
+                    pixels,
+                    scopes,
+                    sampled,
+                });
+            }
             if let Some(size) = worker.draft_size {
                 let cache = match cached.filter(|cache| cache.matches(&worker.source, size)) {
                     Some(cache) => cache,
@@ -445,6 +741,90 @@ impl EditorView {
             return;
         }
         match result {
+            Ok(Output::NativeDraft { pixels }) => {
+                self.display.replace(&pixels);
+                self.camera_preview.draft_visible = true;
+                self.camera_scopes = None;
+                self.camera_scopes_preview = false;
+                self.busy = true;
+                self.status = "Quick native preview · refining full detail…".into();
+                self.launch_camera_request(
+                    Arc::new(Request {
+                        draft_size: None,
+                        ..request.as_ref().clone()
+                    }),
+                    cx,
+                );
+            }
+            Ok(Output::NativePreview {
+                pixels,
+                scopes,
+                sampled,
+            }) => {
+                self.camera_preview.draft_visible = false;
+                self.display.replace(&pixels);
+                self.camera_scopes = Some(scopes);
+                self.camera_scopes_preview = true;
+                if let (Some(stage), Some(sampled)) = (request.sampling, sampled) {
+                    self.accept_camera_native_sample(
+                        request.settings.clone(),
+                        stage,
+                        Arc::new(sampled),
+                        cx,
+                    );
+                }
+                self.status = self.camera_gesture_notice().unwrap_or_else(|| {
+                    "Native 16-bit preview — retained original is unchanged".into()
+                });
+            }
+            Ok(Output::NativeApply(state)) => {
+                match if let Some(provenance) = &request.xmp_provenance {
+                    self.editor.replace_editable_states_with_xmp_provenance(
+                        vec![(request.key.layer.clone(), state)],
+                        provenance,
+                    )
+                } else {
+                    self.editor
+                        .replace_editable_states(vec![(request.key.layer.clone(), state)])
+                } {
+                    Ok(changed) => {
+                        self.camera_preview.xmp = Default::default();
+                        self.camera_preview.cache = None;
+                        self.camera_preview.native_sample = None;
+                        self.camera_preview.draft_visible = false;
+                        self.dialog = Dialog::None;
+                        self.camera_gestures = Default::default();
+                        self.dialog_generation = self.dialog_generation.wrapping_add(1);
+                        self.status = if changed {
+                            "Camera Raw kept as an editable 16-bit effect"
+                        } else {
+                            "Camera Raw unchanged"
+                        }
+                        .into();
+                        self.changed(cx);
+                        if let Some(window) = self.camera_preview.window.take() {
+                            let view = cx.entity().downgrade();
+                            let generation = self.dialog_generation;
+                            cx.defer(move |cx| {
+                                let _ = cx.update_window(window, |_, window, cx| {
+                                    let _ = view.update(cx, |this, cx| {
+                                        if this.dialog == Dialog::None
+                                            && this.dialog_generation == generation
+                                        {
+                                            this.focus.focus(window, cx);
+                                        }
+                                    });
+                                });
+                            });
+                        }
+                    }
+                    Err(error) => {
+                        self.camera_preview.draft_visible = false;
+                        self.refresh(cx);
+                        self.status = error.to_string();
+                    }
+                }
+            }
             Ok(Output::Draft { pixels, cache }) => {
                 self.display.replace(&pixels);
                 self.camera_preview.draft_visible = true;
@@ -485,7 +865,9 @@ impl EditorView {
             }
             Ok(Output::Apply(image)) => match self.editor.apply_image_operation(|_| Ok(image)) {
                 Ok(changed) => {
+                    self.camera_preview.xmp = Default::default();
                     self.camera_preview.cache = None;
+                    self.camera_preview.native_sample = None;
                     self.camera_preview.draft_visible = false;
                     self.dialog = Dialog::None;
                     self.camera_gestures = Default::default();
@@ -1046,3 +1428,7 @@ mod tests {
         });
     }
 }
+
+#[cfg(all(test, feature = "ui-test"))]
+#[path = "camera_native_ui_tests.rs"]
+mod native_tests;

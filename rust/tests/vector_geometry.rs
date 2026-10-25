@@ -13,6 +13,55 @@ use omuse::vector_scene::{
 fn idle() -> AtomicBool {
     AtomicBool::new(false)
 }
+
+#[test]
+fn explicit_simplify_corner_policy_preserves_legacy_and_allows_line_corner_reduction() {
+    let source = VectorObject::new(
+        "Corners",
+        VectorPath {
+            fill_rule: FillRule::EvenOdd,
+            subpaths: vec![Subpath {
+                closed: false,
+                anchors: [(0., 0.), (10., 8.), (20., 0.), (30., 8.), (40., 0.)]
+                    .into_iter()
+                    .map(|(x, y)| Anchor {
+                        position: Point { x, y },
+                        incoming: None,
+                        outgoing: None,
+                    })
+                    .collect(),
+            }],
+        },
+        None,
+        Some(StrokeStyle {
+            color: [1, 2, 3, 255],
+            width: 2.,
+        }),
+    );
+    let legacy = simplify(&source, 20., &idle()).unwrap();
+    let protected =
+        omuse::vector_geometry::simplify_with_corners(&source, 20., true, &idle()).unwrap();
+    let reduced =
+        omuse::vector_geometry::simplify_with_corners(&source, 20., false, &idle()).unwrap();
+    assert_eq!(legacy, protected);
+    assert_eq!(protected.path.subpaths[0].anchors.len(), 5);
+    assert_eq!(reduced.path.subpaths[0].anchors.len(), 2);
+    assert_eq!(
+        reduced.path.subpaths[0].anchors[0].position,
+        source.path.subpaths[0].anchors[0].position
+    );
+    assert_eq!(
+        reduced.path.subpaths[0].anchors.last().unwrap().position,
+        source.path.subpaths[0].anchors.last().unwrap().position
+    );
+    assert_eq!(reduced.stroke, source.stroke);
+    assert_eq!(reduced.id, source.id);
+    assert_eq!(source.path.subpaths[0].anchors.len(), 5);
+    assert!(
+        omuse::vector_geometry::simplify_with_corners(&source, 20., false, &AtomicBool::new(true))
+            .is_err()
+    );
+}
 fn rect(x: f32, y: f32, width: f32, height: f32) -> VectorObject {
     VectorObject::rectangle(
         "Rectangle",
@@ -208,6 +257,8 @@ fn reflected_curves_preserve_holes_and_world_gradient_stroke_style() {
         ],
         spread: GradientSpread::Pad,
         transform: [1., 0., 0., 1., 0., 0.],
+        method: Default::default(),
+        dither: false,
     });
     let result = combine(&[source.clone()], BooleanOperation::Union, &idle()).unwrap();
     assert_eq!(result.len(), 1);

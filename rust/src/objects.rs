@@ -1157,6 +1157,57 @@ pub fn text_layout_report(style: &LiveTextStyle) -> Result<TextLayoutReport> {
     })
 }
 
+/// Report the families actually used by shaped glyphs, including fallback.
+/// Audition callers pass bounded preview content and cache this result rather
+/// than reshaping it during each UI render.
+pub fn text_font_usage(style: &LiveTextStyle) -> Result<Vec<String>> {
+    use cosmic_text::{Buffer, Metrics};
+    validate_text_style(style)?;
+    ensure!(
+        style.content.chars().count() <= 160,
+        "Font audition sample exceeds 160 characters"
+    );
+    let (width, _) = available_text_box(style);
+    let legacy = TextStyle {
+        family: style.font_name.clone(),
+        size: style.font_size,
+        leading: if style.leading > 0. {
+            style.leading
+        } else {
+            style.font_size * 1.2
+        },
+        tracking: style.tracking,
+        alignment: style.alignment,
+        ..Default::default()
+    };
+    TEXT_ENGINE.with(|engine| -> Result<Vec<String>> {
+        let mut engine = engine
+            .try_borrow_mut()
+            .context("Text renderer is already in use")?;
+        let engine = engine.get_or_insert_with(new_text_engine);
+        let mut buffer = Buffer::new(&mut engine.fonts, Metrics::new(legacy.size, legacy.leading));
+        buffer.set_size(Some(width), None);
+        set_cosmic_text(&mut buffer, &style.content, &legacy, &style.runs);
+        buffer.shape_until_scroll(&mut engine.fonts, false);
+        let mut families = Vec::new();
+        for run in buffer.layout_runs() {
+            for glyph in run.glyphs {
+                if let Some(face) = engine.fonts.db().face(glyph.font_id) {
+                    let name = face
+                        .families
+                        .first()
+                        .map(|(name, _)| name.clone())
+                        .unwrap_or_else(|| face.post_script_name.clone());
+                    if !families.contains(&name) {
+                        families.push(name);
+                    }
+                }
+            }
+        }
+        Ok(families)
+    })
+}
+
 fn scaled_text_style(style: &LiveTextStyle, scale: f32) -> LiveTextStyle {
     let mut candidate = style.clone();
     candidate.font_size *= scale;

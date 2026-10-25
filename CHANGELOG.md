@@ -6,7 +6,53 @@ for numbering, qualification and publication.
 
 ## Unreleased
 
-No application changes announced after 0.11.0.
+Development changes are documented in [direct vector controls](docs/user-guide/vector-controls.md)
+and the [editor-quality guide](docs/user-guide/editor-quality.md).
+
+- Develop retained 16-bit photo recipes through the versioned Native16 Camera
+  Raw path, with guarded background preview, native stage sampling and memory
+  admission that avoids double-counting the active document/history. New native
+  recipes require project format 19.
+- Review a bounded subset of XMP preset intent in Camera Raw with explicit
+  supported/approximate/unsupported fields and retained mapping provenance.
+- Add experimental optional local click/box mask review with pinned model
+  verification/repair, manual coverage correction and reversible mask/selection
+  actions. Photographic and native qualification remains pending.
+- Preserve frozen pixels during byte-warp operations and render dithered
+  vector objects in PDF instead of silently omitting their image content.
+- Preserve Linux project permissions and bounded visible ownership/ACL/xattr
+  policy during replacement, including Create page/component inheritance. Keep
+  staged payloads private and retain prior packages on unconfirmed publication.
+- Retain save notices with Retry/Save a Copy, recovery data and pending-close
+  protection when publication succeeds but final verification is incomplete.
+  Refuse blind retries against an existing destination whose prior identity is unknown.
+- Inspect controlled object removal with paired Fit/100% layer-pixel crops and
+  pinned pan/Center/Refresh controls on smaller windows. Refresh replaces an obsolete removal request; stale
+  settings cannot be kept as the current result.
+- Switch between clipping mask/content editing and cancel only an active vector
+  gesture with Escape. Explicit mask rows select the mask alone.
+- Import bounded `.cube` looks into editable photo stacks with 0–200% Amount.
+  Tables stay embedded in the project; look projects require native format 17.
+- Add opt-in perceptual gradients and deterministic fill dither, with explicit
+  SVG/PDF conversion reports and native format 18 master preservation.
+- Review Simplify against retained original paths, preserve corners and reset
+  previews. Add opt-in tangent/perpendicular contacts for straight Pen segments.
+- Compare up to three installed fonts on the user's text. Review shortcut
+  conflicts with their current owner before an atomic draft reassignment.
+- Retain a bounded allowlist of inert SVG leaf-object application metadata
+  through editing and native/SVG round trips; resource and script restrictions remain.
+
+- Manipulate retained linear/radial gradient endpoints, focus, radius and colour
+  stops directly on the shared canvas, with synchronized inspector controls.
+- Isolate nested vector groups with dimmed surroundings, scoped selection and
+  breadcrumbs; Escape steps out while retaining edits.
+- Repeat the last vector transform, transform editable copies, and create
+  configurable stars/polygons. Swap solid vector fill/stroke with X.
+- Keep editable vector clipping silhouettes and contents through Undo and
+  `.omuse` save/reopen. Clipped projects require native format 16 / scene 5;
+  keep a separate original for older readers.
+- Inspect structured SVG/PDF compatibility reports and retain accepted SVG
+  import notes with artwork. Closing reports preserves unfinished vector work.
 
 ## Windows installer for 0.11.0 — 2026-10-12
 

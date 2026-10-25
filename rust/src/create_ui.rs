@@ -39,6 +39,36 @@ impl CreateSession {
             retain_synced_documents_for_test: false,
         }
     }
+    /// Known retained owners outside the active Editor. Aliased projects and
+    /// checkpoints are intentionally charged repeatedly; no cache is loaded.
+    pub(super) fn contextual_resident_bytes(&self) -> anyhow::Result<u64> {
+        let mut bytes = self
+            .project
+            .resident_memory_estimate()?
+            .bytes
+            .saturating_add(std::mem::size_of::<Self>() as u64)
+            .saturating_add(
+                (self.undo.capacity() as u64)
+                    .saturating_mul(std::mem::size_of::<CollectionUndo>() as u64),
+            )
+            .saturating_add(
+                (self.redo.capacity() as u64)
+                    .saturating_mul(std::mem::size_of::<CollectionUndo>() as u64),
+            );
+        for (id, editor) in &self.editors {
+            bytes = bytes
+                .saturating_add(1024)
+                .saturating_add(id.capacity() as u64)
+                .saturating_add(editor.resident_memory_estimate()?);
+        }
+        for checkpoint in self.undo.iter().chain(&self.redo) {
+            bytes = bytes.saturating_add(checkpoint.project.resident_memory_estimate()?.bytes);
+            if let Some(expected) = &checkpoint.expected {
+                bytes = bytes.saturating_add(expected.resident_memory_estimate()?.bytes);
+            }
+        }
+        Ok(bytes)
+    }
     fn materialize(&self, editor: &Editor) -> anyhow::Result<Project> {
         let mut project = self.project.clone();
         project.replace_active_document(editor.document.clone())?;
@@ -116,12 +146,21 @@ pub(super) enum CreateTab {
     Export,
 }
 
+pub(super) struct SaveNotice {
+    pub path: PathBuf,
+    pub message: String,
+    pub published: bool,
+    pub project_id: Option<String>,
+    pub editor_instance: u64,
+}
+
 pub(super) struct CreateState {
     pub session: Option<CreateSession>,
     pub(super) design: create_design_ui::CreateDesignState,
     pub(super) motion: motion_ui::MotionUiState,
     pub(super) restore: restore_ui::RestoreState,
     pub saving: bool,
+    pub(super) save_notice: Option<SaveNotice>,
     tab: CreateTab,
     pub(super) fields: Vec<Entity<InputState>>,
     fields_identity: Option<(u64, u64)>,
@@ -153,6 +192,47 @@ impl Drop for ContentJob {
         self.cancel.store(true, Ordering::Relaxed);
     }
 }
+impl EditorView {
+    /// Contextual Create owners in addition to the active Editor's own estimate.
+    /// Active collection jobs can own additional unpublished results; wait for
+    /// them instead of pretending those allocations are absent from admission.
+    pub(super) fn create_context_resident_bytes(&self) -> anyhow::Result<u64> {
+        anyhow::ensure!(
+            !self.create.saving
+                && self.create.bulk_job.is_none()
+                && self.create.job.is_none()
+                && !self.create.preflight_busy
+                && !self.create.template_previews.is_loading(),
+            "Finish the active Create save/content/preflight/template-preview job before starting another image job"
+        );
+        let mut bytes = self
+            .create
+            .session
+            .as_ref()
+            .map_or(Ok(0), CreateSession::contextual_resident_bytes)?;
+        bytes = bytes.saturating_add(self.create.restore.resident_context_bytes()?);
+        // Bounded catalogue/phone thumbnails and one queued thumbnail render
+        // can coexist with inactive project/editor owners. Reserve rather than
+        // interrogating or converting GPUI/GPU images during admission.
+        let phone_cached = self
+            .create
+            .preview_cache
+            .try_borrow()
+            .map_err(|_| {
+                anyhow::anyhow!("The Create preview cache is updating; retry after that frame")
+            })?
+            .is_some();
+        if self.create.session.is_some()
+            || !self.create.template_previews.images.is_empty()
+            || phone_cached
+            || self.create.phone_preview
+        {
+            bytes = bytes.saturating_add(64 * 1024 * 1024);
+        }
+        Ok(bytes)
+    }
+}
+
 impl CreateState {
     pub fn new(
         project: Option<Project>,
@@ -201,6 +281,7 @@ impl CreateState {
             motion: motion_ui::MotionUiState::new(window, cx),
             restore: restore_ui::RestoreState::new(window, cx),
             saving: false,
+            save_notice: None,
             tab: CreateTab::Pages,
             fields,
             fields_identity: None,
@@ -490,6 +571,8 @@ impl EditorView {
             .transpose()?;
         let document = project.is_none().then(|| self.editor.document.clone());
         let dialog_identity = (self.dialog, self.dialog_generation);
+        let editor_instance = self.editor.instance_id();
+        let attempt_path = path.clone();
         self.create.saving = true;
         self.status = "Saving project…".into();
         cx.spawn_in(window, async move |view, cx| {
@@ -499,15 +582,27 @@ impl EditorView {
                     let result = (|| -> anyhow::Result<_> {
                         let guard = omuse::save_guard::SaveGuard::acquire(&path)?;
                         guard.verify(&path, expected_stamp)?;
-                        if let Some(project) = &mut project {
-                            project.save_checked(&path, || guard.verify(&path, expected_stamp))?;
-                        } else {
-                            document::save_checked(document.as_ref().unwrap(), &path, || {
+                        let outcome = if let Some(project) = &mut project {
+                            project.save_checked_report(&path, || {
                                 guard.verify(&path, expected_stamp)
-                            })?;
-                        }
-                        let stamp = project_stamp(&path);
-                        Ok((project, path, stamp))
+                            })?
+                        } else {
+                            document::save_checked_report(
+                                document.as_ref().unwrap(),
+                                &path,
+                                || guard.verify(&path, expected_stamp),
+                            )?
+                        };
+                        let stamp = postpublication_stamp(&path);
+                        let outcome = if stamp.is_none() {
+                            let earlier = outcome.warning().map(|warning| format!(" {warning}")).unwrap_or_default();
+                            omuse::durable_fs::SaveOutcome::DurabilityUnconfirmed(format!(
+                                "{} was written, but its saved identity could not be verified. Keep recovery data. Reopen the written project, or save a copy under another name.{earlier}", path.display()
+                            ))
+                        } else {
+                            outcome
+                        };
+                        Ok((project, path, stamp, outcome))
                     })();
                     result.map_err(|error| format!("{error:#}"))
                 })
@@ -515,19 +610,16 @@ impl EditorView {
             let _ = view.update_in(cx, |this, window, cx| {
                 this.create.saving = false;
                 let save_again = std::mem::take(&mut this.save_again);
+                // Failures, like successful snapshots, belong to the document
+                // that started the worker. Never replace a newer page/dialog.
+                if this.create.session.as_ref().map(|s| s.project.id.clone()) != identity.0
+                    || (identity.0.is_none() && this.editor.instance_id() != editor_instance)
+                {
+                    cx.notify();
+                    return;
+                }
                 match result {
-                    Ok((project, path, stamp)) => {
-                        if this
-                            .create
-                            .session
-                            .as_ref()
-                            .map(|session| session.project.id.clone())
-                            != identity.0
-                            || (identity.0.is_none() && this.create.epoch != identity.2)
-                        {
-                            cx.notify();
-                            return;
-                        }
+                    Ok((project, path, stamp, outcome)) => {
                         let unchanged = this.create.epoch == identity.2
                             && this.editor.revision() == identity.3
                             && this
@@ -539,6 +631,38 @@ impl EditorView {
                         this.path = Some(path.clone());
                         this.live_stamp = stamp;
                         this.note_recent(path.clone(), cx);
+                        if let Some(message) = outcome.warning() {
+                            if unchanged {
+                                if let (Some(session), Some(project)) =
+                                    (this.create.session.as_mut(), project)
+                                {
+                                    session.project = project;
+                                    session.dirty = true;
+                                }
+                            }
+                            this.editor.mark_unsaved();
+                            this.create.save_notice = Some(SaveNotice {
+                                path,
+                                message: message.into(),
+                                published: true,
+                                project_id: identity.0.clone(),
+                                editor_instance,
+                            });
+                            this.status =
+                                "Project written · Durability unconfirmed · Recovery retained"
+                                    .into();
+                            this.schedule_content_recovery();
+                            if this.pending.is_some()
+                                && ((this.dialog, this.dialog_generation) == dialog_identity
+                                    || this.dialog == Dialog::None)
+                            {
+                                this.dialog = Dialog::Unsaved;
+                                this.modal_focus.focus(window, cx);
+                            }
+                            cx.notify();
+                            return;
+                        }
+                        this.create.save_notice = None;
                         if unchanged {
                             if let (Some(session), Some(project)) =
                                 (this.create.session.as_mut(), project)
@@ -596,7 +720,17 @@ impl EditorView {
                     }
                     Err(error) => {
                         this.status = format!("Save failed: {error}");
-                        if this.pending.is_some() {
+                        this.create.save_notice = Some(SaveNotice {
+                            path: attempt_path,
+                            message: error,
+                            published: false,
+                            project_id: identity.0.clone(),
+                            editor_instance,
+                        });
+                        if this.pending.is_some()
+                            && ((this.dialog, this.dialog_generation) == dialog_identity
+                                || this.dialog == Dialog::None)
+                        {
                             this.dialog = Dialog::Unsaved;
                             this.modal_focus.focus(window, cx);
                         }
@@ -609,7 +743,87 @@ impl EditorView {
         cx.notify();
         Ok(())
     }
+    pub(super) fn save_notice_view(&self, cx: &mut Context<Self>) -> Option<Div> {
+        let notice = self.create.save_notice.as_ref()?;
+        if self.create.session.as_ref().map(|s| s.project.id.clone()) != notice.project_id
+            || (notice.project_id.is_none() && self.editor.instance_id() != notice.editor_instance)
+        {
+            return None;
+        }
+        let path = notice.path.clone();
+        let disabled = self.create.saving || self.busy || self.dialog != Dialog::None;
+        let theme = cx.omarchy();
+        Some(
+            div()
+                .w_full()
+                .px_3()
+                .py_2()
+                .border_b_1()
+                .border_color(theme.border)
+                .bg(theme.surface)
+                .flex()
+                .flex_col()
+                .gap_2()
+                .child(
+                    div()
+                        .text_sm()
+                        .text_color(theme.warning)
+                        .child(if notice.published {
+                            "Project written · storage durability unconfirmed"
+                        } else {
+                            "Project save needs attention"
+                        }),
+                )
+                .child(div().text_sm().child(format!(
+                    "{} — {}",
+                    notice.path.display(),
+                    notice.message
+                )))
+                .child(
+                    div()
+                        .flex()
+                        .gap_2()
+                        .child(
+                            button(
+                                "save-notice-retry",
+                                "Save again",
+                                ButtonVariant::Secondary,
+                                cx,
+                            )
+                            .disabled(disabled)
+                            .on_click(cx.listener(
+                                move |this, _, window, cx| {
+                                    this.save_to(path.clone(), window, cx);
+                                },
+                            )),
+                        )
+                        .child(
+                            button(
+                                "save-notice-copy",
+                                "Save a copy…",
+                                ButtonVariant::Outline,
+                                cx,
+                            )
+                            .disabled(disabled)
+                            .on_click(cx.listener(
+                                |this, _, window, cx| {
+                                    this.save_dialog(false, window, cx);
+                                },
+                            )),
+                        )
+                        .child(
+                            button("save-notice-dismiss", "Dismiss", ButtonVariant::Outline, cx)
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    this.create.save_notice = None;
+                                    cx.notify();
+                                })),
+                        ),
+                ),
+        )
+    }
+
     pub(super) fn install_opened_content(&mut self, doc: Document, project: Option<Project>) {
+        self.create.save_notice = None;
         self.cancel_camera_raw();
         self.external = external_change_ui::ExternalState::default();
         self.crop = None;
@@ -1516,10 +1730,288 @@ impl EditorView {
     }
 }
 
+// Only the final observation is fault-injected. Pre-save conflict checks and
+// native package source guards always inspect the real filesystem.
+fn postpublication_stamp(path: &std::path::Path) -> Option<u64> {
+    #[cfg(test)]
+    if let Some(key) = completed_stamp_key(path)
+        && completed_stamp_faults().lock().unwrap().contains(&key)
+    {
+        return None;
+    }
+    project_stamp(path)
+}
+
+#[cfg(test)]
+fn completed_stamp_key(path: &std::path::Path) -> Option<PathBuf> {
+    let absolute = std::path::absolute(path).ok()?;
+    Some(
+        absolute
+            .parent()?
+            .canonicalize()
+            .ok()?
+            .join(absolute.file_name()?),
+    )
+}
+
+#[cfg(test)]
+fn completed_stamp_faults() -> &'static std::sync::Mutex<std::collections::HashSet<PathBuf>> {
+    static FAULTS: std::sync::OnceLock<std::sync::Mutex<std::collections::HashSet<PathBuf>>> =
+        std::sync::OnceLock::new();
+    FAULTS.get_or_init(Default::default)
+}
+
+#[cfg(test)]
+struct CompletedStampFault(PathBuf);
+
+#[cfg(test)]
+impl CompletedStampFault {
+    fn inject(path: &std::path::Path) -> Self {
+        let key = completed_stamp_key(path).unwrap();
+        assert!(completed_stamp_faults().lock().unwrap().insert(key.clone()));
+        Self(key)
+    }
+}
+
+#[cfg(test)]
+impl Drop for CompletedStampFault {
+    fn drop(&mut self) {
+        completed_stamp_faults().lock().unwrap().remove(&self.0);
+    }
+}
+
 #[cfg(all(test, feature = "ui-test"))]
 mod tests {
     use super::*;
     use gpui_kit::{Modifiers, TestAppContext};
+
+    #[gpui_kit::test]
+    fn unconfirmed_save_retains_dirty_state_notice_and_pending_navigation_until_retry(
+        cx: &mut TestAppContext,
+    ) {
+        cx.update(crate::init_test_theme);
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("durability.omuse");
+        let fault = omuse::durable_fs::inject_publication_failure(&path, std::io::ErrorKind::Other);
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            let mut view = EditorView::new(None, window, cx);
+            view.recovery = Recovery::at(dir.path().join("recovery"));
+            view.editor = Editor::new(Document::new(8, 8));
+            view.editor.add_layer("Keep this edit");
+            view.dialog = Dialog::None;
+            view
+        });
+        view.update_in(cx, |v, window, cx| {
+            v.pending = Some(Pending::New);
+            v.save_to(path.clone(), window, cx);
+        });
+        cx.run_until_parked();
+        view.update(cx, |v, _| {
+            assert!(!v.create.saving);
+            assert_eq!(v.path.as_ref(), Some(&path));
+            assert!(v.has_unsaved_work());
+            assert!(v.create.save_notice.as_ref().unwrap().published);
+            assert!(matches!(v.pending, Some(Pending::New)));
+            assert_eq!(v.dialog, Dialog::Unsaved);
+            assert!(
+                v.editor
+                    .document
+                    .layers
+                    .iter()
+                    .any(|l| l.name == "Keep this edit")
+            );
+        });
+        assert!(
+            document::open(&path)
+                .unwrap()
+                .layers
+                .iter()
+                .any(|l| l.name == "Keep this edit")
+        );
+        drop(fault);
+        view.update_in(cx, |v, window, cx| {
+            v.pending = None;
+            v.save_to(path.clone(), window, cx);
+        });
+        cx.run_until_parked();
+        view.update(cx, |v, _| {
+            assert!(!v.has_unsaved_work(), "{}", v.status);
+            assert!(v.create.save_notice.is_none());
+            assert_eq!(v.dialog, Dialog::None);
+        });
+    }
+
+    #[gpui_kit::test]
+    fn unverified_published_destination_refuses_blind_retry_and_can_save_a_copy(
+        cx: &mut TestAppContext,
+    ) {
+        cx.update(crate::init_test_theme);
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("unverified.omuse");
+        let copy = dir.path().join("safe-copy.omuse");
+        let fault = omuse::durable_fs::inject_publication_failure(&path, std::io::ErrorKind::Other);
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            let mut view = EditorView::new(None, window, cx);
+            view.recovery = Recovery::at(dir.path().join("recovery"));
+            view.editor = Editor::new(Document::new(8, 8));
+            view.editor.add_layer("Keep this local edit");
+            view.dialog = Dialog::None;
+            view
+        });
+        view.update_in(cx, |view, window, cx| {
+            view.pending = Some(Pending::New);
+            view.save_to(path.clone(), window, cx);
+        });
+        cx.run_until_parked();
+        drop(fault);
+        let mut foreign = Document::new(8, 8);
+        foreign.layers[0].name = "Other writer's version".into();
+        document::save(&foreign, &path).unwrap();
+        let foreign_manifest = std::fs::read(path.join("manifest.json")).unwrap();
+        view.update_in(cx, |view, window, cx| {
+            // A storage-read failure after publication may leave no observed
+            // destination stamp. Recovering storage must not authorize a new
+            // writer's now-readable version as our expected save destination.
+            view.live_stamp = None;
+            assert!(view.create.save_notice.as_ref().unwrap().published);
+            view.save_to(path.clone(), window, cx);
+            assert!(!view.create.saving);
+            assert!(view.status.contains("unverified"));
+            assert!(view.status.contains("Save a copy"));
+            assert!(view.has_unsaved_work());
+            assert!(view.create.save_notice.as_ref().unwrap().published);
+            assert!(matches!(view.pending, Some(Pending::New)));
+            assert_eq!(view.dialog, Dialog::Unsaved);
+            assert!(view.live_stamp.is_none());
+        });
+        assert_eq!(
+            std::fs::read(path.join("manifest.json")).unwrap(),
+            foreign_manifest
+        );
+        // Cancel the pending navigation, then keep the local document under a
+        // new name. The unverified existing destination remains untouched.
+        view.update_in(cx, |view, window, cx| {
+            view.pending = None;
+            view.dialog = Dialog::None;
+            view.save_to(copy.clone(), window, cx);
+        });
+        cx.run_until_parked();
+        view.update(cx, |view, _| {
+            assert_eq!(view.path.as_ref(), Some(&copy));
+            assert!(!view.has_unsaved_work(), "{}", view.status);
+            assert!(view.create.save_notice.is_none());
+            assert!(view.live_stamp.is_some());
+        });
+        assert_eq!(
+            std::fs::read(path.join("manifest.json")).unwrap(),
+            foreign_manifest
+        );
+        assert!(
+            document::open(&copy)
+                .unwrap()
+                .layers
+                .iter()
+                .any(|layer| layer.name == "Keep this local edit")
+        );
+    }
+
+    #[gpui_kit::test]
+    fn unreadable_postpublication_identity_keeps_recovery_and_pending_close(
+        cx: &mut TestAppContext,
+    ) {
+        cx.update(crate::init_test_theme);
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("stamp-unavailable.omuse");
+        let copy = dir.path().join("verified-copy.omuse");
+        let fault = CompletedStampFault::inject(&path);
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            let mut view = EditorView::new(None, window, cx);
+            view.recovery = Recovery::at(dir.path().join("recovery"));
+            view.editor = Editor::new(Document::new(8, 8));
+            view.editor.add_layer("Retain recovery until verified");
+            view.dialog = Dialog::None;
+            view
+        });
+        view.update_in(cx, |view, window, cx| {
+            view.pending = Some(Pending::New);
+            view.save_to(path.clone(), window, cx);
+        });
+        cx.run_until_parked();
+        view.update(cx, |view, _| {
+            assert!(!view.create.saving);
+            assert!(view.live_stamp.is_none());
+            assert!(view.has_unsaved_work());
+            assert!(matches!(view.pending, Some(Pending::New)));
+            assert_eq!(view.dialog, Dialog::Unsaved);
+            let notice = view.create.save_notice.as_ref().unwrap();
+            assert!(notice.published);
+            assert!(notice.message.contains("was written"));
+            assert!(notice.message.contains("identity could not be verified"));
+            assert!(
+                view.editor
+                    .document
+                    .layers
+                    .iter()
+                    .any(|layer| layer.name == "Retain recovery until verified")
+            );
+        });
+        assert!(
+            document::open(&path)
+                .unwrap()
+                .layers
+                .iter()
+                .any(|layer| layer.name == "Retain recovery until verified")
+        );
+        drop(fault);
+        view.update_in(cx, |view, window, cx| {
+            view.save_to(path.clone(), window, cx);
+            assert!(
+                !view.create.saving,
+                "unknown prior identity cannot authorize retry"
+            );
+            assert!(view.status.contains("unverified"));
+            assert!(matches!(view.pending, Some(Pending::New)));
+            view.pending = None;
+            view.dialog = Dialog::None;
+            view.save_to(copy.clone(), window, cx);
+        });
+        cx.run_until_parked();
+        view.update(cx, |view, _| {
+            assert_eq!(view.path.as_ref(), Some(&copy));
+            assert!(view.live_stamp.is_some());
+            assert!(!view.has_unsaved_work(), "{}", view.status);
+            assert!(view.create.save_notice.is_none());
+        });
+    }
+
+    #[gpui_kit::test]
+    fn ordinary_failed_save_notice_survives_edits_and_disappears_for_new_document(
+        cx: &mut TestAppContext,
+    ) {
+        cx.update(crate::init_test_theme);
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("missing").join("failed.omuse");
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            let mut view = EditorView::new(None, window, cx);
+            view.recovery = Recovery::at(dir.path().join("recovery"));
+            view.editor = Editor::new(Document::new(8, 8));
+            view.dialog = Dialog::None;
+            view
+        });
+        view.update_in(cx, |v, window, cx| {
+            v.save_to(path.clone(), window, cx);
+        });
+        cx.run_until_parked();
+        view.update(cx, |v, cx| {
+            assert!(!v.create.save_notice.as_ref().unwrap().published);
+            v.editor.add_layer("Still editing");
+            v.status = "Another tool action".into();
+            assert!(v.save_notice_view(cx).is_some());
+            v.install_opened_content(Document::new(9, 9), None);
+            assert!(v.save_notice_view(cx).is_none());
+        });
+        assert!(!path.exists());
+    }
 
     #[test]
     fn rejected_editor_overlay_keeps_project_and_collection_checkpoint_complete() {
@@ -2331,3 +2823,7 @@ impl CreateState {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "create_resident_ui_tests.rs"]
+mod resident_memory_tests;

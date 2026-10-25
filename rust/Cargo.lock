@@ -4744,7 +4744,7 @@ dependencies = [
 
 [[package]]
 name = "omuse"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "anyhow",
  "cosmic-text",
@@ -6676,6 +6676,7 @@ version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e50dc062439cc1a396181059c80932a6e6bd731b130e674c597c0c8874b6df22"
 dependencies = [
+ "image",
  "log",
  "miniz_oxide 0.8.9",
  "once_cell",

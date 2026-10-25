@@ -115,7 +115,83 @@ impl Editor {
         &mut self,
         states: Vec<(String, crate::advanced::LayerState)>,
     ) -> Result<bool> {
-        self.replace_editable_states_internal(states, false)
+        self.replace_editable_states_internal(states, false, None, None, None)
+    }
+
+    /// Commit an off-thread certified identity wrapper with the existing image
+    /// cache. Promotion must not convert millions of proxy pixels on the UI.
+    pub fn commit_prepared_photo_promotion(
+        &mut self,
+        prepared: crate::xmp_preset::PreparedPhotoPromotion,
+    ) -> Result<bool> {
+        ensure!(
+            self.instance_id() == prepared.editor_instance && self.revision() == prepared.revision,
+            "Photo source changed while preparing promotion"
+        );
+        let layer = self
+            .document
+            .find_layer(&prepared.layer_id)
+            .context("Photo target is missing")?;
+        ensure!(
+            layer.advanced.is_none(),
+            "Existing retained recipes are never reinterpreted by promotion"
+        );
+        ensure!(
+            layer
+                .image
+                .as_ref()
+                .is_some_and(|image| Arc::ptr_eq(&image.as_arc(), &prepared.source)),
+            "Photo pixels changed while preparing promotion"
+        );
+        ensure!(
+            prepared.state.recipe.nodes.is_empty()
+                && prepared.state.recipe.vector.is_none()
+                && prepared.state.raw_bytes.is_none()
+                && Arc::ptr_eq(&prepared.state.source, &prepared.state.result),
+            "Promotion must contain only an identity source wrapper"
+        );
+        let source = prepared.source;
+        self.replace_editable_states_internal(
+            vec![(prepared.layer_id, prepared.state)],
+            false,
+            None,
+            None,
+            Some(&source),
+        )
+    }
+
+    /// Imported preset provenance and the exact native grade commit together.
+    /// The inert report never acts as an executable renderer on reopen.
+    pub fn replace_editable_states_with_xmp_provenance(
+        &mut self,
+        states: Vec<(String, crate::advanced::LayerState)>,
+        provenance: &crate::xmp_preset::SavedProvenance,
+    ) -> Result<bool> {
+        provenance.validate()?;
+        let target = &provenance.mapping.target;
+        ensure!(
+            states.len() == 1
+                && states[0].0 == target.layer_id
+                && self.instance_id() == target.editor_instance
+                && self.revision() == target.revision,
+            "Imported preset source or editor changed"
+        );
+        let previous = self
+            .document
+            .find_layer(&target.layer_id)
+            .and_then(|layer| layer.advanced.as_ref())
+            .context("Promote the photo before applying an imported preset")?;
+        ensure!(
+            previous.recipe.source_id == target.source_id
+                && states[0].1.recipe.source_id == target.source_id
+                && format!("{:?}", previous.recipe.working_space) == target.working_space,
+            "Imported preset retained source changed"
+        );
+        ensure!(
+            matches!(states[0].1.recipe.nodes.last().map(|node| &node.operation),Some(crate::advanced_ops::AdvancedOperation::CameraRaw(settings)) if settings == &provenance.native_settings_at_apply),
+            "Preset provenance differs from the prepared native grade"
+        );
+        self.replace_editable_states_internal(states, false, None, Some(provenance), None)
     }
 
     /// Explicitly apply a vector recipe, rebuilding its vector-derived mask.
@@ -124,17 +200,38 @@ impl Editor {
         id: &str,
         state: crate::advanced::LayerState,
     ) -> Result<bool> {
+        self.replace_vector_state_with_report(id, state, None)
+    }
+
+    pub fn replace_vector_state_with_report(
+        &mut self,
+        id: &str,
+        state: crate::advanced::LayerState,
+        report: Option<&crate::compatibility_report::CompatibilityReport>,
+    ) -> Result<bool> {
+        if let Some(report) = report {
+            report.validate()?;
+        }
         ensure!(
             state.recipe.vector.is_some(),
             "Vector apply requires a vector recipe"
         );
-        self.replace_editable_states_internal(vec![(id.to_owned(), state)], true)
+        self.replace_editable_states_internal(
+            vec![(id.to_owned(), state)],
+            true,
+            report,
+            None,
+            None,
+        )
     }
 
     fn replace_editable_states_internal(
         &mut self,
         states: Vec<(String, crate::advanced::LayerState)>,
         force_vector_mask_rebuild: bool,
+        report: Option<&crate::compatibility_report::CompatibilityReport>,
+        xmp: Option<&crate::xmp_preset::SavedProvenance>,
+        promotion_source: Option<&Arc<image::RgbaImage>>,
     ) -> Result<bool> {
         ensure!(
             self.floating.is_none(),
@@ -167,7 +264,15 @@ impl Editor {
             );
             state.validate()?;
             let old = layer.image.as_ref().unwrap().dimensions();
-            let proxy = state.proxy()?;
+            let proxy: crate::shared_image::SharedImage = if let Some(source) = promotion_source {
+                ensure!(
+                    Arc::ptr_eq(&layer.image.as_ref().unwrap().as_arc(), source),
+                    "Photo pixels changed while preparing promotion"
+                );
+                layer.image.as_ref().unwrap().clone()
+            } else {
+                state.proxy()?.into()
+            };
             let vector_recipe_changed = layer.advanced.as_ref().is_none_or(|previous| {
                 previous.recipe.vector != state.recipe.vector
                     || previous.recipe.vector_is_mask != state.recipe.vector_is_mask
@@ -209,8 +314,15 @@ impl Editor {
                     metadata.remove("maskOutsideCoverage");
                 }
             }
-            layer.image = Some(proxy.into());
+            layer.image = Some(proxy);
             layer.advanced = Some(Arc::new(state));
+            if let Some(report) = report {
+                layer.metadata[crate::compatibility_report::METADATA_KEY] =
+                    serde_json::to_value(report)?;
+            }
+            if let Some(xmp) = xmp {
+                layer.metadata[crate::xmp_preset::METADATA_KEY] = serde_json::to_value(xmp)?;
+            }
             if let Some(metadata) = layer.metadata.as_object_mut() {
                 metadata.remove(crate::advanced::RASTER_BLEND_IF_KEY);
             }

@@ -1,8 +1,14 @@
 use super::*;
 use gpui_kit::{Focusable, Modifiers, TestAppContext, VisualTestContext};
 
+#[path = "vector_clipping_ui_tests.rs"]
+mod clipping;
+#[path = "vector_contact_ui_tests.rs"]
+mod contacts;
 #[path = "vector_selection_tests.rs"]
 mod selection;
+#[path = "vector_simplify_ui_tests.rs"]
+mod simplify;
 #[path = "vector_style_tests.rs"]
 mod styles;
 
@@ -39,10 +45,18 @@ fn scroll_to_id(cx: &mut VisualTestContext, id: &'static str, viewport_id: &'sta
         }) {
             break;
         }
-        let delta = if bounds.is_some_and(|bounds| bounds.origin.y < viewport.origin.y) {
-            100.
+        // Scroll the measured distance, in bounded wheel-sized steps. A fixed
+        // 2,000px travel budget stops early as the real inspector gains controls.
+        // Keep the final containment assertion: offscreen clicks are never used.
+        let delta = if let Some(bounds) = bounds {
+            if bounds.origin.y < viewport.origin.y {
+                (f32::from(viewport.origin.y - bounds.origin.y) + 12.).clamp(100., 600.)
+            } else {
+                -(f32::from(bounds.bottom_right().y - viewport.bottom_right().y) + 12.)
+                    .clamp(100., 600.)
+            }
         } else {
-            -100.
+            -600.
         };
         cx.simulate_event(gpui_kit::ScrollWheelEvent {
             position: viewport.center(),

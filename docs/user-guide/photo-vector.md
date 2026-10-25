@@ -4,6 +4,7 @@
 Use **P** to draw, **A** to refine points and **V** to move objects. Trace a bitmap
 when you want a simpler graphic, or use the colour tools to refine a photo.
 
+[Direct vector controls — development](vector-controls.md) ·
 [User manual](README.md) · [Photo editing](photo-editing.md) ·
 [Create content](create-content.md) · [0.8 interface gallery](../releases/v0.8.0-gallery.md)
 
@@ -28,7 +29,7 @@ scope and the remaining Windows desktop, hardware and interchange limits.
    a marquee; it selects fully enclosed objects. Hold Shift to extend it.
 2. **Ctrl+A** selects visible objects; **Ctrl+D** clears the object selection.
    Clicking a group selects its members. **Ctrl-click** selects an individual
-   member; double-click opens its points. **A** and **P** work on one active
+   member; double-click an ungrouped object opens its points. **A** and **P** work on one active
    object's geometry.
 3. Drag or use arrow keys to move the selection. **Shift+Arrow** moves ten
    source pixels. **Ctrl+J** duplicates it. **Ctrl+G** groups; **Ctrl+Shift+G**

@@ -17,6 +17,63 @@ pub(super) fn object_bounds(object: &VectorObject) -> Option<(VectorPoint, Vecto
     Some((a, b))
 }
 
+/// Conservative painted bounds. A mask is a silhouette, not painted artwork;
+/// content is intersected with its silhouette rather than its hidden geometry.
+pub(super) fn clipped_object_bounds(
+    artwork: &VectorScene,
+    index: usize,
+) -> Option<(VectorPoint, VectorPoint)> {
+    let object = artwork.objects.get(index)?;
+    if object.is_clip || !object.visible || object.opacity <= 0. {
+        return None;
+    }
+    let (mut low, mut high) = object_bounds(object)?;
+    if let Some(mask_id) = &object.clip_to {
+        let mask = artwork.objects.iter().find(|o| &o.id == mask_id)?;
+        let (a, b) = mask.path.bounds()?;
+        low.x = low.x.max(a.x);
+        low.y = low.y.max(a.y);
+        high.x = high.x.min(b.x);
+        high.y = high.y.min(b.y);
+        if low.x > high.x || low.y > high.y {
+            return None;
+        }
+    }
+    Some((low, high))
+}
+
+/// Normal picking treats a clip as one unit. Ctrl-click and Edit contents keep
+/// direct access to the unchanged, full geometry of each content object.
+pub(super) fn scoped_selection_members(
+    scene: &super::scene::SceneDraft,
+    index: usize,
+) -> BTreeSet<usize> {
+    let mut selected = super::vector_isolation_ui::members(scene, index);
+    let masks: BTreeSet<_> = selected
+        .iter()
+        .filter_map(|i| {
+            let object = scene.artwork.objects.get(*i)?;
+            if object.is_clip {
+                Some(object.id.as_str())
+            } else {
+                object.clip_to.as_deref()
+            }
+        })
+        .collect();
+    for (i, object) in scene.artwork.objects.iter().enumerate() {
+        if super::vector_isolation_ui::in_scope(&scene.isolation, object)
+            && ((object.is_clip && masks.contains(object.id.as_str()))
+                || object
+                    .clip_to
+                    .as_deref()
+                    .is_some_and(|id| masks.contains(id)))
+        {
+            selected.insert(i);
+        }
+    }
+    selected
+}
+
 pub(super) fn group_members(artwork: &VectorScene, index: usize) -> BTreeSet<usize> {
     let Some(object) = artwork.objects.get(index) else {
         return BTreeSet::new();
@@ -31,6 +88,46 @@ pub(super) fn group_members(artwork: &VectorScene, index: usize) -> BTreeSet<usi
             .collect(),
         None => [index].into_iter().collect(),
     }
+}
+
+/// Ungroup only a child group of the current isolation level. Ancestors remain intact.
+fn ungroup_scoped(
+    source: &VectorScene,
+    selected: &[usize],
+    depth: usize,
+) -> Result<(VectorScene, Vec<usize>)> {
+    if depth == 0 {
+        return omuse::vector_scene_ops::ungroup(source, selected);
+    }
+    let groups: BTreeSet<_> = selected
+        .iter()
+        .filter_map(|index| {
+            source
+                .objects
+                .get(*index)?
+                .groups
+                .get(depth)
+                .map(|group| group.id.clone())
+        })
+        .collect();
+    ensure!(
+        !groups.is_empty(),
+        "Select a nested group, or leave isolation to ungroup its parent"
+    );
+    let mut artwork = source.clone();
+    let mut selection: BTreeSet<_> = selected.iter().copied().collect();
+    for (index, object) in artwork.objects.iter_mut().enumerate() {
+        if object
+            .groups
+            .get(depth)
+            .is_some_and(|group| groups.contains(&group.id))
+        {
+            object.groups.remove(depth);
+            selection.insert(index);
+        }
+    }
+    artwork.validate()?;
+    Ok((artwork, selection.into_iter().collect()))
 }
 
 impl EditorView {
@@ -55,35 +152,10 @@ impl EditorView {
             use omuse::vector_scene_ops::{self as ops, AlignAxis as A, DistributeAxis as D};
             let (artwork, selection) = match action {
                 "group" => ops::group(&source, &selected, "Group")?,
-                "ungroup" => ops::ungroup(&source, &selected)?,
+                "ungroup" => ungroup_scoped(&source, &selected, scene.isolation.len())?,
                 "transform" => {
-                    let values: Vec<f32> = self.detail_inputs[4..8]
-                        .iter()
-                        .map(|i| i.read(cx).value().parse::<f32>())
-                        .collect::<std::result::Result<_, _>>()?;
-                    ensure!(
-                        values.iter().all(|v| v.is_finite()),
-                        "Transform values must be finite"
-                    );
-                    ensure!(
-                        (0.01..=10_000.).contains(&values[2]),
-                        "Scale must be between 0.01 and 10,000%"
-                    );
-                    let center = ops::bounds(&source, &selected)?
-                        .context("Selection has no geometry")?
-                        .center();
-                    let artwork = ops::scale(
-                        &source,
-                        &selected,
-                        values[2] / 100.,
-                        values[2] / 100.,
-                        center,
-                    )?;
-                    let artwork = ops::rotate(&artwork, &selected, values[3], center)?;
-                    (
-                        ops::translate(&artwork, &selected, values[0], values[1])?,
-                        selected.clone(),
-                    )
+                    let step = self.scene_transform_step(cx)?;
+                    (step.apply(&source, &selected)?, selected.clone())
                 }
                 "distribute-x" | "distribute-y" => (
                     ops::distribute(
@@ -110,7 +182,19 @@ impl EditorView {
                     (ops::align(&source, &selected, axis)?, selected.clone())
                 }
             };
+            let remembered = (action == "transform")
+                .then(|| self.scene_transform_step(cx))
+                .transpose()?;
             self.replace_scene_artwork(artwork, selection.into_iter().collect(), window, cx)?;
+            if let Some(step) = remembered.filter(|step| !step.is_identity()) {
+                self.vector_draft
+                    .as_mut()
+                    .unwrap()
+                    .scene
+                    .as_mut()
+                    .unwrap()
+                    .last_transform = Some(step);
+            }
             self.reset_scene_transform_inputs(window, cx);
             self.status = "Vector selection updated · Ctrl+Z to undo".into();
             Ok(())
@@ -152,6 +236,7 @@ impl EditorView {
             .enumerate()
             .filter(|(_, o)| {
                 o.visible
+                    && super::vector_isolation_ui::in_scope(&scene.isolation, o)
                     && match property {
                         "fill" => o.fill == active.fill && o.fill_gradient == active.fill_gradient,
                         "stroke" => {
@@ -310,6 +395,15 @@ impl EditorView {
             return name.starts_with("vector-");
         }
         match name {
+            "vector-transform-again" => self.scene_quick_action("again", window, cx),
+            "vector-transform-copy" => self.scene_quick_action("transform-copy", window, cx),
+            "vector-repeat-transform-copy" => self.scene_quick_action("repeat-copy", window, cx),
+            "vector-swap-fill-stroke" | "swap-colors" => {
+                self.scene_quick_action("swap", window, cx)
+            }
+            "vector-add-polygon" | "vector-add-star" => {
+                self.scene_add_regular_shape(name == "vector-add-star", window, cx)
+            }
             "vector-shape-builder" => self.start_scene_builder(window, cx),
             "vector-repeat-grid" | "vector-repeat-radial" => {
                 self.scene_repeat_action(name == "vector-repeat-radial", window, cx);
@@ -329,7 +423,9 @@ impl EditorView {
                         .objects
                         .iter()
                         .enumerate()
-                        .filter(|(_, o)| o.visible)
+                        .filter(|(_, o)| {
+                            o.visible && super::vector_isolation_ui::in_scope(&scene.isolation, o)
+                        })
                         .map(|(i, _)| i)
                         .collect()
                 } else {
@@ -500,6 +596,42 @@ impl EditorView {
             .debug_selector(|| "vector-transform-apply".into())
             .on_click(cx.listener(|this, _, w, cx| this.scene_arrange_action("transform", w, cx))),
         );
+        let mut repeat = div().flex().flex_wrap().gap_1();
+        for (id, label, action, needs_previous) in [
+            (
+                "vector-transform-copy",
+                "Transform a copy",
+                "transform-copy",
+                false,
+            ),
+            ("vector-transform-again", "Repeat transform", "again", true),
+            (
+                "vector-repeat-transform-copy",
+                "Repeat copy · Ctrl+Shift+D",
+                "repeat-copy",
+                true,
+            ),
+            (
+                "vector-swap-fill-stroke",
+                "Swap fill / stroke · X",
+                "swap",
+                false,
+            ),
+        ] {
+            repeat = repeat.child(
+                button(id, label, ButtonVariant::Outline, cx)
+                    .disabled(
+                        self.busy
+                            || count == 0
+                            || (needs_previous && scene.last_transform.is_none()),
+                    )
+                    .debug_selector(move || id.into())
+                    .on_click(
+                        cx.listener(move |this, _, w, cx| this.scene_quick_action(action, w, cx)),
+                    ),
+            );
+        }
+        controls = controls.child(repeat).child(inspector_ui::panel_note("Repeats use the current selection centre. Each copy stays editable; Undo restores the previous artwork.", cx));
         let mut align = div().flex().flex_wrap().gap_1();
         for (action, label, minimum) in [
             ("align-left", "Left", 2),
@@ -606,8 +738,20 @@ impl EditorView {
         scene.builder = None;
         scene.selected_objects = selected
             .into_iter()
-            .filter(|i| *i < scene.artwork.objects.len())
+            .filter(|i| {
+                scene.artwork.objects.get(*i).is_some_and(|object| {
+                    super::vector_isolation_ui::in_scope(&scene.isolation, object)
+                })
+            })
             .collect();
+        if scene
+            .simplify
+            .session
+            .as_ref()
+            .is_some_and(|s| s.selected != scene.selected_objects)
+        {
+            scene.simplify.session = None;
+        }
         if scene.artwork.objects.is_empty() {
             return;
         }
@@ -617,6 +761,10 @@ impl EditorView {
             .unwrap_or(scene.active)
             .min(scene.artwork.objects.len() - 1);
         let object = &scene.artwork.objects[scene.active];
+        if scene.selected_objects.len() != 1 || object.fill_gradient.is_none() {
+            scene.gradient_edit = false;
+        }
+        scene.gradient_drag = None;
         if object.text_path.is_some() {
             scene.mode = super::scene::SceneMode::Select;
         }
@@ -645,7 +793,7 @@ impl EditorView {
         let members = if individual {
             [index].into_iter().collect()
         } else {
-            group_members(&scene.artwork, index)
+            scoped_selection_members(scene, index)
         };
         let mut selected =
             if additive || (preserve && !individual && scene.selected_objects.contains(&index)) {
@@ -686,11 +834,19 @@ impl EditorView {
         scene.artwork = artwork;
         scene.selected_objects = selected
             .into_iter()
-            .filter(|i| *i < scene.artwork.objects.len())
+            .filter(|i| {
+                scene.artwork.objects.get(*i).is_some_and(|object| {
+                    super::vector_isolation_ui::in_scope(&scene.isolation, object)
+                })
+            })
             .collect();
         scene.drag_origin = None;
         scene.marquee = None;
         let object = &scene.artwork.objects[scene.active];
+        if scene.selected_objects.len() != 1 || object.fill_gradient.is_none() {
+            scene.gradient_edit = false;
+        }
+        scene.gradient_drag = None;
         if object.text_path.is_some() {
             scene.mode = super::scene::SceneMode::Select;
         }
@@ -699,6 +855,7 @@ impl EditorView {
         draft.stroke = object.stroke;
         draft.selected = None;
         draft.drag = None;
+        self.reconcile_vector_isolation();
         self.load_scene_style(window, cx);
         self.vector_scene_changed(cx);
         cx.notify();
@@ -719,6 +876,7 @@ impl EditorView {
             .selected_objects
             .clone();
         let mut artwork = draft.scene_snapshot()?;
+        let has_selection = !selected.is_empty();
         for i in selected {
             if let Some(text) = &mut artwork.objects[i].text_path {
                 text.bake_transform([1., 0., 0., 1., dx, dy]);
@@ -747,6 +905,14 @@ impl EditorView {
         let scene = draft.scene.as_mut().unwrap();
         draft.path = artwork.objects[scene.active].path.clone();
         scene.artwork = artwork;
+        if scene.drag_origin.is_none() && has_selection && (dx != 0. || dy != 0.) {
+            scene.last_transform = Some(super::vector_quick_ui::TransformStep {
+                dx,
+                dy,
+                scale: 1.,
+                degrees: 0.,
+            });
+        }
         self.vector_scene_changed(cx);
         cx.notify();
         Ok(())
@@ -769,17 +935,26 @@ impl EditorView {
         let mut selected = base.clone();
         let (left, right) = (start.x.min(p.x), start.x.max(p.x));
         let (top, bottom) = (start.y.min(p.y), start.y.max(p.y));
-        for (i, object) in scene
-            .artwork
-            .objects
-            .iter()
-            .enumerate()
-            .filter(|(_, o)| o.visible)
+        for (i, _object) in
+            scene.artwork.objects.iter().enumerate().filter(|(_, o)| {
+                o.visible && super::vector_isolation_ui::in_scope(&scene.isolation, o)
+            })
         {
-            if object_bounds(object)
+            if clipped_object_bounds(&scene.artwork, i)
                 .is_some_and(|(a, b)| a.x >= left && b.x <= right && a.y >= top && b.y <= bottom)
             {
-                selected.extend(group_members(&scene.artwork, i));
+                let members = scoped_selection_members(scene, i);
+                // Whole clips use all visible clipped contents for containment.
+                // One small child must not select another child outside the box.
+                let contains_clip = members.iter().any(|i| scene.artwork.objects[*i].is_clip);
+                if !contains_clip
+                    || members
+                        .iter()
+                        .filter_map(|i| clipped_object_bounds(&scene.artwork, *i))
+                        .all(|(a, b)| a.x >= left && b.x <= right && a.y >= top && b.y <= bottom)
+                {
+                    selected.extend(members);
+                }
             }
         }
         self.set_scene_selection(selected, None, window, cx);
@@ -806,86 +981,122 @@ impl EditorView {
         ) {
             return false;
         }
-        let result = (|| -> Result<()> {
-            let draft = self.vector_draft.as_ref().context("Vector editor closed")?;
-            let scene = draft.scene.as_ref().context("Vector editor closed")?;
-            let selected = scene.selected_objects.clone();
-            ensure!(!selected.is_empty(), "Select an object first");
-            let mut artwork = draft.scene_snapshot()?;
-            let selected_ids: BTreeSet<_> = selected
-                .iter()
-                .map(|i| artwork.objects[*i].id.clone())
-                .collect();
-            let mut new_ids = selected_ids.clone();
-            match action {
-                "remove" => {
-                    artwork.objects.retain(|o| !selected_ids.contains(&o.id));
-                    if artwork.objects.is_empty() {
-                        artwork.objects.push(super::scene::new_object(
-                            "Path 1",
-                            VectorPath::default(),
-                            draft.fill,
-                        ));
-                    }
-                    let next = (*selected.first().unwrap()).min(artwork.objects.len() - 1);
-                    new_ids = [artwork.objects[next].id.clone()].into_iter().collect();
-                }
-                "duplicate" => {
-                    ensure!(
-                        artwork.objects.len() + selected.len()
-                            <= omuse::vector_scene::MAX_SCENE_OBJECTS,
-                        "Artwork has reached its object limit"
-                    );
-                    let mut group_ids = HashMap::new();
-                    let copies: Vec<_> = selected
-                        .iter()
-                        .map(|i| {
-                            let mut object = artwork.objects[*i].clone();
-                            object.id = uuid::Uuid::new_v4().to_string();
-                            object.name = format!("{} copy", object.name);
-                            for group in &mut object.groups {
-                                group.id = group_ids
-                                    .entry(group.id.clone())
-                                    .or_insert_with(|| uuid::Uuid::new_v4().to_string())
-                                    .clone();
+        let result =
+            (|| -> Result<()> {
+                let draft = self.vector_draft.as_ref().context("Vector editor closed")?;
+                let scene = draft.scene.as_ref().context("Vector editor closed")?;
+                let selected = scene.selected_objects.clone();
+                ensure!(!selected.is_empty(), "Select an object first");
+                let mut artwork = draft.scene_snapshot()?;
+                let selected_ids: BTreeSet<_> = selected
+                    .iter()
+                    .map(|i| artwork.objects[*i].id.clone())
+                    .collect();
+                let mut new_ids = selected_ids.clone();
+                match action {
+                    "remove" => {
+                        ensure!(
+                            !artwork.objects.iter().any(|object| !selected_ids
+                                .contains(&object.id)
+                                && object
+                                    .clip_to
+                                    .as_ref()
+                                    .is_some_and(|id| selected_ids.contains(id))),
+                            "Release the clip before removing its source shape"
+                        );
+                        artwork.objects.retain(|o| !selected_ids.contains(&o.id));
+                        let retained_masks: BTreeSet<_> = artwork
+                            .objects
+                            .iter()
+                            .filter_map(|object| object.clip_to.clone())
+                            .collect();
+                        for object in &mut artwork.objects {
+                            if object.is_clip && !retained_masks.contains(&object.id) {
+                                object.is_clip = false;
                             }
-                            object
-                        })
-                        .collect();
-                    new_ids = copies.iter().map(|o| o.id.clone()).collect();
-                    // Insert beyond the containing group so copying an individual
-                    // member cannot split the original group's contiguous stack.
-                    let insertion = group_members(&artwork, *selected.last().unwrap())
-                        .last()
-                        .copied()
-                        .unwrap()
-                        + 1;
-                    artwork.objects.splice(insertion..insertion, copies);
-                }
-                "visibility" => {
-                    let visible = !artwork.objects[scene.active].visible;
-                    for i in &selected {
-                        artwork.objects[*i].visible = visible;
+                        }
+                        if artwork.objects.is_empty() {
+                            artwork.objects.push(super::scene::new_object(
+                                "Path 1",
+                                VectorPath::default(),
+                                draft.fill,
+                            ));
+                        }
+                        let next = (*selected.first().unwrap()).min(artwork.objects.len() - 1);
+                        new_ids = [artwork.objects[next].id.clone()].into_iter().collect();
                     }
+                    "duplicate" => {
+                        ensure!(
+                            artwork.objects.len() + selected.len()
+                                <= omuse::vector_scene::MAX_SCENE_OBJECTS,
+                            "Artwork has reached its object limit"
+                        );
+                        let mut group_ids = HashMap::new();
+                        let mut copies: Vec<_> = selected
+                            .iter()
+                            .map(|i| {
+                                let mut object = artwork.objects[*i].clone();
+                                object.id = uuid::Uuid::new_v4().to_string();
+                                object.name = format!("{} copy", object.name);
+                                for group in object.groups.iter_mut().skip(scene.isolation.len()) {
+                                    group.id = group_ids
+                                        .entry(group.id.clone())
+                                        .or_insert_with(|| uuid::Uuid::new_v4().to_string())
+                                        .clone();
+                                }
+                                object
+                            })
+                            .collect();
+                        omuse::vector_clip::repair_clones(
+                            &artwork,
+                            &selected.iter().copied().collect::<Vec<_>>(),
+                            &mut copies,
+                        )?;
+                        new_ids = copies.iter().map(|o| o.id.clone()).collect();
+                        // Insert beyond the containing group so copying an individual
+                        // member cannot split the original group's contiguous stack.
+                        let insertion = if scene.isolation.is_empty() {
+                            group_members(&artwork, *selected.last().unwrap())
+                                .last()
+                                .copied()
+                                .unwrap()
+                                + 1
+                        } else {
+                            artwork
+                                .objects
+                                .iter()
+                                .rposition(|object| {
+                                    super::vector_isolation_ui::in_scope(&scene.isolation, object)
+                                })
+                                .context("Isolation group changed")?
+                                + 1
+                        };
+                        artwork.objects.splice(insertion..insertion, copies);
+                    }
+                    "visibility" => {
+                        let visible = !artwork.objects[scene.active].visible;
+                        for i in &selected {
+                            artwork.objects[*i].visible = visible;
+                        }
+                    }
+                    "forward" | "backward" => {
+                        (artwork, _) = omuse::vector_scene_ops::reorder(
+                            &artwork,
+                            &selected.iter().copied().collect::<Vec<_>>(),
+                            action == "forward",
+                        )?;
+                    }
+                    _ => unreachable!(),
                 }
-                "forward" | "backward" => {
-                    (artwork, _) = omuse::vector_scene_ops::reorder(
-                        &artwork,
-                        &selected.iter().copied().collect::<Vec<_>>(),
-                        action == "forward",
-                    )?;
-                }
-                _ => unreachable!(),
-            }
-            let selection = artwork
-                .objects
-                .iter()
-                .enumerate()
-                .filter(|(_, o)| new_ids.contains(&o.id))
-                .map(|(i, _)| i)
-                .collect();
-            self.replace_scene_artwork(artwork, selection, window, cx)
-        })();
+                let selection = artwork
+                    .objects
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, o)| new_ids.contains(&o.id))
+                    .map(|(i, _)| i)
+                    .collect();
+                self.replace_scene_artwork(artwork, selection, window, cx)
+            })();
         if let Err(error) = result {
             self.status = format!("Vector selection: {error:#}");
         }

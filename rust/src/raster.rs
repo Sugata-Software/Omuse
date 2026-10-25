@@ -167,6 +167,11 @@ pub(crate) fn region_metadata_is_supported(layer: &Layer) -> bool {
                 _ => false,
             })
         }),
+        // Exchange notes are inert provenance, including after vector rasterization.
+        // Admit only the exact bounded schema; unknown extensions still fall back.
+        crate::compatibility_report::METADATA_KEY => {
+            crate::compatibility_report::metadata_is_valid(&layer.metadata)
+        }
         // Import records this after converting pixels to sRGB. It is provenance
         // for reporting and round trips; the raster renderer never consults it.
         "sourceColorProfile" => value.as_object().is_some_and(|profile| {

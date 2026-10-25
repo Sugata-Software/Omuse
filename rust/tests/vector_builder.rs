@@ -167,6 +167,8 @@ fn transformed_gradient_stays_in_world_space_when_regions_are_split() {
         ],
         spread: GradientSpread::Pad,
         transform: [1., 0., 0., 1., 0., 0.],
+        method: Default::default(),
+        dither: false,
     });
     let builder = prepare(&source, &idle()).unwrap();
     let actual = render(builder.regions.iter().map(|r| r.object.clone()).collect());

@@ -44,6 +44,8 @@ mod editing_workflow_ui_tests;
 mod external_change_ui;
 #[path = "finishing_ui.rs"]
 mod finishing_ui;
+#[path = "guided_mask_ui.rs"]
+mod guided_mask_ui;
 #[path = "image_trace_ui.rs"]
 mod image_trace_ui;
 #[path = "inline_font_ui.rs"]
@@ -445,6 +447,7 @@ pub struct EditorView {
     shortcuts: Shortcuts,
     shortcut_draft: Shortcuts,
     recording: Option<String>,
+    pending_reassignment: Option<shortcuts::Reassignment>,
     command_search: command_search_ui::CommandSearchState,
     recent: recent_ui::RecentState,
     external: external_change_ui::ExternalState,
@@ -485,6 +488,7 @@ pub struct EditorView {
     range_draft: Option<range_ui::RangeDraft>,
     vector_draft: Option<vector_ui::VectorDraft>,
     image_trace: image_trace_ui::ImageTraceUi,
+    guided_mask: guided_mask_ui::GuidedMaskUi,
     workflow_draft: Option<workflow_ui::WorkflowDraft>,
     pro_draft: Option<advanced_ui::ProDraft>,
     finishing_draft: Option<finishing_ui::FinishingDraft>,
@@ -504,6 +508,7 @@ pub struct EditorView {
     guide_drag: Option<(String, omuse::editor::GuideAxis, f32)>,
     preferences: crate::preferences::Preferences,
     import_notes: Vec<String>,
+    last_import_compatibility: Option<(u64, omuse::compatibility_report::CompatibilityReport)>,
     export_notes: Vec<String>,
     selection_contour: RefCell<SelectionContourCache>,
     selection_ant_phase: u8,
@@ -716,7 +721,8 @@ impl EditorView {
                     cx.notify();
                     return;
                 }
-                if this.auto_layout_key(&event.keystroke, window, cx)
+                if this.camera_xmp_key(&event.keystroke, window, cx)
+                    || this.auto_layout_key(&event.keystroke, window, cx)
                     || this.inline_font_key(&event.keystroke, window, cx)
                     || this.recent_key(&event.keystroke, window, cx)
                     || this.command_search_key(&event.keystroke, window, cx)
@@ -766,18 +772,20 @@ impl EditorView {
                 }
                 if this.dialog == Dialog::Shortcuts && this.modal_focus.contains_focused(window, cx)
                 {
+                    if event.keystroke.key == "escape" && this.pending_reassignment.take().is_some()
+                    {
+                        cx.stop_propagation();
+                        this.recording = None;
+                        this.status = "Reassignment cancelled · Existing bindings retained".into();
+                        cx.notify();
+                        return;
+                    }
                     if let Some(id) = this.recording.clone() {
                         cx.stop_propagation();
                         if event.keystroke.key == "escape" {
                             this.recording = None;
                         } else {
-                            match this.shortcut_draft.assign(&id, &event.keystroke.unparse()) {
-                                Ok(()) => {
-                                    this.recording = None;
-                                    this.status = "Recorded. Apply to save shortcuts.".into();
-                                }
-                                Err(e) => this.status = e.to_string(),
-                            }
+                            this.record_shortcut_chord(&id, &event.keystroke.unparse());
                         }
                         cx.notify();
                     }
@@ -971,6 +979,7 @@ impl EditorView {
             shortcuts: Shortcuts::load(&shortcuts::settings_path()).unwrap_or_default(),
             shortcut_draft: Shortcuts::default(),
             recording: None,
+            pending_reassignment: None,
             command_search: command_search_ui::CommandSearchState::new(window, cx),
             recent: recent_ui::RecentState::new(window, cx),
             external: external_change_ui::ExternalState::default(),
@@ -1014,6 +1023,7 @@ impl EditorView {
             range_draft: None,
             vector_draft: None,
             image_trace: image_trace_ui::ImageTraceUi::default(),
+            guided_mask: guided_mask_ui::GuidedMaskUi::default(),
             workflow_draft: None,
             pro_draft: None,
             finishing_draft: None,
@@ -1033,6 +1043,7 @@ impl EditorView {
             guide_drag: None,
             preferences,
             import_notes: Vec::new(),
+            last_import_compatibility: None,
             export_notes: Vec::new(),
             selection_contour: RefCell::new(SelectionContourCache::default()),
             selection_ant_phase: 0,
@@ -1246,7 +1257,7 @@ impl EditorView {
         );
     }
 
-    fn changed(&mut self, cx: &mut Context<Self>) {
+    fn note_document_change(&mut self) {
         self.crop = None;
         if let Some(error) = self.editor.take_layout_error() {
             self.status = format!("Auto-layout: {error}");
@@ -1271,8 +1282,31 @@ impl EditorView {
             self.layer_selection
                 .click(self.editor.active_layer.clone(), SelectionAction::Replace);
         }
+    }
+    fn changed(&mut self, cx: &mut Context<Self>) {
+        self.note_document_change();
         self.refresh(cx);
         self.schedule_content_recovery();
+    }
+    /// Publish an exact, guarded worker-rendered document without rendering it again.
+    fn changed_with_prepared_pixels(
+        &mut self,
+        pixels: image::RgbaImage,
+        display: DisplaySurface,
+        cx: &mut Context<Self>,
+    ) {
+        debug_assert_eq!(
+            pixels.dimensions(),
+            (self.editor.document.width, self.editor.document.height)
+        );
+        debug_assert_eq!(display.dimensions(), pixels.dimensions());
+        self.note_document_change();
+        self.pending_stroke_frame = None;
+        self.editor.take_stroke_damage();
+        self.pixels = pixels;
+        self.display = display;
+        self.schedule_content_recovery();
+        cx.notify();
     }
     /// Admit a background completion only while it still owns the current UI job.
     /// A cancelled job may continue running on the background executor, so it must
@@ -1340,6 +1374,58 @@ impl EditorView {
         }
         self.font_names = Some(names);
     }
+    fn record_shortcut_chord(&mut self, id: &str, chord: &str) {
+        self.pending_reassignment = None;
+        match self.shortcut_draft.prepare_reassignment(id, chord) {
+            Ok(Some(plan)) => {
+                self.recording = None;
+                self.status = format!(
+                    "{} is already assigned · Review its owners, then Reassign or Cancel",
+                    shortcuts::display_chord(&plan.chord)
+                );
+                self.pending_reassignment = Some(plan);
+            }
+            Ok(None) => match self.shortcut_draft.assign(id, chord) {
+                Ok(()) => {
+                    self.recording = None;
+                    self.status = "Recorded. Apply to save shortcuts.".into();
+                }
+                Err(error) => self.status = error.to_string(),
+            },
+            Err(error) => self.status = error.to_string(),
+        }
+    }
+
+    fn confirm_shortcut_reassignment(&mut self) {
+        let Some(plan) = self.pending_reassignment.take() else {
+            return;
+        };
+        self.recording = None;
+        self.status = match self.shortcut_draft.reassign(&plan) {
+            Ok(()) => format!(
+                "{} moved to {} in this draft · Apply to save",
+                shortcuts::display_chord(&plan.chord),
+                plan.target.label
+            ),
+            Err(error) => error.to_string(),
+        };
+    }
+
+    fn save_shortcut_draft(
+        &mut self,
+        path: &std::path::Path,
+        cx: &mut Context<Self>,
+    ) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            self.pending_reassignment.is_none(),
+            "Resolve or cancel the shortcut conflict before Apply"
+        );
+        self.shortcut_draft.save(path)?;
+        install_shortcuts(&self.shortcut_draft, &self.shortcuts, cx);
+        self.shortcuts = self.shortcut_draft.clone();
+        Ok(())
+    }
+
     fn coordinates(&self, position: Point<Pixels>) -> (f32, f32) {
         let bounds = self.viewport.get();
         let w = self.editor.document.width as f32 * self.zoom;
@@ -1371,6 +1457,9 @@ impl EditorView {
                 crop.end();
             }
             self.pan_pointer = Some(event.position);
+            return;
+        }
+        if self.guided_mask_down(event, cx) {
             return;
         }
         if self.image_trace_active() {
@@ -1792,6 +1881,9 @@ impl EditorView {
             cx.notify();
             return;
         }
+        if self.guided_mask_moved(event, cx) {
+            return;
+        }
         if self.image_trace_active() {
             return;
         }
@@ -1934,6 +2026,9 @@ impl EditorView {
             return;
         }
         if self.pan_pointer.take().is_some() {
+            return;
+        }
+        if self.guided_mask_up(event, cx) {
             return;
         }
         if self.image_trace_active() {
@@ -2283,6 +2378,9 @@ impl EditorView {
         }
     }
     fn request(&mut self, what: Pending, window: &mut Window, cx: &mut Context<Self>) {
+        if !matches!(what, Pending::Quit) && self.guard_guided_mask(cx) {
+            return;
+        }
         if self.image_trace_active() && !matches!(what, Pending::Quit) {
             self.guard_image_trace(cx);
             return;
@@ -2539,6 +2637,15 @@ impl EditorView {
             }
         };
         let current_stamp = project_stamp(&path);
+        if self.path.as_ref() == Some(&path)
+            && self.live_stamp.is_none()
+            && std::fs::symlink_metadata(&path).is_ok()
+        {
+            self.save_confirmation = None;
+            self.status = "The current project's saved version is unverified. Reopen it, or use Save a copy to choose another name. The existing project has not been overwritten.".into();
+            cx.notify();
+            return;
+        }
         if self.path.as_ref() == Some(&path)
             && self.live_stamp.is_some()
             && current_stamp != self.live_stamp
@@ -2983,11 +3090,10 @@ impl EditorView {
                     self.status = "Enter finite numeric transform values".into();
                 }
             }
-            Dialog::Shortcuts => match self.shortcut_draft.save(&shortcuts::settings_path()) {
+            Dialog::Shortcuts => match self.save_shortcut_draft(&shortcuts::settings_path(), cx) {
                 Ok(()) => {
-                    install_shortcuts(&self.shortcut_draft, &self.shortcuts, cx);
-                    self.shortcuts = self.shortcut_draft.clone();
                     self.recording = None;
+                    self.pending_reassignment = None;
                     self.dialog = Dialog::None;
                     self.status = "Keyboard shortcuts saved".into();
                 }
@@ -3329,6 +3435,19 @@ impl EditorView {
         if self.busy || self.dialog != Dialog::None {
             return;
         }
+        if self.guided_mask_brush_command(name, cx) {
+            return;
+        }
+        if (self.guided_mask_active() || self.guided_mask_has_work())
+            && !Self::guided_mask_command_allowed(name)
+        {
+            self.guard_guided_mask(cx);
+            return;
+        }
+        if name == "select-guided-mask" {
+            self.open_guided_mask(window, cx);
+            return;
+        }
         if self.image_trace_active() && !Self::trace_command_allowed(name) {
             self.guard_image_trace(cx);
             return;
@@ -3470,24 +3589,8 @@ impl EditorView {
                     "Open vector artwork with Shift+P, then select the objects to edit.".into();
                 cx.notify();
             }
-            "import-report" => {
-                self.import_notes = omuse::import_report::conversion_notes(&self.editor.document);
-                if self.import_notes.is_empty() {
-                    self.status = "No import conversion notes for this document".into();
-                } else {
-                    self.dialog = Dialog::ImportReport;
-                }
-                cx.notify();
-            }
-            "export-report" => {
-                if self.export_notes.is_empty() {
-                    self.status = "No export conversion report in this session".into();
-                } else {
-                    self.dialog = Dialog::ExportReport;
-                    self.modal_focus.focus(window, cx);
-                }
-                cx.notify();
-            }
+            "import-report" => self.show_compatibility_report(false, window, cx),
+            "export-report" => self.show_compatibility_report(true, window, cx),
             "transform-selection" if self.paint_mask => {
                 self.status =
                     "Transform Selection is unavailable while editing a mask; use Place Mask"
@@ -3686,6 +3789,7 @@ impl EditorView {
             "shortcuts" => {
                 self.shortcut_draft = self.shortcuts.clone();
                 self.recording = None;
+                self.pending_reassignment = None;
                 self.dialog = Dialog::Shortcuts;
                 self.path_input.update(cx, |state, cx| {
                     state.set_value("", window, cx);
@@ -5378,7 +5482,7 @@ impl EditorView {
                     } else {
                         SelectionAction::Replace
                     };
-                    if this.guard_image_trace(cx) {
+                    if this.guard_guided_mask(cx) || this.guard_image_trace(cx) {
                         return;
                     }
                     if this.vector_before_layer(
@@ -5426,7 +5530,7 @@ impl EditorView {
                     if this.busy || this.dialog != Dialog::None {
                         return;
                     }
-                    if this.guard_image_trace(cx) {
+                    if this.guard_guided_mask(cx) || this.guard_image_trace(cx) {
                         return;
                     }
                     if this.vector_before_layer(
@@ -5458,6 +5562,8 @@ impl EditorView {
                     || this.busy
                     || this.vector_scene_active()
                     || this.image_trace_active()
+                    || this.guided_mask_active()
+                    || this.guided_mask_has_work()
                 {
                     return;
                 }
@@ -5475,6 +5581,8 @@ impl EditorView {
                     || this.busy
                     || this.vector_scene_active()
                     || this.image_trace_active()
+                    || this.guided_mask_active()
+                    || this.guided_mask_has_work()
                 {
                     return;
                 }
@@ -5553,7 +5661,7 @@ impl EditorView {
                         MouseButton::Left,
                         cx.listener(move |this, event: &MouseDownEvent, _, cx| {
                             cx.stop_propagation();
-                            if this.busy || this.vector_scene_active() || this.image_trace_active()
+                            if this.busy || this.vector_scene_active() || this.image_trace_active() || this.guided_mask_active() || this.guided_mask_has_work()
                             {
                                 return;
                             }
@@ -6421,6 +6529,7 @@ impl EditorView {
         let tiles = display.snapshot();
         let display_dimensions = display.dimensions();
         let vector_overlay = self.vector_canvas_overlay();
+        let guided_overlay = self.guided_mask_overlay(cx);
         let vector_outline = self.vector_outline_active();
         let reference = self.display_reference.clone();
         let probe_matte = if mask_display.is_some() {
@@ -6493,7 +6602,7 @@ impl EditorView {
                 if this.dialog != Dialog::None || this.busy {
                     return;
                 }
-                if this.guard_image_trace(cx) {
+                if this.guard_guided_mask(cx) || this.guard_image_trace(cx) {
                     return;
                 }
                 if this.vector_before_import(paths.0.to_vec(), window, cx) {
@@ -6506,7 +6615,11 @@ impl EditorView {
                 MouseButton::Right,
                 cx.listener(|this, _, window, cx| {
                     if this.dialog == Dialog::None && !this.busy {
-                        if this.vector_scene_active() || this.image_trace_active() {
+                        if this.vector_scene_active()
+                            || this.image_trace_active()
+                            || this.guided_mask_active()
+                            || this.guided_mask_has_work()
+                        {
                             this.inspector_visible = true;
                             this.inspector_tab = studio_ui::InspectorTab::Layers;
                             cx.notify();
@@ -6798,6 +6911,9 @@ impl EditorView {
                                 color,
                             ));
                         }
+                        if let Some(overlay) = guided_overlay {
+                            overlay.paint(rect, bounds, window, cx);
+                        }
                         if let Some(overlay) = vector_overlay {
                             overlay.paint(rect, bounds, window);
                         }
@@ -6903,8 +7019,8 @@ impl EditorView {
             Dialog::Pro => self.pro_title(),
             Dialog::Finishing => "Finishing effects",
             Dialog::AutoLayout => "Auto layout",
-            Dialog::ImportReport => "Import conversion report",
-            Dialog::ExportReport => "Last export conversion report",
+            Dialog::ImportReport => "Import compatibility report",
+            Dialog::ExportReport => "Last export compatibility report",
             Dialog::ToolSettings => "Tool settings",
             Dialog::Gradient => "Gradient preview",
             Dialog::None => "",
@@ -6935,18 +7051,61 @@ impl EditorView {
                 &self.import_notes
             };
             if notes.is_empty() {
-                body = body.child("No conversion notes were recorded.");
+                body = body.child("No compatibility report was recorded for this operation.");
             } else {
                 for note in notes {
-                    body = body.child(div().text_sm().child(format!("• {note}")));
+                    let category = [
+                        "Preserved",
+                        "Converted",
+                        "Not included",
+                        "Blocked",
+                        "Warning",
+                    ]
+                    .into_iter()
+                    .find_map(|category| {
+                        note.strip_prefix(&format!("{category}: "))
+                            .map(|detail| (category, detail))
+                    });
+                    if let Some((category, detail)) = category {
+                        let color = if matches!(category, "Blocked" | "Warning" | "Converted") {
+                            t.warning
+                        } else {
+                            t.accent
+                        };
+                        body = body.child(
+                            div()
+                                .flex()
+                                .flex_col()
+                                .gap_1()
+                                .p_3()
+                                .rounded(control_style::control_radius())
+                                .border_1()
+                                .border_color(t.divider())
+                                .bg(t.normal_fill())
+                                .child(
+                                    div()
+                                        .text_xs()
+                                        .font_weight(gpui_kit::FontWeight::MEDIUM)
+                                        .text_color(color)
+                                        .child(category),
+                                )
+                                .child(
+                                    div()
+                                        .text_sm()
+                                        .text_color(t.foreground)
+                                        .child(detail.to_string()),
+                                ),
+                        );
+                    } else {
+                        body = body
+                            .child(div().text_sm().text_color(t.foreground).child(note.clone()));
+                    }
                 }
             }
             body = body.child(
                 button("close-import-report", "Close", ButtonVariant::Primary, cx).on_click(
                     cx.listener(|this, _, window, cx| {
-                        this.dialog = Dialog::None;
-                        this.focus.focus(window, cx);
-                        cx.notify();
+                        this.close_compatibility_report(window, cx);
                     }),
                 ),
             );
@@ -7283,6 +7442,7 @@ impl EditorView {
                         })),
                     );
                 }
+                body = body.child(self.camera_xmp_controls(window, cx));
                 body = body.child(
                     button("camera-preview", "Preview", ButtonVariant::Outline, cx)
                         .disabled(self.busy)
@@ -7825,6 +7985,82 @@ impl EditorView {
             } else if self.dialog == Dialog::Shortcuts {
                 body = body.child("Record a key combination, or Clear to leave a command unbound. Escape cancels recording. Apply saves changes; Cancel discards them.");
                 body = body.child("Super belongs to Omarchy. Search also matches categories and your current shortcuts.");
+                if let Some(plan) = &self.pending_reassignment {
+                    let current = self.shortcut_draft.reassignment_current(plan);
+                    let mut conflict = div().id("shortcut-conflict").debug_selector(|| "shortcut-conflict".into()).flex().flex_col().gap_2().p_3()
+                        .border_1().border_color(t.border)
+                        .child(format!("Move {} to {}?", shortcuts::display_chord(&plan.chord), plan.target.label))
+                        .child(div().text_sm().text_color(t.secondary).child(if current {
+                            "Reassign unbinds the owners below in this draft. Apply saves the whole change; Cancel keeps your existing bindings."
+                        } else { "Bindings changed. Record the shortcut again before reassigning." }));
+                    for owner in &plan.owners {
+                        let owner_id = owner.id;
+                        let inherited = self.shortcut_draft.chord(owner_id) != plan.chord;
+                        conflict = conflict.child(
+                            button(
+                                SharedString::from(format!("shortcut-owner-{owner_id}")),
+                                SharedString::from(format!(
+                                    "{} · {}{}",
+                                    owner.label,
+                                    owner.category,
+                                    if inherited {
+                                        " · inherited default"
+                                    } else {
+                                        " · current owner"
+                                    }
+                                )),
+                                ButtonVariant::Outline,
+                                cx,
+                            )
+                            .debug_selector(move || format!("shortcut-owner-{owner_id}"))
+                            .on_click(cx.listener(
+                                move |this, _, window, cx| {
+                                    this.path_input.update(cx, |input, cx| {
+                                        input.set_value(owner_id, window, cx);
+                                        input.focus(window, cx);
+                                    });
+                                    cx.notify();
+                                },
+                            )),
+                        );
+                    }
+                    conflict = conflict.child(
+                        div()
+                            .flex()
+                            .gap_2()
+                            .child(
+                                button("shortcut-reassign", "Reassign", ButtonVariant::Primary, cx)
+                                    .debug_selector(|| "shortcut-reassign".into())
+                                    .disabled(!current)
+                                    .on_click(cx.listener(|this, _, window, cx| {
+                                        this.confirm_shortcut_reassignment();
+                                        this.modal_focus.focus(window, cx);
+                                        cx.notify();
+                                    })),
+                            )
+                            .child(
+                                button(
+                                    "shortcut-cancel-reassign",
+                                    "Cancel reassignment",
+                                    ButtonVariant::Secondary,
+                                    cx,
+                                )
+                                .debug_selector(|| "shortcut-cancel-reassign".into())
+                                .on_click(cx.listener(
+                                    |this, _, window, cx| {
+                                        this.pending_reassignment = None;
+                                        this.recording = None;
+                                        this.status =
+                                            "Reassignment cancelled · Existing bindings retained"
+                                                .into();
+                                        this.modal_focus.focus(window, cx);
+                                        cx.notify();
+                                    },
+                                )),
+                            ),
+                    );
+                    body = body.child(conflict);
+                }
                 body = body.child(input("shortcut-search", &self.path_input, window, cx));
                 let query = self.path_input.read(cx).value();
                 let entries = self.shortcut_draft.search(&query);
@@ -7878,6 +8114,7 @@ impl EditorView {
                                 .on_click(cx.listener(
                                     move |this, _, window, cx| {
                                         this.recording = Some(id.into());
+                                        this.pending_reassignment = None;
                                         this.modal_focus.focus(window, cx);
                                         this.status =
                                             "Press the new shortcut; Escape cancels recording"
@@ -7905,6 +8142,7 @@ impl EditorView {
                                             Err(error) => this.status = error.to_string(),
                                         }
                                         this.recording = None;
+                                        this.pending_reassignment = None;
                                         cx.notify();
                                     },
                                 )),
@@ -7928,6 +8166,7 @@ impl EditorView {
                                             Err(error) => this.status = error.to_string(),
                                         }
                                         this.recording = None;
+                                        this.pending_reassignment = None;
                                         cx.notify();
                                     },
                                 )),
@@ -7941,9 +8180,11 @@ impl EditorView {
                         ButtonVariant::Outline,
                         cx,
                     )
+                    .debug_selector(|| "reset-shortcuts".into())
                     .on_click(cx.listener(|this, _, _, cx| {
-                        this.shortcut_draft = Shortcuts::default();
+                        this.shortcut_draft.reset_all();
                         this.recording = None;
+                        this.pending_reassignment = None;
                         this.status = "Defaults restored in this draft. Apply to save.".into();
                         cx.notify();
                     })),
@@ -8432,6 +8673,10 @@ impl EditorView {
                                         {
                                             return;
                                         }
+                                        if this.dialog == Dialog::Shortcuts {
+                                            this.pending_reassignment = None;
+                                            this.recording = None;
+                                        }
                                         this.cancel_range(cx);
                                         if !matches!(
                                             this.dialog,
@@ -8479,7 +8724,11 @@ impl EditorView {
                                     cx,
                                 )
                                 .debug_selector(|| "confirm-dialog".into())
-                                .disabled(self.dialog == Dialog::CameraRaw && self.busy)
+                                .disabled(
+                                    (self.dialog == Dialog::CameraRaw && self.busy)
+                                        || (self.dialog == Dialog::Shortcuts
+                                            && self.pending_reassignment.is_some()),
+                                )
                                 .on_click(cx.listener(
                                     |this, _, window, cx| this.confirm_dialog(window, cx),
                                 )),
@@ -8539,6 +8788,7 @@ impl EditorView {
 
 impl Render for EditorView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.validate_guided_mask_context(window, cx);
         self.validate_image_trace(cx);
         self.validate_vector_canvas(cx);
         self.validate_numeric_context(window, cx);
@@ -8686,6 +8936,10 @@ impl Render for EditorView {
                 }
             }))
             .on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
+                if event.keystroke.key == "escape" && this.cancel_guided_mask(window, cx) {
+                    cx.stop_propagation();
+                    return;
+                }
                 if event.keystroke.key == "escape" && this.cancel_camera_gesture(window, cx) {
                     cx.stop_propagation();
                     return;
@@ -8704,7 +8958,15 @@ impl Render for EditorView {
                 }
                 if this.dialog != Dialog::None {
                     if event.keystroke.key == "escape" {
+                        if this.dialog == Dialog::Shortcuts {
+                            this.pending_reassignment = None;
+                            this.recording = None;
+                        }
                         if this.dialog == Dialog::Save && this.saving_blocks_navigation(cx) {
+                            return;
+                        }
+                        if matches!(this.dialog, Dialog::ImportReport | Dialog::ExportReport) {
+                            this.close_compatibility_report(window, cx);
                             return;
                         }
                         this.cancel_photo_io();
@@ -8717,8 +8979,13 @@ impl Render for EditorView {
                         );
                         let camera_preview = this.dialog == Dialog::CameraRaw;
                         let gradient_preview = this.dialog == Dialog::Gradient;
-                        let keep_vector =
-                            matches!(this.dialog, Dialog::CommandSearch | Dialog::Shortcuts);
+                        let keep_vector = matches!(
+                            this.dialog,
+                            Dialog::CommandSearch
+                                | Dialog::Shortcuts
+                                | Dialog::ImportReport
+                                | Dialog::ExportReport
+                        );
                         this.dialog = Dialog::None;
                         this.pending = None;
                         this.dialog_generation += 1;
@@ -8776,6 +9043,13 @@ impl Render for EditorView {
                             return;
                         }
                         if this.vector_scene_active() {
+                            if this.cancel_vector_gesture(window, cx) {
+                                return;
+                            }
+                            let depth = this.vector_isolation_depth();
+                            if depth > 0 && this.leave_vector_isolation(depth - 1, window, cx) {
+                                return;
+                            }
                             this.cancel_vector_canvas(window, cx);
                             return;
                         }
@@ -8856,6 +9130,7 @@ impl Render for EditorView {
                     .child(self.canvas_view(cx))
                     .when(self.inspector_visible, |body| body.child(inspector)),
             )
+            .when_some(self.save_notice_view(cx), |root, notice| root.child(notice))
             .child(self.create_strip(cx))
             .child(footer);
         if self.create.phone_preview {
@@ -11684,6 +11959,132 @@ mod parity_interaction_tests {
         });
     }
     #[gpui_kit::test]
+    fn shortcut_conflict_review_cancel_reassign_and_failed_persistence(cx: &mut TestAppContext) {
+        cx.update(crate::init_test_theme);
+        cx.update(bind_keys);
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("keys.json");
+        Shortcuts::default().save(&path).unwrap();
+        let original = std::fs::read(&path).unwrap();
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            let mut v = EditorView::new(None, window, cx);
+            v.shortcuts = Shortcuts::default();
+            v.dialog = Dialog::None;
+            v.command("shortcuts", window, cx);
+            v.recording = Some("save".into());
+            v.modal_focus.focus(window, cx);
+            v
+        });
+        cx.simulate_resize(size(px(900.), px(720.)));
+        cx.simulate_keystrokes("ctrl-o");
+        view.update(cx, |v, _| {
+            assert!(
+                v.dialog == Dialog::Shortcuts,
+                "recorded chord must not execute Open"
+            );
+            assert_eq!(v.pending_reassignment.as_ref().unwrap().target.id, "save");
+            assert_eq!(v.shortcut_draft.chord("open"), "ctrl-o");
+            assert_eq!(v.shortcuts.chord("save"), "ctrl-s");
+        });
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        let owner = cx.debug_bounds("shortcut-owner-open").unwrap();
+        cx.simulate_click(owner.center(), gpui_kit::Modifiers::default());
+        view.update(cx, |v, cx| {
+            assert_eq!(v.path_input.read(cx).value().to_string(), "open");
+            assert!(v.pending_reassignment.is_some());
+        });
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        let cancel = cx.debug_bounds("shortcut-cancel-reassign").unwrap();
+        cx.simulate_click(cancel.center(), gpui_kit::Modifiers::default());
+        view.update(cx, |v, _| {
+            assert!(v.pending_reassignment.is_none());
+            assert_eq!(v.shortcut_draft.chord("save"), "ctrl-s");
+            assert_eq!(v.shortcut_draft.chord("open"), "ctrl-o");
+        });
+        cx.update(|window, cx| {
+            view.update(cx, |v, cx| {
+                v.recording = Some("save".into());
+                v.modal_focus.focus(window, cx);
+            })
+        });
+        cx.simulate_keystrokes("ctrl-o");
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        let reassign = cx.debug_bounds("shortcut-reassign").unwrap();
+        cx.simulate_click(reassign.center(), gpui_kit::Modifiers::default());
+        let blocked = temp.path().join("not-a-directory");
+        std::fs::write(&blocked, b"keep").unwrap();
+        view.update(cx, |v, cx| {
+            assert_eq!(v.shortcut_draft.chord("save"), "ctrl-o");
+            assert_eq!(v.shortcut_draft.chord("open"), "");
+            assert_eq!(
+                v.shortcuts.chord("save"),
+                "ctrl-s",
+                "Reassign only changes the draft"
+            );
+            assert!(
+                v.save_shortcut_draft(&blocked.join("keys.json"), cx)
+                    .is_err()
+            );
+            assert_eq!(v.shortcuts.chord("save"), "ctrl-s");
+            assert_eq!(v.shortcuts.chord("open"), "ctrl-o");
+            assert_eq!(std::fs::read(&path).unwrap(), original);
+            v.save_shortcut_draft(&path, cx).unwrap();
+            assert_eq!(v.shortcuts.chord("save"), "ctrl-o");
+        });
+        let reopened = Shortcuts::load(&path).unwrap();
+        assert_eq!(reopened.chord("save"), "ctrl-o");
+        assert_eq!(reopened.chord("open"), "");
+    }
+
+    #[gpui_kit::test]
+    fn shortcut_conflict_reset_invalidates_confirmation_and_escape_keeps_dialog(
+        cx: &mut TestAppContext,
+    ) {
+        cx.update(crate::init_test_theme);
+        cx.update(bind_keys);
+        let (view, cx) = cx.add_window_view(|window, cx| {
+            let mut v = EditorView::new(None, window, cx);
+            v.shortcuts = Shortcuts::default();
+            v.dialog = Dialog::None;
+            v.command("shortcuts", window, cx);
+            v.recording = Some("save".into());
+            v.modal_focus.focus(window, cx);
+            v
+        });
+        cx.simulate_resize(size(px(900.), px(720.)));
+        cx.simulate_keystrokes("ctrl-o");
+        cx.simulate_keystrokes("escape");
+        view.update(cx, |v, _| {
+            assert!(v.dialog == Dialog::Shortcuts);
+            assert!(v.pending_reassignment.is_none());
+            assert_eq!(v.shortcut_draft.chord("save"), "ctrl-s");
+        });
+        cx.update(|window, cx| {
+            view.update(cx, |v, cx| {
+                v.recording = Some("save".into());
+                v.modal_focus.focus(window, cx);
+            })
+        });
+        cx.simulate_keystrokes("ctrl-o");
+        let stale = view.update(cx, |v, _| v.pending_reassignment.clone().unwrap());
+        cx.update(|window, cx| {
+            view.update(cx, |v, cx| {
+                v.path_input
+                    .update(cx, |input, cx| input.set_value("zz-no-matches", window, cx));
+            })
+        });
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        let reset = cx.debug_bounds("reset-shortcuts").unwrap();
+        cx.simulate_click(reset.center(), gpui_kit::Modifiers::default());
+        view.update(cx, |v, _| {
+            assert!(v.pending_reassignment.is_none());
+            assert!(v.shortcut_draft.reassign(&stale).is_err());
+            assert_eq!(v.shortcut_draft.chord("save"), "ctrl-s");
+            assert_eq!(v.shortcut_draft.chord("open"), "ctrl-o");
+        });
+    }
+
+    #[gpui_kit::test]
     fn shortcut_recorder_intercepts_commands_and_remapped_save_works(cx: &mut TestAppContext) {
         cx.update(crate::init_test_theme);
         cx.update(bind_keys);
@@ -12136,6 +12537,14 @@ impl EditorView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if omuse::identity::env_var("OMUSE_NATIVE_PANEL")
+            .ok()
+            .as_deref()
+            == Some("guided-mask")
+        {
+            self.start_native_guided_probe(dir, window, cx);
+            return;
+        }
         if omuse::identity::env_var("OMUSE_NATIVE_AI_TEST").as_deref() == Ok("1") {
             self.start_native_ai_qualification(dir, window, cx);
             return;
@@ -12468,10 +12877,22 @@ impl EditorView {
                             this.command(&panel,window,cx);
                             this.run_finishing(false,cx);
                         } else if matches!(panel.as_str(), "filter-stack" | "target-colour" | "reference-match" | "blend-if" | "advanced-retouch" | "controlled-removal" | "editable-warp" | "refine-workspace" | "brush-studio" | "smart-source" | "colour-management" | "automation" | "multi-image" | "vector-path" | "vector-scene" | "vector-styles" | "vector-text" | "vector-mask") {
-                            let pixels=this.pixels.clone();
+                            // Explicit native-test fixture: a small marked object has
+                            // nearby unselected donors. A failed preview must never
+                            // masquerade as a successful inspection capture.
+                            let pixels=if panel=="controlled-removal" {
+                                image::RgbaImage::from_fn(640,480,|x,y| {
+                                    image::Rgba(if (300..324).contains(&x)&&(200..218).contains(&y) {
+                                        [240,90,130,255]
+                                    } else {
+                                        [30+(x/20) as u8,40+(y/20) as u8,70+((x+y)/40) as u8,255]
+                                    })
+                                })
+                            } else { this.pixels.clone() };
                             let mut doc=Document::new(pixels.width(),pixels.height());doc.layers[0].image=Some(pixels.into());
                             this.editor=Editor::new(doc);
-                            if matches!(panel.as_str(),"controlled-removal"|"refine-workspace") {this.editor.select_rectangle(120.,100.,160.,180.);}
+                            if panel=="controlled-removal" {this.editor.select_rectangle(300.,200.,24.,18.);}
+                            if panel=="refine-workspace" {this.editor.select_rectangle(120.,100.,160.,180.);}
                             this.command(if matches!(panel.as_str(),"target-colour"|"reference-match") {"filter-stack"} else if matches!(panel.as_str(),"vector-styles"|"vector-text") {"vector-scene"} else {&panel},window,cx);
                             if panel=="target-colour" {this.pro_choose_effect(14,window,cx);}
                             if panel=="reference-match" {
@@ -12546,6 +12967,9 @@ impl EditorView {
                     ensure!(std::time::Instant::now()<deadline,"inspection workspace preview timed out");
                     cx.background_executor().timer(std::time::Duration::from_millis(20)).await;
                 }
+                if omuse::identity::env_var("OMUSE_NATIVE_PANEL").ok().as_deref() == Some("controlled-removal") {
+                    ensure!(view.update(cx,|this,_|this.status.starts_with("Preview ready"))?,"Removal inspection did not produce a current result: {}",view.update(cx,|this,_|this.status.clone())?);
+                }
                 if omuse::identity::env_var("OMUSE_NATIVE_PANEL").ok().as_deref() == Some("reference-match") {
                     view.update(cx,|this,cx|this.pro_add_node(false,cx))?;
                     let deadline=std::time::Instant::now()+std::time::Duration::from_secs(20);
@@ -12590,6 +13014,9 @@ impl EditorView {
                 }
                 cx.update(|window,cx|{window.refresh();window.draw(cx).clear(cx)})?;
                 let mut report=serde_json::json!({"status":"passed","renderer":"GPUI native window","checks":["coalesced in-progress stroke preview","pointer painting","undo","redo","unsaved guard","save","reopen pixel equality","light theme retains artwork","system theme following","inline text insert/edit","live adjustment insert/reopen","live effects","live-document save/reopen","luminosity selection and undo","colour range mask save/reopen","16-bit source import retains exact samples","editable filter preview and Apply","editable source save/reopen and undo","16-bit export pixel equality","background photo open","photo adjustment crop resize and undo redo","background photo export pixel equality","command palette keyboard open search execute","palette command keyboard undo and focus restoration"]});
+                if omuse::identity::env_var("OMUSE_NATIVE_PANEL").ok().as_deref() == Some("controlled-removal") {
+                    report["checks"].as_array_mut().unwrap().push(serde_json::json!("controlled removal inspection has a successful current preview"));
+                }
                 if matches!(omuse::identity::env_var("OMUSE_NATIVE_PANEL").ok().as_deref(), Some("vector-scene" | "vector-path" | "vector-styles" | "vector-text")) {
                     for check in ["vector artwork shares main canvas without modal", "vector inspector shares Layers", "settled vector composite and canvas overlay"] {
                         report["checks"].as_array_mut().unwrap().push(serde_json::json!(check));

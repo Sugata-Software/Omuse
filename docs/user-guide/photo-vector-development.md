@@ -90,6 +90,33 @@ can be represented; general isolated group compositing, clipping, filters,
 pattern paints and external resources remain outside the editable subset.
 Keep the original SVG when editable text or unsupported semantics matter.
 
+### Compatibility reports in the current development build
+
+The vector inspector includes **Import report** and **Export report** beside
+the SVG/PDF exchange controls. The same reports are searchable through
+**Ctrl+K → Import conversion report / Export conversion report**. Opening a
+report keeps your vector draft; **Close** or **Escape** returns to editing.
+
+SVG/PDF reports distinguish **Preserved**, **Converted**, **Not included** and
+**Blocked** content. SVG text outlines, substituted fonts and expanded strokes
+are listed explicitly. A failed operation records its reason and does not claim
+that a file was exported. These commands export the active vector artwork layer;
+other document layers, raster content and layer effects are excluded. Save the
+`.omuse` master and inspect the copy in its receiving application.
+
+After **Done/Apply**, the latest successful SVG import report for that vector
+layer is stored with the project and follows its geometry through Undo/Redo.
+Export reports describe the last PSD, SVG or PDF export in the current editor
+session; they are not a saved, cross-session export history. A report describes
+the conversion performed, rather than guaranteeing an Illustrator round trip.
+
+The development build also retains supported editable SVG clipping silhouettes.
+SVG exchange preserves the clip's geometry, while its original paint remains in
+`.omuse` only. Nested clipping, `objectBoundingBox` clips and unsupported clip
+definitions are refused rather than silently approximated. Projects containing
+retained vector clipping use **project format 16**; older Omuse builds can refuse
+them. Keep a separate compatible copy before opening work in an older version.
+
 ## Repeat an editable motif
 
 Select the motif objects first. In the Layers inspector, set columns, rows
@@ -125,10 +152,9 @@ Layered PSD export and 16-bit composite import are described in
 `.omuse` remains the editable master.
 
 After exporting a layered PSD, search **Export conversion report** with
-**Ctrl+K** to view its destination filename and conversion notes. This report describes
-the last layered PSD exported in the current editor session, including content
-baked into pixels. It is separate from **Import conversion report** and is not a
-saved, cross-session export history.
+**Ctrl+K** to view its destination filename and conversion notes, including
+content baked into pixels. The current development build shares this report
+with SVG/PDF exports as described above.
 
 ## Keep a compatible original
 

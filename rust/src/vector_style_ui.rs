@@ -2,7 +2,8 @@
 use super::*;
 use anyhow::{Context as _, Result, ensure};
 use omuse::vector_scene::{
-    GradientFill, GradientKind, GradientSpread, GradientStop, StrokeCap, StrokeJoin, StrokeOptions,
+    GradientFill, GradientKind, GradientMethod, GradientSpread, GradientStop, StrokeCap,
+    StrokeJoin, StrokeOptions,
 };
 
 pub(super) struct PendingPaint {
@@ -236,7 +237,26 @@ impl EditorView {
                         stops,
                         spread: GradientSpread::Pad,
                         transform: [1., 0., 0., 1., 0., 0.],
+                        method: object
+                            .fill_gradient
+                            .as_ref()
+                            .map_or(GradientMethod::Classic, |g| g.method),
+                        dither: object.fill_gradient.as_ref().is_some_and(|g| g.dither),
                     });
+                }
+                "classic" | "perceptual" => {
+                    if let Some(gradient) = &mut object.fill_gradient {
+                        gradient.method = if action == "perceptual" {
+                            GradientMethod::Perceptual
+                        } else {
+                            GradientMethod::Classic
+                        };
+                    }
+                }
+                "dither" => {
+                    if let Some(gradient) = &mut object.fill_gradient {
+                        gradient.dither = !gradient.dither;
+                    }
                 }
                 "reverse" => {
                     if let Some(gradient) = &mut object.fill_gradient {
@@ -329,6 +349,15 @@ impl EditorView {
         artwork.version = artwork
             .version
             .max(omuse::vector_scene::VECTOR_SCENE_STYLE_VERSION);
+        if artwork.objects.iter().any(|o| {
+            o.fill_gradient
+                .as_ref()
+                .is_some_and(GradientFill::requires_extended_format)
+        }) {
+            artwork.version = artwork
+                .version
+                .max(omuse::vector_scene::VECTOR_SCENE_QUALITY_VERSION);
+        }
         artwork.validate()?;
         self.replace_scene_artwork(artwork, selected, window, cx)?;
         self.status = "Paint updated for selected objects · Ctrl+Z to undo".into();
@@ -406,6 +435,11 @@ impl EditorView {
                     )),
             );
         if let Some(gradient) = gradient {
+            view=view.child(div().flex().gap_1()
+                .child(action_button("classic","Classic",gradient.method==GradientMethod::Classic,disabled,cx))
+                .child(action_button("perceptual","Perceptual",gradient.method==GradientMethod::Perceptual,disabled,cx))
+                .child(action_button("dither","Dither",gradient.dither,disabled,cx)))
+                .child(inspector_ui::panel_note(if gradient.dither {"Dither hides banding. SVG/PDF converts this object to pixels; keep .omuse for editable artwork."}else if gradient.method==GradientMethod::Perceptual {"Perceptual blends colours in OKLab. SVG/PDF expands the colour curve; keep .omuse for its original stops."}else{"Classic keeps existing gradient appearance."},cx));
             let mut stops = div().flex().flex_wrap().gap_1();
             for (index, stop) in gradient.stops.iter().enumerate() {
                 let id = format!("vector-gradient-stop-{index}");
@@ -705,6 +739,8 @@ impl EditorView {
                 },
                 spread: GradientSpread::Pad,
                 transform: [1., 0., 0., 1., 0., 0.],
+                method: Default::default(),
+                dither: false,
             });
             object.fill = Some(object.fill_gradient.as_ref().unwrap().stops[0].color);
             object.stroke = Some(StrokeStyle {
@@ -719,7 +755,9 @@ impl EditorView {
             });
             object.opacity = 1.;
         }
-        artwork.version = omuse::vector_scene::VECTOR_SCENE_STYLE_VERSION;
+        artwork.version = artwork
+            .version
+            .max(omuse::vector_scene::VECTOR_SCENE_STYLE_VERSION);
         self.replace_scene_artwork(artwork, selected, window, cx)?;
         self.status =
             "Editable gradients and precision strokes · Select a stop to refine its colour".into();

@@ -15,6 +15,26 @@ pub(super) struct BuilderDraft {
 }
 
 impl EditorView {
+    pub(super) fn cancel_builder_interaction(&mut self, cx: &mut Context<Self>) -> bool {
+        let Some(scene) = self.vector_draft.as_mut().and_then(|d| d.scene.as_mut()) else {
+            return false;
+        };
+        let Some(builder) = scene.builder.as_mut() else {
+            return false;
+        };
+        if builder.dragging {
+            builder.chosen.clear();
+            builder.previous = None;
+            builder.dragging = false;
+            self.status = "Shape Builder gesture cancelled · Earlier vector edits retained".into();
+        } else {
+            scene.builder = None;
+            self.status = "Shape Builder closed · Earlier vector edits retained".into();
+        }
+        cx.notify();
+        true
+    }
+
     pub(super) fn start_scene_builder(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.busy {
             return;

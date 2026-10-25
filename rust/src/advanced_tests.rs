@@ -18,7 +18,9 @@ fn click(cx: &mut VisualTestContext, id: &'static str) {
 }
 
 fn reveal_control(cx: &mut VisualTestContext, id: &'static str) -> Bounds<Pixels> {
+    let in_review = id.starts_with("pro-review-") && id != "pro-review-panel";
     let in_settings = id.starts_with("pro-")
+        && !in_review
         && !matches!(
             id,
             "pro-source"
@@ -27,12 +29,18 @@ fn reveal_control(cx: &mut VisualTestContext, id: &'static str) -> Bounds<Pixels
                 | "pro-add-effect"
                 | "pro-update-effect"
         );
-    if !in_settings {
+    if !in_settings && !in_review {
         return cx
             .debug_bounds(id)
             .unwrap_or_else(|| panic!("missing {id}"));
     }
-    let viewport = cx.debug_bounds("pro-settings").expect("settings viewport");
+    let viewport = cx
+        .debug_bounds(if in_review {
+            "pro-review-panel"
+        } else {
+            "pro-settings"
+        })
+        .expect("advanced scroll viewport");
     let visible = |b: Bounds<Pixels>| {
         b.origin.y >= viewport.origin.y
             && b.origin.y + b.size.height <= viewport.origin.y + viewport.size.height
@@ -127,6 +135,14 @@ fn wait_for_preview(view: &Entity<EditorView>, cx: &mut VisualTestContext) {
             "{}",
             view.status
         );
+        if view.pro_draft.as_ref().unwrap().kind == Kind::Remove {
+            assert_eq!(
+                view.pro_draft.as_ref().unwrap().removal_signature,
+                view.pro_removal_signature(cx),
+                "Removal refresh did not produce a current preview: {}",
+                view.status
+            );
+        }
     });
 }
 
@@ -153,6 +169,82 @@ fn source_pixels(view: &Entity<EditorView>, cx: &mut VisualTestContext) -> RgbaI
             .unwrap()
             .to_image()
     })
+}
+
+#[gpui_kit::test]
+fn imported_colour_look_reviews_keeps_undoes_and_reopens_without_source_file(
+    cx: &mut TestAppContext,
+) {
+    let (view, cx, temp) = setup(cx);
+    // The opaque base already covers the canvas. Use the native project's
+    // transparent envelope rather than the test helper's display background.
+    view.update(cx, |v, _| v.editor.document.background = [0; 4]);
+    let path = temp.path().join("swap.cube");
+    let mut cube = String::from("TITLE \"Channel swap\"\nLUT_3D_SIZE 2\n");
+    for b in 0..2 {
+        for g in 0..2 {
+            for r in 0..2 {
+                cube.push_str(&format!("{g} {b} {r}\n"));
+            }
+        }
+    }
+    std::fs::write(&path, cube).unwrap();
+    let original = source_pixels(&view, cx);
+    let history = view.update(cx, |v, _| v.editor.undo_depth());
+    open(&view, cx, Kind::Stack);
+    cx.update(|window, cx| {
+        view.update(cx, |v, cx| v.pro_choose_effect(16, window, cx));
+    });
+    view.update(cx, |v, cx| v.pro_load_look(path.clone(), cx));
+    cx.run_until_parked();
+    assert!(
+        view.update(cx, |v, _| v.pro_draft.as_ref().unwrap().look.is_some()),
+        "look import failed"
+    );
+    std::fs::remove_file(&path).unwrap();
+    view.update(cx, |v, cx| v.pro_add_node(false, cx));
+    cx.run_until_parked();
+    assert_eq!(
+        source_pixels(&view, cx),
+        original,
+        "review must not change the editor"
+    );
+    apply(&view, cx);
+    let kept = source_pixels(&view, cx);
+    for (source, result) in original.pixels().zip(kept.pixels()) {
+        assert_eq!(result.0, [source[1], source[2], source[0], source[3]]);
+    }
+    view.update(cx, |v, _| {
+        assert_eq!(v.editor.undo_depth(), history + 1);
+        let project = temp.path().join("look.omuse");
+        omuse::document::save(&v.editor.document, &project).unwrap();
+        let reopened = omuse::document::open(&project).unwrap();
+        assert_eq!(omuse::raster::composite(&reopened), kept);
+        assert!(v.editor.undo());
+        assert_eq!(omuse::raster::composite(&v.editor.document), original);
+    });
+}
+
+#[gpui_kit::test]
+fn colour_look_import_rejects_replaced_editor_and_keeps_artwork(cx: &mut TestAppContext) {
+    let (view, cx, temp) = setup(cx);
+    let path = temp.path().join("identity.cube");
+    std::fs::write(&path, "LUT_1D_SIZE 2\n0 0 0\n1 1 1\n").unwrap();
+    open(&view, cx, Kind::Stack);
+    cx.update(|window, cx| {
+        view.update(cx, |v, cx| v.pro_choose_effect(16, window, cx));
+    });
+    view.update(cx, |v, cx| {
+        v.pro_load_look(path, cx);
+        v.editor = Editor::new(Document::new(11, 7));
+    });
+    cx.run_until_parked();
+    view.update(cx, |v, _| {
+        assert!(!v.busy);
+        assert!(v.pro_draft.as_ref().unwrap().look.is_none());
+        assert_eq!(v.editor.document.width, 11);
+        assert_eq!(v.editor.undo_depth(), 0);
+    });
 }
 
 #[gpui_kit::test]
@@ -492,6 +584,189 @@ fn refine_foreground_background_apply_inserts_layer_without_mutating_source(
 }
 
 #[gpui_kit::test]
+fn removal_detail_review_matches_kept_pixels_and_rejects_changed_parameters(
+    cx: &mut TestAppContext,
+) {
+    let (view, cx, _recovery) = setup(cx);
+    view.update(cx, |view, _| view.editor.select_rectangle(0., 0., 8., 8.));
+    open(&view, cx, Kind::Remove);
+    wait_for_preview(&view, cx);
+    click(cx, "pro-review-detail");
+    let reviewed = view.update(cx, |view, cx| {
+        let draft = view.pro_draft.as_ref().unwrap();
+        assert!(draft.removal_detail);
+        assert!(draft.detail_source.is_some() && draft.detail_result.is_some());
+        assert_eq!(draft.removal_signature, view.pro_removal_signature(cx));
+        draft.removal_result.as_ref().unwrap().proxy().unwrap()
+    });
+    // The result must disappear as a current review when parameters change.
+    // Radius16 still reaches a donor outside the 8x8 corner target. Radius4
+    // cannot reach any allowed donor for (0,0), so it is an error fixture below.
+    set_input(&view, cx, 4, "16");
+    assert!(cx.debug_bounds("pro-review-stale").is_some());
+    view.update(cx, |view, cx| {
+        assert_ne!(
+            view.pro_draft.as_ref().unwrap().removal_signature,
+            view.pro_removal_signature(cx)
+        );
+    });
+    wait_for_preview(&view, cx);
+    let refreshed = view.update(cx, |view, cx| {
+        let draft = view.pro_draft.as_ref().unwrap();
+        assert_eq!(draft.removal_signature, view.pro_removal_signature(cx));
+        draft.removal_result.as_ref().unwrap().proxy().unwrap()
+    });
+    click(cx, "pro-review-center");
+    apply(&view, cx);
+    view.update(cx, |view, _| {
+        let kept = view.editor.document.layers.last().unwrap();
+        assert_eq!(kept.advanced.as_ref().unwrap().proxy().unwrap(), refreshed);
+        assert_eq!(&**kept.image.as_ref().unwrap(), &refreshed);
+        assert_eq!(reviewed.dimensions(), refreshed.dimensions());
+        assert!(view.editor.undo());
+        assert_eq!(view.editor.document.layers.len(), 1);
+    });
+}
+
+#[gpui_kit::test]
+fn removal_refresh_during_work_runs_only_the_latest_requested_parameters(cx: &mut TestAppContext) {
+    let (view, cx, _recovery) = setup(cx);
+    view.update(cx, |view, _| view.editor.select_rectangle(0., 0., 8., 8.));
+    open(&view, cx, Kind::Remove);
+    cx.update(|window, cx| {
+        view.update(cx, |view, cx| {
+            view.run_pro(false, cx);
+            assert!(view.busy);
+            view.detail_inputs[4].update(cx, |input, cx| input.set_value("24", window, cx));
+            view.run_pro(false, cx);
+            view.detail_inputs[4].update(cx, |input, cx| input.set_value("16", window, cx));
+            view.run_pro(false, cx);
+            assert!(view.pro_draft.as_ref().unwrap().removal_refresh_pending);
+        })
+    });
+    cx.run_until_parked();
+    draw(cx);
+    view.update(cx, |view, cx| {
+        let draft = view.pro_draft.as_ref().unwrap();
+        assert!(!view.busy, "{}", view.status);
+        assert!(!draft.removal_refresh_pending);
+        assert_eq!(draft.removal_signature, view.pro_removal_signature(cx));
+        assert_eq!(draft.removal_signature.as_ref().unwrap().1[4], "16");
+        assert!(draft.removal_result.is_some());
+        assert_eq!(view.editor.undo_depth(), 0);
+        assert_eq!(view.editor.document.layers.len(), 1);
+    });
+}
+
+#[gpui_kit::test]
+fn failed_removal_refresh_cannot_make_an_old_review_current_or_keep_partial_pixels(
+    cx: &mut TestAppContext,
+) {
+    let (view, cx, _recovery) = setup(cx);
+    let original = source_pixels(&view, cx);
+    view.update(cx, |view, _| view.editor.select_rectangle(0., 0., 8., 8.));
+    open(&view, cx, Kind::Remove);
+    wait_for_preview(&view, cx);
+    let signature = view.update(cx, |view, _| {
+        view.pro_draft.as_ref().unwrap().removal_signature.clone()
+    });
+    // Search windows at target(0,0) end at(4,4), wholly inside the forbidden
+    // 8x8 target. Rejection protects the donor exclusion; it must not be relaxed.
+    set_input(&view, cx, 4, "4");
+    view.update(cx, |view, cx| view.run_pro(false, cx));
+    cx.run_until_parked();
+    draw(cx);
+    view.update(cx, |view, cx| {
+        assert!(!view.busy, "{}", view.status);
+        assert!(
+            view.status
+                .contains("No allowed source within the search radius"),
+            "{}",
+            view.status
+        );
+        let draft = view.pro_draft.as_ref().unwrap();
+        assert_eq!(draft.removal_signature, signature);
+        assert_ne!(draft.removal_signature, view.pro_removal_signature(cx));
+        assert_eq!(view.editor.document.layers.len(), 1);
+        assert_eq!(view.editor.undo_depth(), 0);
+    });
+    assert!(cx.debug_bounds("pro-review-stale").is_some());
+    view.update(cx, |view, cx| view.run_pro(true, cx));
+    cx.run_until_parked();
+    draw(cx);
+    view.update(cx, |view, _| {
+        assert_eq!(view.dialog, Dialog::Pro);
+        assert!(!view.busy);
+        assert!(
+            view.status
+                .contains("No allowed source within the search radius"),
+            "{}",
+            view.status
+        );
+        assert_eq!(view.editor.document.layers.len(), 1);
+        assert_eq!(view.editor.undo_depth(), 0);
+    });
+    assert_eq!(source_pixels(&view, cx), original);
+    // The failed job must not poison a later valid refresh or its exact oracle.
+    set_input(&view, cx, 4, "16");
+    wait_for_preview(&view, cx);
+}
+
+#[gpui_kit::test]
+fn removal_inflight_apply_cannot_commit_after_settings_or_editor_replacement(
+    cx: &mut TestAppContext,
+) {
+    let (view, cx, _recovery) = setup(cx);
+    view.update(cx, |view, _| view.editor.select_rectangle(0., 0., 8., 8.));
+    open(&view, cx, Kind::Remove);
+    cx.update(|window, cx| {
+        view.update(cx, |view, cx| {
+            view.run_pro(true, cx);
+            assert!(view.busy);
+            view.detail_inputs[4].update(cx, |input, cx| input.set_value("4", window, cx));
+        });
+    });
+    cx.run_until_parked();
+    view.update(cx, |view, _| {
+        assert!(!view.busy);
+        assert_eq!(view.editor.document.layers.len(), 1);
+        assert!(view.status.contains("settings changed"), "{}", view.status);
+    });
+    view.update(cx, |view, cx| {
+        view.run_pro(true, cx);
+        assert!(view.busy);
+        view.editor = Editor::new(view.editor.document.clone());
+    });
+    cx.run_until_parked();
+    view.update(cx, |view, _| {
+        assert!(!view.busy);
+        assert_eq!(view.editor.document.layers.len(), 1);
+        assert!(view.status.contains("target changed"), "{}", view.status);
+    });
+}
+
+#[gpui_kit::test]
+fn removal_apply_rejects_a_different_editor_with_the_same_revision(cx: &mut TestAppContext) {
+    let (view, cx, _recovery) = setup(cx);
+    view.update(cx, |view, _| view.editor.select_rectangle(0., 0., 8., 8.));
+    open(&view, cx, Kind::Remove);
+    view.update(cx, |view, cx| {
+        let document = view.editor.document.clone();
+        let old_instance = view.editor.instance_id();
+        view.editor = Editor::new(document);
+        assert_ne!(view.editor.instance_id(), old_instance);
+        assert_eq!(
+            view.editor.revision(),
+            view.pro_draft.as_ref().unwrap().revision
+        );
+        view.run_pro(true, cx);
+        assert!(!view.busy);
+        assert!(view.status.contains("target changed"), "{}", view.status);
+        assert_eq!(view.editor.document.layers.len(), 1);
+    });
+}
+
+#[gpui_kit::test]
 fn remove_uses_only_the_allowed_sampling_rectangle(cx: &mut TestAppContext) {
     let (view, cx, _recovery) = setup(cx);
     view.update(cx, |view, _| view.editor.select_rectangle(0., 0., 8., 8.));
@@ -730,5 +1005,259 @@ fn late_reference_picker_and_load_cannot_replace_a_new_or_changed_draft(cx: &mut
     view.update(cx, |view, _| {
         assert!(view.pro_draft.is_none());
         assert_eq!(view.editor.undo_depth(), 1);
+    });
+}
+
+#[gpui_kit::test]
+fn removal_detail_controls_remain_pinned_in_a_short_viewport_while_actual_pixels_scroll(
+    cx: &mut TestAppContext,
+) {
+    let (view, cx, _recovery) = setup(cx);
+    view.update(cx, |v, cx| {
+        let pixels = RgbaImage::from_fn(640, 480, |x, y| {
+            Rgba([(x % 251) as u8, (y % 251) as u8, 120, 255])
+        });
+        let mut doc = Document::new(640, 480);
+        doc.layers[0].advanced = Some(Arc::new(
+            LayerState::from_image(&pixels, "Large detail fixture").unwrap(),
+        ));
+        doc.layers[0].image = Some(pixels.into());
+        v.editor = Editor::new(doc);
+        v.editor.select_rectangle(300., 220., 8., 8.);
+        v.refresh(cx);
+    });
+    open(&view, cx, Kind::Remove);
+    wait_for_preview(&view, cx);
+    click(cx, "pro-review-detail");
+    let panel = cx.debug_bounds("pro-review-panel").unwrap();
+    let ids = [
+        "pro-review-fit",
+        "pro-review-detail",
+        "pro-review-left",
+        "pro-review-up",
+        "pro-review-down",
+        "pro-review-right",
+        "pro-review-center",
+        "pro-preview-button",
+    ];
+    let before = ids.map(|id| cx.debug_bounds(id).unwrap());
+    for (id, b) in ids.iter().zip(before) {
+        assert!(
+            b.origin.x >= panel.origin.x
+                && b.origin.x + b.size.width <= panel.origin.x + panel.size.width
+                && b.origin.y >= panel.origin.y
+                && b.origin.y + b.size.height <= panel.origin.y + panel.size.height,
+            "Pinned control {id} escaped its panel: {b:?}, panel={panel:?}"
+        );
+        assert!(
+            b.origin.y >= px(0.) && b.origin.y + b.size.height <= px(600.),
+            "{id} escaped the short window"
+        );
+    }
+    assert!(
+        before[..7].iter().all(|b| b.origin.y == before[0].origin.y),
+        "Fit, detail and all navigation share one compact row"
+    );
+    let initial = view.update(cx, |v, _| v.pro_draft.as_ref().unwrap().removal_origin);
+    click(cx, "pro-review-right");
+    view.update(cx, |v, _| {
+        assert_eq!(
+            v.pro_draft.as_ref().unwrap().removal_origin.0,
+            (initial.0 + 160).min(320)
+        )
+    });
+    click(cx, "pro-review-down");
+    view.update(cx, |v, _| {
+        assert_eq!(
+            v.pro_draft.as_ref().unwrap().removal_origin.1,
+            (initial.1 + 90).min(300)
+        )
+    });
+    click(cx, "pro-review-center");
+    view.update(cx, |v, _| {
+        assert_eq!(v.pro_draft.as_ref().unwrap().removal_origin, initial)
+    });
+    let images = cx.debug_bounds("pro-review-images").unwrap();
+    let source_before = cx.debug_bounds("pro-source").unwrap();
+    assert_eq!(source_before.size, size(px(320.), px(180.)));
+    assert_eq!(
+        cx.debug_bounds("pro-preview").unwrap().size,
+        size(px(320.), px(180.))
+    );
+    cx.simulate_event(gpui_kit::ScrollWheelEvent {
+        position: images.center(),
+        delta: gpui_kit::ScrollDelta::Pixels(point(px(0.), px(-1000.))),
+        modifiers: Modifiers::default(),
+        touch_phase: gpui_kit::TouchPhase::Moved,
+    });
+    draw(cx);
+    assert!(
+        cx.debug_bounds("pro-source").unwrap().origin.y < source_before.origin.y,
+        "The paired image area must actually scroll at the minimum viewport"
+    );
+    let result = cx.debug_bounds("pro-preview").unwrap();
+    assert!(
+        result.origin.y >= images.origin.y
+            && result.origin.y + result.size.height
+                <= images.origin.y + images.size.height + px(1.),
+        "Result pixels must be reachable inside their own scroll viewport"
+    );
+    for (id, b) in ids.iter().zip(before) {
+        assert_eq!(
+            cx.debug_bounds(id).unwrap(),
+            b,
+            "Scrolling source/result moved pinned {id}"
+        );
+    }
+    click(cx, "pro-review-fit");
+    view.update(cx, |v, _| {
+        assert!(!v.pro_draft.as_ref().unwrap().removal_detail)
+    });
+    click(cx, "pro-review-center");
+    view.update(cx, |v, _| {
+        assert!(v.pro_draft.as_ref().unwrap().removal_detail);
+        assert_eq!(v.pro_draft.as_ref().unwrap().removal_origin, initial);
+    });
+}
+
+#[gpui_kit::test]
+fn removal_native_detail_uses_small_and_large_layer_pixels_after_canvas_resize_and_crop(
+    cx: &mut TestAppContext,
+) {
+    let (view, cx, _recovery) = setup(cx);
+    for (w, h) in [(128_u32, 90_u32), (640, 480)] {
+        let master = view.update(cx, |v, cx| {
+            let pixels = RgbaImage::from_fn(w, h, |x, y| {
+                Rgba([(x % 251) as u8, (y % 251) as u8, 120, 255])
+            });
+            let state =
+                Arc::new(LayerState::from_image(&pixels, "Retained transformed master").unwrap());
+            let master = state.source.clone();
+            let mut doc = Document::new(w, h);
+            doc.layers[0].advanced = Some(state);
+            doc.layers[0].image = Some(pixels.into());
+            v.editor = Editor::new(doc);
+            assert!(v.editor.resize_image(w / 2, h / 2));
+            assert!(v.editor.crop_canvas(2, 1, w / 2 - 4, h / 2 - 2));
+            let layer = &v.editor.document.layers[0];
+            assert!(Arc::ptr_eq(
+                &layer.advanced.as_ref().unwrap().source,
+                &master
+            ));
+            assert_eq!(layer.image.as_ref().unwrap().dimensions(), (w, h));
+            let dw = v.editor.document.width;
+            let dh = v.editor.document.height;
+            v.editor
+                .select_rectangle(dw as f32 / 2. - 2., dh as f32 / 2. - 2., 4., 4.);
+            v.refresh(cx);
+            master
+        });
+        open(&view, cx, Kind::Remove);
+        wait_for_preview(&view, cx);
+        click(cx, "pro-review-detail");
+        let expected_origin = (
+            (w / 2 - 1).saturating_sub(160).min(w.saturating_sub(320)),
+            (h / 2 - 1).saturating_sub(90).min(h.saturating_sub(180)),
+        );
+        view.update(cx, |v, cx| {
+            let d = v.pro_draft.as_ref().unwrap();
+            assert_eq!(d.removal_origin, expected_origin);
+            assert_eq!(d.state.result.dimensions(), (w, h));
+            assert_eq!(
+                v.detail_inputs[2].read(cx).value().to_string(),
+                w.to_string()
+            );
+            assert_eq!(
+                v.detail_inputs[3].read(cx).value().to_string(),
+                h.to_string()
+            );
+            let source = d.detail_source.as_ref().unwrap();
+            let result = d.detail_result.as_ref().unwrap();
+            assert_eq!(
+                (source.size(0).width.0, source.size(0).height.0),
+                (w.min(320) as i32, h.min(180) as i32)
+            );
+            assert_eq!(result.size(0), source.size(0));
+            let (x, y) = d.removal_origin;
+            assert_eq!(
+                &source.as_bytes(0).unwrap()[..4],
+                &[120, (y % 251) as u8, (x % 251) as u8, 255]
+            );
+            assert!(
+                Arc::ptr_eq(&d.removal_result.as_ref().unwrap().source, &master),
+                "Removal preview must retain the original high-depth master after canvas transforms"
+            );
+        });
+        for _ in 0..5 {
+            click(cx, "pro-review-right");
+            click(cx, "pro-review-down");
+        }
+        view.update(cx, |v, _| {
+            assert_eq!(
+                v.pro_draft.as_ref().unwrap().removal_origin,
+                (w.saturating_sub(320), h.saturating_sub(180))
+            )
+        });
+        click(cx, "pro-review-center");
+        view.update(cx, |v, _| {
+            assert_eq!(
+                v.pro_draft.as_ref().unwrap().removal_origin,
+                expected_origin
+            )
+        });
+        click(cx, "cancel-dialog");
+    }
+}
+
+#[gpui_kit::test]
+fn removal_detail_pan_and_cancel_evict_textures_even_with_external_arcs(cx: &mut TestAppContext) {
+    let (view, cx, _recovery) = setup(cx);
+    view.update(cx, |v, _| v.editor.select_rectangle(0., 0., 8., 8.));
+    open(&view, cx, Kind::Remove);
+    wait_for_preview(&view, cx);
+    click(cx, "pro-review-detail");
+    for _ in 0..3 {
+        let old = view.update(cx, |v, _| {
+            let d = v.pro_draft.as_ref().unwrap();
+            [
+                d.detail_source.as_ref().unwrap().clone(),
+                d.detail_result.as_ref().unwrap().clone(),
+            ]
+        });
+        cx.update(|window, _| {
+            for image in &old {
+                assert!(
+                    window.has_image_atlas_entry(image),
+                    "Detail must really paint before eviction is checked"
+                );
+            }
+        });
+        click(cx, "pro-review-right");
+        cx.run_until_parked();
+        draw(cx);
+        cx.update(|window,_|{for image in &old{assert!(!window.has_image_atlas_entry(image),"Pan retained an obsolete detail texture despite deferred current-window eviction");}});
+    }
+    let current = view.update(cx, |v, _| {
+        let d = v.pro_draft.as_ref().unwrap();
+        [
+            d.detail_source.as_ref().unwrap().clone(),
+            d.detail_result.as_ref().unwrap().clone(),
+        ]
+    });
+    cx.update(|window, _| {
+        for image in &current {
+            assert!(window.has_image_atlas_entry(image));
+        }
+    });
+    click(cx, "cancel-dialog");
+    cx.run_until_parked();
+    draw(cx);
+    cx.update(|window, _| {
+        for image in &current {
+            assert!(
+                !window.has_image_atlas_entry(image),
+                "Cancel retained a detail texture with an external Arc"
+            );
+        }
     });
 }

@@ -17,6 +17,7 @@ pub mod raster;
 pub mod raw_import;
 pub mod segmentation;
 pub mod svg_import;
+pub mod svg_metadata;
 pub mod vector_repeat;
 pub mod vector_snap;
 
@@ -28,6 +29,7 @@ pub mod crop;
 pub mod dither;
 pub mod effects;
 pub mod filters;
+pub mod look_lut;
 pub mod objects;
 mod project_text;
 
@@ -43,6 +45,7 @@ pub mod spot_heal;
 pub mod mask_inspection;
 pub mod matte;
 
+pub mod compatibility_report;
 pub mod gradient_tools;
 pub mod import_report;
 pub mod range_mask;
@@ -83,6 +86,7 @@ pub mod smart_source;
 pub mod social_preview;
 pub mod vector_boolean;
 pub mod vector_builder;
+pub mod vector_clip;
 pub mod vector_commands;
 pub mod vector_edit;
 pub mod vector_geometry;
@@ -93,3 +97,9 @@ pub mod vector_scene_ops;
 pub mod vector_scene_preview;
 pub mod vector_svg;
 pub mod vector_svg_scene;
+
+pub mod xmp_preset;
+
+pub mod guided_mask;
+pub mod guided_mask_pack;
+pub mod guided_mask_review;

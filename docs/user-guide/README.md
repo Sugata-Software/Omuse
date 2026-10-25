@@ -88,6 +88,13 @@ For a visual tour, see [drawing and tracing](photo-vector.md),
 | Try Shape Builder, path finishing, repeats and precise snapping | [0.10 workflows](photo-vector-development.md) |
 | Exchange layered PSD or retain a 16-bit Photoshop composite | [Photoshop exchange](../psd-exchange.md) |
 
+[Development: direct vector controls](vector-controls.md) covers canvas gradients,
+isolated groups, repeated transforms, editable clipping and compatibility reports.
+The [editor-quality development guide](editor-quality.md) documents saving,
+removal detail review, clipping targets, embedded looks, native photo grades and
+experimental XMP/guided masks, with qualification limits. These additions are
+separate from the current published 0.11.0 release.
+
 ## Save projects; export deliverables
 
 Save both a single canvas and a Create collection as an **`.omuse` project**.

@@ -129,6 +129,7 @@ impl AdvancedOperation {
     /// operation model owns these buffers even when the node has no soft mask.
     pub fn owned_bytes(&self) -> usize {
         match self {
+            Self::Filter(filters::Filter::CubeLook(settings)) => settings.owned_bytes(),
             Self::Warp(mesh) => mesh
                 .freeze_mask
                 .as_ref()
@@ -645,7 +646,7 @@ fn apply_operation(
             filters::apply_cancellable(candidate, filter, cancelled)
         }
         AdvancedOperation::CameraRaw(settings) => {
-            let output = camera_raw::apply(candidate, settings)?;
+            let output = camera_raw::apply_cancellable(candidate, settings, cancelled)?;
             *candidate = output;
             Ok(())
         }
@@ -1056,11 +1057,19 @@ fn apply_warp(image: &mut RgbaImage, warp: &WarpMesh, cancelled: &AtomicBool) ->
                 .protect_mask
                 .as_ref()
                 .map_or(0.0, |mask| mask.value(x, y));
+            // Fully protected/frozen pixels are exact source data, including
+            // hidden RGB. Sampling would normalize transparent colours.
+            if freeze == 1. || protect == 1. {
+                continue;
+            }
             let mut source = p;
             for _ in 0..8 {
                 let displacement = warp_displacement(source, warp);
                 source[0] = p[0] - displacement[0] * (1.0 - freeze);
                 source[1] = p[1] - displacement[1] * (1.0 - freeze);
+            }
+            if source == p {
+                continue;
             }
             let sampled = sample_premultiplied(
                 &original,

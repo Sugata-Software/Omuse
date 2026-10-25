@@ -38,6 +38,7 @@ pub(super) struct ProDraft {
     kind: Kind,
     layer: String,
     revision: u64,
+    editor_instance: u64,
     state: LayerState,
     placement: Layer,
     selected: Option<usize>,
@@ -55,10 +56,20 @@ pub(super) struct ProDraft {
     source: Arc<RenderImage>,
     preview: Option<Arc<RenderImage>>,
     preview_dimensions: (u32, u32),
+    removal_detail: bool,
+    removal_origin: (u32, u32),
+    removal_result: Option<Arc<LayerState>>,
+    removal_signature: Option<(ContentAwareAlgorithm, Vec<String>)>,
+    removal_refresh_pending: bool,
+    removal_applying: bool,
+    detail_source: Option<Arc<RenderImage>>,
+    detail_result: Option<Arc<RenderImage>>,
     reference: Option<omuse::color_match::Statistics>,
     reference_image: Option<Arc<RenderImage>>,
     reference_dimensions: (u32, u32),
     reference_note: String,
+    look: Option<Arc<omuse::look_lut::CubeLut>>,
+    look_note: String,
     reference_path_open: bool,
     preserve_lightness: bool,
     bounds: Rc<Cell<Bounds<Pixels>>>,
@@ -95,6 +106,7 @@ const EFFECTS: &[&str] = &[
     "Curves",
     "Target colour uniformity",
     "Match reference colour",
+    "Colour look (.cube)",
 ];
 fn effect_fields(kind: usize) -> Vec<(&'static str, &'static str)> {
     match kind {
@@ -150,6 +162,7 @@ fn effect_fields(kind: usize) -> Vec<(&'static str, &'static str)> {
             ("Lightness uniformity (0–1)", "0"),
         ],
         15 => vec![("Match amount (%)", "70")],
+        16 => vec![("Look amount (0–200%)", "100")],
         _ => vec![],
     }
 }
@@ -163,6 +176,110 @@ fn pro_thumbnail(image: &image::RgbaImage) -> image::RgbaImage {
         (image.width() as f64 * scale).round().max(1.) as u32,
         (image.height() as f64 * scale).round().max(1.) as u32,
     )
+}
+
+const REMOVAL_DETAIL_WIDTH: u32 = 320;
+const REMOVAL_DETAIL_HEIGHT: u32 = 180;
+
+/// Detail is a bounded view of native layer pixels, never a crop of a thumbnail.
+fn removal_detail_rect(dimensions: (u32, u32), origin: (u32, u32)) -> omuse::model::PixelRect {
+    let width = dimensions.0.min(REMOVAL_DETAIL_WIDTH);
+    let height = dimensions.1.min(REMOVAL_DETAIL_HEIGHT);
+    omuse::model::PixelRect {
+        x: origin.0.min(dimensions.0.saturating_sub(width)),
+        y: origin.1.min(dimensions.1.saturating_sub(height)),
+        width,
+        height,
+    }
+}
+
+fn removal_target_origin(selection: Option<&SoftMask>, dimensions: (u32, u32)) -> (u32, u32) {
+    let Some(mask) = selection else { return (0, 0) };
+    let mut bounds = (dimensions.0, dimensions.1, 0, 0);
+    for (index, coverage) in mask.data.iter().enumerate() {
+        if *coverage != 0 && mask.width != 0 {
+            let x = index as u32 % mask.width;
+            let y = index as u32 / mask.width;
+            bounds = (
+                bounds.0.min(x),
+                bounds.1.min(y),
+                bounds.2.max(x),
+                bounds.3.max(y),
+            );
+        }
+    }
+    if bounds.0 > bounds.2 || bounds.1 > bounds.3 {
+        return (0, 0);
+    }
+    let center = ((bounds.0 + bounds.2) / 2, (bounds.1 + bounds.3) / 2);
+    let rect = removal_detail_rect(
+        dimensions,
+        (
+            center.0.saturating_sub(REMOVAL_DETAIL_WIDTH / 2),
+            center.1.saturating_sub(REMOVAL_DETAIL_HEIGHT / 2),
+        ),
+    );
+    (rect.x, rect.y)
+}
+
+fn removal_detail_pixels(state: &LayerState, origin: (u32, u32)) -> Result<image::RgbaImage> {
+    let rect = removal_detail_rect(state.result.dimensions(), origin);
+    ensure!(
+        rect.width > 0 && rect.height > 0,
+        "No layer pixels to inspect"
+    );
+    let pixels = omuse::precision::Rgba16Image::from_fn(rect.width, rect.height, |x, y| {
+        image::Rgba(state.result.get_pixel(rect.x + x, rect.y + y).0)
+    });
+    omuse::precision::TiledRgba16::from_rgba16_in(&pixels, state.result.working_space())?
+        .to_rgba8_in(omuse::precision::WorkingSpace::Srgb)
+}
+
+fn release_removal_detail_image(image: Arc<RenderImage>, cx: &mut App) {
+    // A pan/Cancel callback temporarily borrows the current window out of App.
+    // Evict other windows now and the restored current window after the effect
+    // cycle, even when a caller or a previously rendered frame holds an Arc.
+    cx.drop_image(image.clone(), None);
+    cx.defer(move |cx| cx.drop_image(image, None));
+}
+
+fn removal_detail_image(
+    id: &'static str,
+    image: Option<Arc<RenderImage>>,
+    background: gpui_kit::Hsla,
+) -> gpui_kit::Stateful<gpui_kit::Div> {
+    div()
+        .id(id)
+        .debug_selector(move || id.into())
+        .w_full()
+        .h(px(REMOVAL_DETAIL_HEIGHT as f32))
+        .overflow_hidden()
+        .child(
+            canvas(
+                |_, _, _| (),
+                move |bounds, _, window, _| {
+                    window.paint_quad(fill(bounds, background));
+                    if let Some(image) = &image {
+                        // Actual crop texels define detail geometry: never
+                        // stretch a smaller native crop to a master/thumbnail size.
+                        let native = image.size(0);
+                        let target = Bounds::new(
+                            bounds.origin,
+                            size(px(native.width.0 as f32), px(native.height.0 as f32)),
+                        );
+                        let _ = window.paint_image(
+                            bounds,
+                            target,
+                            Corners::default(),
+                            image.clone(),
+                            0,
+                            false,
+                        );
+                    }
+                },
+            )
+            .size_full(),
+        )
 }
 
 impl EditorView {
@@ -180,6 +297,12 @@ impl EditorView {
             }
             if let Some(p) = draft.reference_image.take() {
                 cx.drop_image(p, None);
+            }
+            for image in [draft.detail_source.take(), draft.detail_result.take()]
+                .into_iter()
+                .flatten()
+            {
+                release_removal_detail_image(image, cx);
             }
             self.busy = false;
         }
@@ -222,11 +345,13 @@ impl EditorView {
                     image::Luma([image.get_pixel(x, y)[3]])
                 })
             };
+            let removal_origin = removal_target_origin(selection.as_ref(), image.dimensions());
             Ok(ProDraft {
                 window: window.window_handle(),
                 kind,
                 layer: id,
                 revision: self.editor.revision(),
+                editor_instance: self.editor.instance_id(),
                 state,
                 placement,
                 selected: None,
@@ -244,10 +369,20 @@ impl EditorView {
                 source: render_image(&pro_thumbnail(&image)),
                 preview: None,
                 preview_dimensions: image.dimensions(),
+                removal_detail: false,
+                removal_origin,
+                removal_result: None,
+                removal_signature: None,
+                removal_refresh_pending: false,
+                removal_applying: false,
+                detail_source: None,
+                detail_result: None,
                 reference: None,
                 reference_image: None,
                 reference_dimensions: (1, 1),
                 reference_note: "Choose a reference image to borrow its colour palette".into(),
+                look: None,
+                look_note: "Import a .cube look to preview its colours on this image.".into(),
                 reference_path_open: false,
                 preserve_lightness: true,
                 bounds: Rc::new(Cell::new(Bounds::default())),
@@ -263,7 +398,11 @@ impl EditorView {
                 return;
             }
         };
-        let (w, h) = draft.state.source.dimensions();
+        let (w, h) = if kind == Kind::Remove {
+            draft.state.result.dimensions()
+        } else {
+            draft.state.source.dimensions()
+        };
         let existing_warp = draft.state.recipe.nodes.iter().find_map(|node| {
             if let AdvancedOperation::Warp(warp) = &node.operation {
                 Some(warp.clone())
@@ -453,6 +592,13 @@ impl EditorView {
                 amount: n(0)? / 100.,
                 preserve_lightness: d.preserve_lightness,
             }),
+            16 => {
+                let table = d.look.as_ref().context("Import a .cube look first")?;
+                let mut settings = omuse::look_lut::Settings::new(table.as_ref().clone());
+                settings.amount = n(0)? / 100.;
+                settings.validate()?;
+                AdvancedOperation::Filter(Filter::CubeLook(settings))
+            }
             _ => anyhow::bail!("Unknown editable effect"),
         })
     }
@@ -544,6 +690,15 @@ impl EditorView {
         };
         let (kind, values) = operation_values(&node.operation);
         self.pro_choose_effect(kind, window, cx);
+        if let AdvancedOperation::Filter(Filter::CubeLook(settings)) = &node.operation {
+            let draft = self.pro_draft.as_mut().unwrap();
+            draft.look_note = format!(
+                "{} · {} · Embedded in this project",
+                settings.table.title,
+                settings.table.description()
+            );
+            draft.look = Some(Arc::new(settings.table.clone()));
+        }
         if let AdvancedOperation::ReferenceColourMatch(settings) = &node.operation {
             let d = self.pro_draft.as_mut().unwrap();
             d.reference = Some(settings.reference.clone());
@@ -596,6 +751,122 @@ impl EditorView {
                 }
             }
         }
+        cx.notify();
+    }
+
+    fn pro_browse_look(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.busy {
+            return;
+        }
+        let Some(draft) = self
+            .pro_draft
+            .as_ref()
+            .filter(|d| d.kind == Kind::Stack && d.effect == 16)
+        else {
+            return;
+        };
+        let generation = self.dialog_generation;
+        let instance = draft.editor_instance;
+        let revision = draft.revision;
+        self.busy = true;
+        let choice = cx.prompt_for_paths(PathPromptOptions {
+            files: true,
+            directories: false,
+            multiple: false,
+            prompt: Some("Import colour look (.cube)".into()),
+        });
+        cx.spawn_in(window, async move |view, cx| {
+            let result = choice.await;
+            let _ = view.update_in(cx, |this, _, cx| {
+                if this.dialog_generation != generation
+                    || this.dialog != Dialog::Pro
+                    || this.pro_draft.as_ref().is_none_or(|d| {
+                        d.editor_instance != instance || d.revision != revision || d.effect != 16
+                    })
+                {
+                    return;
+                }
+                this.busy = false;
+                if let Some(d) = this.pro_draft.as_mut() {
+                    d.removal_applying = false;
+                }
+                if this.editor.instance_id() != instance || this.editor.revision() != revision {
+                    this.status = "Document changed; reopen the colour look draft.".into();
+                } else {
+                    match result {
+                        Ok(Ok(Some(paths))) if !paths.is_empty() => {
+                            this.pro_load_look(paths[0].clone(), cx);
+                        }
+                        Ok(Err(error)) => {
+                            this.pro_draft.as_mut().unwrap().reference_path_open = true;
+                            this.status =
+                                format!("File chooser: {error}. Enter the look path below.");
+                        }
+                        _ => this.status = "Colour look selection cancelled".into(),
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
+        cx.notify();
+    }
+
+    fn pro_load_look(&mut self, path: PathBuf, cx: &mut Context<Self>) {
+        if self.busy {
+            return;
+        }
+        let Some(draft) = self
+            .pro_draft
+            .as_mut()
+            .filter(|d| d.kind == Kind::Stack && d.effect == 16)
+        else {
+            return;
+        };
+        draft.job = draft.job.wrapping_add(1);
+        let job = draft.job;
+        let generation = self.dialog_generation;
+        let instance = draft.editor_instance;
+        let revision = draft.revision;
+        self.busy = true;
+        self.status = "Reading colour look…".into();
+        let task = cx
+            .background_executor()
+            .spawn(async move { omuse::look_lut::import(&path) });
+        cx.spawn(async move |view, cx| {
+            let result = task.await;
+            let _ = view.update(cx, |this, cx| {
+                if this.dialog != Dialog::Pro
+                    || this.dialog_generation != generation
+                    || this.pro_draft.as_ref().is_none_or(|d| {
+                        d.job != job || d.effect != 16 || d.editor_instance != instance
+                    })
+                {
+                    return;
+                }
+                this.busy = false;
+                if this.editor.instance_id() != instance || this.editor.revision() != revision {
+                    this.status = "Document changed; reopen the colour look draft.".into();
+                } else {
+                    match result {
+                        Ok(table) => {
+                            let draft = this.pro_draft.as_mut().unwrap();
+                            draft.look_note = format!(
+                                "{} · {} · Ready to add to this draft",
+                                table.title,
+                                table.description()
+                            );
+                            draft.look = Some(Arc::new(table));
+                            this.status =
+                                "Look imported · Adjust Amount, then Add effect and preview".into();
+                        }
+                        Err(error) => this.status = format!("Colour look: {error:#}"),
+                    }
+                }
+                cx.notify();
+            });
+        })
+        .detach();
         cx.notify();
     }
 
@@ -876,17 +1147,93 @@ fn operation_values(op: &AdvancedOperation) -> (usize, Vec<String>) {
         AdvancedOperation::ReferenceColourMatch(settings) => {
             return (15, vec![(settings.amount * 100.).to_string()]);
         }
+        AdvancedOperation::Filter(Filter::CubeLook(settings)) => {
+            return (16, vec![(settings.amount * 100.).to_string()]);
+        }
         _ => (0, vec![0.]),
     };
     (k, v.iter().map(ToString::to_string).collect())
 }
 
 impl EditorView {
+    fn pro_removal_signature(&self, cx: &App) -> Option<(ContentAwareAlgorithm, Vec<String>)> {
+        let draft = self.pro_draft.as_ref().filter(|d| d.kind == Kind::Remove)?;
+        Some((
+            draft.removal_algorithm,
+            self.detail_inputs
+                .iter()
+                .take(7)
+                .map(|field| field.read(cx).value().to_string())
+                .collect(),
+        ))
+    }
+
+    fn refresh_removal_detail(&mut self, cx: &mut Context<Self>) {
+        let Some(draft) = self.pro_draft.as_mut().filter(|d| d.kind == Kind::Remove) else {
+            return;
+        };
+        let rect = removal_detail_rect(draft.state.result.dimensions(), draft.removal_origin);
+        draft.removal_origin = (rect.x, rect.y);
+        for image in [draft.detail_source.take(), draft.detail_result.take()]
+            .into_iter()
+            .flatten()
+        {
+            release_removal_detail_image(image, cx);
+        }
+        if draft.removal_detail {
+            let result = (|| -> Result<()> {
+                draft.detail_source = Some(render_image(&removal_detail_pixels(
+                    &draft.state,
+                    draft.removal_origin,
+                )?));
+                if let Some(result) = &draft.removal_result {
+                    draft.detail_result = Some(render_image(&removal_detail_pixels(
+                        result,
+                        draft.removal_origin,
+                    )?));
+                }
+                Ok(())
+            })();
+            if let Err(error) = result {
+                self.status = format!("Removal inspection: {error:#}");
+            }
+        }
+        cx.notify();
+    }
+
+    fn set_removal_detail(&mut self, detail: bool, cx: &mut Context<Self>) {
+        if let Some(draft) = self.pro_draft.as_mut().filter(|d| d.kind == Kind::Remove) {
+            draft.removal_detail = detail;
+        }
+        self.refresh_removal_detail(cx);
+    }
+
+    fn move_removal_detail(&mut self, dx: i64, dy: i64, center: bool, cx: &mut Context<Self>) {
+        if let Some(draft) = self.pro_draft.as_mut().filter(|d| d.kind == Kind::Remove) {
+            draft.removal_detail = true;
+            draft.removal_origin = if center {
+                removal_target_origin(draft.selection.as_ref(), draft.state.result.dimensions())
+            } else {
+                (
+                    (i64::from(draft.removal_origin.0) + dx).clamp(0, i64::from(u32::MAX)) as u32,
+                    (i64::from(draft.removal_origin.1) + dy).clamp(0, i64::from(u32::MAX)) as u32,
+                )
+            };
+        }
+        self.refresh_removal_detail(cx);
+    }
+
     fn prepare_pro(
         &self,
         cx: &Context<Self>,
     ) -> Result<Box<dyn FnOnce() -> Result<Prepared> + Send>> {
         let d = self.pro_draft.as_ref().context("Draft closed")?;
+        ensure!(
+            self.editor.instance_id() == d.editor_instance
+                && self.editor.revision() == d.revision
+                && self.editor.active_layer == d.layer,
+            "Document or target changed; reopen this draft before applying"
+        );
         let mut state = d.state.clone();
         let id = d.layer.clone();
         let cancel = d.cancel.clone();
@@ -1006,7 +1353,7 @@ impl EditorView {
                 }))
             }
             Kind::Remove => {
-                let (w, h) = state.source.dimensions();
+                let (w, h) = state.result.dimensions();
                 let x = self.pro_integer(0, w, cx)?;
                 let y = self.pro_integer(1, h, cx)?;
                 let width = self.pro_integer(2, w, cx)?;
@@ -1019,6 +1366,11 @@ impl EditorView {
                     "Sampling rectangle must fit the source image"
                 );
                 let target = d.selection.clone().context("Select the target first")?;
+                ensure!(
+                    (target.width, target.height) == (w, h)
+                        && target.data.len() == w as usize * h as usize,
+                    "Removal selection no longer matches the layer pixels"
+                );
                 let search_radius = self.pro_integer(4, 64, cx)?;
                 let patch_radius = self.pro_integer(5, 4, cx)? as u8;
                 let feather = n(6)?;
@@ -1163,6 +1515,20 @@ impl EditorView {
 
     pub(super) fn run_pro(&mut self, apply: bool, cx: &mut Context<Self>) {
         if self.busy {
+            // A user can change removal fields and request another preview while
+            // the previous worker is still finishing. Keep only that newest
+            // request; never let an ignored Refresh leave an old result current.
+            if !apply
+                && let Some(draft) = self
+                    .pro_draft
+                    .as_mut()
+                    .filter(|d| d.kind == Kind::Remove && !d.removal_applying)
+            {
+                draft.removal_refresh_pending = true;
+                draft.cancel.store(true, Ordering::Relaxed);
+                self.status = "Refreshing removal with the latest settings…".into();
+                cx.notify();
+            }
             return;
         }
         if let Some(d) = self.pro_draft.as_mut() {
@@ -1178,20 +1544,24 @@ impl EditorView {
                 return;
             }
         };
-        let Some(d) = self.pro_draft.as_ref() else {
+        let Some(d) = self.pro_draft.as_mut() else {
             return;
         };
+        d.removal_applying = apply;
+        d.removal_refresh_pending = false;
         let job = d.job;
         let window = d.window;
         let generation = self.dialog_generation;
         let revision = d.revision;
         let layer = d.layer.clone();
         let kind = d.kind;
+        let editor_instance = d.editor_instance;
         let background = d.background;
         let cancel = d.cancel.clone();
         let document = self.editor.document.clone();
         let placement = d.placement.clone();
         let source_id = d.layer.clone();
+        let removal_signature = self.pro_removal_signature(cx);
         self.busy = true;
         self.status = if apply {
             "Preparing edit…"
@@ -1203,36 +1573,60 @@ impl EditorView {
         let task = cx.background_executor().spawn(async move {
             let prepared = work()?;
             ensure!(!cancel.load(Ordering::Relaxed), "Edit cancelled");
-            let preview = match &prepared {
-                Prepared::States(states) => {
-                    let mut editor = Editor::new(document);
-                    editor.replace_editable_states(states.clone())?;
-                    raster::composite(&editor.document)
-                }
-                Prepared::Layers(layers) => {
-                    let mut editor = Editor::new(document);
-                    editor.insert_derived_layers(&source_id, layers.clone())?;
-                    raster::composite(&editor.document)
-                }
-                Prepared::Refined(result) => refinement::display_preview(
-                    result,
-                    placement
-                        .image
-                        .as_deref()
-                        .context("Source pixels unavailable")?,
-                    match background {
-                        0 => refinement::PreviewBackground::Original,
-                        1 => refinement::PreviewBackground::Black,
-                        2 => refinement::PreviewBackground::White,
-                        3 => refinement::PreviewBackground::Checkerboard,
-                        _ => refinement::PreviewBackground::Mask,
-                    },
-                )?,
-                Prepared::Brush(settings) => brush_preview(settings)?,
+            let removal_result = if kind == Kind::Remove {
+                let Prepared::Layers(layers) = &prepared else {
+                    anyhow::bail!("Removal result missing")
+                };
+                Some(
+                    layers
+                        .first()
+                        .and_then(|layer| layer.advanced.clone())
+                        .context("Removal review pixels unavailable")?,
+                )
+            } else {
+                None
+            };
+            let (pixels, dimensions) = if kind == Kind::Remove {
+                let Prepared::Layers(layers) = &prepared else {
+                    unreachable!()
+                };
+                let image = layers
+                    .first()
+                    .and_then(|layer| layer.image.as_ref())
+                    .context("Removal preview unavailable")?;
+                (pro_thumbnail(image), image.dimensions())
+            } else {
+                let preview = match &prepared {
+                    Prepared::States(states) => {
+                        let mut editor = Editor::new(document);
+                        editor.replace_editable_states(states.clone())?;
+                        raster::composite(&editor.document)
+                    }
+                    Prepared::Layers(layers) => {
+                        let mut editor = Editor::new(document);
+                        editor.insert_derived_layers(&source_id, layers.clone())?;
+                        raster::composite(&editor.document)
+                    }
+                    Prepared::Refined(result) => refinement::display_preview(
+                        result,
+                        placement
+                            .image
+                            .as_deref()
+                            .context("Source pixels unavailable")?,
+                        match background {
+                            0 => refinement::PreviewBackground::Original,
+                            1 => refinement::PreviewBackground::Black,
+                            2 => refinement::PreviewBackground::White,
+                            3 => refinement::PreviewBackground::Checkerboard,
+                            _ => refinement::PreviewBackground::Mask,
+                        },
+                    )?,
+                    Prepared::Brush(settings) => brush_preview(settings)?,
+                };
+                (pro_thumbnail(&preview), preview.dimensions())
             };
             ensure!(!cancel.load(Ordering::Relaxed), "Edit cancelled");
-            let dimensions = preview.dimensions();
-            Ok::<_, anyhow::Error>((prepared, pro_thumbnail(&preview), dimensions))
+            Ok::<_, anyhow::Error>((prepared, pixels, dimensions, removal_result))
         });
         cx.spawn(async move |view, cx| {
             let result = task.await;
@@ -1244,8 +1638,29 @@ impl EditorView {
                     return;
                 }
                 this.busy = false;
-                if this.editor.revision() != revision {
-                    this.status = "Document changed; reopen this draft before applying".into();
+                if this.editor.instance_id() != editor_instance
+                    || this.editor.revision() != revision
+                    || this.editor.active_layer != layer
+                {
+                    this.status =
+                        "Document or target changed; reopen this draft before applying".into();
+                    cx.notify();
+                    return;
+                }
+                if !apply
+                    && kind == Kind::Remove
+                    && this
+                        .pro_draft
+                        .as_ref()
+                        .is_some_and(|d| d.removal_refresh_pending)
+                {
+                    this.pro_draft.as_mut().unwrap().removal_refresh_pending = false;
+                    this.run_pro(false, cx);
+                    return;
+                }
+                if apply && this.pro_removal_signature(cx) != removal_signature {
+                    this.status =
+                        "Removal settings changed · Refresh preview before applying".into();
                     cx.notify();
                     return;
                 }
@@ -1254,14 +1669,17 @@ impl EditorView {
                         this.status = format!("{}: {error:#}", kind.title());
                         cx.notify();
                     }
-                    Ok((prepared, pixels, dimensions)) => {
+                    Ok((prepared, pixels, dimensions, removal_result)) => {
                         if !apply {
                             if let Some(d) = this.pro_draft.as_mut() {
                                 d.preview_dimensions = dimensions;
+                                d.removal_result = removal_result;
+                                d.removal_signature = removal_signature;
                                 if let Some(previous) = d.preview.replace(render_image(&pixels)) {
                                     cx.drop_image(previous, None);
                                 }
                             }
+                            this.refresh_removal_detail(cx);
                             this.status = "Preview ready · source is unchanged".into();
                             cx.notify();
                             return;
@@ -1467,9 +1885,21 @@ impl EditorView {
         let effect = d.effect;
         let selected = d.selected;
         let nodes = d.state.recipe.nodes.clone();
-        let dims = d.state.source.dimensions();
+        let dims = if kind == Kind::Remove {
+            d.state.result.dimensions()
+        } else {
+            d.state.source.dimensions()
+        };
         let source = d.source.clone();
-        let preview = d.preview.clone();
+        let removal_detail = d.removal_detail;
+        let detail_rect = removal_detail_rect(dims, d.removal_origin);
+        let review_current = kind != Kind::Remove
+            || d.removal_signature
+                .as_ref()
+                .is_none_or(|signature| Some(signature) == self.pro_removal_signature(cx).as_ref());
+        let preview = review_current.then(|| d.preview.clone()).flatten();
+        let detail_source = d.detail_source.clone();
+        let detail_result = review_current.then(|| d.detail_result.clone()).flatten();
         let preview_dims = d.preview_dimensions;
         let reference_image = d.reference_image.clone();
         let reference_dimensions = d.reference_dimensions;
@@ -1553,29 +1983,172 @@ impl EditorView {
                 .absolute()
                 .size_full(),
             );
-        let previews = div()
-            .w(px(220.))
-            .flex_shrink_0()
-            .flex()
-            .flex_col()
-            .gap_2()
-            .child(div().child("Source layer").child(source_view))
-            .child(div().child("Result preview").child(range_ui::range_image(
-                "pro-preview",
-                preview,
-                preview_dims,
-                None,
-            )))
-            .child(
-                button(
-                    "pro-preview-button",
-                    "Refresh preview",
-                    ButtonVariant::Outline,
-                    cx,
+        let source_view = if kind == Kind::Remove && removal_detail {
+            removal_detail_image("pro-source", detail_source, cx.omarchy().normal_fill())
+        } else {
+            source_view
+        };
+        let result_view = if kind == Kind::Remove && removal_detail {
+            removal_detail_image("pro-preview", detail_result, cx.omarchy().normal_fill())
+        } else {
+            range_ui::range_image("pro-preview", preview, preview_dims, None)
+        };
+        let previews = if kind == Kind::Remove {
+            let t = cx.omarchy().clone();
+            let mut controls = div()
+                .flex()
+                .items_center()
+                .gap_1()
+                .flex_shrink_0()
+                .child(
+                    button("pro-review-fit", "Fit", ButtonVariant::Outline, cx)
+                        .w(px(38.))
+                        .px_0()
+                        .h(px(28.))
+                        .selected(!removal_detail)
+                        .debug_selector(|| "pro-review-fit".into())
+                        .on_click(cx.listener(|this, _, _, cx| this.set_removal_detail(false, cx))),
                 )
-                .debug_selector(|| "pro-preview-button".into())
-                .on_click(cx.listener(|this, _, _, cx| this.run_pro(false, cx))),
+                .child(
+                    button("pro-review-detail", "100%", ButtonVariant::Outline, cx)
+                        .w(px(52.))
+                        .px_0()
+                        .h(px(28.))
+                        .selected(removal_detail)
+                        .accessibility_label("Inspect native pixels at 100%")
+                        .debug_selector(|| "pro-review-detail".into())
+                        .on_click(cx.listener(|this, _, _, cx| this.set_removal_detail(true, cx))),
+                );
+            for (id, label, name, dx, dy) in [
+                ("pro-review-left", "←", "Pan left", -160, 0),
+                ("pro-review-up", "↑", "Pan up", 0, -90),
+                ("pro-review-down", "↓", "Pan down", 0, 90),
+                ("pro-review-right", "→", "Pan right", 160, 0),
+            ] {
+                controls = controls.child(
+                    button(id, label, ButtonVariant::Outline, cx)
+                        .w(px(28.))
+                        .px_0()
+                        .h(px(28.))
+                        .accessibility_label(name)
+                        .debug_selector(move || id.into())
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            this.move_removal_detail(dx, dy, false, cx)
+                        })),
+                );
+            }
+            controls = controls.child(
+                button("pro-review-center", "Center", ButtonVariant::Outline, cx)
+                    .w(px(60.))
+                    .px_0()
+                    .h(px(28.))
+                    .accessibility_label("Center native-pixel view on selection")
+                    .debug_selector(|| "pro-review-center".into())
+                    .on_click(
+                        cx.listener(|this, _, _, cx| this.move_removal_detail(0, 0, true, cx)),
+                    ),
             );
+            let caption = if removal_detail {
+                format!(
+                    "1:1 pixels · X {}  Y {} · {} × {}",
+                    detail_rect.x, detail_rect.y, detail_rect.width, detail_rect.height
+                )
+            } else {
+                "Fit overview · 100% shows native layer pixels".into()
+            };
+            let mut heading = div()
+                .flex()
+                .flex_col()
+                .gap_1()
+                .flex_shrink_0()
+                .child(controls)
+                .child(
+                    div()
+                        .debug_selector(|| "pro-review-caption".into())
+                        .text_size(px(10.))
+                        .text_color(t.secondary)
+                        .whitespace_nowrap()
+                        .overflow_hidden()
+                        .child(caption),
+                );
+            if !review_current {
+                heading = heading.child(
+                    inspector_ui::panel_note("Settings changed · Refresh preview", cx)
+                        .id("pro-review-stale")
+                        .debug_selector(|| "pro-review-stale".into()),
+                );
+            }
+            div()
+                .id("pro-review-panel")
+                .debug_selector(|| "pro-review-panel".into())
+                .w(px(REMOVAL_DETAIL_WIDTH as f32))
+                .h_full()
+                .min_h_0()
+                .flex_shrink_0()
+                .flex()
+                .flex_col()
+                .gap_2()
+                .child(heading)
+                .child(
+                    div()
+                        .id("pro-review-images")
+                        .debug_selector(|| "pro-review-images".into())
+                        .flex_1()
+                        .min_h_0()
+                        .overflow_y_scroll()
+                        .flex()
+                        .flex_col()
+                        .gap_2()
+                        .child(
+                            div()
+                                .flex()
+                                .flex_col()
+                                .flex_shrink_0()
+                                .child("Source layer")
+                                .child(source_view.flex_shrink_0()),
+                        )
+                        .child(
+                            div()
+                                .flex()
+                                .flex_col()
+                                .flex_shrink_0()
+                                .child("Result layer preview")
+                                .child(result_view.flex_shrink_0()),
+                        ),
+                )
+                .child(
+                    button(
+                        "pro-preview-button",
+                        "Refresh preview",
+                        ButtonVariant::Outline,
+                        cx,
+                    )
+                    .w_full()
+                    .debug_selector(|| "pro-preview-button".into())
+                    .on_click(cx.listener(|this, _, _, cx| this.run_pro(false, cx))),
+                )
+        } else {
+            div()
+                .id("pro-review-panel")
+                .debug_selector(|| "pro-review-panel".into())
+                .w(px(220.))
+                .flex_shrink_0()
+                .flex()
+                .flex_col()
+                .gap_2()
+                .child(div().child("Source layer").child(source_view))
+                .child(div().child("Result preview").child(result_view))
+                .child(
+                    button(
+                        "pro-preview-button",
+                        "Refresh preview",
+                        ButtonVariant::Outline,
+                        cx,
+                    )
+                    .debug_selector(|| "pro-preview-button".into())
+                    .on_click(cx.listener(|this, _, _, cx| this.run_pro(false, cx))),
+                )
+        };
         let mut body = div().min_w_0().flex().flex_col().gap_3();
         if kind == Kind::Blend {
             let settings = self
@@ -1707,6 +2280,52 @@ impl EditorView {
                 );
             }
             body = body.child(effects);
+            if effect == 16 {
+                let note = self
+                    .pro_draft
+                    .as_ref()
+                    .map(|d| d.look_note.clone())
+                    .unwrap_or_default();
+                body = body.child(div().text_sm().child(note))
+                    .child(div().text_sm().text_color(cx.omarchy().foreground)
+                        .child("Colour space: sRGB · Amount 0–200% · Output clips to the look range. Imported tables stay embedded in the editable project."))
+                    .child(button("pro-import-look", "Import .cube look…", ButtonVariant::Secondary, cx)
+                        .disabled(self.busy).debug_selector(|| "pro-import-look".into())
+                        .on_click(cx.listener(|this, _, window, cx| this.pro_browse_look(window, cx))));
+                body = body.child(
+                    button(
+                        "pro-look-path-toggle",
+                        "Enter a file path…",
+                        ButtonVariant::Outline,
+                        cx,
+                    )
+                    .disabled(self.busy)
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        if let Some(draft) = this.pro_draft.as_mut() {
+                            draft.reference_path_open = !draft.reference_path_open;
+                        }
+                        cx.notify();
+                    })),
+                );
+                if self
+                    .pro_draft
+                    .as_ref()
+                    .is_some_and(|d| d.reference_path_open)
+                {
+                    body = body
+                        .child(input("pro-look-path", &self.detail_inputs[29], window, cx))
+                        .child(
+                            button("pro-look-load", "Load look", ButtonVariant::Outline, cx)
+                                .disabled(self.busy)
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    let path = PathBuf::from(
+                                        this.detail_inputs[29].read(cx).value().as_ref(),
+                                    );
+                                    this.pro_load_look(path, cx);
+                                })),
+                        );
+                }
+            }
             if effect == 15 {
                 body = body
                     .child(
@@ -1840,7 +2459,11 @@ impl EditorView {
                                 }
                                 d.cancel.store(true, Ordering::Relaxed);
                                 d.job = d.job.wrapping_add(1);
+                                d.removal_result = None;
+                                d.removal_signature = None;
+                                d.removal_refresh_pending = false;
                             }
+                            this.refresh_removal_detail(cx);
                             this.status = "Removal method changed · Preview before applying".into();
                             cx.notify();
                         })),
@@ -2181,6 +2804,68 @@ impl EditorView {
                     .children(stack_actions),
             )
             .into_any_element()
+    }
+}
+
+#[cfg(test)]
+mod removal_detail_tests {
+    use super::*;
+
+    #[test]
+    fn detail_crops_match_retained_display_pixels_in_every_working_space() {
+        use omuse::precision::WorkingSpace;
+        let original = omuse::precision::Rgba16Image::from_fn(651, 373, |x, y| {
+            image::Rgba([
+                ((x * 97 + y * 3) % 65536) as u16,
+                ((x * 11 + y * 131) % 65536) as u16,
+                ((x * 43 + y * 13) % 65536) as u16,
+                ((x * 127 + y * 79) % 65536) as u16,
+            ])
+        });
+        for space in [
+            WorkingSpace::Srgb,
+            WorkingSpace::LinearSrgb,
+            WorkingSpace::DisplayP3,
+        ] {
+            let mut state = LayerState::from_rgba16(&original, "detail").unwrap();
+            let mut native = (*state.result).clone();
+            native.convert_working_space(space).unwrap();
+            state.result = Arc::new(native);
+            state.recipe.working_space = space;
+            let expected = state.proxy().unwrap();
+            for origin in [(0, 0), (127, 83), (u32::MAX, u32::MAX)] {
+                let rect = removal_detail_rect(expected.dimensions(), origin);
+                let crop = removal_detail_pixels(&state, origin).unwrap();
+                assert_eq!(
+                    crop,
+                    image::imageops::crop_imm(&expected, rect.x, rect.y, rect.width, rect.height)
+                        .to_image(),
+                    "{space:?} {origin:?}"
+                );
+                assert!(
+                    crop.width() <= REMOVAL_DETAIL_WIDTH && crop.height() <= REMOVAL_DETAIL_HEIGHT
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn target_center_and_navigation_clamp_without_resizing_pixels() {
+        let mask = SoftMask::new(900, 500, {
+            let mut data = vec![0; 900 * 500];
+            for y in 410..450 {
+                for x in 810..850 {
+                    data[y * 900 + x] = 255;
+                }
+            }
+            data
+        })
+        .unwrap();
+        assert_eq!(removal_target_origin(Some(&mask), (900, 500)), (580, 320));
+        let tiny = removal_detail_rect((17, 9), (u32::MAX, u32::MAX));
+        assert_eq!((tiny.x, tiny.y, tiny.width, tiny.height), (0, 0, 17, 9));
+        let empty = SoftMask::new(900, 500, vec![0; 900 * 500]).unwrap();
+        assert_eq!(removal_target_origin(Some(&empty), (900, 500)), (0, 0));
     }
 }
 

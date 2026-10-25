@@ -7,6 +7,13 @@ pub(super) struct TemplatePreviews {
     failed: BTreeSet<String>,
     loading: bool,
 }
+impl TemplatePreviews {
+    /// A template worker owns a full-size authored document/composite before
+    /// publishing its bounded thumbnail; do not overlap optional heavy jobs.
+    pub(super) fn is_loading(&self) -> bool {
+        self.loading
+    }
+}
 impl EditorView {
     pub(super) fn load_template_previews(&mut self, cx: &mut Context<Self>) {
         if self.create.template_previews.loading || !self.create.template_previews.images.is_empty()

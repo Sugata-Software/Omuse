@@ -92,7 +92,19 @@ fn text_limits_clipping_cancellation_and_old_readers_fail_closed() {
     assert!(text::shape(&recipe("cancel"), &AtomicBool::new(true)).is_err());
     assert!(recipe(&"x".repeat(513)).validate().is_err());
     let object = object(&recipe("Versioned"));
-    for version in [1, 2, 3, 5] {
+    for version in 4..=omuse::vector_scene::VECTOR_SCENE_VERSION {
+        assert!(
+            VectorScene {
+                version,
+                width: 500,
+                height: 180,
+                objects: vec![object.clone()]
+            }
+            .validate()
+            .is_ok()
+        );
+    }
+    for version in [0, 1, 2, 3, omuse::vector_scene::VECTOR_SCENE_VERSION + 1] {
         assert!(
             VectorScene {
                 version,

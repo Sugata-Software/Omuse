@@ -29,7 +29,9 @@ pub enum CameraCanvasEvent {
     Picked(PointColor),
     Guide(GeometryGuide),
     Sampled([u8; 4]),
+    SampledColour(omuse::camera_gestures::Sample),
     TargetStarted([u8; 4]),
+    TargetStartedColour(omuse::camera_gestures::Sample),
     TargetMoved(f32),
     TargetFinished,
     TargetCancelled,
@@ -37,6 +39,7 @@ pub enum CameraCanvasEvent {
 
 pub struct CameraCanvas {
     source: Arc<RgbaImage>,
+    native_source: Option<std::sync::Weak<omuse::precision::TiledImage16>>,
     preview: Arc<RenderImage>,
     mode: CameraCanvasMode,
     guides: Vec<GeometryGuide>,
@@ -57,6 +60,7 @@ impl CameraCanvas {
         let preview = render_image(&source);
         Ok(Self {
             source,
+            native_source: None,
             preview,
             mode,
             guides: Vec::new(),
@@ -79,11 +83,48 @@ impl CameraCanvas {
         cx.drop_image(self.preview.clone(), None);
         self.preview = render_image(&source);
         self.source = source;
+        self.native_source = None;
         self.drag_start = None;
         self.drag_current = None;
         self.target_start = None;
         cx.notify();
         Ok(())
+    }
+
+    pub fn set_native_source(
+        &mut self,
+        source: Arc<omuse::precision::TiledImage16>,
+        cx: &mut Context<Self>,
+    ) -> anyhow::Result<()> {
+        let scale = (WIDTH / f64::from(source.width()) as f32)
+            .min(HEIGHT / f64::from(source.height()) as f32)
+            .min(1.);
+        let dimensions = (
+            (source.width() as f32 * scale).floor().max(1.) as u32,
+            (source.height() as f32 * scale).floor().max(1.) as u32,
+        );
+        let small = omuse::camera_raw::native::sampled_source(
+            &source,
+            dimensions,
+            &std::sync::atomic::AtomicBool::new(false),
+        )?;
+        let proxy = Arc::new(small.to_rgba8_in(omuse::precision::WorkingSpace::Srgb)?);
+        self.set_source(proxy, cx)?;
+        self.native_source = Some(Arc::downgrade(&source));
+        Ok(())
+    }
+    fn native_sample(&self, normalized: (f32, f32)) -> Option<omuse::camera_gestures::Sample> {
+        let source = self.native_source.as_ref()?.upgrade()?;
+        let x = (normalized.0 * source.width() as f32)
+            .floor()
+            .min(source.width() as f32 - 1.) as u32;
+        let y = (normalized.1 * source.height() as f32)
+            .floor()
+            .min(source.height() as f32 - 1.) as u32;
+        Some(omuse::camera_gestures::Sample::Native {
+            pixel: source.get_pixel(x, y).0,
+            space: source.working_space(),
+        })
     }
 
     pub fn set_mode(&mut self, mode: CameraCanvasMode, cx: &mut Context<Self>) {
@@ -118,7 +159,12 @@ impl CameraCanvas {
     }
 
     fn image_rect(&self) -> Bounds<Pixels> {
-        aspect_fit(self.bounds.get(), self.source.width(), self.source.height())
+        let dimensions = self
+            .native_source
+            .as_ref()
+            .and_then(|source| source.upgrade())
+            .map_or(self.source.dimensions(), |source| source.dimensions());
+        aspect_fit(self.bounds.get(), dimensions.0, dimensions.1)
     }
 
     fn normalized(&self, position: gpui_kit::Point<Pixels>) -> Option<(f32, f32)> {
@@ -145,6 +191,12 @@ impl CameraCanvas {
         };
         match self.mode {
             CameraCanvasMode::PointColor => {
+                if let Some(pixel) = self.native_sample(normalized) {
+                    if let Ok(color) = omuse::camera_gestures::point_color_sample(pixel) {
+                        cx.emit(CameraCanvasEvent::Picked(color));
+                    }
+                    return;
+                }
                 let x = (normalized.0 * self.source.width() as f32)
                     .floor()
                     .min(self.source.width() as f32 - 1.) as u32;
@@ -169,12 +221,25 @@ impl CameraCanvas {
                 cx.notify();
             }
             CameraCanvasMode::WhiteBalance | CameraCanvasMode::Defringe => {
+                if let Some(pixel) = self.native_sample(normalized) {
+                    if pixel.rgb().is_ok() {
+                        cx.emit(CameraCanvasEvent::SampledColour(pixel));
+                    }
+                    return;
+                }
                 let pixel = self.sample(normalized);
                 if pixel[3] != 0 {
                     cx.emit(CameraCanvasEvent::Sampled(pixel));
                 }
             }
             _ => {
+                if let Some(pixel) = self.native_sample(normalized) {
+                    if pixel.rgb().is_ok() {
+                        self.target_start = Some(f32::from(event.position.y));
+                        cx.emit(CameraCanvasEvent::TargetStartedColour(pixel));
+                    }
+                    return;
+                }
                 let pixel = self.sample(normalized);
                 if pixel[3] == 0 {
                     return;

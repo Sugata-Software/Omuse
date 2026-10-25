@@ -22,6 +22,9 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+#[path = "create_resident_memory.rs"]
+pub mod resident_memory;
+
 pub const PROJECT_FORMAT: &str = "com.omuse.create-project";
 pub const PROJECT_VERSION: u32 = 2;
 pub const MAX_PAGES: usize = 256;
@@ -229,7 +232,10 @@ enum DocumentStorage {
 #[derive(Clone, Debug)]
 struct PackageSource {
     root: PathBuf,
-    stamp: u64,
+    stamp: Option<u64>,
+    // A failed publication fingerprint can retain the old package as the
+    // verified source for lazy data. Clones keep its lease until no reader needs it.
+    _retained: Option<Arc<Staging>>,
 }
 
 #[derive(Clone, Debug)]
@@ -383,32 +389,181 @@ impl Project {
     where
         F: FnOnce() -> Result<()>,
     {
+        self.save_checked_report(path, before_publish)?
+            .require_confirmation()
+    }
+
+    /// Rebase lazy package paths even when publication succeeds but the final
+    /// directory flush is unconfirmed. The UI keeps recovery and dirty state.
+    pub fn save_checked_report<F>(
+        &mut self,
+        path: &Path,
+        before_publish: F,
+    ) -> Result<crate::durable_fs::SaveOutcome>
+    where
+        F: FnOnce() -> Result<()>,
+    {
         self.validate()?;
         // A clone made for undo/recovery shares a lazy cache with this project.
         // Before exchanging a package directory, materialize only those shared
         // lazy values. The live project is immediately rebound to empty caches
         // below, so ordinary saves and read-only traversal remain lazy.
         self.freeze_shared_snapshots()?;
-        write_create_package(self, path, before_publish)?;
+        // Resolve once, while failure still means publication has not happened.
         let root = absolute_destination(path)?;
-        let stamp = save_guard::package_stamp(&root)
-            .context("Saved Create project could not be fingerprinted")?;
-        self.source = Some(PackageSource {
-            root: root.clone(),
-            stamp,
-        });
+        let source_is_destination = self
+            .source
+            .as_ref()
+            .is_some_and(|source| source.root.canonicalize().ok().as_ref() == Some(&root));
+        ensure!(
+            !source_is_destination
+                || self
+                    .source
+                    .as_ref()
+                    .is_none_or(|source| source._retained.is_none()),
+            "This directory is the active retained recovery source. Save a copy under another name, or reopen it before replacing it."
+        );
+        let published = match write_create_package(self, &root, before_publish) {
+            Ok(published) => published,
+            Err(error) => {
+                if source_is_destination
+                    && let Some(crate::durable_fs::ExchangeError::RolledBack {
+                        destination,
+                        previous_root,
+                        ..
+                    }) = error.downcast_ref::<crate::durable_fs::ExchangeError>()
+                {
+                    let same_source = self.source.as_ref().is_some_and(|source| {
+                        source.stamp.is_some()
+                            && save_guard::package_stamp_after_directory_rename(
+                                destination,
+                                previous_root,
+                            ) == source.stamp
+                    });
+                    let stamp = same_source
+                        .then(|| save_guard::package_stamp(destination))
+                        .flatten();
+                    self.rebase_lazy_source(
+                        PackageSource {
+                            root: destination.clone(),
+                            stamp,
+                            _retained: None,
+                        },
+                        true,
+                    );
+                }
+                if source_is_destination
+                    && let Some(crate::durable_fs::ExchangeError::RollbackFailed {
+                        previous, ..
+                    }) = error.downcast_ref::<crate::durable_fs::ExchangeError>()
+                {
+                    // Publication failed and the original is at its recovery
+                    // sibling. Keep lazy reads guarded against that actual tree;
+                    // never delete the only previous package when leases end.
+                    let previous = previous.clone();
+                    let stamp = save_guard::package_stamp(&previous);
+                    self.rebase_lazy_source(
+                        PackageSource {
+                            root: previous.clone(),
+                            stamp,
+                            _retained: Some(Arc::new(Staging(previous, true, None))),
+                        },
+                        true,
+                    );
+                }
+                return Err(error);
+            }
+        };
+        let PublishedCreatePackage {
+            mut outcome,
+            previous,
+        } = published;
+        if let Some(stamp) = fingerprint_after_publication(&root, &root, false) {
+            self.rebase_lazy_source(
+                PackageSource {
+                    root,
+                    stamp: Some(stamp),
+                    _retained: None,
+                },
+                false,
+            );
+            return Ok(outcome);
+        }
+        // The complete new package is already visible. Do not turn a final
+        // metadata-read failure into a rejected save or delete the only source
+        // of an inactive page. Save As retains its independent original source.
+        let mut recovery = String::new();
+        if source_is_destination {
+            if let Some(mut previous) = previous {
+                let backup = previous.0.clone();
+                let stamp = fingerprint_after_publication(&root, &backup, true);
+                let verified = stamp.is_some();
+                previous.1 = previous.1 || !verified;
+                self.rebase_lazy_source(
+                    PackageSource {
+                        root: backup.clone(),
+                        stamp,
+                        _retained: Some(Arc::new(previous)),
+                    },
+                    true,
+                );
+                recovery = if verified {
+                    format!(
+                        " Inactive content remains available from the retained prior package {}. Retry saving or save a copy.",
+                        backup.display()
+                    )
+                } else {
+                    // None is an explicit unresolved identity, never a made-up
+                    // fingerprint. All uncached reads refuse it. Keep the prior
+                    // package physically available even after this session ends.
+                    format!(
+                        " The prior package is preserved at {}. Inactive content cannot be read safely until the storage fault is resolved; reopen the written project or that recovery package before retrying.",
+                        backup.display()
+                    )
+                };
+            }
+        } else if let Some(source) = &self.source {
+            recovery = format!(
+                " Inactive content retains its guarded original source {}. Retry saving or save a copy while that source remains available.",
+                source.root.display()
+            );
+        }
+        let earlier = outcome
+            .warning()
+            .map(|warning| format!(" {warning}"))
+            .unwrap_or_default();
+        outcome = crate::durable_fs::SaveOutcome::DurabilityUnconfirmed(format!(
+            "{} was written, but the saved Create package could not be fingerprinted. Durability and source identity are unconfirmed. Keep recovery data.{recovery}{earlier}",
+            root.display()
+        ));
+        Ok(outcome)
+    }
+
+    fn rebase_lazy_source(&mut self, source: PackageSource, retain_layout: bool) {
+        let root = source.root.clone();
+        self.source = Some(source);
         for page in &mut self.pages {
-            if matches!(page.storage, DocumentStorage::Lazy { .. }) {
+            if let DocumentStorage::Lazy { path, .. } = &page.storage {
+                let layout = if retain_layout && path.extension().is_some_and(|ext| ext == "comp") {
+                    DocumentPackageLayout::LegacyComp
+                } else {
+                    DocumentPackageLayout::Omuse
+                };
                 page.storage = DocumentStorage::Lazy {
-                    path: page_path(&root, &page.id, DocumentPackageLayout::Omuse),
+                    path: page_path(&root, &page.id, layout),
                     cache: Arc::new(Mutex::new(None)),
                 };
             }
         }
         for component in &mut self.components {
-            if matches!(component.storage, DocumentStorage::Lazy { .. }) {
+            if let DocumentStorage::Lazy { path, .. } = &component.storage {
+                let layout = if retain_layout && path.extension().is_some_and(|ext| ext == "comp") {
+                    DocumentPackageLayout::LegacyComp
+                } else {
+                    DocumentPackageLayout::Omuse
+                };
                 component.storage = DocumentStorage::Lazy {
-                    path: component_path(&root, &component.id, DocumentPackageLayout::Omuse),
+                    path: component_path(&root, &component.id, layout),
                     cache: Arc::new(Mutex::new(None)),
                 };
             }
@@ -421,7 +576,6 @@ impl Project {
                 };
             }
         }
-        Ok(())
     }
 
     /// Preserve lazy data held by another project clone before an atomic save
@@ -1285,7 +1439,8 @@ fn open_create_package(path: &Path) -> Result<Project> {
     let stamp = stamp.context("Create package source identity is unavailable")?;
     project.source = Some(PackageSource {
         root: path.to_owned(),
-        stamp,
+        stamp: Some(stamp),
+        _retained: None,
     });
     Ok(project)
 }
@@ -1457,12 +1612,12 @@ fn read_from_package_source<T>(
         return read();
     };
     ensure!(
-        save_guard::package_stamp(&source.root) == Some(source.stamp),
+        source.stamp.is_some() && save_guard::package_stamp(&source.root) == source.stamp,
         "The Create project changed on disk. Reopen it before loading more content."
     );
     let (value, observed) = save_guard::read_consistent(&source.root, read)?;
     ensure!(
-        observed == Some(source.stamp),
+        observed == source.stamp,
         "The Create project changed on disk. Reopen it before loading more content."
     );
     Ok(value)
@@ -1535,7 +1690,7 @@ impl<'a> PackageReadSession<'a> {
     fn verify_source(&self) -> Result<()> {
         if let Some(source) = self.source {
             ensure!(
-                save_guard::package_stamp(&source.root) == Some(source.stamp),
+                source.stamp.is_some() && save_guard::package_stamp(&source.root) == source.stamp,
                 "The Create project changed on disk. Reopen it before saving."
             );
         }
@@ -1561,10 +1716,13 @@ fn copy_lazy_resource(
     })
 }
 
-struct Staging(PathBuf);
+#[derive(Debug)]
+struct Staging(PathBuf, bool, Option<PathBuf>);
 impl Drop for Staging {
     fn drop(&mut self) {
-        let _ = fs::remove_dir_all(&self.0);
+        if !self.1 {
+            crate::durable_fs::cleanup_package_stage(&self.0, self.2.as_deref());
+        }
     }
 }
 
@@ -1584,11 +1742,83 @@ fn absolute_destination(path: &Path) -> Result<PathBuf> {
         .join(path.file_name().context("Missing Create package name")?))
 }
 
-fn write_create_package<F>(project: &Project, path: &Path, before_publish: F) -> Result<()>
+struct PublishedCreatePackage {
+    outcome: crate::durable_fs::SaveOutcome,
+    // After exchange this owns the old package. Retain it through source
+    // finalization, rather than destroying it as the writer returns.
+    previous: Option<Staging>,
+}
+
+fn fingerprint_after_publication(destination: &Path, source: &Path, backup: bool) -> Option<u64> {
+    #[cfg(test)]
+    if post_publication_fingerprint_fault(destination, backup) {
+        return None;
+    }
+    #[cfg(not(test))]
+    let _ = (destination, backup);
+    save_guard::package_stamp(source)
+}
+
+#[cfg(test)]
+fn post_publication_fingerprint_faults()
+-> &'static std::sync::Mutex<std::collections::HashMap<PathBuf, bool>> {
+    static FAULTS: std::sync::OnceLock<std::sync::Mutex<std::collections::HashMap<PathBuf, bool>>> =
+        std::sync::OnceLock::new();
+    FAULTS.get_or_init(Default::default)
+}
+
+#[cfg(test)]
+fn post_publication_fingerprint_fault(destination: &Path, backup: bool) -> bool {
+    let Some(destination) = crate::durable_fs::fault_destination_key(destination) else {
+        return false;
+    };
+    post_publication_fingerprint_faults()
+        .lock()
+        .unwrap()
+        .get(&destination)
+        .is_some_and(|include_backup| !backup || *include_backup)
+}
+
+#[cfg(test)]
+fn inject_post_publication_fingerprint_failure(
+    destination: &Path,
+    include_backup: bool,
+) -> FingerprintFault {
+    let destination = crate::durable_fs::fault_destination_key(destination).unwrap();
+    assert!(
+        post_publication_fingerprint_faults()
+            .lock()
+            .unwrap()
+            .insert(destination.clone(), include_backup)
+            .is_none()
+    );
+    FingerprintFault(destination)
+}
+
+#[cfg(test)]
+struct FingerprintFault(PathBuf);
+
+#[cfg(test)]
+impl Drop for FingerprintFault {
+    fn drop(&mut self) {
+        post_publication_fingerprint_faults()
+            .lock()
+            .unwrap()
+            .remove(&self.0);
+    }
+}
+
+fn write_create_package<F>(
+    project: &Project,
+    path: &Path,
+    before_publish: F,
+) -> Result<PublishedCreatePackage>
 where
     F: FnOnce() -> Result<()>,
 {
     let destination = absolute_destination(path)?;
+    let metadata_guard = crate::durable_fs::PackageMetadataGuard::capture(&destination)?;
+    let mut legacy_metadata_layout = false;
     if destination.exists() {
         let metadata = fs::symlink_metadata(&destination)?;
         ensure!(
@@ -1597,7 +1827,29 @@ where
         );
         let current = destination.join("project.json");
         regular_file(&current, MAX_PROJECT_MANIFEST_BYTES)?;
-        let value: serde_json::Value = serde_json::from_reader(File::open(current)?)?;
+        let mut options = OpenOptions::new();
+        options.read(true);
+        #[cfg(target_os = "linux")]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.custom_flags(0x20000 | 0x80000 | 0x800);
+        }
+        let input = options.open(&current)?;
+        ensure!(
+            input.metadata()?.is_file(),
+            "Create manifest must be a regular file"
+        );
+        let mut bytes = Vec::new();
+        input
+            .take(MAX_PROJECT_MANIFEST_BYTES + 1)
+            .read_to_end(&mut bytes)?;
+        ensure!(
+            bytes.len() as u64 <= MAX_PROJECT_MANIFEST_BYTES,
+            "Create manifest is too large"
+        );
+        let value: serde_json::Value = serde_json::from_slice(&bytes)?;
+        legacy_metadata_layout =
+            value.get("version").and_then(serde_json::Value::as_u64) == Some(1);
         ensure!(
             value.get("format").and_then(serde_json::Value::as_str) == Some(PROJECT_FORMAT),
             "Refusing to replace a directory that is not an Omuse Create project"
@@ -1606,18 +1858,47 @@ where
     let parent = destination
         .parent()
         .context("Missing Create package parent")?;
-    let stage = Staging(parent.join(format!(".omuse-create-stage-{}", uuid::Uuid::new_v4())));
-    fs::create_dir(&stage.0)?;
+    // Match semantic page/component ownership when upgrading the legacy layout.
+    let mut metadata_aliases = vec![];
+    if legacy_metadata_layout {
+        for page in &project.pages {
+            metadata_aliases.push((
+                page_path(Path::new(""), &page.id, DocumentPackageLayout::Omuse),
+                page_path(Path::new(""), &page.id, DocumentPackageLayout::LegacyComp),
+            ));
+        }
+        for component in &project.components {
+            metadata_aliases.push((
+                component_path(Path::new(""), &component.id, DocumentPackageLayout::Omuse),
+                component_path(
+                    Path::new(""),
+                    &component.id,
+                    DocumentPackageLayout::LegacyComp,
+                ),
+            ));
+        }
+    }
+    let (payload, wrapper) =
+        crate::durable_fs::create_package_stage(parent, ".omuse-create-stage-")?;
+    let mut stage = Staging(payload, false, Some(wrapper.clone()));
+    metadata_guard.seed_directory(&stage.0, Path::new(""))?;
     for directory in ["pages", "components", "resources"] {
         fs::create_dir(stage.0.join(directory))?;
+        metadata_guard.seed_directory(&stage.0.join(directory), Path::new(directory))?;
     }
 
+    let old_layout = if metadata_aliases.is_empty() {
+        DocumentPackageLayout::Omuse
+    } else {
+        DocumentPackageLayout::LegacyComp
+    };
     let source_session = PackageReadSession::new(project.source.as_ref());
     for page in &project.pages {
         save_stored_document(
             &page.storage,
             &page_path(&stage.0, &page.id, DocumentPackageLayout::Omuse),
             &source_session,
+            Some(&page_path(&destination, &page.id, old_layout)),
         )
         .with_context(|| format!("Cannot save page {}", page.name))?;
     }
@@ -1626,6 +1907,7 @@ where
             &component.storage,
             &component_path(&stage.0, &component.id, DocumentPackageLayout::Omuse),
             &source_session,
+            Some(&component_path(&destination, &component.id, old_layout)),
         )
         .with_context(|| format!("Cannot save component {}", component.name))?;
     }
@@ -1713,27 +1995,63 @@ where
     // Windows cannot move a directory while a file inside it is open.
     drop(file);
     for directory in ["pages", "components", "resources"] {
-        crate::durable_fs::sync_path(stage.0.join(directory))?;
+        crate::durable_fs::sync_directory(stage.0.join(directory))?;
     }
-    crate::durable_fs::sync_path(&stage.0)?;
+    crate::durable_fs::sync_directory(&stage.0)?;
+    metadata_guard.finalize(&stage.0, &metadata_aliases)?;
+    crate::durable_fs::sync_directory(&wrapper)?;
     before_publish()?;
     source_session.finish()?;
-    if destination.exists() {
-        exchange(&stage.0, &destination)?;
+    metadata_guard.verify()?;
+    let replaced = destination.exists();
+    if replaced {
+        match exchange(&stage.0, &destination) {
+            Ok(previous) => stage.0 = previous,
+            Err(error) => {
+                if error
+                    .downcast_ref::<crate::durable_fs::ExchangeError>()
+                    .is_some_and(|error| {
+                        matches!(
+                            error,
+                            crate::durable_fs::ExchangeError::RollbackFailed { .. }
+                        )
+                    })
+                {
+                    stage.1 = true;
+                }
+                return Err(error);
+            }
+        }
     } else {
         rename_new(&stage.0, &destination)?;
     }
-    let _ = crate::durable_fs::sync_path(parent);
-    Ok(())
+    let outcome = crate::durable_fs::confirm_package_publication(&destination, parent, &wrapper);
+    let outcome = if let Some(warning) = outcome.warning() {
+        stage.1 = true;
+        crate::durable_fs::SaveOutcome::DurabilityUnconfirmed(format!(
+            "{warning} Previous package, if replaced, is preserved at {} (private staging container {}).",
+            stage.0.display(),
+            wrapper.display()
+        ))
+    } else {
+        outcome
+    };
+    Ok(PublishedCreatePackage {
+        outcome,
+        previous: replaced.then_some(stage),
+    })
 }
 
 fn save_stored_document(
     storage: &DocumentStorage,
     target: &Path,
     source_session: &PackageReadSession<'_>,
+    metadata_template: Option<&Path>,
 ) -> Result<()> {
     match storage {
-        DocumentStorage::Loaded(document) => document::save(document, target),
+        DocumentStorage::Loaded(document) => {
+            document::save_with_metadata_template(document, target, metadata_template)
+        }
         DocumentStorage::CheckedOut => anyhow::bail!("Cannot save a checked-out Create page"),
         DocumentStorage::Lazy { path, cache } => {
             // Opening and immediately saving validates every nested path and
@@ -1745,7 +2063,7 @@ fn save_stored_document(
             let document = cached
                 .map(Ok)
                 .unwrap_or_else(|| source_session.read(|| document::open(path)))?;
-            document::save(&document, target)
+            document::save_with_metadata_template(&document, target, metadata_template)
         }
     }
 }
@@ -1773,17 +2091,25 @@ fn rename_flags(from: &Path, to: &Path, flags: u32) -> Result<()> {
 }
 
 #[cfg(target_os = "linux")]
-fn exchange(from: &Path, to: &Path) -> Result<()> {
-    rename_flags(from, to, 2)
+fn exchange(from: &Path, to: &Path) -> Result<PathBuf> {
+    #[cfg(any(test, feature = "ui-test"))]
+    if let Some(result) = crate::durable_fs::emulated_exchange(from, to) {
+        return result.map_err(Into::into);
+    }
+    rename_flags(from, to, 2)?;
+    Ok(from.to_owned())
 }
 #[cfg(target_os = "linux")]
 fn rename_new(from: &Path, to: &Path) -> Result<()> {
     rename_flags(from, to, 1)
 }
 #[cfg(not(target_os = "linux"))]
-fn exchange(from: &Path, to: &Path) -> Result<()> {
-    crate::durable_fs::exchange_dirs(from, to)
-        .context("Create project replacement failed; original retained")
+fn exchange(from: &Path, to: &Path) -> Result<PathBuf> {
+    #[cfg(any(test, feature = "ui-test"))]
+    if let Some(result) = crate::durable_fs::emulated_exchange(from, to) {
+        return result.map_err(Into::into);
+    }
+    crate::durable_fs::exchange_dirs(from, to).context("Create project replacement failed")
 }
 #[cfg(not(target_os = "linux"))]
 fn rename_new(from: &Path, to: &Path) -> Result<()> {
@@ -1793,6 +2119,368 @@ fn rename_new(from: &Path, to: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn unconfirmed_publication_rebases_lazy_pages_and_retry_keeps_them() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("durability.omuse");
+        let mut project = Project::new("Initial", Document::new(8, 8));
+        let inactive = project.add_page("Inactive", Document::new(9, 7)).unwrap();
+        project.save(&path).unwrap();
+        let mut opened = Project::open(&path).unwrap();
+        opened.title = "New title".into();
+        let copy = dir.path().join("copy.omuse");
+        let fault = crate::durable_fs::inject_publication_failure(&copy, std::io::ErrorKind::Other);
+        assert!(
+            opened
+                .save_checked_report(&copy, || Ok(()))
+                .unwrap()
+                .warning()
+                .is_some()
+        );
+        assert_eq!(Project::open(&copy).unwrap().title, "New title");
+        assert_eq!(opened.page_document(&inactive).unwrap().width, 9);
+        fs::remove_dir_all(&path).unwrap();
+        assert_eq!(opened.page_document(&inactive).unwrap().height, 7);
+        drop(fault);
+        assert_eq!(
+            opened.save_checked_report(&copy, || Ok(())).unwrap(),
+            crate::durable_fs::SaveOutcome::Confirmed
+        );
+        assert_eq!(
+            Project::open(&copy)
+                .unwrap()
+                .page_document(&inactive)
+                .unwrap()
+                .width,
+            9
+        );
+    }
+
+    #[test]
+    fn fingerprint_failure_after_replacement_keeps_lazy_source_and_backup_leases() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("collection.omuse");
+        let copy = dir.path().join("copy.omuse");
+        let mut seed = Project::new("Before", Document::new(8, 8));
+        let inactive = seed.add_page("Inactive", Document::new(9, 7)).unwrap();
+        seed.save(&path).unwrap();
+        let mut opened = Project::open(&path).unwrap();
+        opened.title = "After".into();
+        let fault = inject_post_publication_fingerprint_failure(&path, false);
+        let outcome = opened.save_checked_report(&path, || Ok(())).unwrap();
+        assert!(outcome.warning().unwrap().contains("was written"));
+        assert_eq!(Project::open(&path).unwrap().title, "After");
+        let backup = opened.source.as_ref().unwrap().root.clone();
+        assert_ne!(backup, path);
+        assert!(backup.is_dir());
+        let lease = opened.clone();
+        // The source of lazy reads is the verified backup, even if another
+        // writer removes/replaces the just-published destination.
+        fs::remove_dir_all(&path).unwrap();
+        assert_eq!(opened.page_document(&inactive).unwrap().width, 9);
+        drop(fault);
+        assert_eq!(
+            opened.save_checked_report(&copy, || Ok(())).unwrap(),
+            crate::durable_fs::SaveOutcome::Confirmed
+        );
+        assert!(backup.is_dir(), "a snapshot still holds its source lease");
+        assert_eq!(
+            Project::open(&copy)
+                .unwrap()
+                .page_document(&inactive)
+                .unwrap()
+                .height,
+            7
+        );
+        drop(lease);
+        assert!(
+            !backup.exists(),
+            "prior data is removed only after the final lease"
+        );
+    }
+
+    #[test]
+    fn fingerprint_failure_after_save_as_keeps_independent_original_source_and_retry() {
+        let dir = tempfile::tempdir().unwrap();
+        let original = dir.path().join("original.omuse");
+        let copy = dir.path().join("copy.omuse");
+        let mut seed = Project::new("Before", Document::new(8, 8));
+        let inactive = seed.add_page("Inactive", Document::new(11, 7)).unwrap();
+        seed.save(&original).unwrap();
+        let mut opened = Project::open(&original).unwrap();
+        opened.title = "After".into();
+        let fault = inject_post_publication_fingerprint_failure(&copy, false);
+        assert!(
+            opened
+                .save_checked_report(&copy, || Ok(()))
+                .unwrap()
+                .warning()
+                .is_some()
+        );
+        assert_eq!(opened.source.as_ref().unwrap().root, original);
+        assert_eq!(Project::open(&copy).unwrap().title, "After");
+        drop(fault);
+        assert_eq!(
+            opened.save_checked_report(&copy, || Ok(())).unwrap(),
+            crate::durable_fs::SaveOutcome::Confirmed
+        );
+        fs::remove_dir_all(&original).unwrap();
+        assert_eq!(opened.page_document(&inactive).unwrap().width, 11);
+    }
+
+    #[test]
+    fn failed_postpublication_fingerprint_retains_legacy_nested_layout() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("legacy.omuse");
+        let copy = dir.path().join("copy.omuse");
+        let (_, inactive, component, resource) = write_legacy_collection(&path);
+        let mut opened = Project::open(&path).unwrap();
+        let fault = inject_post_publication_fingerprint_failure(&path, false);
+        assert!(
+            opened
+                .save_checked_report(&path, || Ok(()))
+                .unwrap()
+                .warning()
+                .is_some()
+        );
+        let source = opened.source.as_ref().unwrap().root.clone();
+        assert!(page_path(&source, &inactive, DocumentPackageLayout::LegacyComp).is_dir());
+        assert_eq!(
+            opened.page_document(&inactive).unwrap().layers[0]
+                .image
+                .as_ref()
+                .unwrap()
+                .to_image()
+                .get_pixel(0, 0)
+                .0,
+            [40, 50, 60, 255]
+        );
+        assert!(opened.component_snapshot(&component).is_ok());
+        assert_eq!(opened.resource_bytes(&resource).unwrap(), [1, 3, 5, 7]);
+        drop(fault);
+        assert_eq!(
+            opened.save_checked_report(&copy, || Ok(())).unwrap(),
+            crate::durable_fs::SaveOutcome::Confirmed
+        );
+        assert!(page_path(&copy, &inactive, DocumentPackageLayout::Omuse).is_dir());
+    }
+
+    #[test]
+    fn both_fingerprints_unavailable_preserve_packages_and_refuse_unguarded_lazy_reads() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("collection.omuse");
+        let mut seed = Project::new("Before", Document::new(8, 8));
+        let inactive = seed.add_page("Inactive", Document::new(9, 7)).unwrap();
+        seed.save(&path).unwrap();
+        let mut opened = Project::open(&path).unwrap();
+        opened.title = "After".into();
+        let fault = inject_post_publication_fingerprint_failure(&path, true);
+        let outcome = opened.save_checked_report(&path, || Ok(())).unwrap();
+        assert!(outcome.warning().unwrap().contains("reopen"));
+        let backup = opened.source.as_ref().unwrap().root.clone();
+        assert!(opened.source.as_ref().unwrap().stamp.is_none());
+        assert!(backup.is_dir() && path.is_dir());
+        assert!(opened.page_document(&inactive).is_err());
+        assert!(opened.save_checked_report(&path, || Ok(())).is_err());
+        assert_eq!(Project::open(&path).unwrap().title, "After");
+        drop(fault);
+        drop(opened);
+        assert!(
+            backup.is_dir(),
+            "unresolved recovery package survives the session"
+        );
+        assert_eq!(Project::open(&backup).unwrap().title, "Before");
+    }
+
+    fn exchange_fixture(path: &Path) -> (String, String) {
+        let mut seed = Project::new("Before", Document::new(8, 8));
+        let mut inactive = Document::new(11, 7);
+        inactive.layers[0]
+            .image
+            .as_mut()
+            .unwrap()
+            .put_pixel(2, 3, image::Rgba([41, 83, 127, 159]));
+        let page = seed.add_page("Inactive", inactive).unwrap();
+        let resource = seed
+            .add_resource("Resource", "application/octet-stream", vec![19, 37, 61, 89])
+            .unwrap();
+        seed.save(path).unwrap();
+        (page, resource)
+    }
+
+    #[test]
+    fn emulated_third_move_failure_rebases_lazy_source_to_actual_previous_directory() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("campaign.omuse");
+        let copy = temp.path().join("copy.omuse");
+        let (page, resource) = exchange_fixture(&path);
+        let mut opened = Project::open(&path).unwrap();
+        opened.title = "After".into();
+        let move_fault = crate::durable_fs::inject_emulated_exchange_failure(&path, &[3]);
+        let stamp_fault = inject_post_publication_fingerprint_failure(&path, false);
+        assert!(
+            opened
+                .save_checked_report(&path, || Ok(()))
+                .unwrap()
+                .warning()
+                .is_some()
+        );
+        let backup = opened.source.as_ref().unwrap().root.clone();
+        assert!(
+            backup
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .contains(".previous-")
+        );
+        assert!(backup.is_dir());
+        assert_eq!(Project::open(&path).unwrap().title, "After");
+        fs::remove_dir_all(&path).unwrap();
+        assert_eq!(
+            opened.page_document(&page).unwrap().layers[0]
+                .image
+                .as_ref()
+                .unwrap()
+                .get_pixel(2, 3)
+                .0,
+            [41, 83, 127, 159]
+        );
+        assert_eq!(opened.resource_bytes(&resource).unwrap(), [19, 37, 61, 89]);
+        drop(stamp_fault);
+        drop(move_fault);
+        opened.save(&copy).unwrap();
+        assert_eq!(
+            Project::open(&copy)
+                .unwrap()
+                .page_document(&page)
+                .unwrap()
+                .width,
+            11
+        );
+    }
+
+    #[test]
+    fn emulated_publication_and_rollback_failure_preserve_both_packages_and_lazy_copy_recovery() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("campaign.omuse");
+        let copy = temp.path().join("copy.omuse");
+        let (page, resource) = exchange_fixture(&path);
+        let mut opened = Project::open(&path).unwrap();
+        opened.title = "After".into();
+        let fault = crate::durable_fs::inject_emulated_exchange_failure(&path, &[2, 3]);
+        let error = opened.save_checked_report(&path, || Ok(())).unwrap_err();
+        let Some(crate::durable_fs::ExchangeError::RollbackFailed {
+            previous, staged, ..
+        }) = error.downcast_ref::<crate::durable_fs::ExchangeError>()
+        else {
+            panic!("{error:#}");
+        };
+        let (previous, staged) = (previous.clone(), staged.clone());
+        assert!(!path.exists());
+        assert_eq!(Project::open(&previous).unwrap().title, "Before");
+        assert_eq!(Project::open(&staged).unwrap().title, "After");
+        assert_eq!(opened.source.as_ref().unwrap().root, previous);
+        assert_eq!(
+            opened.page_document(&page).unwrap().layers[0]
+                .image
+                .as_ref()
+                .unwrap()
+                .get_pixel(2, 3)
+                .0,
+            [41, 83, 127, 159]
+        );
+        assert_eq!(opened.resource_bytes(&resource).unwrap(), [19, 37, 61, 89]);
+        drop(fault);
+        opened.save(&copy).unwrap();
+        assert_eq!(Project::open(&copy).unwrap().title, "After");
+        drop(opened);
+        assert!(
+            previous.is_dir() && staged.is_dir(),
+            "emergency recovery packages are never deleted on session drop"
+        );
+    }
+
+    #[test]
+    fn restored_windows_style_rollback_refreshes_only_verified_source_and_keeps_lazy_copy_working()
+    {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("campaign.omuse");
+        let copy = temp.path().join("copy.omuse");
+        let (page, resource) = exchange_fixture(&path);
+        let mut opened = Project::open(&path).unwrap();
+        opened.title = "After".into();
+        let fault = crate::durable_fs::inject_emulated_exchange_failure(&path, &[2]);
+        let error = opened.save_checked_report(&path, || Ok(())).unwrap_err();
+        assert!(
+            matches!(
+                error.downcast_ref::<crate::durable_fs::ExchangeError>(),
+                Some(crate::durable_fs::ExchangeError::RolledBack { .. })
+            ),
+            "{error:#}"
+        );
+        assert_eq!(Project::open(&path).unwrap().title, "Before");
+        assert_eq!(
+            opened.source.as_ref().unwrap().stamp,
+            save_guard::package_stamp(&path)
+        );
+        assert_eq!(
+            opened.page_document(&page).unwrap().layers[0]
+                .image
+                .as_ref()
+                .unwrap()
+                .get_pixel(2, 3)
+                .0,
+            [41, 83, 127, 159]
+        );
+        assert_eq!(opened.resource_bytes(&resource).unwrap(), [19, 37, 61, 89]);
+        drop(fault);
+        opened.save(&copy).unwrap();
+        assert_eq!(Project::open(&copy).unwrap().title, "After");
+    }
+
+    #[test]
+    fn active_retained_source_cannot_be_overwritten_and_deleted_by_its_own_lease() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("campaign.omuse");
+        let copy = temp.path().join("copy.omuse");
+        let (page, resource) = exchange_fixture(&path);
+        let mut opened = Project::open(&path).unwrap();
+        opened.title = "After".into();
+        let fault = inject_post_publication_fingerprint_failure(&path, false);
+        assert!(
+            opened
+                .save_checked_report(&path, || Ok(()))
+                .unwrap()
+                .warning()
+                .is_some()
+        );
+        let retained = opened.source.as_ref().unwrap().root.clone();
+        let old_manifest = fs::read(retained.join("project.json")).unwrap();
+        let mut reached_publish = false;
+        let error = opened
+            .save_checked_report(&retained, || {
+                reached_publish = true;
+                Ok(())
+            })
+            .unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("active retained recovery source")
+        );
+        assert!(!reached_publish);
+        assert_eq!(
+            fs::read(retained.join("project.json")).unwrap(),
+            old_manifest
+        );
+        assert_eq!(opened.page_document(&page).unwrap().width, 11);
+        assert_eq!(opened.resource_bytes(&resource).unwrap(), [19, 37, 61, 89]);
+        drop(fault);
+        opened.save(&copy).unwrap();
+        assert_eq!(Project::open(&copy).unwrap().title, "After");
+        assert!(copy.is_dir());
+    }
 
     #[test]
     fn inspect_page_document_does_not_fill_shared_lazy_cache() {
@@ -2168,6 +2856,7 @@ mod tests {
                 .image
                 .as_ref()
                 .unwrap()
+                .to_image()
                 .get_pixel(0, 0)
                 .0,
             [90, 80, 70, 255]
@@ -2339,6 +3028,7 @@ mod tests {
                 .image
                 .as_ref()
                 .unwrap()
+                .to_image()
                 .get_pixel(0, 0)
                 .0,
             [1, 2, 3, 255]
@@ -2348,6 +3038,7 @@ mod tests {
                 .image
                 .as_ref()
                 .unwrap()
+                .to_image()
                 .get_pixel(0, 0)
                 .0,
             [4, 5, 6, 255]
@@ -2358,6 +3049,7 @@ mod tests {
                 .image
                 .as_ref()
                 .unwrap()
+                .to_image()
                 .get_pixel(0, 0)
                 .0,
             [70, 80, 90, 255]
@@ -2367,6 +3059,7 @@ mod tests {
                 .image
                 .as_ref()
                 .unwrap()
+                .to_image()
                 .get_pixel(0, 0)
                 .0,
             [4, 5, 6, 255],

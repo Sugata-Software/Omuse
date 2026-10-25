@@ -1,6 +1,6 @@
 # Omuse keyboard shortcuts
 
-This reference is generated from Omuse's command catalog. Press **Ctrl+K** in the editor to search and run any of the 215 commands. 107 commands have a default shortcut; every unbound command remains searchable and executable.
+This reference is generated from Omuse's command catalog. Press **Ctrl+K** in the editor to search and run any of the 229 commands. 109 commands have a default shortcut; every unbound command remains searchable and executable.
 
 Open **Keyboard shortcuts** with **Ctrl+Alt+K** to assign, clear, or reset a binding. Custom bindings are stored per user. Omuse reserves **Super** for Omarchy and other Linux desktop shortcuts, and rejects Linux virtual-terminal chords such as Ctrl+Alt+F3.
 
@@ -40,8 +40,8 @@ Legacy default changes: Export moved from Ctrl+E to **Ctrl+Alt+Shift+S**, Create
 | Save as | Ctrl+Shift+S | Save the project to a new location. |
 | Import | Ctrl+Shift+O | Import an image into the current document. |
 | Export | Ctrl+Alt+Shift+S | Export the finished artwork. |
-| Import conversion report | Unbound | Show conversions made while importing the current document. |
-| Export conversion report | Unbound | Show conversions recorded for the last layered PSD exported in this session. |
+| Import conversion report | Unbound | Show retained document import conversions or the latest SVG import report. |
+| Export conversion report | Unbound | Show what the last layered PSD, editable SVG or vector PDF export preserved, converted or excluded. |
 | Previous page | Alt+Page Up | Activate the previous page in a Create project. |
 | Next page | Alt+Page Down | Activate the next page in a Create project. |
 
@@ -68,6 +68,7 @@ Legacy default changes: Export moved from Ctrl+E to **Ctrl+Alt+Shift+S**, Create
 | Transform selection | Unbound | Float selected pixels for independent transformation. |
 | Commit floating selection | Unbound | Commit a floating pixel selection. |
 | Cancel floating selection | Unbound | Cancel a floating selection and restore its source. |
+| Guided subject mask | Unbound | Mark a subject or draw a box, review a local mask, then keep it or use it as a selection. |
 | Select subject | Unbound | Find a foreground subject locally and refine its selection. |
 | Remove background | Unbound | Find a foreground subject locally and remove its background. |
 | Luminosity range | Unbound | Create a selection from a tonal range. |
@@ -152,6 +153,19 @@ Legacy default changes: Export moved from Ctrl+E to **Ctrl+Alt+Shift+S**, Create
 | Split path at selected node | Unbound | Split an interior node or open a closed contour at the selected node, preserving existing curves. |
 | Join nearest path endpoints | Unbound | Join the selected endpoint to the nearest open endpoint in the same compound path. Coincident endpoints become one node. |
 | Ungroup vector selection | Ctrl+Shift+G | Release selected outer vector groups while retaining object order and geometry. |
+| Edit gradient on canvas | Unbound | Select a gradient object, then drag its endpoints, focus or colour stops on the main canvas. Shift constrains the axis. |
+| Isolate vector group | Unbound | Edit the selected group with surrounding artwork dimmed. Escape steps out; breadcrumbs return to an ancestor. |
+| Leave isolated group | Unbound | Step out of the current isolated group while retaining artwork changes. |
+| Repeat last vector transform | Ctrl+Shift+T | Apply the most recent vector transform to the selected objects. Undo restores their prior geometry. |
+| Transform a vector copy | Unbound | Apply the inspector transform to editable copies and select the copies. |
+| Repeat transform with a copy | Ctrl+Shift+D | Duplicate the selection and apply the most recent vector transform. Ctrl+D continues to clear the selection. |
+| Swap vector fill and stroke | Unbound | Swap solid fill and stroke on selected vector objects. X also swaps them while editing artwork. |
+| Add vector star | Unbound | Add an editable star using the inspector point count and inner radius. |
+| Add vector polygon | Unbound | Add an editable regular polygon using the inspector side count. |
+| Make vector clipping mask | Unbound | Use the topmost selected closed shape to clip the other selected objects. Both the mask and contents remain editable. |
+| Release vector clipping mask | Unbound | Release selected clipping relationships and restore the mask shape without flattening the artwork. |
+| Edit vector clipping mask | Unbound | Select one clipping relationship and edit its mask points on the main canvas. |
+| Edit clipped vector contents | Unbound | Select one clipping relationship and edit its retained contents, including geometry outside the mask. |
 | Toggle vector outline view | Ctrl+Y | Inspect vector contours at the current zoom. This viewing mode does not change exports. |
 | Unite vector shapes | Unbound | Combine selected filled shapes; the bottom shape supplies the style. Undo restores the originals. |
 | Subtract vector shapes | Unbound | Cut upper selected filled shapes out of the bottom selected shape. |
@@ -229,7 +243,7 @@ Legacy default changes: Export moved from Ctrl+E to **Ctrl+Alt+Shift+S**, Create
 | Pencil tool | Shift+B | Paint hard-edged freehand strokes. |
 | Eraser tool | E | Erase pixels with a brush. |
 | Fill tool | Shift+G | Fill a connected colour region. |
-| Gradient tool | G | Draw a configurable colour gradient. |
+| Gradient tool | G | Draw a configurable colour gradient; while editing vector artwork, manipulate the selected gradient on the canvas. |
 | Rectangle selection tool | M | Draw rectangular pixel selections. |
 | Ellipse selection tool | Shift+M | Draw elliptical pixel selections. |
 | Lasso tool | L | Draw freehand pixel selections. |

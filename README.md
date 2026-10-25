@@ -207,6 +207,17 @@ establish a performance guarantee; the earlier
 [development checkpoint](docs/canvas-workflows-qualification.md) keeps its own
 source identity.
 
+### In development: direct vector controls
+
+Canvas gradient handles, group isolation, repeated transforms, editable clipping
+and clearer exchange reports are being qualified in the development checkout.
+See the [direct vector workflow guide](docs/user-guide/vector-controls.md).
+[Editor-quality development guide](docs/user-guide/editor-quality.md) covers the
+save/removal/clipping improvements, embedded looks, native photo grades and
+experimental reviewed XMP/local masking work. Each workflow states its current
+limits. The published downloads above remain Omuse
+0.11.0.
+
 ### New in 0.10.0
 
 Build shapes, finish photos and exchange artwork in the same studio.
