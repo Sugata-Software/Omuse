@@ -1,5 +1,17 @@
 # Omuse photo and vector studio roadmap
 
+**Released in Omuse 0.12.0 — 25 October 2026:** save outcome/recovery guards,
+actual-pixel removal review, editable clipping and direct vector controls,
+embedded `.cube` looks, perceptual/dithered gradients, path/font/shortcut finishing,
+retained Native16 photo development, reviewed XMP intent and experimental local
+click/box masks are now included. The [release qualification](release-0120-qualification.md)
+records exact-source Linux/Windows CI, verified packages, native host checks and
+installation. [User instructions](user-guide/editor-quality.md) describe the
+limits. Calibrated camera/lens profiles, universal reconstruction/matting,
+broad professional interchange and hardware/desktop qualification remain open.
+The dated phase plans and historical measurements below are preserved; this
+release does not complete every workstream.
+
 Approved direction, 1 October 2026. Omuse remains a native Rust/GPUI application
 for Linux/Omarchy, with one `.omuse` project family and an emphasis on making
 finished content. This roadmap extends the existing editor incrementally.
